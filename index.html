@@ -3,19 +3,325 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>TVPC Worship Charts</title>
+  <title>TVPC Ainos</title>
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#2563eb" />
+  <meta name="theme-color" content="#050608" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="WorshipCharts" />
+  <meta name="apple-mobile-web-app-title" content="Ainos" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
-    *{box-sizing:border-box} html,body,#app{margin:0;width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f8fafc;color:#0f172a} button,input,select{font:inherit} button{border:0;border-radius:12px;padding:10px 14px;background:#2563eb;color:white;font-weight:700} button.secondary{background:#e2e8f0;color:#0f172a} button.danger{background:#ef4444}.app-shell{height:100%;display:grid;grid-template-rows:auto 1fr}.topbar{display:flex;gap:10px;align-items:center;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;background:#0f2f57;color:white;box-shadow:0 2px 10px rgba(15,23,42,.16)}.topbar h1{font-size:18px;margin:0;white-space:nowrap}.topbar .spacer{flex:1}.tabs{display:flex;gap:8px}.tabs button{background:rgba(255,255,255,.15);padding:8px 12px}.tabs button.active{background:white;color:#0f2f57}.page{overflow:auto;padding:16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:white;border-radius:18px;box-shadow:0 8px 24px rgba(15,23,42,.08);padding:16px}.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.field{display:grid;gap:6px;margin:8px 0}.field label{font-size:13px;color:#475569;font-weight:700}.field input,.field select{border:1px solid #cbd5e1;border-radius:12px;padding:10px 12px;background:white;min-width:160px}.song-list{display:grid;gap:10px}.song-item{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:12px;border:1px solid #e2e8f0;border-radius:14px;background:#fff}.muted{color:#64748b;font-size:13px}.service-actions{position:sticky;bottom:0;background:linear-gradient(transparent,#f8fafc 18%);padding-top:30px;display:flex;gap:10px;justify-content:flex-end}.viewer{position:fixed;inset:0;z-index:20;background:#111827;display:grid;grid-template-rows:auto 1fr;overscroll-behavior-x:none;touch-action:pan-y pinch-zoom}.viewer.library .viewerbar{display:flex}.viewer.service .viewerbar{display:none}.viewerbar{gap:8px;align-items:center;padding:calc(8px + env(safe-area-inset-top)) 10px 8px;background:rgba(15,23,42,.96);color:white}.viewerbar .title{font-weight:800;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pdf-stage{position:relative;overflow:hidden;display:grid;place-items:center;min-height:0;touch-action:pan-y pinch-zoom}.pdf-wrap{position:relative;background:white;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.1),0 15px 50px rgba(0,0,0,.4);max-width:100%;max-height:100%}canvas{display:block;background:white}.crop-panel{position:fixed;right:14px;top:calc(62px + env(safe-area-inset-top));width:260px;max-width:calc(100vw - 28px);background:white;color:#0f172a;border-radius:16px;padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.28);z-index:30;display:grid;gap:10px}.crop-panel input[type=range]{width:100%}.crop-box{position:absolute;border:3px solid #2563eb;pointer-events:none;box-shadow:0 0 0 9999px rgba(37,99,235,.12)}.hint{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(15,23,42,.85);color:white;padding:8px 12px;border-radius:999px;font-size:13px;opacity:.9}@media(max-width:900px){.grid{grid-template-columns:1fr}.topbar h1{font-size:16px}}
+    :root{
+      --bg:#f5f5f5;
+      --ink:#0b0b0c;
+      --bar:#050608;
+      --bar2:#111317;
+      --cyan:#27c7dd;
+      --blue:#2563eb;
+      --line:#e5e7eb;
+      --muted:#64748b;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body,#app{margin:0;width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink)}
+    button,input,select{font:inherit}
+    button{border:0;border-radius:12px;padding:10px 14px;font-weight:800;background:#1f2937;color:white;cursor:pointer}
+    button.primary{background:var(--cyan);color:#031217}
+    button.blue{background:var(--blue);color:white}
+    button.gray{background:#e5e7eb;color:#111827}
+    button.danger{background:#ef4444;color:white}
+    button.icon{width:42px;height:42px;border-radius:16px;padding:0;display:grid;place-items:center;background:#1b1d21;color:#fff}
+    .hidden{display:none!important}
+
+    .app{height:100%;display:grid;grid-template-rows:auto 1fr;background:#f7f7f7}
+    .topbar{height:54px;padding:0 12px;padding-top:env(safe-area-inset-top);background:var(--bar);color:#fff;display:grid;grid-template-columns:auto 1fr auto;align-items:center;border-bottom:1px solid #202226}
+    .top-title{text-align:center;line-height:1.1;min-width:0}
+    .top-title b{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .top-title span{display:block;font-size:12px;color:#cbd5e1;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .page{height:100%;overflow:auto;padding:18px}
+    .home-grid{display:grid;grid-template-columns:360px 1fr;gap:16px;height:100%}
+    .panel{background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 10px 28px rgba(15,23,42,.08);overflow:hidden}
+    .panel-head{padding:14px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;justify-content:space-between}
+    .panel-head h2{margin:0;font-size:17px}
+    .panel-body{padding:14px;display:grid;gap:12px}
+    .field{display:grid;gap:6px}
+    .field label{font-size:12px;color:#64748b;font-weight:800}
+    .field input,.field select{border:1px solid #cbd5e1;border-radius:12px;padding:11px 12px;background:#fff;min-width:0}
+    .song-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px;border:1px solid #e5e7eb;border-radius:16px;background:#fff}
+    .song-title{font-weight:900;font-size:15px}
+    .song-meta{font-size:12px;color:#64748b;margin-top:4px}
+    .song-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+    .smallbtn{padding:8px 10px;border-radius:10px;font-size:12px}
+    .setlist{display:grid;gap:10px}
+    .empty{color:#64748b;text-align:center;padding:26px 10px}
+    .footer-actions{position:sticky;bottom:0;padding:14px;background:linear-gradient(transparent,#fff 24%);display:flex;gap:10px;justify-content:flex-end}
+
+    .viewer{position:fixed;inset:0;z-index:99;background:#f3f3f3;display:grid;grid-template-rows:auto 1fr auto;overscroll-behavior-x:none}
+    .viewer.service{touch-action:pan-y pinch-zoom}
+    .viewer-top{height:54px;padding:0 12px;padding-top:env(safe-area-inset-top);background:#050608;color:#fff;display:grid;grid-template-columns:auto 1fr auto;align-items:center;border-bottom:1px solid #23262c}
+    .viewer-title{text-align:center;line-height:1.1;min-width:0}
+    .viewer-title b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .viewer-title span{display:block;font-size:11px;color:#cbd5e1;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .viewer-stage{position:relative;min-height:0;overflow:hidden;display:grid;place-items:center;background:#f4f4f4;touch-action:pan-y pinch-zoom}
+    .pdf-shell{position:relative;overflow:hidden;background:white;box-shadow:0 0 0 1px rgba(0,0,0,.08),0 18px 50px rgba(0,0,0,.20);max-width:100%;max-height:100%}
+    canvas{display:block;background:white}
+    .viewer-bottom{height:64px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:#050608;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .viewer-bottom button{border-radius:14px;font-size:16px}
+    .viewer-bottom .prev{background:#2b2d31;color:#fff}
+    .viewer-bottom .next{background:var(--cyan);color:#031217}
+    .viewer.service .library-tools{display:none!important}
+    .viewer.library .viewer-bottom{display:none}
+    .library-tools{position:absolute;right:12px;top:calc(66px + env(safe-area-inset-top));z-index:100;display:flex;gap:8px;align-items:center;background:rgba(255,255,255,.95);border-radius:18px;padding:8px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+    .library-tools button{padding:8px 10px;border-radius:10px;font-size:12px}
+    .library-tools span{font-size:12px;font-weight:900}
+    .crop-panel{position:absolute;right:12px;top:calc(124px + env(safe-area-inset-top));z-index:101;width:290px;max-width:calc(100vw - 24px);background:white;border-radius:18px;box-shadow:0 18px 60px rgba(0,0,0,.25);padding:14px;display:grid;gap:10px}
+    .crop-panel h3{margin:0;font-size:15px}
+    .crop-panel label{font-size:12px;font-weight:800;color:#334155;display:grid;gap:4px}
+    .crop-panel input{width:100%}
+    .service-hint{position:absolute;left:50%;bottom:calc(78px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(0,0,0,.62);color:white;padding:7px 12px;border-radius:999px;font-size:12px;font-weight:800}
+    .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(15,23,42,.92);color:#fff;padding:10px 14px;border-radius:999px;z-index:200;font-size:13px;font-weight:800}
+    .drawer{position:fixed;left:10px;top:calc(60px + env(safe-area-inset-top));width:310px;max-width:calc(100vw - 20px);max-height:calc(100vh - 90px);overflow:auto;background:#fff;border-radius:20px;z-index:150;box-shadow:0 20px 70px rgba(0,0,0,.32);border:1px solid #e5e7eb}
+    .drawer h3{margin:0;padding:14px 16px;border-bottom:1px solid #e5e7eb}
+    .drawer .song-row{border-radius:0;border-left:0;border-right:0;border-top:0}
+    @media(max-width:900px){
+      .home-grid{grid-template-columns:1fr;height:auto}
+      .page{padding:12px}
+      .topbar,.viewer-top{height:50px}
+      .viewer-bottom{height:58px}
+    }
   </style>
 </head>
-<body><div id="app"></div>
+<body>
+<div id="app"></div>
+
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BASE_SHARE_URL="https://terrysf-web.github.io/tvpc-worship/index.html";const DB_NAME="tvpc-worship-db";const STORE="files";let dbPromise=null;function openDB(){if(dbPromise)return dbPromise;dbPromise=new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,1);req.onupgradeneeded=()=>req.result.createObjectStore(STORE);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});return dbPromise}async function putFile(id,data){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(data,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}async function getFile(id){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readonly");const r=tx.objectStore(STORE).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}const $=(s,p=document)=>p.querySelector(s);const app=$("#app");const state={tab:"library",songs:JSON.parse(localStorage.getItem("songs")||"[]"),setlist:JSON.parse(localStorage.getItem("setlist")||"[]"),viewer:null,cropOpen:false,currentPdf:null,currentPage:1,renderTask:null,touchStartX:0,touchStartY:0};function save(){localStorage.setItem("songs",JSON.stringify(state.songs));localStorage.setItem("setlist",JSON.stringify(state.setlist))}function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}function esc(s){return(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}function fileToDataURL(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}function render(){if(state.viewer)return renderViewer();app.innerHTML=`<div class="app-shell"><div class="topbar"><h1>TVPC Worship Charts</h1><div class="tabs"><button class="${state.tab==='library'?'active':''}" onclick="setTab('library')">Song Library</button><button class="${state.tab==='service'?'active':''}" onclick="setTab('service')">Service</button></div><div class="spacer"></div><button class="secondary" onclick="shareService()">Share</button></div><div class="page">${state.tab==='library'?libraryHTML():serviceHTML()}</div></div>`}function setTab(t){state.tab=t;render()}function libraryHTML(){return `<div class="grid"><div class="card"><h2>곡 추가</h2><div class="field"><label>Title</label><input id="title" placeholder="곡 제목"></div><div class="field"><label>Key</label><select id="key">${["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"].map(k=>`<option>${k}</option>`).join("")}</select></div><div class="field"><label>PDF</label><input id="pdf" type="file" accept="application/pdf"></div><button onclick="addSong()">Add Song</button><p class="muted">PDF는 iPad 내부 IndexedDB에 저장됩니다.</p></div><div class="card"><h2>Song Library</h2><div class="song-list">${state.songs.map(songItemHTML).join("")||`<p class="muted">아직 곡이 없습니다.</p>`}</div></div></div>`}function songItemHTML(s){return `<div class="song-item"><div><b>${esc(s.title)}</b><div class="muted">Key ${esc(s.key||"")}</div></div><div class="row"><button class="secondary" onclick="openViewer('${s.id}','library')">Crop/Edit</button><button onclick="addToSetlist('${s.id}')">Service에 추가</button><button class="danger" onclick="deleteSong('${s.id}')">삭제</button></div></div>`}async function addSong(){const title=$("#title").value.trim();const key=$("#key").value;const file=$("#pdf").files[0];if(!title||!file)return alert("Title과 PDF를 넣어주세요.");const id=uid();await putFile(id,await fileToDataURL(file));state.songs.push({id,title,key,crop:{l:0,t:0,r:0,b:0},zoom:1});save();render()}function deleteSong(id){if(!confirm("삭제할까요?"))return;state.songs=state.songs.filter(s=>s.id!==id);state.setlist=state.setlist.filter(x=>x!==id);save();render()}function addToSetlist(id){if(!state.setlist.includes(id))state.setlist.push(id);save();render()}function serviceHTML(){const rows=state.setlist.map((id,idx)=>{const s=state.songs.find(x=>x.id===id);if(!s)return"";return `<div class="song-item"><div><b>${idx+1}. ${esc(s.title)}</b><div class="muted">Key ${esc(s.key||"")}</div></div><div class="row"><button onclick="openViewer('${s.id}','service')">열기</button><button class="secondary" onclick="moveSet(${idx},-1)">↑</button><button class="secondary" onclick="moveSet(${idx},1)">↓</button><button class="danger" onclick="removeSet(${idx})">제거</button></div></div>`}).join("");return `<div class="grid"><div class="card"><h2>Service Setlist</h2><div class="song-list">${rows||`<p class="muted">Song Library에서 곡을 추가하세요.</p>`}</div><div class="service-actions"><button class="secondary" onclick="clearSetlist()">Clear</button><button onclick="openFirstService()">Start Service</button></div></div><div class="card"><h2>예배 화면 원칙</h2><p>Service 악보 화면에는 Crop/Zoom/Save/Reset 버튼이 나오지 않습니다.</p><p>악보만 fullscreen으로 보이고, 좌우 swipe로 곡 이동합니다.</p></div></div>`}function moveSet(i,d){const j=i+d;if(j<0||j>=state.setlist.length)return;[state.setlist[i],state.setlist[j]]=[state.setlist[j],state.setlist[i]];save();render()}function removeSet(i){state.setlist.splice(i,1);save();render()}function clearSetlist(){if(confirm("Setlist를 비울까요?")){state.setlist=[];save();render()}}function openFirstService(){if(!state.setlist.length)return alert("Setlist가 비어 있습니다.");openViewer(state.setlist[0],"service")}async function openViewer(id,mode){const song=state.songs.find(s=>s.id===id);if(!song)return;state.viewer={id,mode};state.cropOpen=false;state.currentPdf=null;state.currentPage=1;render();const data=await getFile(id);if(!data){alert("PDF 파일을 찾을 수 없습니다. 다시 추가해야 합니다.");closeViewer();return}state.currentPdf=await pdfjsLib.getDocument(data).promise;await drawPdf();if(mode==="service")lockServiceMode()}function closeViewer(){state.viewer=null;state.currentPdf=null;render()}async function drawPdf(){if(!state.currentPdf||!state.viewer)return;const song=state.songs.find(s=>s.id===state.viewer.id);const page=await state.currentPdf.getPage(state.currentPage);const stage=$("#pdfStage");const canvas=$("#pdfCanvas");const ctx=canvas.getContext("2d");const base=page.getViewport({scale:1});const crop=song.crop||{l:0,t:0,r:0,b:0};const zoom=song.zoom||1;const availableW=Math.max(320,stage.clientWidth);const availableH=Math.max(320,stage.clientHeight);const cropW=base.width*(1-(crop.l+crop.r)/100);const cropH=base.height*(1-(crop.t+crop.b)/100);const fit=Math.min(availableW/cropW,availableH/cropH)*zoom;const viewport=page.getViewport({scale:fit});canvas.width=Math.round(viewport.width);canvas.height=Math.round(viewport.height);canvas.style.width=canvas.width+"px";canvas.style.height=canvas.height+"px";if(state.renderTask)try{state.renderTask.cancel()}catch(e){}state.renderTask=page.render({canvasContext:ctx,viewport});try{await state.renderTask.promise}catch(e){}const wrap=$("#pdfWrap");const left=viewport.width*crop.l/100;const top=viewport.height*crop.t/100;const right=viewport.width*crop.r/100;const bottom=viewport.height*crop.b/100;wrap.style.width=Math.max(10,viewport.width-left-right)+"px";wrap.style.height=Math.max(10,viewport.height-top-bottom)+"px";canvas.style.transform=`translate(${-left}px, ${-top}px)`;updateCropBox()}function renderViewer(){const song=state.songs.find(s=>s.id===state.viewer.id);const mode=state.viewer.mode;app.innerHTML=`<div class="viewer ${mode}" id="viewer"><div class="viewerbar"><button class="secondary" onclick="closeViewer()">Back</button><div class="title">${esc(song.title)}</div><button class="secondary" onclick="zoom(-.05)">-</button><span>${Math.round((song.zoom||1)*100)}%</span><button class="secondary" onclick="zoom(.05)">+</button><button class="secondary" onclick="toggleCrop()">Crop</button><button onclick="saveCrop()">저장</button><button class="secondary" onclick="resetCrop()">Reset</button></div><div id="pdfStage" class="pdf-stage" ontouchstart="viewerTouchStart(event)" ontouchend="viewerTouchEnd(event)"><div id="pdfWrap" class="pdf-wrap"><canvas id="pdfCanvas"></canvas><div id="cropBox" class="crop-box" style="display:none"></div></div></div>${mode==="library"&&state.cropOpen?cropPanelHTML(song):""}${mode==="service"?`<div class="hint">${servicePositionText()}</div>`:""}</div>`}function servicePositionText(){const i=state.setlist.indexOf(state.viewer.id);return i>=0?`${i+1} / ${state.setlist.length}`:""}function toggleCrop(){state.cropOpen=!state.cropOpen;renderViewer();drawPdf()}function cropPanelHTML(song){const c=song.crop||{l:0,t:0,r:0,b:0};return `<div class="crop-panel"><b>Crop / 공백 조절</b>${["l","r","t","b"].map(k=>`<label>${({l:"Left",r:"Right",t:"Top",b:"Bottom"}[k])}: <span id="${k}v">${c[k]}</span>%<input type="range" min="0" max="35" value="${c[k]}" oninput="setCrop('${k}',this.value)"></label>`).join("")}<button onclick="saveCrop()">저장</button><button class="secondary" onclick="resetCrop()">Reset</button></div>`}function setCrop(k,v){const song=state.songs.find(s=>s.id===state.viewer.id);song.crop=song.crop||{l:0,t:0,r:0,b:0};song.crop[k]=Number(v);const label=$("#"+k+"v");if(label)label.textContent=v;drawPdf()}function zoom(d){const song=state.songs.find(s=>s.id===state.viewer.id);song.zoom=Math.max(.5,Math.min(2.5,(song.zoom||1)+d));save();renderViewer();drawPdf()}function saveCrop(){save();alert("저장되었습니다.")}function resetCrop(){const song=state.songs.find(s=>s.id===state.viewer.id);song.crop={l:0,t:0,r:0,b:0};song.zoom=1;save();renderViewer();drawPdf()}function updateCropBox(){const box=$("#cropBox");if(!box||!state.cropOpen)return;box.style.display="block";box.style.left="0";box.style.top="0";box.style.right="0";box.style.bottom="0"}function viewerTouchStart(e){state.touchStartX=e.changedTouches[0].clientX;state.touchStartY=e.changedTouches[0].clientY;if(state.viewer&&state.viewer.mode==="service"&&state.touchStartX<42)e.preventDefault()}function viewerTouchEnd(e){if(!state.viewer||state.viewer.mode!=="service")return;const dx=e.changedTouches[0].clientX-state.touchStartX;const dy=e.changedTouches[0].clientY-state.touchStartY;if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.4)return;const currentIndex=state.setlist.indexOf(state.viewer.id);if(dx<0){if(currentIndex<state.setlist.length-1)openViewer(state.setlist[currentIndex+1],"service")}else{if(currentIndex>0)openViewer(state.setlist[currentIndex-1],"service")}}function lockServiceMode(){try{history.pushState({serviceLock:true},"",location.href);window.onpopstate=function(){if(state.viewer&&state.viewer.mode==="service")history.pushState({serviceLock:true},"",location.href)}}catch(e){}}function shareService(){const payload={v:2,date:new Date().toISOString().slice(0,10),name:"Service",songs:state.setlist.map(id=>{const s=state.songs.find(x=>x.id===id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(payload))));const url=`${BASE_SHARE_URL}#share=${encoded}`;if(navigator.share)navigator.share({title:"TVPC Worship Setlist",url}).catch(()=>copy(url));else copy(url)}function copy(text){navigator.clipboard?.writeText(text);alert("Share 링크가 복사되었습니다.\n"+text)}(function loadShare(){if(location.hash.startsWith("#share=")){try{const raw=decodeURIComponent(escape(atob(location.hash.slice(7))));const data=JSON.parse(raw);alert("공유 링크를 열었습니다. PDF 파일은 각 iPad Library에 있어야 합니다.\n곡 수: "+(data.songs?.length||0))}catch(e){}}})();render();
-</script></body></html>
+
+const SHARE_BASE="https://terrysf-web.github.io/tvpcainos/index.html";
+const DB_NAME="tvpcainos_pdf_db_v2";
+const STORE="pdfs";
+let dbp=null;
+
+function openDB(){
+  if(dbp) return dbp;
+  dbp=new Promise((resolve,reject)=>{
+    const req=indexedDB.open(DB_NAME,1);
+    req.onupgradeneeded=()=>req.result.createObjectStore(STORE);
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+  return dbp;
+}
+async function putPDF(id,data){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(data,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});}
+async function getPDF(id){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readonly");const r=tx.objectStore(STORE).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+function $(s,p=document){return p.querySelector(s)}
+function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
+function esc(s){return (s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function fileData(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
+
+const state={
+  tab:"service",
+  songs:JSON.parse(localStorage.getItem("tvpcainos_songs_v2")||"[]"),
+  setlist:JSON.parse(localStorage.getItem("tvpcainos_setlist_v2")||"[]"),
+  serviceName:localStorage.getItem("tvpcainos_service_name_v2")||"Sunday Morning",
+  viewer:null,
+  pdf:null,
+  page:1,
+  renderTask:null,
+  cropOpen:false,
+  tx:0,ty:0,
+  drawer:false
+};
+
+function save(){
+  localStorage.setItem("tvpcainos_songs_v2",JSON.stringify(state.songs));
+  localStorage.setItem("tvpcainos_setlist_v2",JSON.stringify(state.setlist));
+  localStorage.setItem("tvpcainos_service_name_v2",state.serviceName);
+}
+function toast(msg){
+  const old=$(".toast"); if(old) old.remove();
+  const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t);
+  setTimeout(()=>t.remove(),1800);
+}
+function appHTML(){
+  if(state.viewer) return viewerHTML();
+  return `<div class="app">
+    <div class="topbar">
+      <button class="icon" onclick="state.drawer=!state.drawer;render()">☰</button>
+      <div class="top-title"><b>Ainos Worship</b><span>${esc(state.serviceName)}</span></div>
+      <button class="primary smallbtn" onclick="shareService()">Share</button>
+    </div>
+    <div class="page">
+      <div class="home-grid">
+        <section class="panel">
+          <div class="panel-head"><h2>Song Library</h2><button class="gray smallbtn" onclick="state.tab='library';render()">관리</button></div>
+          <div class="panel-body">${libraryMiniHTML()}</div>
+        </section>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Service Setlist</h2>
+            <div class="field" style="margin:0;width:220px"><input value="${esc(state.serviceName)}" onchange="state.serviceName=this.value;save();render()" placeholder="Service name"></div>
+          </div>
+          <div class="panel-body">${setlistHTML()}</div>
+        </section>
+      </div>
+    </div>
+    ${state.drawer?drawerHTML():""}
+  </div>`
+}
+function libraryMiniHTML(){
+  return `<div class="field"><label>곡 제목</label><input id="newTitle" placeholder="예: 주님 한 분만으로"></div>
+  <div class="field"><label>Key</label><select id="newKey">${["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"].map(k=>`<option>${k}</option>`).join("")}</select></div>
+  <div class="field"><label>PDF 악보</label><input id="newPDF" type="file" accept="application/pdf"></div>
+  <button class="blue" onclick="addSong()">Add Song</button>
+  <hr style="border:0;border-top:1px solid #e5e7eb;width:100%">
+  <div class="setlist">${state.songs.map(s=>songRowHTML(s,false)).join("") || `<div class="empty">Song Library가 비어 있습니다.</div>`}</div>`
+}
+function songRowHTML(s,inSet,idx=0){
+  return `<div class="song-row">
+    <div><div class="song-title">${esc(s.title)}</div><div class="song-meta">Key ${esc(s.key||"-")}</div></div>
+    <div class="song-actions">
+      ${!inSet?`<button class="primary smallbtn" onclick="addToSet('${s.id}')">추가</button><button class="gray smallbtn" onclick="openViewer('${s.id}','library')">Crop</button><button class="danger smallbtn" onclick="deleteSong('${s.id}')">삭제</button>`:
+      `<button class="blue smallbtn" onclick="openViewer('${s.id}','service')">Open</button><button class="gray smallbtn" onclick="moveSet(${idx},-1)">↑</button><button class="gray smallbtn" onclick="moveSet(${idx},1)">↓</button><button class="danger smallbtn" onclick="removeSet(${idx})">제거</button>`}
+    </div>
+  </div>`
+}
+function setlistHTML(){
+  const rows=state.setlist.map((id,i)=>{const s=state.songs.find(x=>x.id===id); return s?songRowHTML(s,true,i):""}).join("");
+  return `<div class="setlist">${rows || `<div class="empty">Song Library에서 곡을 추가하세요.</div>`}</div>
+  <div class="footer-actions">
+    <button class="gray" onclick="clearSet()">Clear</button>
+    <button class="primary" onclick="startService()">Start Service ▶</button>
+  </div>`
+}
+function drawerHTML(){
+  return `<div class="drawer"><h3>Service Songs</h3>${state.setlist.map((id,i)=>{const s=state.songs.find(x=>x.id===id);return s?`<div class="song-row" onclick="openViewer('${s.id}','service')"><div><div class="song-title">${i+1}. ${esc(s.title)}</div><div class="song-meta">Key ${esc(s.key||"-")}</div></div><button class="blue smallbtn">Open</button></div>`:""}).join("") || `<div class="empty">No songs</div>`}</div>`
+}
+function render(){document.getElementById("app").innerHTML=appHTML()}
+
+async function addSong(){
+  const title=$("#newTitle").value.trim(), key=$("#newKey").value, f=$("#newPDF").files[0];
+  if(!title||!f) return toast("곡 제목과 PDF를 넣어주세요.");
+  const id=uid(); const data=await fileData(f); await putPDF(id,data);
+  state.songs.push({id,title,key,zoom:1,crop:{l:0,r:0,t:0,b:0}});
+  save(); render(); toast("곡이 추가되었습니다.");
+}
+function deleteSong(id){if(!confirm("삭제할까요?"))return;state.songs=state.songs.filter(s=>s.id!==id);state.setlist=state.setlist.filter(x=>x!==id);save();render()}
+function addToSet(id){state.setlist.push(id);save();render();toast("Service에 추가되었습니다.")}
+function removeSet(i){state.setlist.splice(i,1);save();render()}
+function moveSet(i,d){const j=i+d;if(j<0||j>=state.setlist.length)return;[state.setlist[i],state.setlist[j]]=[state.setlist[j],state.setlist[i]];save();render()}
+function clearSet(){if(confirm("Setlist를 비울까요?")){state.setlist=[];save();render()}}
+function startService(){if(!state.setlist.length)return toast("Setlist가 비어 있습니다."); openViewer(state.setlist[0],"service")}
+
+function viewerHTML(){
+  const s=state.songs.find(x=>x.id===state.viewer.id);
+  const mode=state.viewer.mode;
+  const idx=state.setlist.indexOf(s.id);
+  return `<div class="viewer ${mode}" id="viewer">
+    <div class="viewer-top">
+      <button class="icon" onclick="${mode==='service'?'state.drawer=!state.drawer;renderViewerOnly()':'closeViewer()'}">${mode==='service'?'☰':'←'}</button>
+      <div class="viewer-title"><b>${esc(s.title)}</b><span>${esc(state.serviceName)} · Key ${esc(s.key||"-")}</span></div>
+      <button class="icon" onclick="${mode==='service'?'toggleBlank()':'closeViewer()'}">${mode==='service'?'◒':'✕'}</button>
+    </div>
+    <div id="stage" class="viewer-stage" ontouchstart="touchStart(event)" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)">
+      <div id="pdfShell" class="pdf-shell"><canvas id="pdfCanvas"></canvas></div>
+      <div class="library-tools">
+        <button class="gray" onclick="zoom(-.05)">−</button><span>${Math.round((s.zoom||1)*100)}%</span><button class="gray" onclick="zoom(.05)">+</button>
+        <button class="gray" onclick="state.cropOpen=!state.cropOpen;renderViewerOnly();drawPDF()">Crop</button>
+        <button class="blue" onclick="save();toast('저장되었습니다.')">저장</button>
+        <button class="gray" onclick="resetCrop()">Reset</button>
+      </div>
+      ${mode==='library'&&state.cropOpen?cropPanel(s):""}
+      ${mode==='service'?`<div class="service-hint">${idx+1} / ${state.setlist.length}</div>`:""}
+    </div>
+    <div class="viewer-bottom"><button class="prev" onclick="goSong(-1)">◀ PREV</button><button class="next" onclick="goSong(1)">NEXT ▶</button></div>
+    ${state.drawer&&mode==='service'?drawerHTML():""}
+  </div>`
+}
+function renderViewerOnly(){document.getElementById("app").innerHTML=viewerHTML(); if(state.pdf) setTimeout(drawPDF,0)}
+function cropPanel(s){
+  const c=s.crop||{l:0,r:0,t:0,b:0};
+  const names={l:"Left",r:"Right",t:"Top",b:"Bottom"};
+  return `<div class="crop-panel"><h3>Crop / 공백 제거</h3>${["l","r","t","b"].map(k=>`<label>${names[k]} <span id="${k}num">${c[k]}</span>%<input type="range" min="0" max="40" value="${c[k]}" oninput="setCrop('${k}',this.value)"></label>`).join("")}<button class="blue" onclick="save();toast('Crop 저장됨')">저장</button></div>`
+}
+
+async function openViewer(id,mode){
+  const data=await getPDF(id);
+  if(!data) return toast("PDF 파일이 없습니다. Library에서 다시 추가하세요.");
+  state.viewer={id,mode}; state.pdf=null; state.page=1; state.drawer=false; render();
+  try{
+    state.pdf=await pdfjsLib.getDocument(data).promise;
+    await drawPDF();
+    if(mode==="service") lockBack();
+  }catch(e){toast("PDF를 열 수 없습니다."); console.error(e)}
+}
+function closeViewer(){state.viewer=null;state.pdf=null;state.cropOpen=false;state.drawer=false;render()}
+async function drawPDF(){
+  if(!state.viewer||!state.pdf) return;
+  const s=state.songs.find(x=>x.id===state.viewer.id);
+  const page=await state.pdf.getPage(1);
+  const stage=$("#stage"), shell=$("#pdfShell"), canvas=$("#pdfCanvas");
+  if(!stage||!shell||!canvas)return;
+  const ctx=canvas.getContext("2d");
+  const base=page.getViewport({scale:1});
+  const c=s.crop||{l:0,r:0,t:0,b:0};
+  const cropW=base.width*(1-(c.l+c.r)/100), cropH=base.height*(1-(c.t+c.b)/100);
+  const fit=Math.min(stage.clientWidth/cropW, stage.clientHeight/cropH)*(s.zoom||1);
+  const vp=page.getViewport({scale:fit});
+  canvas.width=Math.round(vp.width); canvas.height=Math.round(vp.height);
+  canvas.style.width=canvas.width+"px"; canvas.style.height=canvas.height+"px";
+  if(state.renderTask){try{state.renderTask.cancel()}catch(e){}}
+  state.renderTask=page.render({canvasContext:ctx,viewport:vp});
+  try{await state.renderTask.promise}catch(e){}
+  const left=vp.width*c.l/100, top=vp.height*c.t/100, right=vp.width*c.r/100, bottom=vp.height*c.b/100;
+  shell.style.width=Math.max(20,vp.width-left-right)+"px";
+  shell.style.height=Math.max(20,vp.height-top-bottom)+"px";
+  canvas.style.transform=`translate(${-left}px,${-top}px)`;
+}
+function setCrop(k,v){const s=state.songs.find(x=>x.id===state.viewer.id);s.crop=s.crop||{l:0,r:0,t:0,b:0};s.crop[k]=Number(v);const n=$("#"+k+"num");if(n)n.textContent=v;drawPDF()}
+function zoom(d){const s=state.songs.find(x=>x.id===state.viewer.id);s.zoom=Math.max(.55,Math.min(2.2,(s.zoom||1)+d));save();renderViewerOnly()}
+function resetCrop(){const s=state.songs.find(x=>x.id===state.viewer.id);s.crop={l:0,r:0,t:0,b:0};s.zoom=1;save();renderViewerOnly()}
+function goSong(d){
+  if(!state.viewer||state.viewer.mode!=="service")return;
+  const i=state.setlist.indexOf(state.viewer.id), j=i+d;
+  if(j<0||j>=state.setlist.length){toast(j<0?"첫 곡입니다.":"마지막 곡입니다.");return}
+  openViewer(state.setlist[j],"service");
+}
+function lockBack(){
+  try{
+    history.pushState({locked:true},"",location.href);
+    window.onpopstate=()=>{ if(state.viewer&&state.viewer.mode==="service") history.pushState({locked:true},"",location.href); };
+  }catch(e){}
+}
+function touchStart(e){
+  const t=e.changedTouches[0]; state.tx=t.clientX; state.ty=t.clientY;
+  if(state.viewer&&state.viewer.mode==="service"&&state.tx<45) e.preventDefault();
+}
+function touchMove(e){
+  if(state.viewer&&state.viewer.mode==="service"&&state.tx<45) e.preventDefault();
+}
+function touchEnd(e){
+  if(!state.viewer||state.viewer.mode!=="service")return;
+  const t=e.changedTouches[0], dx=t.clientX-state.tx, dy=t.clientY-state.ty;
+  if(Math.abs(dx)>70 && Math.abs(dx)>Math.abs(dy)*1.2){ dx<0?goSong(1):goSong(-1); }
+}
+function toggleBlank(){toast("Service 화면은 편집 버튼이 없습니다.")}
+function shareService(){
+  const payload={v:2,date:new Date().toISOString().slice(0,10),name:state.serviceName,songs:state.setlist.map(id=>{const s=state.songs.find(x=>x.id===id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};
+  const enc=btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  const url=`${SHARE_BASE}#share=${enc}`;
+  if(navigator.share) navigator.share({title:state.serviceName,url}).catch(()=>copy(url)); else copy(url);
+}
+function copy(url){navigator.clipboard&&navigator.clipboard.writeText(url);toast("Share 링크 복사됨")}
+(function(){
+  if(location.hash.startsWith("#share=")){
+    try{
+      const data=JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(7)))));
+      state.serviceName=data.name||state.serviceName;
+      toast("공유 setlist를 열었습니다. PDF는 각 iPad Library에 있어야 합니다.");
+    }catch(e){}
+  }
+})();
+render();
+</script>
+</body>
+</html>

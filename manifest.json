@@ -1,11 +1,11 @@
 {
-  "name": "TVPC Worship Charts",
-  "short_name": "WorshipCharts",
-  "description": "iPad worship PDF chart app",
+  "name": "TVPC Ainos",
+  "short_name": "Ainos",
+  "description": "TVPC Worship PDF chart app",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "background_color": "#f5f5f5",
+  "theme_color": "#050608",
   "orientation": "landscape",
   "icons": [
     {
