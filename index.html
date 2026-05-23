@@ -3539,5 +3539,112 @@ ProPresenter 노트에 붙여넣기 하세요.`));else{const u=document.createEl
   setInterval(tick,900); window.addEventListener('resize',()=>setTimeout(tick,200));
 })();
 </script>
+
+<script>
+(function () {
+  var WC_LOCK_KEY = "__wc_viewer_lock_v1__";
+  var locked = false;
+  var lastUrl = location.href;
+  var startX = 0;
+  var startY = 0;
+
+  function hasRealCanvas() {
+    var list = document.querySelectorAll("canvas");
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      if ((c.width || 0) > 200 && (c.height || 0) > 200) return true;
+      var r = c.getBoundingClientRect && c.getBoundingClientRect();
+      if (r && r.width > 200 && r.height > 200) return true;
+    }
+    return false;
+  }
+
+  function isPdfViewerOpen() {
+    // Existing tvpc-worship viewer uses canvas for the chart/PDF page.
+    // This avoids touching the main/service list pages.
+    return hasRealCanvas();
+  }
+
+  function pushLockState() {
+    try {
+      lastUrl = location.href;
+      history.pushState({ worshipChartLock: true }, "", location.href);
+      locked = true;
+    } catch (e) {}
+  }
+
+  function ensureLocked() {
+    if (isPdfViewerOpen()) {
+      if (!locked) pushLockState();
+    } else {
+      locked = false;
+    }
+  }
+
+  // Keep checking because React opens/closes the viewer without page reload.
+  setInterval(ensureLocked, 350);
+  window.addEventListener("load", ensureLocked);
+
+  // Stop browser/app history back while chart viewer is open.
+  window.addEventListener("popstate", function (e) {
+    if (isPdfViewerOpen()) {
+      try {
+        e.stopImmediatePropagation();
+        history.pushState({ worshipChartLock: true }, "", lastUrl || location.href);
+      } catch (err) {}
+      return false;
+    }
+  }, true);
+
+  // Some builds use hash navigation. Keep viewer from being kicked back by hash changes.
+  window.addEventListener("hashchange", function (e) {
+    if (isPdfViewerOpen()) {
+      try {
+        e.stopImmediatePropagation();
+        if (lastUrl && location.href !== lastUrl) {
+          history.pushState({ worshipChartLock: true }, "", lastUrl);
+        }
+      } catch (err) {}
+      return false;
+    }
+  }, true);
+
+  // iPad Safari/PWA left-edge back swipe prevention only while PDF viewer is open.
+  document.addEventListener("touchstart", function (e) {
+    if (!isPdfViewerOpen() || !e.touches || !e.touches.length) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+
+    // Capture iPad browser edge gesture before Safari treats it as Back.
+    if (startX < 42) {
+      e.preventDefault();
+    }
+  }, { passive: false, capture: true });
+
+  document.addEventListener("touchmove", function (e) {
+    if (!isPdfViewerOpen() || !e.touches || !e.touches.length) return;
+    var x = e.touches[0].clientX;
+    var y = e.touches[0].clientY;
+    var dx = x - startX;
+    var dy = y - startY;
+
+    // Only block the dangerous left-edge horizontal swipe.
+    if (startX < 52 && dx > 4 && Math.abs(dx) > Math.abs(dy)) {
+      e.preventDefault();
+      try { e.stopImmediatePropagation(); } catch (err) {}
+    }
+  }, { passive: false, capture: true });
+
+  // Keyboard/browser back shortcuts in viewer mode.
+  window.addEventListener("keydown", function (e) {
+    if (!isPdfViewerOpen()) return;
+    if ((e.altKey && e.key === "ArrowLeft") || e.key === "BrowserBack") {
+      e.preventDefault();
+      try { e.stopImmediatePropagation(); } catch (err) {}
+    }
+  }, true);
+})();
+</script>
+
 </body>
 </html>

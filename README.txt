@@ -1,20 +1,16 @@
-TVPC Ainos Test Baseline
+TVPC Ainos Back Swipe Lock Test
 
-이 버전은 새 UI가 아닙니다.
-어제 올려준 tvpc-worship index.html UI/흐름을 그대로 사용합니다.
+기존 tvpc-worship UI/흐름은 그대로 유지했습니다.
 
-변경한 것:
-- Share 링크만 테스트 repo 주소로 고정:
-  https://terrysf-web.github.io/tvpcainos/index.html#share=...
+변경:
+1. Share URL을 tvpcainos 테스트 주소로 고정
+2. PDF 악보 화면에서만 browser back / iPad left-edge swipe lock 추가
 
-건드리지 않은 것:
-- 메인 화면
-- 생성된 서비스 화면 구조
-- Song Library / Add Song 흐름
-- PDF viewer 스타일
-- Crop/Zoom/Annotation 기존 기능
+테스트:
+- 메인 화면/서비스 목록이 정상 표시되는지
+- 서비스에서 첫 곡 열기
+- 첫 곡 악보에서 왼쪽 edge swipe 해도 메인으로 돌아가지 않는지
+- 일반 좌우 곡 넘김은 기존처럼 되는지
 
 적용:
-1. ZIP 압축 풀기
-2. 모든 파일을 tvpcainos repo root에 업로드
-3. GitHub Pages 주소에서 테스트
+ZIP 압축 풀고 모든 파일을 tvpcainos repo root에 업로드하세요.
