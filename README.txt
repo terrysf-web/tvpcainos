@@ -1,16 +1,15 @@
-TVPC Ainos Back Swipe Lock Test
+TVPC Ainos - Block Back Swipe Only
 
-기존 tvpc-worship UI/흐름은 그대로 유지했습니다.
+기존 tvpc-worship UI는 그대로 유지했습니다.
 
-변경:
-1. Share URL을 tvpcainos 테스트 주소로 고정
-2. PDF 악보 화면에서만 browser back / iPad left-edge swipe lock 추가
+응급 안정화 변경:
+- 악보/차트 화면에서 오른쪽 스와이프(back 방향)를 차단합니다.
+- 왼쪽 스와이프(next 방향)는 기존 앱 동작을 유지합니다.
+- 메인/서비스 목록/Song Library 화면은 건드리지 않습니다.
+- Share URL은 tvpcainos 테스트 주소로 고정합니다.
 
 테스트:
-- 메인 화면/서비스 목록이 정상 표시되는지
-- 서비스에서 첫 곡 열기
-- 첫 곡 악보에서 왼쪽 edge swipe 해도 메인으로 돌아가지 않는지
-- 일반 좌우 곡 넘김은 기존처럼 되는지
-
-적용:
-ZIP 압축 풀고 모든 파일을 tvpcainos repo root에 업로드하세요.
+1. 서비스에서 첫 곡 악보 열기
+2. 화면 어디서든 오른쪽으로 스와이프
+3. 메인 페이지로 돌아가지 않아야 합니다.
+4. 왼쪽 스와이프는 다음 곡/페이지로 가는지 확인하세요.
