@@ -3,20 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>TVPC Ainos Integrated Stable v2 Dual</title>
+<title>TVPC Ainos Dual v5</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#050608">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Ainos Stable">
+<meta name="apple-mobile-web-app-title" content="Ainos Dual v5">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body,#app{
-  margin:0;width:100%;height:100%;overflow:hidden;
-  background:#f3f4f6;color:#111827;
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
-  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
-}
+html,body,#app{margin:0;width:100%;height:100%;overflow:hidden;background:#f3f4f6;color:#111827;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 button,input,select{font:inherit}
 button{border:0;border-radius:12px;padding:10px 14px;font-weight:900;background:#1f2937;color:#fff}
 button.primary{background:#22c7d8;color:#031217}
@@ -26,150 +21,79 @@ button.red{background:#ef4444}
 button.gold{background:#f59e0b;color:#111827}
 button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .app{height:100%;display:grid;grid-template-rows:auto 1fr}
-.top{
-  height:62px;padding:0 14px;padding-top:env(safe-area-inset-top);
-  display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
-  background:#050608;color:#fff;border-bottom:1px solid #222;
-}
+.top{height:62px;padding:0 14px;padding-top:env(safe-area-inset-top);display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:#050608;color:#fff;border-bottom:1px solid #222}
 .logo{width:36px;height:36px;border-radius:10px;background:#22c7d8;color:#031217;display:grid;place-items:center;font-weight:1000}
-.top-title{line-height:1.1;text-align:center}.top-title b{display:block;font-size:17px}.top-title span{display:block;color:#cbd5e1;font-size:12px;margin-top:4px}
+.top-title{text-align:center;line-height:1.1}.top-title b{display:block;font-size:17px}.top-title span{display:block;color:#cbd5e1;font-size:12px;margin-top:4px}
 .page{height:100%;overflow:auto;padding:16px}
 .grid{display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start}
 .card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 10px 28px rgba(15,23,42,.08);overflow:hidden}
 .card-head{padding:14px 16px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:10px}
 .card-head h2{margin:0;font-size:17px}
 .card-body{padding:14px;display:grid;gap:12px}
-.field{display:grid;gap:6px}
-.field label{font-size:12px;color:#64748b;font-weight:900}
+.field{display:grid;gap:6px}.field label{font-size:12px;color:#64748b;font-weight:900}
 .field input,.field select{border:1px solid #cbd5e1;border-radius:12px;padding:11px;background:#fff}
-.row{
-  display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
-  background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:12px;
-}
+.row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:12px}
 .title{font-weight:950;font-size:15px}.meta{font-size:12px;color:#64748b;margin-top:4px}
 .actions{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}
-.list{display:grid;gap:10px}
-.empty{padding:28px 10px;text-align:center;color:#64748b}
+.list{display:grid;gap:10px}.empty{padding:28px 10px;text-align:center;color:#64748b}
 .badge{display:inline-block;background:#22c7d8;color:#031217;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:900;margin-left:6px}
 .service-title{font-size:18px;font-weight:950}
-.tabs{display:flex;gap:8px}
-.tabs button{background:#1b1f26}
-.tabs button.active{background:#22c7d8;color:#031217}
+.tabs{display:flex;gap:8px}.tabs button{background:#1b1f26}.tabs button.active{background:#22c7d8;color:#031217}
 
-.viewer{
-  position:fixed;inset:0;z-index:50;background:#111827;
-  display:grid;grid-template-rows:auto 1fr auto;
-  overscroll-behavior:none;
-}
-.vtop{
-  height:60px;padding:0 12px;padding-top:env(safe-area-inset-top);
-  background:#050608;color:#fff;display:grid;grid-template-columns:auto 1fr auto auto auto;gap:8px;align-items:center;
-}
+.viewer{position:fixed;inset:0;z-index:50;background:#050608;display:grid;grid-template-rows:auto 1fr auto;overscroll-behavior:none}
+.vtop{height:64px;padding:0 12px;padding-top:env(safe-area-inset-top);background:#050608;color:#fff;display:grid;grid-template-columns:auto 1fr auto auto auto;gap:8px;align-items:center;border-bottom:1px solid #1f2937}
 .vtitle{text-align:center;min-width:0;line-height:1.1}
 .vtitle b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px}
 .vtitle span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:#cbd5e1;margin-top:3px}
-.stage{
-  position:relative;overflow:hidden;background:#d1d5db;display:grid;place-items:center;
-  touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
-}
-.dual-wrap{
-  display:flex;gap:12px;align-items:center;justify-content:center;
-  max-width:100%;max-height:100%;padding:8px;
-}
-.sheet{
-  position:relative;background:#fff;overflow:hidden;
-  box-shadow:0 18px 60px rgba(0,0,0,.28);
-  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
-}
-.sheet.empty-page{
-  background:#f8fafc;border:2px dashed #cbd5e1;display:grid;place-items:center;color:#64748b;font-weight:900;
-}
-.pdfCanvas{
-  position:absolute;left:0;top:0;z-index:1;background:#fff;
-  pointer-events:none!important;touch-action:none;
-}
-.inkCanvas{
-  position:absolute;left:0;top:0;z-index:30;
-  touch-action:none!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;
-}
+.stage{position:relative;overflow:hidden;background:#1f2937;display:grid;place-items:center;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;padding:10px 14px}
+.dual-wrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:16px;padding:0}
+.sheet{position:relative;background:#fff;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.35);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.sheet-placeholder{height:100%;min-width:0;display:none}
+.pdfCanvas{position:absolute;left:0;top:0;z-index:1;background:#fff;pointer-events:none!important;touch-action:none}
+.inkCanvas{position:absolute;left:0;top:0;z-index:30;touch-action:none!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important}
 .viewer.read .inkCanvas{pointer-events:none}
 .viewer.write .inkCanvas{pointer-events:auto!important}
 .write-lock{position:absolute;inset:0;z-index:20;background:transparent;pointer-events:none;touch-action:none}
 .viewer.write .write-lock{pointer-events:auto}
-.vbottom{
-  height:70px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));
-  background:#050608;display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;
-}
-.vbottom button{border-radius:14px}
-.hint{
-  position:absolute;bottom:calc(84px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
-  background:rgba(0,0,0,.68);color:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:900;z-index:60;
-}
-.toast{
-  position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);
-  background:rgba(15,23,42,.94);color:white;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:900;z-index:200;
-}
-@media(max-width:900px){.grid{grid-template-columns:1fr}.page{padding:12px}.vbottom{grid-template-columns:1fr 1fr}.vbottom button{font-size:13px}.dual-wrap{gap:6px;padding:4px}}
+.vbottom{height:88px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:#050608;border-top:1px solid #1f2937;display:grid;grid-template-columns:92px 92px 92px 92px 92px 1fr 70px 100px 70px 110px 80px;gap:8px;align-items:center}
+.vbottom button{height:58px;border-radius:14px;font-size:13px}
+.hint{display:none}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(15,23,42,.94);color:white;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:900;z-index:200}
+.toolbar-spacer{min-width:20px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.page{padding:12px}.vbottom{grid-template-columns:repeat(4,1fr);height:auto}.vbottom button{font-size:13px}.dual-wrap{gap:8px}}
 </style>
-
-<style id="dual-fixed-v4-css">
-.dual-wrap{
-  width:100% !important;
-  height:100% !important;
-  display:flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  gap:14px !important;
-  padding:8px !important;
-}
-.viewer .stage{
-  background:#d1d5db !important;
-}
-.sheet{
-  background:#fff !important;
-}
-</style>
-
 </head>
 <body>
 <div id="app"></div>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_STABLE_V4_DUAL_FIXED";
 const DB="tvpc_ainos_pdfs_stable", STORE="pdfs";
-let dbp=null;
+let dbp=null,pdfCache={};
 function openDB(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});return dbp}
 async function putFile(id,data){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(data,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
 async function getFile(id){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readonly");const r=tx.objectStore(STORE).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function getPdf(songId){if(pdfCache[songId])return pdfCache[songId];const data=await getFile(songId);if(!data)return null;const pdf=await pdfjsLib.getDocument(data).promise;pdfCache[songId]=pdf;return pdf}
 const $=s=>document.querySelector(s), app=$("#app");
 const state={
  tab:"service",
  songs:JSON.parse(localStorage.getItem("tvpc_ainos_songs_stable")||localStorage.getItem("ais2_songs")||localStorage.getItem("ais_songs")||"[]"),
  services:JSON.parse(localStorage.getItem("tvpc_ainos_services_stable")||localStorage.getItem("ais2_services")||localStorage.getItem("ais_services")||"[]"),
  currentService:localStorage.getItem("tvpc_ainos_current_service_stable")||localStorage.getItem("ais2_current_service")||localStorage.getItem("ais_current_service")||null,
- viewer:null,pdf:null,mode:"read",viewMode:localStorage.getItem("tvpc_ainos_view_mode_stable")||localStorage.getItem("ais2_view_mode")||"single",page:1,total:1,draw:false,pts:[],activePage:null,startX:0,startY:0,color:"#ef4444",width:3
+ viewer:null,mode:"read",viewMode:localStorage.getItem("tvpc_ainos_view_mode_stable")||localStorage.getItem("ais2_view_mode")||"single",page:1,total:1,draw:false,pts:[],activeSlot:null,startX:0,startY:0,color:"#ef4444",width:3
 };
 if(!state.services.length){const id="svc_"+Date.now();state.services=[{id,name:"Sunday Service",date:new Date().toISOString().slice(0,10),songs:[]}];state.currentService=id;save();}
-function save(){
-  localStorage.setItem("tvpc_ainos_songs_stable",JSON.stringify(state.songs));
-  localStorage.setItem("tvpc_ainos_services_stable",JSON.stringify(state.services));
-  localStorage.setItem("tvpc_ainos_view_mode_stable",state.viewMode);
-  if(state.currentService)localStorage.setItem("tvpc_ainos_current_service_stable",state.currentService);
-
-  // backward compatibility for older builds
-  localStorage.setItem("ais2_songs",JSON.stringify(state.songs));
-  localStorage.setItem("ais2_services",JSON.stringify(state.services));
-  localStorage.setItem("ais2_view_mode",state.viewMode);
-  if(state.currentService)localStorage.setItem("ais2_current_service",state.currentService);
-}
+function save(){localStorage.setItem("tvpc_ainos_songs_stable",JSON.stringify(state.songs));localStorage.setItem("tvpc_ainos_services_stable",JSON.stringify(state.services));localStorage.setItem("tvpc_ainos_view_mode_stable",state.viewMode);if(state.currentService)localStorage.setItem("tvpc_ainos_current_service_stable",state.currentService);localStorage.setItem("ais2_songs",JSON.stringify(state.songs));localStorage.setItem("ais2_services",JSON.stringify(state.services));}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
 function esc(s){return(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 function toast(m){const old=$(".toast");if(old)old.remove();const t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),1700)}
 function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
 function currentSvc(){return state.services.find(s=>s.id===state.currentService)||state.services[0]}
-function render(){if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Stable v4 Dual Fixed</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><div style="display:flex;gap:8px"><button class="gray small" onclick="exportData()">Backup</button><button class="primary" onclick="share()">Share</button></div></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
+function currentSong(){return state.songs.find(s=>s.id===state.viewer?.id)}
+function songById(id){return state.songs.find(s=>s.id===id)}
+function currentIndex(){return currentSvc().songs.indexOf(state.viewer.id)}
+function render(){if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Dual Song/Page v5</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><button class="primary" onclick="share()">Share</button></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
 function servicesHTML(){return `<div class="field"><label>Service Name</label><input value="${esc(currentSvc().name)}" onchange="currentSvc().name=this.value;save();render()"></div><div class="field"><label>Date</label><input type="date" value="${esc(currentSvc().date||"")}" onchange="currentSvc().date=this.value;save();render()"></div><div class="list">${state.services.map(s=>`<div class="row"><div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date||"")} · ${s.songs.length} songs</div></div><div class="actions"><button class="${s.id===state.currentService?'primary':'gray'} small" onclick="state.currentService='${s.id}';save();render()">Open</button><button class="red small" onclick="deleteService('${s.id}')">Delete</button></div></div>`).join("")}</div>`}
-function serviceHTML(){const svc=currentSvc();return `<div class="service-title">${esc(svc.name)}</div><div class="meta">${esc(svc.date||"")}</div><div class="list">${svc.songs.map((id,i)=>{const s=state.songs.find(x=>x.id===id);return s?rowSong(s,true,i):""}).join("")||'<div class="empty">Library에서 곡을 추가하세요.</div>'}</div><button class="primary" onclick="startService()">Start Service</button>`}
+function serviceHTML(){const svc=currentSvc();return `<div class="service-title">${esc(svc.name)}</div><div class="meta">${esc(svc.date||"")}</div><div class="list">${svc.songs.map((id,i)=>{const s=songById(id);return s?rowSong(s,true,i):""}).join("")||'<div class="empty">Library에서 곡을 추가하세요.</div>'}</div><button class="primary" onclick="startService()">Start Service</button>`}
 function libraryHTML(){return `<div class="field"><label>Title</label><input id="title" placeholder="곡 제목"></div><div class="field"><label>Key</label><select id="key">${["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"].map(k=>`<option>${k}</option>`).join("")}</select></div><div class="field"><label>PDF</label><input id="pdf" type="file" accept="application/pdf"></div><button class="blue" onclick="addSong()">Add Song</button><div class="list">${state.songs.map(s=>rowSong(s,false)).join("")||'<div class="empty">곡을 추가하세요.</div>'}</div>`}
 function rowSong(s,inSet,i=0){return `<div class="row"><div><div class="title">${esc(s.title)}</div><div class="meta">Key ${esc(s.key||"-")}</div></div><div class="actions">${inSet?`<button class="blue small" onclick="openViewer('${s.id}')">Open</button><button class="gray small" onclick="moveSong(${i},-1)">↑</button><button class="gray small" onclick="moveSong(${i},1)">↓</button><button class="red small" onclick="removeSong(${i})">Remove</button>`:`<button class="primary small" onclick="addToService('${s.id}')">Add</button><button class="gray small" onclick="openViewer('${s.id}')">Test</button><button class="red small" onclick="deleteSong('${s.id}')">Delete</button>`}</div></div>`}
 function newService(){const id=uid();state.services.push({id,name:"New Service",date:new Date().toISOString().slice(0,10),songs:[]});state.currentService=id;save();render()}
@@ -180,55 +104,39 @@ function addToService(id){currentSvc().songs.push(id);save();state.tab="service"
 function removeSong(i){currentSvc().songs.splice(i,1);save();render()}
 function moveSong(i,d){const arr=currentSvc().songs,j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];save();render()}
 function startService(){const svc=currentSvc();if(!svc.songs.length)return toast("Setlist 없음");openViewer(svc.songs[0])}
-async function openViewer(id){const data=await getFile(id);if(!data)return toast("PDF 없음");state.viewer={id};state.mode="read";state.page=1;state.pdf=null;render();state.pdf=await pdfjsLib.getDocument(data).promise;state.total=state.pdf.numPages;await drawAll()}
-function closeViewer(){save();state.viewer=null;state.pdf=null;render()}
-function currentSong(){return state.songs.find(s=>s.id===state.viewer.id)}
-function visiblePages(){return state.viewMode==="dual"?[state.page,state.page+1].filter(p=>p<=state.total):[state.page]}
-function renderViewer(){const s=currentSong(), svc=currentSvc(), idx=svc.songs.indexOf(s.id);const pages=visiblePages();app.innerHTML=`<div class="viewer ${state.mode}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}${state.viewMode==='dual'?'Pages '+pages.join('-'):'Page '+state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><button class="${state.mode==='write'?'primary':'gold'}" onclick="toggleMode()">${state.mode==='write'?'WRITE ON':'READ'}</button><button class="gray" onclick="toggleViewMode()">${state.viewMode==='dual'?'2 PAGE':'1 PAGE'}</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="dual-wrap" id="dualWrap">${pages.map(p=>sheetHTML(p)).join("")}</div><div class="hint">${state.mode==='write'?'Write Mode: 필기만 가능 / 이동 잠김':state.viewMode==='dual'?'Dual Page Read Mode':'Single Page Read Mode'}</div></div><div class="vbottom"><button onclick="prev()">◀ PREV</button><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="next()" class="primary">NEXT ▶</button><button onclick="toggleViewMode()" class="gray">${state.viewMode==='dual'?'1 Page':'2 Page'}</button><button onclick="zoomToggle()" class="gray">Zoom</button></div></div>`;setTimeout(()=>drawAll(),0)}
-function sheetHTML(p){return `<div class="sheet" data-page="${p}"><canvas class="pdfCanvas" id="pdfCanvas_${p}"></canvas><div class="write-lock" id="writeLock_${p}"></div><canvas class="inkCanvas" id="inkCanvas_${p}" data-page="${p}"></canvas></div>`}
-function emptySheetHTML(){return ``}
-async function drawAll(){if(!state.pdf||!state.viewer)return;await drawPages();setupInk();loadAllInk();setupWriteLocks()}
-async function drawPages(){const stage=$("#stage"), wrap=$("#dualWrap");if(!stage||!wrap)return;const pages=visiblePages();const gap=state.viewMode==="dual"?12:0;const availableW=stage.clientWidth-24-gap;const availableH=stage.clientHeight-24;let pageInfos=[];for(const p of pages){const page=await state.pdf.getPage(p);const base=page.getViewport({scale:1});pageInfos.push({p,page,base})}const perW=state.viewMode==="dual"?(availableW-16)/2:availableW;
-const baseFit = Math.min(...pageInfos.map(info=>Math.min(perW/info.base.width,availableH/info.base.height)));
-const fits=pageInfos.map(info=>baseFit*(currentSong().zoom||1));for(let idx=0;idx<pageInfos.length;idx++){const {p,page}=pageInfos[idx];const vp=page.getViewport({scale:fits[idx]});const sheet=document.querySelector(`.sheet[data-page="${p}"]`),pdf=$(`#pdfCanvas_${p}`),ink=$(`#inkCanvas_${p}`),lock=$(`#writeLock_${p}`);if(!sheet||!pdf||!ink)continue;const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});if(lock){lock.style.width=Math.round(vp.width)+"px";lock.style.height=Math.round(vp.height)+"px"}const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await page.render({canvasContext:ctx,viewport:vp}).promise}}
+async function openViewer(id){const pdf=await getPdf(id);if(!pdf)return toast("PDF 없음");state.viewer={id};state.mode="read";state.page=1;state.total=pdf.numPages;renderViewer();await drawAll()}
+function closeViewer(){save();state.viewer=null;render()}
+async function getSlots(){const curr=currentSong(), pdf=await getPdf(curr.id);state.total=pdf.numPages;let slots=[{slot:0,songId:curr.id,page:state.page,pdf}];if(state.viewMode==="dual"){if(state.page+1<=pdf.numPages){slots.push({slot:1,songId:curr.id,page:state.page+1,pdf})}else{const i=currentIndex(), nextId=currentSvc().songs[i+1];if(nextId){const npdf=await getPdf(nextId);if(npdf)slots.push({slot:1,songId:nextId,page:1,pdf:npdf})}}}return slots}
+function slotTitle(){if(state.viewMode!=="dual")return `Page ${state.page}/${state.total}`;return `Dual View`}
+function renderViewer(){const s=currentSong(), idx=currentIndex();app.innerHTML=`<div class="viewer ${state.mode}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+currentSvc().songs.length+" · ":""}${slotTitle()} · Key ${esc(s.key||"-")}</span></div><button class="${state.mode==='write'?'primary':'gold'}" onclick="toggleMode()">${state.mode==='write'?'WRITE ON':'READ'}</button><button class="${state.viewMode==='dual'?'primary':'gray'}" onclick="toggleViewMode()">${state.viewMode==='dual'?'2 PAGE':'1 PAGE'}</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="dual-wrap" id="dualWrap"></div><div class="hint"></div></div><div class="vbottom"><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">✎<br>${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="toast('지우개는 다음 버전')">⌫<br>지우개</button><button onclick="toggleColor()">◉<br>색상</button><button onclick="undoInk()">↶<br>실행 취소</button><button onclick="clearInk()" class="red">⌧<br>전체 지우기</button><span class="toolbar-spacer"></span><button onclick="prev()">‹</button><button class="gray">${state.viewMode==='dual'?'Dual':state.page+'/'+state.total}</button><button onclick="next()">›</button><button onclick="toggleViewMode()" class="${state.viewMode==='dual'?'primary':'gray'}">${state.viewMode==='dual'?'2 페이지':'1 페이지'}</button><button onclick="zoomToggle()" class="gray">${Math.round((currentSong().zoom||1)*100)}%</button></div></div>`;setTimeout(drawAll,0)}
+function sheetHTML(slot){const key=slot.songId+"_"+slot.page;return `<div class="sheet" data-key="${key}" data-song="${slot.songId}" data-page="${slot.page}"><canvas class="pdfCanvas" id="pdf_${key}"></canvas><div class="write-lock" id="lock_${key}"></div><canvas class="inkCanvas" id="ink_${key}" data-song="${slot.songId}" data-page="${slot.page}"></canvas></div>`}
+async function drawAll(){const wrap=$("#dualWrap");if(!wrap)return;const slots=await getSlots();wrap.innerHTML=slots.map(sheetHTML).join("");await drawSlots(slots);setupInk();loadAllInk(slots);setupWriteLocks()}
+async function drawSlots(slots){const stage=$("#stage");const gap=state.viewMode==="dual"?16:0;const availableW=stage.clientWidth-28-gap;const availableH=stage.clientHeight-20;let infos=[];for(const slot of slots){const page=await slot.pdf.getPage(slot.page);const base=page.getViewport({scale:1});infos.push({...slot,page,base})}const perW=state.viewMode==="dual"?availableW/2:availableW;const baseFit=Math.min(...infos.map(info=>Math.min(perW/info.base.width,availableH/info.base.height)));for(const info of infos){const zoom=(songById(info.songId)?.zoom)||1;const vp=info.page.getViewport({scale:baseFit*zoom});const key=info.songId+"_"+info.page,sheet=document.querySelector(`.sheet[data-key="${key}"]`),pdf=$(`#pdf_${CSS.escape(key)}`),ink=$(`#ink_${CSS.escape(key)}`),lock=$(`#lock_${CSS.escape(key)}`);if(!sheet||!pdf||!ink)continue;const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});if(lock){lock.style.width=Math.round(vp.width)+"px";lock.style.height=Math.round(vp.height)+"px"}const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await info.page.render({canvasContext:ctx,viewport:vp}).promise}}
 function blockEvent(e){if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{};try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch{};return false}}
 function setupWriteLocks(){document.querySelectorAll(".write-lock").forEach(lock=>["touchstart","touchmove","touchend","click","contextmenu","gesturestart","gesturechange","gestureend"].forEach(type=>lock.addEventListener(type,blockEvent,{passive:false,capture:true})))}
 function setupInk(){document.querySelectorAll(".inkCanvas").forEach(c=>{c.onpointerdown=penDown;c.onpointermove=penMove;c.onpointerup=penUp;c.onpointercancel=penUp;c.onpointerleave=null;["touchstart","touchmove","touchend","gesturestart","contextmenu","click"].forEach(type=>c.addEventListener(type,e=>{if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}))})}
 function pageKey(p){return "p"+p}
-function canvasForPage(p){return $(`#inkCanvas_${p}`)}
-function pos(e, canvas){const r=canvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1;return{x:(e.clientX-r.left)*dpr,y:(e.clientY-r.top)*dpr,p:e.pressure||0.5}}
+function pos(e,canvas){const r=canvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1;return{x:(e.clientX-r.left)*dpr,y:(e.clientY-r.top)*dpr,p:e.pressure||0.5}}
 function mid(a,b){return{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
-function penDown(e){if(state.mode!=="write")return;e.preventDefault();e.stopPropagation();const canvas=e.currentTarget;try{canvas.setPointerCapture(e.pointerId)}catch{}state.draw=true;state.activePage=Number(canvas.dataset.page);state.pts=[pos(e,canvas)]}
-function penMove(e){if(state.mode!=="write"||!state.draw)return;e.preventDefault();e.stopPropagation();const canvas=e.currentTarget;if(Number(canvas.dataset.page)!==state.activePage)return;const p=pos(e,canvas);state.pts.push(p);const n=state.pts.length;if(n<3){dot(p,canvas);return}const p0=state.pts[n-3],p1=state.pts[n-2],p2=state.pts[n-1],m1=mid(p0,p1),m2=mid(p1,p2);const ctx=canvas.getContext("2d",{desynchronized:true});ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=state.color;ctx.lineWidth=(state.width+Math.max(.2,p1.p)*2)*(window.devicePixelRatio||1);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}
-function penUp(e){if(!state.draw)return;e.preventDefault();e.stopPropagation();try{e.currentTarget.releasePointerCapture(e.pointerId)}catch{}state.draw=false;saveStroke(state.activePage,state.pts);state.pts=[];state.activePage=null}
+function penDown(e){if(state.mode!=="write")return;e.preventDefault();e.stopPropagation();const canvas=e.currentTarget;try{canvas.setPointerCapture(e.pointerId)}catch{}state.draw=true;state.activeSlot={songId:canvas.dataset.song,page:Number(canvas.dataset.page)};state.pts=[pos(e,canvas)]}
+function penMove(e){if(state.mode!=="write"||!state.draw)return;e.preventDefault();e.stopPropagation();const canvas=e.currentTarget;if(!state.activeSlot||canvas.dataset.song!==state.activeSlot.songId||Number(canvas.dataset.page)!==state.activeSlot.page)return;const p=pos(e,canvas);state.pts.push(p);const n=state.pts.length;if(n<3){dot(p,canvas);return}const p0=state.pts[n-3],p1=state.pts[n-2],p2=state.pts[n-1],m1=mid(p0,p1),m2=mid(p1,p2);const ctx=canvas.getContext("2d",{desynchronized:true});ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=state.color;ctx.lineWidth=(state.width+Math.max(.2,p1.p)*2)*(window.devicePixelRatio||1);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}
+function penUp(e){if(!state.draw)return;e.preventDefault();e.stopPropagation();try{e.currentTarget.releasePointerCapture(e.pointerId)}catch{}state.draw=false;saveStroke(state.activeSlot.songId,state.activeSlot.page,state.pts);state.pts=[];state.activeSlot=null}
 function dot(p,canvas){const ctx=canvas.getContext("2d");ctx.fillStyle=state.color;ctx.beginPath();ctx.arc(p.x,p.y,1.8*(window.devicePixelRatio||1),0,Math.PI*2);ctx.fill()}
-function saveStroke(page,pts){const s=currentSong();s.ink=s.ink||{};s.ink[pageKey(page)]=s.ink[pageKey(page)]||[];s.ink[pageKey(page)].push({color:state.color,width:state.width,pts});save()}
-function loadAllInk(){visiblePages().forEach(p=>loadInk(p))}
-function loadInk(page){const s=currentSong(),canvas=canvasForPage(page);if(!canvas)return;const strokes=(s.ink&&s.ink[pageKey(page)])||[],ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);strokes.forEach(st=>{ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=st.color||"#ef4444";ctx.lineWidth=(st.width||3)*(window.devicePixelRatio||1);const pts=st.pts||[];for(let i=2;i<pts.length;i++){const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}})}
-function clearInk(){if(!confirm("현재 보이는 페이지 필기 삭제?"))return;const s=currentSong();if(!s.ink)s.ink={};visiblePages().forEach(p=>s.ink[pageKey(p)]=[]);save();loadAllInk()}
+function saveStroke(songId,page,pts){const s=songById(songId);s.ink=s.ink||{};s.ink[pageKey(page)]=s.ink[pageKey(page)]||[];s.ink[pageKey(page)].push({color:state.color,width:state.width,pts});save()}
+function loadAllInk(slots){slots.forEach(slot=>loadInk(slot.songId,slot.page))}
+function loadInk(songId,page){const s=songById(songId),key=songId+"_"+page,canvas=$(`#ink_${CSS.escape(key)}`);if(!canvas)return;const strokes=(s.ink&&s.ink[pageKey(page)])||[],ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);strokes.forEach(st=>{ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=st.color||"#ef4444";ctx.lineWidth=(st.width||3)*(window.devicePixelRatio||1);const pts=st.pts||[];for(let i=2;i<pts.length;i++){const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}})}
+async function clearInk(){if(!confirm("현재 보이는 페이지 필기 삭제?"))return;const slots=await getSlots();slots.forEach(slot=>{const s=songById(slot.songId);if(!s.ink)s.ink={};s.ink[pageKey(slot.page)]=[]});save();drawAll()}
 function toggleMode(){state.mode=state.mode==="write"?"read":"write";renderViewer()}
-function toggleViewMode(){
-  if(state.mode==="write")return toast("Write Mode에서는 보기 변경 잠김");
-  state.viewMode=state.viewMode==="dual"?"single":"dual";
-  if(state.viewMode==="dual"&&state.page%2===0)state.page=Math.max(1,state.page-1);
-  save();
-  renderViewer();
-}
-function step(){return state.viewMode==="dual"?2:1}
-function prev(){if(state.mode==="write")return toast("Write Mode에서는 이동 잠김");if(state.page>1){state.page=Math.max(1,state.page-step());renderViewer();return}const arr=currentSvc().songs,i=arr.indexOf(state.viewer.id);if(i>0)openViewer(arr[i-1]);else toast("첫 곡입니다")}
-function next(){if(state.mode==="write")return toast("Write Mode에서는 이동 잠김");if(state.page+step()-1<state.total){state.page=Math.min(state.total,state.page+step());renderViewer();return}const arr=currentSvc().songs,i=arr.indexOf(state.viewer.id);if(i>=0&&i<arr.length-1)openViewer(arr[i+1]);else toast("마지막입니다")}
+function toggleViewMode(){if(state.mode==="write")return toast("Write Mode에서는 보기 변경 잠김");state.viewMode=state.viewMode==="dual"?"single":"dual";if(state.viewMode==="dual"&&state.page%2===0)state.page=Math.max(1,state.page-1);save();renderViewer()}
+function toggleColor(){state.color=state.color==="#ef4444"?"#2563eb":"#ef4444";toast("색상 변경")}
+async function undoInk(){const slots=await getSlots();slots.forEach(slot=>{const s=songById(slot.songId),key=pageKey(slot.page);if(s.ink&&s.ink[key]&&s.ink[key].length)s.ink[key].pop()});save();drawAll();toast("Undo")}
+function zoomToggle(){const s=currentSong();s.zoom=s.zoom===1?1.18:1;save();renderViewer()}
+async function prev(){if(state.mode==="write")return toast("Write Mode에서는 이동 잠김");if(state.page>1){state.page=Math.max(1,state.page-(state.viewMode==="dual"?2:1));renderViewer();return}const arr=currentSvc().songs,i=currentIndex();if(i>0)openViewer(arr[i-1]);else toast("첫 곡입니다")}
+async function next(){if(state.mode==="write")return toast("Write Mode에서는 이동 잠김");const pdf=await getPdf(state.viewer.id);if(state.page+(state.viewMode==="dual"?2:1)-1<pdf.numPages){state.page+=state.viewMode==="dual"?2:1;renderViewer();return}const arr=currentSvc().songs,i=currentIndex();if(i>=0&&i<arr.length-1)openViewer(arr[i+1]);else toast("마지막입니다")}
 function swipeStart(e){if(state.mode==="write"){try{e.preventDefault()}catch{};return}state.startX=e.changedTouches[0].clientX;state.startY=e.changedTouches[0].clientY}
 function swipeEnd(e){if(state.mode==="write"){try{e.preventDefault()}catch{};return}const dx=e.changedTouches[0].clientX-state.startX,dy=e.changedTouches[0].clientY-state.startY;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.3){dx<0?next():prev()}}
-function zoomToggle(){const s=currentSong();s.zoom=s.zoom===1?1.18:1;save();renderViewer()}
-
-function exportData(){
-  const data={songs:state.songs,services:state.services,currentService:state.currentService,viewMode:state.viewMode,exportedAt:new Date().toISOString()};
-  const text=JSON.stringify(data);
-  navigator.clipboard&&navigator.clipboard.writeText(text);
-  toast("Backup copied");
-}
-
-function share(){const svc=currentSvc();const payload={v:2,name:svc.name,date:svc.date,songs:svc.songs.map(id=>{const s=state.songs.find(x=>x.id===id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};const url="https://terrysf-web.github.io/tvpcainos/index.html#share="+btoa(unescape(encodeURIComponent(JSON.stringify(payload))));navigator.clipboard?.writeText(url);toast("Share copied")}
+function exportData(){const data={songs:state.songs,services:state.services,currentService:state.currentService,viewMode:state.viewMode,exportedAt:new Date().toISOString()};navigator.clipboard&&navigator.clipboard.writeText(JSON.stringify(data));toast("Backup copied")}
+function share(){const svc=currentSvc();const payload={v:5,name:svc.name,date:svc.date,songs:svc.songs.map(id=>{const s=songById(id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};const url="https://terrysf-web.github.io/tvpcainos/index.html#share="+btoa(unescape(encodeURIComponent(JSON.stringify(payload))));navigator.clipboard?.writeText(url);toast("Share copied")}
 ["contextmenu","dragstart","gesturestart","gesturechange","gestureend"].forEach(type=>document.addEventListener(type,e=>{if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}));
 window.addEventListener("resize",()=>{if(state.viewer)renderViewer()});
 render();

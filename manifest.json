@@ -1,7 +1,7 @@
 {
-  "name": "TVPC Ainos Stable v4 Dual Fixed",
-  "short_name": "AinosDualV4",
-  "start_url": "./index.html?v=dual-fixed-v4",
+  "name": "TVPC Ainos Dual Song/Page v5",
+  "short_name": "AinosDualV5",
+  "start_url": "./index.html?v=dual-song-page-v5",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#050608",
