@@ -1,7 +1,7 @@
 {
-  "name": "TVPC Ainos Score Viewer UI v3",
-  "short_name": "AinosScoreV3",
-  "start_url": "./index.html?v=score-viewer-ui-v3",
+  "name": "TVPC Ainos Stable v4 Dual Fixed",
+  "short_name": "AinosDualV4",
+  "start_url": "./index.html?v=dual-fixed-v4",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#050608",
