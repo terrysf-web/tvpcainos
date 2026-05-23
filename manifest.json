@@ -1,6 +1,6 @@
 {
-  "name": "TVPC Pen Test",
-  "short_name": "PenTest",
+  "name": "TVPC Pen Test Smooth",
+  "short_name": "PenSmooth",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#111827",
