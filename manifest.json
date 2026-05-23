@@ -1,11 +1,10 @@
 {
-  "name": "WorshipCharts",
-  "short_name": "WorshipCharts",
-  "description": "교회 워십팀 코드 차트 앱",
-  "start_url": "./index.html",
+  "name": "TVPC Ainos Stable Viewer V3 Cache Reset",
+  "short_name": "AinosV3Reset",
+  "start_url": "./index.html?v=v3-cache-reset-20260523",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "theme_color": "#050608",
   "orientation": "landscape",
   "icons": [
     {
