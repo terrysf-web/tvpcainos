@@ -1,7 +1,7 @@
 {
-  "name": "TVPC Ainos Stable Viewer V3 Cache Reset",
-  "short_name": "AinosV3Reset",
-  "start_url": "./index.html?v=v3-cache-reset-20260523",
+  "name": "TVPC Ainos Integrated Stable v1",
+  "short_name": "AinosStable",
+  "start_url": "./index.html?v=integrated-stable-v1",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#050608",
