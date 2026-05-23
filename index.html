@@ -116,8 +116,8 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 <div id="app"></div>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_INTEGRATED_STABLE_V2_DUAL";
-const DB="tvpc_ainos_integrated_stable_v2_dual", STORE="pdfs";
+const BUILD="AINOS_INTEGRATED_STABLE_V2_DUAL_SAVEFIX";
+const DB="tvpc_ainos_pdfs_stable", STORE="pdfs";
 let dbp=null;
 function openDB(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});return dbp}
 async function putFile(id,data){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(data,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
@@ -125,19 +125,30 @@ async function getFile(id){const db=await openDB();return new Promise((res,rej)=
 const $=s=>document.querySelector(s), app=$("#app");
 const state={
  tab:"service",
- songs:JSON.parse(localStorage.getItem("ais2_songs")||"[]"),
- services:JSON.parse(localStorage.getItem("ais2_services")||"[]"),
- currentService:localStorage.getItem("ais2_current_service")||null,
- viewer:null,pdf:null,mode:"read",viewMode:localStorage.getItem("ais2_view_mode")||"single",page:1,total:1,draw:false,pts:[],activePage:null,startX:0,startY:0,color:"#ef4444",width:3
+ songs:JSON.parse(localStorage.getItem("tvpc_ainos_songs_stable")||localStorage.getItem("ais2_songs")||localStorage.getItem("ais_songs")||"[]"),
+ services:JSON.parse(localStorage.getItem("tvpc_ainos_services_stable")||localStorage.getItem("ais2_services")||localStorage.getItem("ais_services")||"[]"),
+ currentService:localStorage.getItem("tvpc_ainos_current_service_stable")||localStorage.getItem("ais2_current_service")||localStorage.getItem("ais_current_service")||null,
+ viewer:null,pdf:null,mode:"read",viewMode:localStorage.getItem("tvpc_ainos_view_mode_stable")||localStorage.getItem("ais2_view_mode")||"single",page:1,total:1,draw:false,pts:[],activePage:null,startX:0,startY:0,color:"#ef4444",width:3
 };
 if(!state.services.length){const id="svc_"+Date.now();state.services=[{id,name:"Sunday Service",date:new Date().toISOString().slice(0,10),songs:[]}];state.currentService=id;save();}
-function save(){localStorage.setItem("ais2_songs",JSON.stringify(state.songs));localStorage.setItem("ais2_services",JSON.stringify(state.services));localStorage.setItem("ais2_view_mode",state.viewMode);if(state.currentService)localStorage.setItem("ais2_current_service",state.currentService)}
+function save(){
+  localStorage.setItem("tvpc_ainos_songs_stable",JSON.stringify(state.songs));
+  localStorage.setItem("tvpc_ainos_services_stable",JSON.stringify(state.services));
+  localStorage.setItem("tvpc_ainos_view_mode_stable",state.viewMode);
+  if(state.currentService)localStorage.setItem("tvpc_ainos_current_service_stable",state.currentService);
+
+  // backward compatibility for older builds
+  localStorage.setItem("ais2_songs",JSON.stringify(state.songs));
+  localStorage.setItem("ais2_services",JSON.stringify(state.services));
+  localStorage.setItem("ais2_view_mode",state.viewMode);
+  if(state.currentService)localStorage.setItem("ais2_current_service",state.currentService);
+}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
 function esc(s){return(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 function toast(m){const old=$(".toast");if(old)old.remove();const t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),1700)}
 function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
 function currentSvc(){return state.services.find(s=>s.id===state.currentService)||state.services[0]}
-function render(){if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Stable v2 Dual</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><button class="primary" onclick="share()">Share</button></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
+function render(){if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Stable v2 Dual SaveFix</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><div style="display:flex;gap:8px"><button class="gray small" onclick="exportData()">Backup</button><button class="primary" onclick="share()">Share</button></div></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
 function servicesHTML(){return `<div class="field"><label>Service Name</label><input value="${esc(currentSvc().name)}" onchange="currentSvc().name=this.value;save();render()"></div><div class="field"><label>Date</label><input type="date" value="${esc(currentSvc().date||"")}" onchange="currentSvc().date=this.value;save();render()"></div><div class="list">${state.services.map(s=>`<div class="row"><div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date||"")} · ${s.songs.length} songs</div></div><div class="actions"><button class="${s.id===state.currentService?'primary':'gray'} small" onclick="state.currentService='${s.id}';save();render()">Open</button><button class="red small" onclick="deleteService('${s.id}')">Delete</button></div></div>`).join("")}</div>`}
 function serviceHTML(){const svc=currentSvc();return `<div class="service-title">${esc(svc.name)}</div><div class="meta">${esc(svc.date||"")}</div><div class="list">${svc.songs.map((id,i)=>{const s=state.songs.find(x=>x.id===id);return s?rowSong(s,true,i):""}).join("")||'<div class="empty">Library에서 곡을 추가하세요.</div>'}</div><button class="primary" onclick="startService()">Start Service</button>`}
 function libraryHTML(){return `<div class="field"><label>Title</label><input id="title" placeholder="곡 제목"></div><div class="field"><label>Key</label><select id="key">${["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"].map(k=>`<option>${k}</option>`).join("")}</select></div><div class="field"><label>PDF</label><input id="pdf" type="file" accept="application/pdf"></div><button class="blue" onclick="addSong()">Add Song</button><div class="list">${state.songs.map(s=>rowSong(s,false)).join("")||'<div class="empty">곡을 추가하세요.</div>'}</div>`}
@@ -182,6 +193,14 @@ function next(){if(state.mode==="write")return toast("Write Mode에서는 이동
 function swipeStart(e){if(state.mode==="write"){try{e.preventDefault()}catch{};return}state.startX=e.changedTouches[0].clientX;state.startY=e.changedTouches[0].clientY}
 function swipeEnd(e){if(state.mode==="write"){try{e.preventDefault()}catch{};return}const dx=e.changedTouches[0].clientX-state.startX,dy=e.changedTouches[0].clientY-state.startY;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.3){dx<0?next():prev()}}
 function zoomToggle(){const s=currentSong();s.zoom=s.zoom===1?1.18:1;save();renderViewer()}
+
+function exportData(){
+  const data={songs:state.songs,services:state.services,currentService:state.currentService,viewMode:state.viewMode,exportedAt:new Date().toISOString()};
+  const text=JSON.stringify(data);
+  navigator.clipboard&&navigator.clipboard.writeText(text);
+  toast("Backup copied");
+}
+
 function share(){const svc=currentSvc();const payload={v:2,name:svc.name,date:svc.date,songs:svc.songs.map(id=>{const s=state.songs.find(x=>x.id===id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};const url="https://terrysf-web.github.io/tvpcainos/index.html#share="+btoa(unescape(encodeURIComponent(JSON.stringify(payload))));navigator.clipboard?.writeText(url);toast("Share copied")}
 ["contextmenu","dragstart","gesturestart","gesturechange","gestureend"].forEach(type=>document.addEventListener(type,e=>{if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}));
 window.addEventListener("resize",()=>{if(state.viewer)renderViewer()});
