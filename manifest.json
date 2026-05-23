@@ -1,7 +1,6 @@
 {
-  "name": "TVPC Ainos",
-  "short_name": "Ainos",
-  "description": "교회 워십팀 코드 차트 앱",
+  "name": "TVPC Ainos Stable",
+  "short_name": "AinosStable",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",
