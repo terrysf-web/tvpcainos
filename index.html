@@ -111,12 +111,70 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 }
 @media(max-width:900px){.grid{grid-template-columns:1fr}.page{padding:12px}.vbottom{grid-template-columns:1fr 1fr}.vbottom button{font-size:13px}.dual-wrap{gap:6px;padding:4px}}
 </style>
+
+<style id="score-viewer-ui-v3">
+.viewer {
+  background:#050608 !important;
+}
+.vtop {
+  height:64px !important;
+  background:#050608 !important;
+  border-bottom:1px solid #1f2937 !important;
+}
+.stage {
+  background:#1f2937 !important;
+  padding:10px 14px !important;
+}
+.dual-wrap {
+  width:100% !important;
+  height:100% !important;
+  display:flex !important;
+  justify-content:center !important;
+  align-items:center !important;
+  gap:16px !important;
+  padding:0 !important;
+}
+.sheet {
+  background:white !important;
+  box-shadow:0 10px 30px rgba(0,0,0,.35) !important;
+}
+.vbottom {
+  height:88px !important;
+  grid-template-columns: 92px 92px 92px 92px 92px 1fr 70px 90px 70px 110px 70px !important;
+  align-items:center !important;
+  background:#050608 !important;
+  border-top:1px solid #1f2937 !important;
+}
+.vbottom button {
+  height:58px !important;
+  border-radius:14px !important;
+  font-size:13px !important;
+}
+.vbottom .toolbar-spacer {
+  min-width:20px;
+}
+.viewer.write .hint,
+.viewer.read .hint {
+  display:none !important;
+}
+.vtop .gray,
+.vtop .red {
+  border-radius:12px !important;
+}
+@media(max-width:900px){
+  .vbottom{
+    grid-template-columns: repeat(4, 1fr) !important;
+    height:auto !important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div id="app"></div>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_INTEGRATED_STABLE_V2_DUAL_SAVEFIX";
+const BUILD="AINOS_SCORE_VIEWER_UI_V3";
 const DB="tvpc_ainos_pdfs_stable", STORE="pdfs";
 let dbp=null;
 function openDB(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});return dbp}
@@ -148,7 +206,7 @@ function esc(s){return(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">"
 function toast(m){const old=$(".toast");if(old)old.remove();const t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),1700)}
 function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
 function currentSvc(){return state.services.find(s=>s.id===state.currentService)||state.services[0]}
-function render(){if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Stable v2 Dual SaveFix</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><div style="display:flex;gap:8px"><button class="gray small" onclick="exportData()">Backup</button><button class="primary" onclick="share()">Share</button></div></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
+function render(){if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Score Viewer UI v3</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><div style="display:flex;gap:8px"><button class="gray small" onclick="exportData()">Backup</button><button class="primary" onclick="share()">Share</button></div></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
 function servicesHTML(){return `<div class="field"><label>Service Name</label><input value="${esc(currentSvc().name)}" onchange="currentSvc().name=this.value;save();render()"></div><div class="field"><label>Date</label><input type="date" value="${esc(currentSvc().date||"")}" onchange="currentSvc().date=this.value;save();render()"></div><div class="list">${state.services.map(s=>`<div class="row"><div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date||"")} · ${s.songs.length} songs</div></div><div class="actions"><button class="${s.id===state.currentService?'primary':'gray'} small" onclick="state.currentService='${s.id}';save();render()">Open</button><button class="red small" onclick="deleteService('${s.id}')">Delete</button></div></div>`).join("")}</div>`}
 function serviceHTML(){const svc=currentSvc();return `<div class="service-title">${esc(svc.name)}</div><div class="meta">${esc(svc.date||"")}</div><div class="list">${svc.songs.map((id,i)=>{const s=state.songs.find(x=>x.id===id);return s?rowSong(s,true,i):""}).join("")||'<div class="empty">Library에서 곡을 추가하세요.</div>'}</div><button class="primary" onclick="startService()">Start Service</button>`}
 function libraryHTML(){return `<div class="field"><label>Title</label><input id="title" placeholder="곡 제목"></div><div class="field"><label>Key</label><select id="key">${["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"].map(k=>`<option>${k}</option>`).join("")}</select></div><div class="field"><label>PDF</label><input id="pdf" type="file" accept="application/pdf"></div><button class="blue" onclick="addSong()">Add Song</button><div class="list">${state.songs.map(s=>rowSong(s,false)).join("")||'<div class="empty">곡을 추가하세요.</div>'}</div>`}
@@ -165,11 +223,23 @@ async function openViewer(id){const data=await getFile(id);if(!data)return toast
 function closeViewer(){save();state.viewer=null;state.pdf=null;render()}
 function currentSong(){return state.songs.find(s=>s.id===state.viewer.id)}
 function visiblePages(){return state.viewMode==="dual"?[state.page,state.page+1].filter(p=>p<=state.total):[state.page]}
-function renderViewer(){const s=currentSong(), svc=currentSvc(), idx=svc.songs.indexOf(s.id);const pages=visiblePages();app.innerHTML=`<div class="viewer ${state.mode}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}${state.viewMode==='dual'?'Pages '+pages.join('-'):'Page '+state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><button class="${state.mode==='write'?'primary':'gold'}" onclick="toggleMode()">${state.mode==='write'?'WRITE ON':'READ'}</button><button class="gray" onclick="toggleViewMode()">${state.viewMode==='dual'?'2 PAGE':'1 PAGE'}</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="dual-wrap" id="dualWrap">${pages.map(p=>sheetHTML(p)).join("")}${state.viewMode==='dual'&&state.page+1>state.total?emptySheetHTML():''}</div><div class="hint">${state.mode==='write'?'Write Mode: 필기만 가능 / 이동 잠김':state.viewMode==='dual'?'Dual Page Read Mode':'Single Page Read Mode'}</div></div><div class="vbottom"><button onclick="prev()">◀ PREV</button><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="next()" class="primary">NEXT ▶</button><button onclick="toggleViewMode()" class="gray">${state.viewMode==='dual'?'1 Page':'2 Page'}</button><button onclick="zoomToggle()" class="gray">Zoom</button></div></div>`;setTimeout(()=>drawAll(),0)}
+function renderViewer(){const s=currentSong(), svc=currentSvc(), idx=svc.songs.indexOf(s.id);const pages=visiblePages();app.innerHTML=`<div class="viewer ${state.mode}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}${state.viewMode==='dual'?'Pages '+pages.join('-'):'Page '+state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><button class="${state.mode==='write'?'primary':'gold'}" onclick="toggleMode()">${state.mode==='write'?'WRITE ON':'READ'}</button><button class="gray" onclick="toggleViewMode()">${state.viewMode==='dual'?'2 PAGE':'1 PAGE'}</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="dual-wrap" id="dualWrap">${pages.map(p=>sheetHTML(p)).join("")}</div><div class="hint">${state.mode==='write'?'Write Mode: 필기만 가능 / 이동 잠김':state.viewMode==='dual'?'Dual Page Read Mode':'Single Page Read Mode'}</div></div><div class="vbottom">
+  <button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">✎<br>${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button>
+  <button onclick="toast('지우개는 다음 버전에서 추가')">⌫<br>지우개</button>
+  <button onclick="toggleColor()">◉<br>색상</button>
+  <button onclick="undoInk()">↶<br>실행 취소</button>
+  <button onclick="clearInk()" class="red">⌧<br>전체 지우기</button>
+  <span class="toolbar-spacer"></span>
+  <button onclick="prev()">‹</button>
+  <button class="gray">${state.viewMode==='dual'?state.page+'-'+Math.min(state.page+1,state.total)+' / '+state.total:state.page+' / '+state.total}</button>
+  <button onclick="next()">›</button>
+  <button onclick="toggleViewMode()" class="${state.viewMode==='dual'?'primary':'gray'}">${state.viewMode==='dual'?'2 페이지':'1 페이지'}</button>
+  <button onclick="zoomToggle()" class="gray">${Math.round((currentSong().zoom||1)*100)}%</button>
+</div></div>`;setTimeout(()=>drawAll(),0)}
 function sheetHTML(p){return `<div class="sheet" data-page="${p}"><canvas class="pdfCanvas" id="pdfCanvas_${p}"></canvas><div class="write-lock" id="writeLock_${p}"></div><canvas class="inkCanvas" id="inkCanvas_${p}" data-page="${p}"></canvas></div>`}
-function emptySheetHTML(){return `<div class="sheet empty-page" style="width:260px;height:360px">End</div>`}
+function emptySheetHTML(){return ``}
 async function drawAll(){if(!state.pdf||!state.viewer)return;await drawPages();setupInk();loadAllInk();setupWriteLocks()}
-async function drawPages(){const stage=$("#stage"), wrap=$("#dualWrap");if(!stage||!wrap)return;const pages=visiblePages();const gap=state.viewMode==="dual"?12:0;const availableW=stage.clientWidth-24-gap;const availableH=stage.clientHeight-24;let pageInfos=[];for(const p of pages){const page=await state.pdf.getPage(p);const base=page.getViewport({scale:1});pageInfos.push({p,page,base})}const perW=state.viewMode==="dual"?availableW/2:availableW;const fits=pageInfos.map(info=>Math.min(perW/info.base.width,availableH/info.base.height)*(currentSong().zoom||1));for(let idx=0;idx<pageInfos.length;idx++){const {p,page}=pageInfos[idx];const vp=page.getViewport({scale:fits[idx]});const sheet=document.querySelector(`.sheet[data-page="${p}"]`),pdf=$(`#pdfCanvas_${p}`),ink=$(`#inkCanvas_${p}`),lock=$(`#writeLock_${p}`);if(!sheet||!pdf||!ink)continue;const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});if(lock){lock.style.width=Math.round(vp.width)+"px";lock.style.height=Math.round(vp.height)+"px"}const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await page.render({canvasContext:ctx,viewport:vp}).promise}}
+async function drawPages(){const stage=$("#stage"), wrap=$("#dualWrap");if(!stage||!wrap)return;const pages=visiblePages();const gap=state.viewMode==="dual"?12:0;const availableW=stage.clientWidth-24-gap;const availableH=stage.clientHeight-24;let pageInfos=[];for(const p of pages){const page=await state.pdf.getPage(p);const base=page.getViewport({scale:1});pageInfos.push({p,page,base})}const perW=state.viewMode==="dual"?availableW/2:availableW;const minFit=Math.min(...pageInfos.map(info=>Math.min(perW/info.base.width,availableH/info.base.height)));const fits=pageInfos.map(info=>minFit*(currentSong().zoom||1));for(let idx=0;idx<pageInfos.length;idx++){const {p,page}=pageInfos[idx];const vp=page.getViewport({scale:fits[idx]});const sheet=document.querySelector(`.sheet[data-page="${p}"]`),pdf=$(`#pdfCanvas_${p}`),ink=$(`#inkCanvas_${p}`),lock=$(`#writeLock_${p}`);if(!sheet||!pdf||!ink)continue;const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});if(lock){lock.style.width=Math.round(vp.width)+"px";lock.style.height=Math.round(vp.height)+"px"}const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await page.render({canvasContext:ctx,viewport:vp}).promise}}
 function blockEvent(e){if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{};try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch{};return false}}
 function setupWriteLocks(){document.querySelectorAll(".write-lock").forEach(lock=>["touchstart","touchmove","touchend","click","contextmenu","gesturestart","gesturechange","gestureend"].forEach(type=>lock.addEventListener(type,blockEvent,{passive:false,capture:true})))}
 function setupInk(){document.querySelectorAll(".inkCanvas").forEach(c=>{c.onpointerdown=penDown;c.onpointermove=penMove;c.onpointerup=penUp;c.onpointercancel=penUp;c.onpointerleave=null;["touchstart","touchmove","touchend","gesturestart","contextmenu","click"].forEach(type=>c.addEventListener(type,e=>{if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}))})}
@@ -199,6 +269,23 @@ function exportData(){
   const text=JSON.stringify(data);
   navigator.clipboard&&navigator.clipboard.writeText(text);
   toast("Backup copied");
+}
+
+
+function toggleColor(){
+  state.color = state.color === "#ef4444" ? "#2563eb" : "#ef4444";
+  toast("색상 변경");
+}
+function undoInk(){
+  const s=currentSong();
+  if(!s.ink)return;
+  visiblePages().forEach(p=>{
+    const key=pageKey(p);
+    if(s.ink[key] && s.ink[key].length) s.ink[key].pop();
+  });
+  save();
+  loadAllInk();
+  toast("Undo");
 }
 
 function share(){const svc=currentSvc();const payload={v:2,name:svc.name,date:svc.date,songs:svc.songs.map(id=>{const s=state.songs.find(x=>x.id===id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};const url="https://terrysf-web.github.io/tvpcainos/index.html#share="+btoa(unescape(encodeURIComponent(JSON.stringify(payload))));navigator.clipboard?.writeText(url);toast("Share copied")}

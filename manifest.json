@@ -1,7 +1,7 @@
 {
-  "name": "TVPC Ainos Integrated Stable v2 Dual SaveFix",
-  "short_name": "AinosDualSave",
-  "start_url": "./index.html?v=integrated-stable-v2-dual-savefix",
+  "name": "TVPC Ainos Score Viewer UI v3",
+  "short_name": "AinosScoreV3",
+  "start_url": "./index.html?v=score-viewer-ui-v3",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#050608",
