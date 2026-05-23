@@ -1,23 +1,9 @@
 {
-  "name": "TVPC Ainos Stable",
-  "short_name": "AinosStable",
+  "name": "TVPC Pen Test",
+  "short_name": "PenTest",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "background_color": "#111827",
   "theme_color": "#050608",
-  "orientation": "landscape",
-  "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ]
+  "orientation": "landscape"
 }

@@ -1,99 +1,91 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>TVPC Ainos Stable</title>
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#050608" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Ainos Stable" />
-  <link rel="apple-touch-icon" href="icon-192.png" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <style>
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    html,body,#app{margin:0;width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f5f5f5;color:#0f172a}
-    button,input,select{font:inherit}
-    button{border:0;border-radius:12px;padding:10px 14px;font-weight:800;background:#1f2937;color:white}
-    button.primary{background:#22c7d8;color:#031217}
-    button.blue{background:#2563eb}
-    button.gray{background:#e5e7eb;color:#111827}
-    button.red{background:#ef4444}
-    .app{height:100%;display:grid;grid-template-rows:auto 1fr;background:#f7f7f7}
-    .topbar{height:56px;padding:0 12px;padding-top:env(safe-area-inset-top);background:#050608;color:white;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
-    .topbar b{font-size:17px}
-    .topbar span{display:block;color:#cbd5e1;font-size:12px;margin-top:2px}
-    .page{overflow:auto;padding:16px}
-    .grid{display:grid;grid-template-columns:360px 1fr;gap:16px}
-    .panel{background:white;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 10px 26px rgba(15,23,42,.08);overflow:hidden}
-    .panel h2{margin:0;padding:14px 16px;border-bottom:1px solid #e5e7eb;font-size:17px}
-    .panel-body{padding:14px;display:grid;gap:12px}
-    .field{display:grid;gap:6px}.field label{font-size:12px;color:#64748b;font-weight:800}
-    .field input,.field select{border:1px solid #cbd5e1;border-radius:12px;padding:11px}
-    .song-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border:1px solid #e5e7eb;border-radius:16px;background:white;padding:12px}
-    .song-title{font-weight:900}.song-meta{font-size:12px;color:#64748b;margin-top:3px}
-    .actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.small{font-size:12px;padding:8px 10px;border-radius:10px}
-    .list{display:grid;gap:10px}.empty{color:#64748b;text-align:center;padding:28px 10px}
-
-    .viewer{position:fixed;inset:0;z-index:20;background:#111827;display:grid;grid-template-rows:auto 1fr auto;overscroll-behavior:none}
-    .vtop{height:56px;padding:0 12px;padding-top:env(safe-area-inset-top);background:#050608;color:white;display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center}
-    .vtitle{text-align:center;min-width:0}.vtitle b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vtitle span{display:block;color:#cbd5e1;font-size:11px;margin-top:2px}
-    .stage{position:relative;overflow:hidden;display:grid;place-items:center;background:#e5e7eb;touch-action:none}
-    .pdfBox{position:relative;background:white;box-shadow:0 18px 50px rgba(0,0,0,.25);overflow:hidden}
-    canvas{display:block}
-    #pdfCanvas{position:absolute;left:0;top:0;background:white;z-index:1}
-    #inkCanvas{position:absolute;left:0;top:0;z-index:2;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-    .write #inkCanvas{pointer-events:auto}
-    .read #inkCanvas{pointer-events:none}
-    .vbottom{height:66px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:#050608;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-    .vbottom button{border-radius:14px}
-    .mode{background:#f59e0b;color:#111827}.mode.on{background:#22c7d8;color:#031217}
-    .hint{position:absolute;bottom:calc(82px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);color:white;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:800;z-index:5}
-    .toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:rgba(15,23,42,.92);color:white;padding:10px 14px;border-radius:999px;z-index:100;font-size:13px;font-weight:800}
-    @media(max-width:900px){.grid{grid-template-columns:1fr}.page{padding:12px}}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TVPC Pen Test v1</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body,#app{margin:0;width:100%;height:100%;overflow:hidden;background:#111827;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+#app{display:grid;grid-template-rows:auto 1fr auto}
+.top{background:#050608;color:white;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;font-weight:900}
+.top span{display:block;color:#22c7d8;font-size:12px;margin-top:3px}
+.stage{position:relative;background:#f8fafc;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.bottom{display:flex;gap:10px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:#050608}
+button{border:0;border-radius:12px;padding:10px 14px;font-weight:900;background:#22c7d8;color:#031217}
+button.gray{background:#374151;color:white}
+.status{color:white;font-size:13px;display:flex;align-items:center;margin-left:auto}
+</style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app">
+  <div class="top">TVPC Pen Test v1 <span>이 화면이 보이면 새 파일이 정상 업로드된 것입니다. PDF/앱 로직 없이 순수 canvas 필기 테스트입니다.</span></div>
+  <div class="stage"><canvas id="c"></canvas></div>
+  <div class="bottom">
+    <button onclick="clearCanvas()">Clear</button>
+    <button class="gray" onclick="toggleColor()">Color</button>
+    <div class="status" id="status">Ready</div>
+  </div>
+</div>
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const DB="tvpc_ainos_stable_v1", STORE="pdfs";
-let dbp=null; function openDB(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});return dbp}
-async function putFile(id,data){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(data,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
-async function getFile(id){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readonly");const r=tx.objectStore(STORE).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
-const $=s=>document.querySelector(s), app=$("#app");
-const state={songs:JSON.parse(localStorage.getItem("stable_songs")||"[]"),set:JSON.parse(localStorage.getItem("stable_set")||"[]"),viewer:null,pdf:null,write:false,draw:false,pts:[],scale:1,startX:0,startY:0};
-function save(){localStorage.setItem("stable_songs",JSON.stringify(state.songs));localStorage.setItem("stable_set",JSON.stringify(state.set))}
-function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
-function esc(s){return(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-function toast(m){const t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),1600)}
-function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
-function render(){if(state.viewer)return renderViewer();app.innerHTML=`<div class="app"><div class="topbar"><div><b>TVPC Ainos Stable</b><span>Read / Write 분리 안정 버전</span></div><button class="primary" onclick="share()">Share</button></div><div class="page"><div class="grid"><section class="panel"><h2>Song Library</h2><div class="panel-body">${libraryHTML()}</div></section><section class="panel"><h2>Service Setlist</h2><div class="panel-body">${setHTML()}</div></section></div></div></div>`}
-function libraryHTML(){return `<div class="field"><label>Title</label><input id="title" placeholder="곡 제목"></div><div class="field"><label>Key</label><select id="key">${["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"].map(k=>`<option>${k}</option>`).join("")}</select></div><div class="field"><label>PDF</label><input id="pdf" type="file" accept="application/pdf"></div><button class="blue" onclick="addSong()">Add Song</button><div class="list">${state.songs.map(s=>row(s,false)).join("")||'<div class="empty">곡을 추가하세요.</div>'}</div>`}
-function row(s,inSet,i=0){return `<div class="song-row"><div><div class="song-title">${esc(s.title)}</div><div class="song-meta">Key ${esc(s.key||"-")}</div></div><div class="actions">${inSet?`<button class="blue small" onclick="openViewer('${s.id}')">Open</button><button class="gray small" onclick="moveSet(${i},-1)">↑</button><button class="gray small" onclick="moveSet(${i},1)">↓</button><button class="red small" onclick="removeSet(${i})">Remove</button>`:`<button class="primary small" onclick="addToSet('${s.id}')">Service</button><button class="red small" onclick="delSong('${s.id}')">Delete</button>`}</div></div>`}
-function setHTML(){return `<div class="list">${state.set.map((id,i)=>{const s=state.songs.find(x=>x.id===id);return s?row(s,true,i):""}).join("")||'<div class="empty">Service 곡이 없습니다.</div>'}</div><button class="primary" onclick="start()">Start Service</button>`}
-async function addSong(){const title=$("#title").value.trim(), key=$("#key").value, f=$("#pdf").files[0];if(!title||!f)return toast("Title/PDF 필요");const id=uid();await putFile(id,await fileData(f));state.songs.push({id,title,key,ink:{}});save();render()}
-function addToSet(id){state.set.push(id);save();render()} function delSong(id){state.songs=state.songs.filter(s=>s.id!==id);state.set=state.set.filter(x=>x!==id);save();render()} function removeSet(i){state.set.splice(i,1);save();render()} function moveSet(i,d){const j=i+d;if(j<0||j>=state.set.length)return;[state.set[i],state.set[j]]=[state.set[j],state.set[i]];save();render()} function start(){if(!state.set.length)return toast("Setlist 없음");openViewer(state.set[0])}
-async function openViewer(id){const song=state.songs.find(s=>s.id===id);const data=await getFile(id);if(!data)return toast("PDF 없음");state.viewer={id};state.write=false;state.pdf=null;render();state.pdf=await pdfjsLib.getDocument(data).promise;await drawPdf();loadInk()}
-function closeViewer(){saveInk();state.viewer=null;state.pdf=null;state.write=false;render()}
-function renderViewer(){const s=state.songs.find(x=>x.id===state.viewer.id), idx=state.set.indexOf(s.id);app.innerHTML=`<div class="viewer ${state.write?'write':'read'}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx+1}/${state.set.length} · Key ${esc(s.key||'-')}</span></div><button class="mode ${state.write?'on':''}" onclick="toggleWrite()">${state.write?'WRITE ON':'READ'}</button><button class="red" onclick="clearInk()">Clear Ink</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="pdfBox" id="pdfBox"><canvas id="pdfCanvas"></canvas><canvas id="inkCanvas"></canvas></div><div class="hint">${state.write?'Write Mode: 필기만 가능':'Read Mode: swipe 가능'}</div></div><div class="vbottom"><button onclick="go(-1)">◀ PREV</button><button class="${state.write?'mode on':'mode'}" onclick="toggleWrite()">${state.write?'쓰기 켜짐':'쓰기 모드'}</button><button class="primary" onclick="go(1)">NEXT ▶</button></div></div>`;setTimeout(()=>{if(state.pdf){drawPdf().then(loadInk)}},0)}
-async function drawPdf(){const page=await state.pdf.getPage(1), stage=$("#stage"), pdf=$("#pdfCanvas"), ink=$("#inkCanvas"), box=$("#pdfBox");const base=page.getViewport({scale:1});const fit=Math.min(stage.clientWidth/base.width,stage.clientHeight/base.height);const vp=page.getViewport({scale:fit});box.style.width=Math.round(vp.width)+"px";box.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*devicePixelRatio);c.height=Math.round(vp.height*devicePixelRatio);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});const ctx=pdf.getContext("2d");ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);await page.render({canvasContext:ctx,viewport:vp}).promise;setupInk()}
-function setupInk(){const c=$("#inkCanvas");if(!c)return; c.onpointerdown=penDown;c.onpointermove=penMove;c.onpointerup=penUp;c.onpointercancel=penUp;c.onpointerleave=null;}
-function pos(e){const r=$("#inkCanvas").getBoundingClientRect();return{x:(e.clientX-r.left)*devicePixelRatio,y:(e.clientY-r.top)*devicePixelRatio}}
-function penDown(e){if(!state.write)return;e.preventDefault();e.stopPropagation();try{e.currentTarget.setPointerCapture(e.pointerId)}catch{}state.draw=true;state.pts=[pos(e)];drawStrokePoint(state.pts[0])}
-function penMove(e){if(!state.write||!state.draw)return;e.preventDefault();e.stopPropagation();const p=pos(e);const last=state.pts[state.pts.length-1];state.pts.push(p);const ctx=$("#inkCanvas").getContext("2d");ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle="#ef4444";ctx.lineWidth=3*devicePixelRatio;ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke()}
-function penUp(e){if(!state.draw)return;e.preventDefault();e.stopPropagation();try{e.currentTarget.releasePointerCapture(e.pointerId)}catch{}state.draw=false;saveStroke(state.pts);state.pts=[]}
-function drawStrokePoint(p){const ctx=$("#inkCanvas").getContext("2d");ctx.fillStyle="#ef4444";ctx.beginPath();ctx.arc(p.x,p.y,1.5*devicePixelRatio,0,Math.PI*2);ctx.fill()}
-function saveStroke(pts){const s=state.songs.find(x=>x.id===state.viewer.id);const key="p1";s.ink[key]=s.ink[key]||[];s.ink[key].push(pts);save()}
-function saveInk(){save()}
-function loadInk(){const s=state.songs.find(x=>x.id===state.viewer.id);const strokes=s.ink?.p1||[];const ctx=$("#inkCanvas").getContext("2d");ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle="#ef4444";ctx.lineWidth=3*devicePixelRatio;strokes.forEach(pts=>{for(let i=1;i<pts.length;i++){ctx.beginPath();ctx.moveTo(pts[i-1].x,pts[i-1].y);ctx.lineTo(pts[i].x,pts[i].y);ctx.stroke()}})}
-function clearInk(){if(!confirm("필기 삭제?"))return;const s=state.songs.find(x=>x.id===state.viewer.id);s.ink={};save();loadInk();renderViewer()}
-function toggleWrite(){state.write=!state.write;renderViewer()}
-function go(d){if(state.write)return toast("Write Mode에서는 곡 이동 잠김");const i=state.set.indexOf(state.viewer.id),j=i+d;if(j<0||j>=state.set.length)return toast(j<0?"첫 곡":"마지막 곡");openViewer(state.set[j])}
-function swipeStart(e){if(state.write)return;state.startX=e.changedTouches[0].clientX;state.startY=e.changedTouches[0].clientY}
-function swipeEnd(e){if(state.write)return;const dx=e.changedTouches[0].clientX-state.startX,dy=e.changedTouches[0].clientY-state.startY;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.3){dx<0?go(1):go(-1)}}
-function share(){const payload={v:1,name:"TVPC Ainos Stable",songs:state.set.map(id=>{const s=state.songs.find(x=>x.id===id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};const url="https://terrysf-web.github.io/tvpcainos/index.html#share="+btoa(unescape(encodeURIComponent(JSON.stringify(payload))));navigator.clipboard?.writeText(url);toast("Share link copied")}
-render();
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d',{alpha:true,desynchronized:true});
+const status=document.getElementById('status');
+let drawing=false,last=null,color='#ef4444',points=0;
+
+function resize(){
+  const dpr=window.devicePixelRatio||1;
+  const rect=canvas.getBoundingClientRect();
+  const old=ctx.getImageData(0,0,Math.max(1,canvas.width),Math.max(1,canvas.height));
+  canvas.width=Math.round(rect.width*dpr);
+  canvas.height=Math.round(rect.height*dpr);
+  ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.strokeStyle=color;ctx.lineWidth=3*dpr;
+}
+window.addEventListener('resize',resize);
+setTimeout(resize,50);
+
+function pos(e){
+  const r=canvas.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  return {x:(e.clientX-r.left)*dpr,y:(e.clientY-r.top)*dpr};
+}
+function down(e){
+  e.preventDefault();
+  try{canvas.setPointerCapture(e.pointerId)}catch{}
+  drawing=true;last=pos(e);points=0;
+  ctx.strokeStyle=color;
+  status.textContent='Drawing: '+(e.pointerType||'touch');
+}
+function move(e){
+  if(!drawing)return;
+  e.preventDefault();
+  const p=pos(e);
+  ctx.beginPath();
+  ctx.moveTo(last.x,last.y);
+  ctx.lineTo(p.x,p.y);
+  ctx.stroke();
+  last=p;points++;
+  if(points%10===0)status.textContent='Drawing points: '+points;
+}
+function up(e){
+  if(!drawing)return;
+  e.preventDefault();
+  try{canvas.releasePointerCapture(e.pointerId)}catch{}
+  drawing=false;last=null;
+  status.textContent='Done points: '+points;
+}
+canvas.addEventListener('pointerdown',down,{passive:false});
+canvas.addEventListener('pointermove',move,{passive:false});
+canvas.addEventListener('pointerup',up,{passive:false});
+canvas.addEventListener('pointercancel',up,{passive:false});
+canvas.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+canvas.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+
+function clearCanvas(){ctx.clearRect(0,0,canvas.width,canvas.height);status.textContent='Cleared'}
+function toggleColor(){color=color==='#ef4444'?'#2563eb':'#ef4444';ctx.strokeStyle=color;status.textContent='Color changed'}
 </script>
 </body>
 </html>
