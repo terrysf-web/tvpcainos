@@ -3,189 +3,107 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>TVPC Pen Test v2 Smooth</title>
+<title>TVPC Ainos Stable Viewer v2</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#050608">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ainos Stable v2">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111827;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
-.app{display:grid;grid-template-rows:auto 1fr auto;height:100%}
-.top{background:#050608;color:white;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;font-weight:900}
-.top span{display:block;color:#22c7d8;font-size:12px;margin-top:3px}
-.stage{position:relative;background:#fafafa;overflow:hidden;touch-action:none}
-canvas{
-  position:absolute;inset:0;width:100%;height:100%;
-  touch-action:none;
-  -webkit-user-select:none;
-  user-select:none;
-  -webkit-touch-callout:none;
-}
-.bottom{
-  display:flex;gap:10px;align-items:center;
-  padding:10px 14px calc(10px + env(safe-area-inset-bottom));
-  background:#050608;
-}
-button{
-  border:0;border-radius:12px;padding:10px 14px;
-  font-weight:900;background:#22c7d8;color:#031217
-}
-button.gray{background:#374151;color:white}
-.status{margin-left:auto;color:white;font-size:13px}
+html,body,#app{margin:0;width:100%;height:100%;overflow:hidden;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#0f172a}
+button,input,select{font:inherit}
+button{border:0;border-radius:12px;padding:10px 14px;font-weight:900;background:#1f2937;color:#fff}
+button.primary{background:#22c7d8;color:#031217}
+button.blue{background:#2563eb;color:#fff}
+button.gray{background:#e5e7eb;color:#111827}
+button.red{background:#ef4444;color:#fff}
+button.gold{background:#f59e0b;color:#111827}
+button.small{font-size:12px;padding:8px 10px;border-radius:10px}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr;background:#f7f7f8}
+.top{height:60px;padding:0 14px;padding-top:env(safe-area-inset-top);display:grid;grid-template-columns:1fr auto;align-items:center;background:#050608;color:#fff}
+.top b{font-size:17px}.top span{display:block;font-size:12px;color:#22c7d8;margin-top:3px}
+.page{overflow:auto;padding:16px}
+.grid{display:grid;grid-template-columns:360px 1fr;gap:16px}
+.panel{background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 10px 26px rgba(15,23,42,.08);overflow:hidden}
+.panel h2{margin:0;padding:14px 16px;border-bottom:1px solid #e5e7eb;font-size:17px}
+.body{padding:14px;display:grid;gap:12px}
+.field{display:grid;gap:6px}.field label{font-size:12px;color:#64748b;font-weight:900}
+.field input,.field select{border:1px solid #cbd5e1;border-radius:12px;padding:11px;background:#fff}
+.row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border:1px solid #e5e7eb;border-radius:16px;background:#fff;padding:12px}
+.title{font-weight:900}.meta{font-size:12px;color:#64748b;margin-top:3px}
+.actions{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}
+.list{display:grid;gap:10px}.empty{padding:28px 8px;text-align:center;color:#64748b}
+.viewer{position:fixed;inset:0;z-index:20;background:#111827;display:grid;grid-template-rows:auto 1fr auto;overscroll-behavior:none}
+.vtop{height:58px;padding:0 12px;padding-top:env(safe-area-inset-top);background:#050608;color:#fff;display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center}
+.vtitle{text-align:center;min-width:0;line-height:1.1}.vtitle b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vtitle span{display:block;font-size:11px;color:#cbd5e1;margin-top:3px}
+.stage{position:relative;overflow:hidden;background:#e5e7eb;display:grid;place-items:center;touch-action:none}
+.sheet{position:relative;background:#fff;box-shadow:0 18px 60px rgba(0,0,0,.28);overflow:hidden}
+#pdfCanvas{position:absolute;left:0;top:0;background:#fff;z-index:1}
+#inkCanvas{position:absolute;left:0;top:0;z-index:2;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.viewer.read #inkCanvas{pointer-events:none}
+.viewer.write #inkCanvas{pointer-events:auto}
+.vbottom{height:68px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:#050608;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}
+.vbottom button{border-radius:14px}
+.hint{position:absolute;bottom:calc(82px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:6;background:rgba(0,0,0,.68);color:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:900}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(15,23,42,.92);color:#fff;padding:10px 14px;border-radius:999px;font-size:13px;font-weight:900;z-index:100}
+.badge{display:inline-block;background:#22c7d8;color:#031217;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:900;margin-left:8px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.page{padding:12px}.vbottom{grid-template-columns:1fr 1fr}.vbottom button{font-size:13px}}
 </style>
 </head>
 <body>
-<div class="app">
-  <div class="top">
-    TVPC Pen Test v2 Smooth
-    <span>Bezier smoothing + pressure support + pointer capture</span>
-  </div>
-
-  <div class="stage">
-    <canvas id="c"></canvas>
-  </div>
-
-  <div class="bottom">
-    <button onclick="clearCanvas()">Clear</button>
-    <button class="gray" onclick="toggleColor()">Color</button>
-    <div class="status" id="status">Ready</div>
-  </div>
-</div>
-
+<div id="app"></div>
 <script>
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d', {
-  alpha: true,
-  desynchronized: true
-});
-
-const status = document.getElementById('status');
-
-let drawing = false;
-let points = [];
-let color = '#ef4444';
-
-function resize(){
-  const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-
-  const img = document.createElement('canvas');
-  img.width = canvas.width || 1;
-  img.height = canvas.height || 1;
-  img.getContext('2d').drawImage(canvas,0,0);
-
-  canvas.width = Math.round(rect.width * dpr);
-  canvas.height = Math.round(rect.height * dpr);
-
-  ctx.drawImage(img,0,0,canvas.width,canvas.height);
-
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = color;
-}
-
-window.addEventListener('resize', resize);
-setTimeout(resize, 50);
-
-function pos(e){
-  const r = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-
-  return {
-    x:(e.clientX-r.left)*dpr,
-    y:(e.clientY-r.top)*dpr,
-    p:e.pressure || 0.5
-  };
-}
-
-function midpoint(a,b){
-  return {
-    x:(a.x+b.x)/2,
-    y:(a.y+b.y)/2
-  };
-}
-
-function down(e){
-  e.preventDefault();
-
-  try{
-    canvas.setPointerCapture(e.pointerId);
-  }catch(err){}
-
-  drawing = true;
-  points = [pos(e)];
-
-  status.textContent = 'Drawing';
-}
-
-function move(e){
-  if(!drawing) return;
-
-  e.preventDefault();
-
-  const p = pos(e);
-  points.push(p);
-
-  if(points.length < 3){
-    drawDot(p);
-    return;
-  }
-
-  const p0 = points[points.length-3];
-  const p1 = points[points.length-2];
-  const p2 = points[points.length-1];
-
-  const m1 = midpoint(p0,p1);
-  const m2 = midpoint(p1,p2);
-
-  const pressure = Math.max(0.4, p1.p);
-  const width = ((2 + pressure * 4) * (window.devicePixelRatio || 1));
-
-  ctx.beginPath();
-  ctx.lineWidth = width;
-  ctx.strokeStyle = color;
-
-  ctx.moveTo(m1.x,m1.y);
-  ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);
-  ctx.stroke();
-}
-
-function up(e){
-  if(!drawing) return;
-
-  e.preventDefault();
-
-  try{
-    canvas.releasePointerCapture(e.pointerId);
-  }catch(err){}
-
-  drawing = false;
-  points = [];
-
-  status.textContent = 'Done';
-}
-
-function drawDot(p){
-  ctx.beginPath();
-  ctx.fillStyle = color;
-  ctx.arc(p.x,p.y,2*(window.devicePixelRatio||1),0,Math.PI*2);
-  ctx.fill();
-}
-
-canvas.addEventListener('pointerdown', down, {passive:false});
-canvas.addEventListener('pointermove', move, {passive:false});
-canvas.addEventListener('pointerup', up, {passive:false});
-canvas.addEventListener('pointercancel', up, {passive:false});
-
-canvas.addEventListener('touchstart', e=>e.preventDefault(), {passive:false});
-canvas.addEventListener('touchmove', e=>e.preventDefault(), {passive:false});
-
-function clearCanvas(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  status.textContent='Cleared';
-}
-
-function toggleColor(){
-  color = color === '#ef4444' ? '#2563eb' : '#ef4444';
-  status.textContent='Color changed';
-}
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const DB="tvpc_ainos_stable_viewer_v2", STORE="pdfs";
+let dbp=null;
+function openDB(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});return dbp}
+async function putFile(id,data){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(data,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
+async function getFile(id){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readonly");const r=tx.objectStore(STORE).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+const $=s=>document.querySelector(s), app=$("#app");
+const state={
+ songs:JSON.parse(localStorage.getItem("sv2_songs")||"[]"),
+ set:JSON.parse(localStorage.getItem("sv2_set")||"[]"),
+ viewer:null,pdf:null,mode:"read",page:1,total:1,scale:1,draw:false,pts:[],startX:0,startY:0,color:"#ef4444",width:3
+};
+function save(){localStorage.setItem("sv2_songs",JSON.stringify(state.songs));localStorage.setItem("sv2_set",JSON.stringify(state.set))}
+function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
+function esc(s){return(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function toast(m){const old=$(".toast");if(old)old.remove();const t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),1600)}
+function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
+function render(){if(state.viewer)return renderViewer();app.innerHTML=`<div class="app"><div class="top"><div><b>TVPC Ainos Stable Viewer <span class="badge">v2</span></b><span>PDF + 독립 필기 canvas / Read & Write 분리</span></div><button class="primary" onclick="share()">Share</button></div><div class="page"><div class="grid"><section class="panel"><h2>Song Library</h2><div class="body">${library()}</div></section><section class="panel"><h2>Service Setlist</h2><div class="body">${setlist()}</div></section></div></div></div>`}
+function library(){return `<div class="field"><label>Title</label><input id="title" placeholder="곡 제목"></div><div class="field"><label>Key</label><select id="key">${["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"].map(k=>`<option>${k}</option>`).join("")}</select></div><div class="field"><label>PDF</label><input id="pdf" type="file" accept="application/pdf"></div><button class="blue" onclick="addSong()">Add Song</button><div class="list">${state.songs.map(s=>row(s,false)).join("")||'<div class="empty">곡을 추가하세요.</div>'}</div>`}
+function row(s,inSet,i=0){return `<div class="row"><div><div class="title">${esc(s.title)}</div><div class="meta">Key ${esc(s.key||"-")}</div></div><div class="actions">${inSet?`<button class="blue small" onclick="openViewer('${s.id}')">Open</button><button class="gray small" onclick="moveSet(${i},-1)">↑</button><button class="gray small" onclick="moveSet(${i},1)">↓</button><button class="red small" onclick="removeSet(${i})">Remove</button>`:`<button class="primary small" onclick="addToSet('${s.id}')">Service</button><button class="gray small" onclick="openViewer('${s.id}',true)">Test</button><button class="red small" onclick="delSong('${s.id}')">Delete</button>`}</div></div>`}
+function setlist(){return `<div class="list">${state.set.map((id,i)=>{const s=state.songs.find(x=>x.id===id);return s?row(s,true,i):""}).join("")||'<div class="empty">Service 곡이 없습니다.</div>'}</div><button class="primary" onclick="start()">Start Service</button>`}
+async function addSong(){const title=$("#title").value.trim(), key=$("#key").value, f=$("#pdf").files[0];if(!title||!f)return toast("Title/PDF 필요");const id=uid();await putFile(id,await fileData(f));state.songs.push({id,title,key,ink:{},zoom:1});save();render();toast("추가됨")}
+function addToSet(id){state.set.push(id);save();render()} function delSong(id){state.songs=state.songs.filter(s=>s.id!==id);state.set=state.set.filter(x=>x!==id);save();render()} function removeSet(i){state.set.splice(i,1);save();render()} function moveSet(i,d){const j=i+d;if(j<0||j>=state.set.length)return;[state.set[i],state.set[j]]=[state.set[j],state.set[i]];save();render()} function start(){if(!state.set.length)return toast("Setlist 없음");openViewer(state.set[0])}
+async function openViewer(id){const s=state.songs.find(x=>x.id===id);const data=await getFile(id);if(!data)return toast("PDF 없음");state.viewer={id};state.mode="read";state.page=1;state.pdf=null;render();state.pdf=await pdfjsLib.getDocument(data).promise;state.total=state.pdf.numPages;await drawAll()}
+function closeViewer(){persistInk();state.viewer=null;state.pdf=null;render()}
+function currentSong(){return state.songs.find(s=>s.id===state.viewer.id)}
+function renderViewer(){const s=currentSong(), idx=state.set.indexOf(s.id);app.innerHTML=`<div class="viewer ${state.mode}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+state.set.length+" · ":""}Page ${state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><button class="${state.mode==='write'?'primary':'gold'}" onclick="toggleMode()">${state.mode==='write'?'WRITE ON':'READ'}</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="sheet" id="sheet"><canvas id="pdfCanvas"></canvas><canvas id="inkCanvas"></canvas></div><div class="hint">${state.mode==='write'?'Write Mode: 필기만 가능 / Swipe 잠김':'Read Mode: Swipe 가능'}</div></div><div class="vbottom"><button onclick="prev()">◀ PREV</button><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="next()" class="primary">NEXT ▶</button><button onclick="zoomToggle()" class="gray">Zoom</button></div></div>`;setTimeout(()=>drawAll(),0)}
+async function drawAll(){if(!state.pdf||!state.viewer)return;await drawPdf();setupInk();loadInk()}
+async function drawPdf(){const page=await state.pdf.getPage(state.page), stage=$("#stage"), pdf=$("#pdfCanvas"), ink=$("#inkCanvas"), sheet=$("#sheet");if(!stage||!pdf||!ink)return;const base=page.getViewport({scale:1});const fit=Math.min(stage.clientWidth/base.width,stage.clientHeight/base.height)*(currentSong().zoom||1);const vp=page.getViewport({scale:fit});const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await page.render({canvasContext:ctx,viewport:vp}).promise}
+function setupInk(){const c=$("#inkCanvas");if(!c)return;c.onpointerdown=penDown;c.onpointermove=penMove;c.onpointerup=penUp;c.onpointercancel=penUp;c.onpointerleave=null}
+function pageKey(){return "p"+state.page}
+function pos(e){const r=$("#inkCanvas").getBoundingClientRect(),dpr=window.devicePixelRatio||1;return{x:(e.clientX-r.left)*dpr,y:(e.clientY-r.top)*dpr,p:e.pressure||0.5}}
+function mid(a,b){return{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
+function penDown(e){if(state.mode!=="write")return;e.preventDefault();e.stopPropagation();try{e.currentTarget.setPointerCapture(e.pointerId)}catch{}state.draw=true;state.pts=[pos(e)]}
+function penMove(e){if(state.mode!=="write"||!state.draw)return;e.preventDefault();e.stopPropagation();const p=pos(e);state.pts.push(p);const n=state.pts.length;if(n<3){dot(p);return}const p0=state.pts[n-3],p1=state.pts[n-2],p2=state.pts[n-1],m1=mid(p0,p1),m2=mid(p1,p2);const ctx=$("#inkCanvas").getContext("2d",{desynchronized:true});ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=state.color;ctx.lineWidth=(state.width+Math.max(.2,p1.p)*2)*(window.devicePixelRatio||1);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}
+function penUp(e){if(!state.draw)return;e.preventDefault();e.stopPropagation();try{e.currentTarget.releasePointerCapture(e.pointerId)}catch{}state.draw=false;saveStroke(state.pts);state.pts=[]}
+function dot(p){const ctx=$("#inkCanvas").getContext("2d");ctx.fillStyle=state.color;ctx.beginPath();ctx.arc(p.x,p.y,1.8*(window.devicePixelRatio||1),0,Math.PI*2);ctx.fill()}
+function saveStroke(pts){const s=currentSong();s.ink=s.ink||{};s.ink[pageKey()]=s.ink[pageKey()]||[];s.ink[pageKey()].push({color:state.color,width:state.width,pts});save()}
+function persistInk(){save()}
+function loadInk(){const s=currentSong(), strokes=(s.ink&&s.ink[pageKey()])||[],ctx=$("#inkCanvas").getContext("2d");ctx.clearRect(0,0,$("#inkCanvas").width,$("#inkCanvas").height);strokes.forEach(st=>{ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=st.color||"#ef4444";ctx.lineWidth=(st.width||3)*(window.devicePixelRatio||1);const pts=st.pts||[];for(let i=2;i<pts.length;i++){const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}})}
+function clearInk(){if(!confirm("현재 페이지 필기 삭제?"))return;const s=currentSong();if(s.ink)s.ink[pageKey()]=[];save();loadInk()}
+function toggleMode(){state.mode=state.mode==="write"?"read":"write";renderViewer()}
+function prev(){if(state.mode==="write")return toast("Write Mode에서는 이동 잠김");if(state.page>1){state.page--;drawAll();renderViewer();return}const i=state.set.indexOf(state.viewer.id);if(i>0)openViewer(state.set[i-1]);else toast("첫 곡입니다")}
+function next(){if(state.mode==="write")return toast("Write Mode에서는 이동 잠김");if(state.page<state.total){state.page++;drawAll();renderViewer();return}const i=state.set.indexOf(state.viewer.id);if(i>=0&&i<state.set.length-1)openViewer(state.set[i+1]);else toast("마지막입니다")}
+function swipeStart(e){if(state.mode==="write")return;state.startX=e.changedTouches[0].clientX;state.startY=e.changedTouches[0].clientY}
+function swipeEnd(e){if(state.mode==="write")return;const dx=e.changedTouches[0].clientX-state.startX,dy=e.changedTouches[0].clientY-state.startY;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.3){dx<0?next():prev()}}
+function zoomToggle(){const s=currentSong();s.zoom=s.zoom===1?1.25:1;save();renderViewer()}
+function share(){const payload={v:2,name:"Ainos Stable v2",songs:state.set.map(id=>{const s=state.songs.find(x=>x.id===id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};const url="https://terrysf-web.github.io/tvpcainos/index.html#share="+btoa(unescape(encodeURIComponent(JSON.stringify(payload))));navigator.clipboard?.writeText(url);toast("Share copied")}
+window.addEventListener("resize",()=>{if(state.viewer)renderViewer()});
+render();
 </script>
 </body>
 </html>

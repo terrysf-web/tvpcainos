@@ -1,1 +1,1 @@
-Stable annotation v1: Read Mode/Write Mode separated. Upload to tvpcainos test repo.
+Ainos Stable Viewer v2: PDF + separated stable annotation canvas. Upload to tvpcainos root.
