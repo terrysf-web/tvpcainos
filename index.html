@@ -82,6 +82,13 @@
     .drawer{position:fixed;left:10px;top:calc(60px + env(safe-area-inset-top));width:310px;max-width:calc(100vw - 20px);max-height:calc(100vh - 90px);overflow:auto;background:#fff;border-radius:20px;z-index:150;box-shadow:0 20px 70px rgba(0,0,0,.32);border:1px solid #e5e7eb}
     .drawer h3{margin:0;padding:14px 16px;border-bottom:1px solid #e5e7eb}
     .drawer .song-row{border-radius:0;border-left:0;border-right:0;border-top:0}
+    .chart-shell{width:min(980px,calc(100vw - 60px));max-height:100%;overflow:auto;background:white;border-radius:14px;box-shadow:0 0 0 1px rgba(0,0,0,.08),0 18px 50px rgba(0,0,0,.20);padding:34px 44px;font-size:22px;line-height:1.55}
+    .chart-section{margin:0 0 26px}
+    .chart-section h3{margin:0 0 10px;font-size:16px;color:#2563eb;text-transform:uppercase;letter-spacing:.05em}
+    .chart-line{white-space:pre-wrap;font-weight:650;margin:7px 0}
+    .chart-line .chord{color:#dc2626;font-weight:900;margin-right:3px}
+    .viewer.service .chart-shell{width:min(1100px,calc(100vw - 40px));height:calc(100vh - 130px);border-radius:0;box-shadow:none;padding:42px 64px;font-size:24px}
+
     @media(max-width:900px){
       .home-grid{grid-template-columns:1fr;height:auto}
       .page{padding:12px}
@@ -118,9 +125,16 @@ function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36
 function esc(s){return (s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 function fileData(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
 
+
+const SEEDED_SONGS = ([{id:1,title:"Amazing Grace",artist:"John Newton",key:"G",ki:7,bpm:72,ts:"3/4",sections:[{name:"Verse 1",lines:["[G]Amazing [G7]grace, how [C]sweet the [G]sound","That [G]saved a wretch like [D]me","I [G]once was [G7]lost, but [C]now am [G]found","Was [Em]blind, but [D]now I [G]see"]},{name:"Verse 2",lines:["'Twas [G]grace that [G7]taught my [C]heart to [G]fear","And [G]grace my fears re[D]lieved","How [G]precious [G7]did that [C]grace ap[G]pear","The [Em]hour I first be[D]lieved [G]"]}]},{id:2,title:"10,000 Reasons",artist:"Matt Redman",key:"G",ki:7,bpm:73,ts:"4/4",sections:[{name:"Chorus",lines:["[G]Bless the [D]Lord, O my [Em]soul, O my [C]soul","[G]Worship His [D]holy [C]name [G]","[G]Sing like never [D]before, O my [Em]soul","I'll [C]worship Your [G/B]holy [D]name"]},{name:"Verse 1",lines:["The [Em]sun comes [Bm]up, it's a new [C]day [G]dawning","It's [Em]time to [Bm]sing Your [C]song a[D]gain","What[Em]ever may [Bm]pass and what[C]ever lies be[G]fore me","Let [C]me be [G/B]singing when the [D]evening [G]comes"]}]},{id:3,title:"How Great Is Our God",artist:"Chris Tomlin",key:"G",ki:7,bpm:76,ts:"4/4",sections:[{name:"Verse 1",lines:["[G]The splendor of the [Em]King, clothed in ma[C]jesty","Let all the [D]earth rejoice, all the [G]earth rejoice","[G]He wraps Himself in [Em]light, and darkness [C]tries to hide"]},{name:"Chorus",lines:["How [G]great is our [D]God, sing with me","How [Em]great is our [C]God, and all will see","How [G]great, how [D]great [C]is our [G]God"]},{name:"Bridge",lines:["[G]Name above all names, [Em]worthy of all praise","[C]My heart will sing how [D]great is our [G]God"]}]},{id:4,title:"Blessed Be Your Name",artist:"Matt Redman",key:"A",ki:9,bpm:138,ts:"4/4",sections:[{name:"Verse 1",lines:["[A]Blessed be Your [E]name","In the [F#m]land that is [D]plentiful","Where Your [A]streams of abun[E]dance flow","[D]Blessed be Your [A]name"]},{name:"Chorus",lines:["[A]Blessed be the [E]name of the [F#m]Lord [D]","[A]Blessed be Your [E]glorious [D]name [A]","[A]Blessed be the [E]name of the [F#m]Lord [D]","[A]Blessed be Your [E]glorious [D]name"]}]},{id:5,title:"위대하신 주",artist:"워십팀",key:"G",ki:7,bpm:76,ts:"4/4",sections:[{name:"Verse 1",lines:["[G]주의 위대하심을 [Em]찬양해","[C]온 세상 그의 [D]것이요","[G]영원히 다스리시는 [Em]왕이시라","[C]주님만 [D]높이리"]},{name:"Chorus",lines:["[G]위대하신 주 [C]위대하신 주","[Em]노래해 [D]위대하신 주","[G]위대하신 주 [C]위대하신 주","[Em]영원히 [D]찬양받으실 [G]주"]}]},{id:6,title:"주를 찬양해",artist:"교회 워십",key:"D",ki:2,bpm:80,ts:"4/4",sections:[{name:"Verse 1",lines:["[D]거룩하신 주 [A]앞에 나아와","[Bm]두 손을 높이 [G]들어","[D]주의 이름을 [A]높여 드리며","[G]경배하리라 [A]"]},{name:"Chorus",lines:["[G]주를 [D/F#]찬양해 [Em]주를 [A]찬양해","[G]온 맘 다해 [D/F#]찬양해 [A]","[G]주를 [D/F#]찬양해 [Em]주를 [A]찬양해","[G]영원히 [A]찬양하리 [D]"]}]},{id:7,title:"주님 한 분만으로",artist:"예수전도단",key:"Bb",ki:10,bpm:68,ts:"4/4",sections:[{name:"Verse 1",lines:["[Bb]주님 한 분만으로 [F]난 만족해","[Gm]주님 한 분만으로 [Eb]족하네","[Bb]이 세상 그 무엇과도 [F]비교 못해"]},{name:"Chorus",lines:["[Eb]주님 [Bb/D]이름 [Cm]높이며 [F]찬양해","[Eb]주님 [Bb/D]앞에 [Cm]나아가 [F]경배해","[Bb]주님 [F]한 분만 [Eb]경배하리 [Bb]"]}]},{id:8,title:"Good Good Father",artist:"Chris Tomlin",key:"C",ki:0,bpm:68,ts:"4/4",sections:[{name:"Verse 1",lines:["[C]I've heard a thousand stories of what they [Am]think You're like","You're a [F]good good Father, it's [G]who You [C]are"]},{name:"Chorus",lines:["You're a [C]good good Father","It's [Am]who You are, it's [F]who You [C]are, it's [G]who You are","And I'm [C]loved by You","It's [Am]who I am, it's [F]who I [C]am, it's [G]who I am"]}]}]).map(s => ({...s, id: "seed-" + s.id, zoom: 1, crop: {l:0,r:0,t:0,b:0}, seeded: true}));
+function initialSongs(){
+  const saved = JSON.parse(localStorage.getItem("tvpcainos_songs_v2") || "[]");
+  return saved.length ? saved : SEEDED_SONGS;
+}
+
 const state={
   tab:"service",
-  songs:JSON.parse(localStorage.getItem("tvpcainos_songs_v2")||"[]"),
+  songs:initialSongs(),
   setlist:JSON.parse(localStorage.getItem("tvpcainos_setlist_v2")||"[]"),
   serviceName:localStorage.getItem("tvpcainos_service_name_v2")||"Sunday Morning",
   viewer:null,
@@ -202,7 +216,7 @@ async function addSong(){
   const title=$("#newTitle").value.trim(), key=$("#newKey").value, f=$("#newPDF").files[0];
   if(!title||!f) return toast("곡 제목과 PDF를 넣어주세요.");
   const id=uid(); const data=await fileData(f); await putPDF(id,data);
-  state.songs.push({id,title,key,zoom:1,crop:{l:0,r:0,t:0,b:0}});
+  state.songs.push({id,title,key,zoom:1,crop:{l:0,r:0,t:0,b:0},hasPdf:true,sections:[]});
   save(); render(); toast("곡이 추가되었습니다.");
 }
 function deleteSong(id){if(!confirm("삭제할까요?"))return;state.songs=state.songs.filter(s=>s.id!==id);state.setlist=state.setlist.filter(x=>x!==id);save();render()}
@@ -211,6 +225,19 @@ function removeSet(i){state.setlist.splice(i,1);save();render()}
 function moveSet(i,d){const j=i+d;if(j<0||j>=state.setlist.length)return;[state.setlist[i],state.setlist[j]]=[state.setlist[j],state.setlist[i]];save();render()}
 function clearSet(){if(confirm("Setlist를 비울까요?")){state.setlist=[];save();render()}}
 function startService(){if(!state.setlist.length)return toast("Setlist가 비어 있습니다."); openViewer(state.setlist[0],"service")}
+
+
+function renderChordLine(line){
+  return esc(line).replace(/\[([^\]]+)\]/g, '<span class="chord">$1</span>');
+}
+function chartHTML(s){
+  if(!s.sections || !s.sections.length) return '';
+  return `<div class="chart-shell">${s.sections.map(sec=>`<div class="chart-section"><h3>${esc(sec.name||'Section')}</h3>${(sec.lines||[]).map(l=>`<div class="chart-line">${renderChordLine(l)}</div>`).join('')}</div>`).join('')}</div>`;
+}
+function stageContentHTML(s){
+  if(s.sections && s.sections.length && !s.hasPdf) return chartHTML(s);
+  return `${stageContentHTML(s)}`;
+}
 
 function viewerHTML(){
   const s=state.songs.find(x=>x.id===state.viewer.id);
@@ -223,7 +250,7 @@ function viewerHTML(){
       <button class="icon" onclick="${mode==='service'?'toggleBlank()':'closeViewer()'}">${mode==='service'?'◒':'✕'}</button>
     </div>
     <div id="stage" class="viewer-stage" ontouchstart="touchStart(event)" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)">
-      <div id="pdfShell" class="pdf-shell"><canvas id="pdfCanvas"></canvas></div>
+      ${stageContentHTML(s)}
       <div class="library-tools">
         <button class="gray" onclick="zoom(-.05)">−</button><span>${Math.round((s.zoom||1)*100)}%</span><button class="gray" onclick="zoom(.05)">+</button>
         <button class="gray" onclick="state.cropOpen=!state.cropOpen;renderViewerOnly();drawPDF()">Crop</button>
@@ -245,11 +272,20 @@ function cropPanel(s){
 }
 
 async function openViewer(id,mode){
-  const data=await getPDF(id);
-  if(!data) return toast("PDF 파일이 없습니다. Library에서 다시 추가하세요.");
+  const song=state.songs.find(x=>x.id===id);
+  if(!song) return toast("곡을 찾을 수 없습니다.");
   state.viewer={id,mode}; state.pdf=null; state.page=1; state.drawer=false; render();
+  const data=await getPDF(id);
+  if(!data){
+    song.hasPdf=false;
+    renderViewerOnly();
+    if(mode==="service") lockBack();
+    return;
+  }
+  song.hasPdf=true;
   try{
     state.pdf=await pdfjsLib.getDocument(data).promise;
+    renderViewerOnly();
     await drawPDF();
     if(mode==="service") lockBack();
   }catch(e){toast("PDF를 열 수 없습니다."); console.error(e)}

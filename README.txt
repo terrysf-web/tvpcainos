@@ -1,18 +1,16 @@
-TVPC Ainos - Worship Style v2
+TVPC Ainos - Worship Style v3 Seeded
 
-테스트 repo: https://github.com/terrysf-web/tvpcainos
-예상 테스트 주소: https://terrysf-web.github.io/tvpcainos/
+기존 tvpc-worship에 있던 Song Library 기본 곡들을 새 앱에 미리 넣었습니다.
 
 적용:
 1. ZIP 압축 풀기
 2. index.html, manifest.json, icon-192.png, icon-512.png 를 tvpcainos repo root에 업로드
-3. GitHub Pages가 main/root로 설정되어 있는지 확인
-4. iPad에서 테스트 주소 접속
+3. iPad에서 https://terrysf-web.github.io/tvpcainos/ 테스트
 
-핵심:
-- tvpc-worship 느낌의 검은 상단/하단 viewer
+포함:
+- 기존 Song Library 기본 곡 8개 자동 로드
+- PDF 없는 곡은 코드 차트 화면으로 열림
+- PDF 추가 곡은 기존처럼 PDF Viewer로 열림
+- Service 화면은 tvpc-worship 스타일 검은 상/하단 바 유지
 - Service 화면에는 Crop/Zoom/Save/Reset 없음
-- Library의 Crop 버튼에서만 편집 가능
-- Service는 PREV/NEXT + swipe
-- 첫 곡에서 back swipe는 앱 내부에서 무시
-- Share URL은 tvpcainos 주소로 생성
+- Library에서만 Crop/Edit 표시
