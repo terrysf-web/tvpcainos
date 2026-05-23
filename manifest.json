@@ -1,7 +1,7 @@
 {
-  "name": "TVPC Ainos Integrated Stable v1",
-  "short_name": "AinosStable",
-  "start_url": "./index.html?v=integrated-stable-v1",
+  "name": "TVPC Ainos Integrated Stable v2 Dual",
+  "short_name": "AinosDual",
+  "start_url": "./index.html?v=integrated-stable-v2-dual",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#050608",

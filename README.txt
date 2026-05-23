@@ -1,1 +1,1 @@
-TVPC Ainos Integrated Stable v1. Upload to tvpcainos repo root. Open /index.html?v=integrated-stable-v1
+TVPC Ainos Integrated Stable v2 Dual. Upload to tvpcainos repo root. Open /index.html?v=integrated-stable-v2-dual
