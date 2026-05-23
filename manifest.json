@@ -1,10 +1,10 @@
 {
   "name": "TVPC Ainos",
   "short_name": "Ainos",
-  "description": "TVPC Worship PDF chart app",
+  "description": "교회 워십팀 코드 차트 앱",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f5f5f5",
+  "background_color": "#ffffff",
   "theme_color": "#050608",
   "orientation": "landscape",
   "icons": [
