@@ -106,9 +106,11 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 </head>
 <body>
 <div id="app"></div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAzXyQA-BbL_0KsTnukODBfMBkIZINxiNM",
@@ -121,6 +123,16 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
+
+async function ensureAuth(){
+  if(auth.currentUser) return auth.currentUser;
+  try { await signInAnonymously(auth); } catch(e) { console.warn("Anonymous auth failed", e); }
+  return await new Promise(resolve=>{
+    const unsub = onAuthStateChanged(auth, u=>{ unsub(); resolve(u); });
+    setTimeout(()=>{ try{unsub()}catch{}; resolve(auth.currentUser); }, 2000);
+  });
+}
 
 const DEFAULT_SONGS = [
   {id:"1",title:"Amazing Grace",artist:"John Newton",key:"G"},
@@ -142,7 +154,20 @@ function norm(v){
     .toLowerCase();
 }
 
+function dataStringToBytes(str){
+  if(!str) return null;
+  let body = String(str);
+  const comma = body.indexOf(",");
+  if(body.startsWith("data:") && comma >= 0) body = body.slice(comma + 1);
+  body = body.replace(/\s/g,"");
+  const bin = atob(body);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
 async function loadChunks(id){
+  await ensureAuth();
   const metaRef = doc(db, "pdfFiles", String(id));
   const metaSnap = await getDoc(metaRef);
   if(!metaSnap.exists()) return null;
@@ -156,17 +181,15 @@ async function loadChunks(id){
     if(chunkSnap.exists()) parts.push(chunkSnap.data().data || "");
   }
 
-  const b64 = parts.join("");
-  if(!b64) return null;
-
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  const joined = parts.join("");
+  const bytes = dataStringToBytes(joined);
+  if(!bytes) return null;
 
   return { id:String(id), name:meta.name || "", data:bytes };
 }
 
 async function getAllSongs(){
+  await ensureAuth();
   const customSnap = await getDocs(collection(db, "customSongs"));
   const custom = customSnap.docs.map(d=>({id:d.id, ...d.data(), custom:true}));
   const all = [...DEFAULT_SONGS, ...custom];
@@ -193,16 +216,20 @@ window.TVPC_FB_READY = Promise.resolve({
   },
 
   watchSongs(callback){
-    let unsubCustom = null;
-    let unsubPdf = null;
-    const refresh = async()=>callback(await getAllSongs());
-    unsubCustom = onSnapshot(collection(db, "customSongs"), refresh);
-    unsubPdf = onSnapshot(collection(db, "pdfFiles"), refresh);
-    refresh();
+    const refresh = async()=>{
+      try { callback(await getAllSongs()); } catch(e) { console.warn("watchSongs refresh failed", e); }
+    };
+    let unsubCustom=null, unsubPdf=null;
+    ensureAuth().then(()=>{
+      unsubCustom = onSnapshot(collection(db, "customSongs"), refresh, e=>console.warn(e));
+      unsubPdf = onSnapshot(collection(db, "pdfFiles"), refresh, e=>console.warn(e));
+      refresh();
+    });
     return ()=>{ if(unsubCustom)unsubCustom(); if(unsubPdf)unsubPdf(); };
   },
 
   async getPdfDataForSong(song){
+    await ensureAuth();
     const candidates = [
       song.firebasePdfId,
       song.id,
@@ -213,7 +240,7 @@ window.TVPC_FB_READY = Promise.resolve({
     ].filter(Boolean);
 
     for(const id of candidates){
-      const direct = await loadChunks(id).catch(()=>null);
+      const direct = await loadChunks(id).catch(e=>{console.warn("direct PDF load failed", id, e); return null;});
       if(direct) return direct;
     }
 
@@ -223,7 +250,7 @@ window.TVPC_FB_READY = Promise.resolve({
       const m = d.data() || {};
       const possible = [d.id, m.name].map(norm);
       if(possible.some(x => targetNames.has(x))){
-        const found = await loadChunks(d.id).catch(()=>null);
+        const found = await loadChunks(d.id).catch(e=>{console.warn("matched PDF load failed", d.id, e); return null;});
         if(found) return found;
       }
     }
@@ -233,9 +260,10 @@ window.TVPC_FB_READY = Promise.resolve({
 
 window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebase library/PDF sync ready"); });
 </script>
+
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_FIREBASE_LIBRARY_SYNC_FIXED";
+const BUILD="AINOS_FIREBASE_DATAURL_AUTH_FIXED";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -316,7 +344,7 @@ if(!loaded){
 
 state.total=state.pdf.numPages;
 await drawAll();
-}catch(e){console.error(e);toast("PDF 열기 실패")}
+}catch(e){console.error(e);toast("PDF 열기 실패 - Firebase/파일 확인")}
 }
 function closeViewer(){save();state.viewer=null;state.pdf=null;render()}
 function currentSong(){return findSongByRef(state.viewer.id)}
@@ -348,10 +376,17 @@ function zoomToggle(){const s=currentSong();s.zoom=s.zoom===1?1.25:1;save();rend
 function share(){const svc=currentSvc();const payload={v:1,name:svc.name,date:svc.date,songs:svc.songs.map(id=>{const s=state.songs.find(x=>x.id===id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};const url="https://terrysf-web.github.io/tvpcainos/index.html#share="+btoa(unescape(encodeURIComponent(JSON.stringify(payload))));navigator.clipboard?.writeText(url);toast("Share copied")}
 ["contextmenu","dragstart","gesturestart","gesturechange","gestureend"].forEach(type=>document.addEventListener(type,e=>{if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}));
 window.addEventListener("resize",()=>{if(state.viewer)renderViewer()});
+async function waitForFirebaseApi(){
+  for(let i=0;i<30;i++){
+    if(window.TVPC_FB_READY) return await window.TVPC_FB_READY;
+    await new Promise(r=>setTimeout(r,100));
+  }
+  return null;
+}
 async function loadSharedSongs(){
   try{
-    if(window.TVPC_FB_READY){
-      const api = await window.TVPC_FB_READY;
+    const api = await waitForFirebaseApi();
+    if(api){
       state.songs = await api.getSongs();
       render();
       api.watchSongs((songs)=>{ state.songs=songs; render(); });
