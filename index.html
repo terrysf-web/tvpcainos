@@ -148,7 +148,7 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 const storage = firebase.storage();
 
-const $=s=>document.querySelector(s); // 순정 DOM 선택자 원상복구
+const $=s=>document.querySelector(s);
 const appEngineRoot = document.getElementById("app");
 const SEMITONE_CIRCULAR_MAP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
@@ -341,101 +341,4 @@ function buildLibraryPoolHTML(){
 
 function triggerEmailAuthSignIn(){
   const e = document.getElementById("loginEmail").value.trim(), p = document.getElementById("loginPw").value;
-  auth.signInWithEmailAndPassword(e,p).catch(err => alert("로그인 인증 실패: " + err.message));
-}
-function triggerEmailAuthSignUp(){
-  const e = document.getElementById("loginEmail").value.trim(), p = document.getElementById("loginPw").value;
-  if(confirm(`${e} 주소로 찬양 밴드 신규 멤버 계정을 생성할까요?`)){
-    auth.createUserWithEmailAndPassword(e,p).catch(err => alert("회원가입 오류: " + err.message));
-  }
-}
-
-function sendSetlistNotificationEmail() {
-  const svc = getActiveServiceStruct();
-  if(!svc.songs || !svc.songs.length) return toast("세트리스트에 등록된 곡이 없습니다.");
-  
-  const titleList = svc.songs.map((id, idx) => {
-    const s = coreState.songLibrary.find(x => x.id === id);
-    return `${idx + 1}. ${s ? s.title : "지정되지 않은 찬양"}`;
-  }).join("%0A");
-
-  const appUrl = window.location.origin + window.location.pathname;
-  const emailBody = `찬양팀원 여러분, ${svc.name}(${svc.date}) 최종 예배 콘티 악보가 공유되었습니다.%0A%0A[예배 콘티 목록]%0A${titleList}%0A%0A지금 아래 링크 앱에 로그인하셔서 각자 연주 및 싱어를 위한 개인 메모 및 업데이트를 진행해 주세요!%0A👉 ${appUrl}`;
-  
-  window.location.href = `mailto:?subject=[Ainos 밴드 알림] ${encodeURIComponent(svc.name)} 예배 세트리스트 확정&body=${emailBody}`;
-  toast("이메일 클라이언트 오토매틱 링크 실행 완료");
-}
-
-async function createNewServiceScheduleOnCloud(){
-  const id = "svc_" + Date.now();
-  await db.collection("worship_services").doc(id).set({
-    name: "새 일요 대예배 콘티", date: new Date().toISOString().slice(0,10), songs: []
-  });
-  coreState.selectedServiceId = id; await synchronizeCloudCoreDatabase(); executeRenderRouter();
-}
-async function updateServiceFieldsOnCloud(id, field, value){
-  await db.collection("worship_services").doc(id).update({ [field]: value });
-  await synchronizeCloudCoreDatabase();
-}
-async function injectSongToActiveSetCloud(songId){
-  if(!coreState.selectedServiceId) return toast("먼저 일정을 선택하세요.");
-  const svc = coreState.serviceSetlist.find(s=>s.id===coreState.selectedServiceId);
-  const updatedSongs = [...(svc.songs || []), songId];
-  await db.collection("worship_services").doc(svc.id).update({ songs: updatedSongs });
-  await synchronizeCloudCoreDatabase(); coreState.currentTab = "service"; executeRenderRouter();
-}
-async function dropSongFromSetlistCloud(index){
-  const svc = coreState.serviceSetlist.find(s=>s.id===coreState.selectedServiceId);
-  const updatedSongs = [...svc.songs]; updatedSongs.splice(index, 1);
-  await db.collection("worship_services").doc(svc.id).update({ songs: updatedSongs });
-  await synchronizeCloudCoreDatabase(); executeRenderRouter();
-}
-async function registerNewSongItemToCloud(){
-  const t = document.getElementById("regTitle").value.trim(), k = document.getElementById("regKey").value, f = document.getElementById("regFile").files[0];
-  if(!t || !f) return toast("곡 제목과 PDF 스캔본 업로드가 필요합니다.");
-  
-  toast("마스터 악보 클라우드 업로드 동기화 진행 중...");
-  const songId = "song_" + Date.now();
-  const storageRef = storage.ref(`sheets/${songId}.pdf`);
-  const snapshot = await storageRef.put(f);
-  const downloadUrl = await snapshot.ref.getDownloadURL();
-
-  await db.collection("worship_songs").doc(songId).set({
-    title: t, key: k, pdfUrl: downloadUrl, zoom: 1
-  });
-  await synchronizeCloudCoreDatabase(); executeRenderRouter(); toast("클라우드 악보 등록 완료");
-}
-
-async function activateFullViewer(songId){
-  const s = coreState.songLibrary.find(x => x.id === songId);
-  if(!s || !s.pdfUrl) return toast("악보 PDF 클라우드 주소를 탐색하지 못했습니다.");
-  
-  toast("클라우드 고해상도 변환 스트림 로드 중...");
-  coreState.activeViewer = { songId: songId };
-  coreState.currentPdfBinary = await pdfjsLib.getDocument(s.pdfUrl).promise;
-  coreState.leftGlobalPage = 1;
-  coreState.rightGlobalPage = 2;
-  coreState.maxTotalPages = coreState.currentPdfBinary.numPages;
-  coreState.globalKeyOffset = 0;
-  coreState.currentMode = "read";
-
-  await fetchPrivateUserLayerData();
-  displayDualSheetViewer();
-}
-
-function displayDualSheetViewer(){
-  const s = currentSong(), svc = getActiveServiceStruct(), idx = svc.songs.indexOf(s.id);
-  const leftNum = coreState.leftGlobalPage;
-  const rightNum = coreState.rightGlobalPage;
-  const rightPageLabel = rightNum <= coreState.maxTotalPages ? `, ${rightNum}` : "";
-
-  appEngineRoot.innerHTML = `
-    <div class="viewer ${coreState.currentMode}">
-      <div class="vtop">
-        <button class="gray" onclick="exitFullSheetViewer()">Back</button>
-        <div class="vtitle">
-          <b>${esc(s.title)}</b>
-          <span>${idx >= 0 ? (idx + 1) + "/" + svc.songs.length + " · " : ""}쪽: ${leftNum}${rightPageLabel} / ${coreState.maxTotalPages}</span>
-        </div>
-        <button class="${coreState.currentMode === 'write' ? 'primary' : 'gold'}" onclick="toggleViewerModuleMode('write')">${coreState.currentMode === 'write' ? '필기 작동중' : '메모하기'}</button>
-        <button class="${
+  auth.signInWithEmailAndPassword(e,p).catch
