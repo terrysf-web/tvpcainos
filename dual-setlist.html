@@ -28,10 +28,10 @@ button.red{background:#ef4444;color:white}
   <div class="top">
     <button onclick="location.href='index.html'">Back</button>
     <div style="text-align:center;font-weight:900">
-      TVPC Dual Setlist v3 AutoDetect
-      <div id="subtitle" style="font-size:12px;color:#cbd5e1;margin-top:3px">현재곡 + 다음곡 / AutoDetect</div>
+      TVPC Dual Setlist v4 PDFMatch
+      <div id="subtitle" style="font-size:12px;color:#cbd5e1;margin-top:3px">현재곡 + 다음곡 / PDFMatch</div>
     </div>
-    <button onclick="reloadData()">Reload</button><button onclick="showDebug()">Debug</button>
+    <button onclick="reloadData()">Reload</button><button onclick="showDebug()">Debug</button><button onclick="showPDFKeys()">PDF Keys</button>
     <button class="primary" onclick="fitMode = fitMode==='height'?'width':'height'; render()">Fit</button>
   </div>
 
@@ -66,142 +66,36 @@ let set=[];
 let pdfCache={};
 let dbCache={};
 
+
 const DB_CANDIDATES = [
+  "tvpc_ainos_stable_v1",
   "tvpc_ainos_pdfs_stable",
   "tvpc_ainos_integrated_stable_v1",
-  "tvpc_ainos_stable_v1",
   "tvpc_ainos_stable_viewer_v2",
   "tvpc_ainos_stable_viewer_v3",
   "tvpc_ainos_integrated_stable_v2_dual",
   "tvpc_ainos_dual_safe_v6",
   "tvpc_ainos",
-  "tvpc_pdf_store",
+  "WorshipCharts",
   "pdfs"
 ];
 
 const STORE_CANDIDATES = ["pdfs", "files", "songs", "store"];
+let pdfKeyIndex = null;
 
-function status(msg){document.getElementById('status').textContent=msg;}
-
-function parseJSONSafe(v, fallback){
-  try { return JSON.parse(v || ""); } catch(e) { return fallback; }
+function sanitize(s){
+  return String(s||"").toLowerCase().replace(/[^a-z0-9가-힣]/g,"");
 }
 
-
-function allStorageDebug(){
-  const rows=[];
-  for(let i=0;i<localStorage.length;i++){
-    const k=localStorage.key(i);
-    const v=localStorage.getItem(k)||"";
-    rows.push({key:k, len:v.length, preview:v.slice(0,120)});
-  }
-  return rows.sort((a,b)=>a.key.localeCompare(b.key));
-}
-
-function normalizeSong(x){
-  if(!x || typeof x!=="object") return null;
-  const id = x.id || x.songId || x.pdfId || x.fileId || x.key || x.uid || x._id;
-  const title = x.title || x.name || x.songTitle || x.label || x.filename || "Untitled";
-  if(!id && !x.pdf && !x.pdfData && !x.data && !x.file && !x.url) return null;
-  return {...x, id:String(id||title), title:String(title)};
-}
-
-function collectSongsFromAny(obj, out=[]){
-  if(!obj) return out;
-  if(Array.isArray(obj)){
-    // If this looks like song array
-    const normalized = obj.map(normalizeSong).filter(Boolean);
-    if(normalized.length && normalized.length >= Math.max(1, Math.floor(obj.length*0.5))){
-      normalized.forEach(s=>{ if(!out.find(x=>x.id===s.id)) out.push(s); });
+async function listDBNames(){
+  const names = [...DB_CANDIDATES];
+  try{
+    if(indexedDB.databases){
+      const dbs = await indexedDB.databases();
+      dbs.forEach(d=>{ if(d.name && !names.includes(d.name)) names.push(d.name); });
     }
-    obj.forEach(x=>collectSongsFromAny(x,out));
-    return out;
-  }
-  if(typeof obj==="object"){
-    ["songs","songList","library","items","charts","files","pdfs"].forEach(k=>{
-      if(Array.isArray(obj[k])) collectSongsFromAny(obj[k],out);
-    });
-  }
-  return out;
-}
-
-function getSongs(){
-  const found=[];
-  for(let i=0;i<localStorage.length;i++){
-    const k=localStorage.key(i);
-    const raw=localStorage.getItem(k);
-    const parsed=parseJSONSafe(raw,null);
-    if(parsed) collectSongsFromAny(parsed, found);
-  }
-  return found;
-}
-
-function idsFromArray(arr){
-  if(!Array.isArray(arr)) return [];
-  return arr.map(x=>{
-    if(typeof x==="string") return x;
-    if(x && typeof x==="object") return x.id || x.songId || x.pdfId || x.fileId || x.key || x.uid || x._id || null;
-    return null;
-  }).filter(Boolean).map(String);
-}
-
-function collectSetsFromAny(obj, sets=[]){
-  if(!obj)return sets;
-  if(Array.isArray(obj)){
-    const ids=idsFromArray(obj);
-    if(ids.length) sets.push(ids);
-    obj.forEach(x=>collectSetsFromAny(x,sets));
-    return sets;
-  }
-  if(typeof obj==="object"){
-    ["set","setlist","songs","songIds","selectedSongs","serviceSongs","items","charts"].forEach(k=>{
-      if(Array.isArray(obj[k])){
-        const ids=idsFromArray(obj[k]);
-        if(ids.length) sets.push(ids);
-        collectSetsFromAny(obj[k],sets);
-      }
-    });
-    ["currentService","service","selectedService"].forEach(k=>{
-      if(obj[k]) collectSetsFromAny(obj[k],sets);
-    });
-    if(Array.isArray(obj.services)){
-      obj.services.forEach(svc=>collectSetsFromAny(svc,sets));
-    }
-  }
-  return sets;
-}
-
-function getSet(){
-  const allSets=[];
-  for(let i=0;i<localStorage.length;i++){
-    const k=localStorage.key(i);
-    const raw=localStorage.getItem(k);
-    const parsed=parseJSONSafe(raw,null);
-    if(parsed) collectSetsFromAny(parsed, allSets);
-  }
-
-  // Prefer set whose IDs match discovered songs
-  const songIds = new Set(songs.map(s=>String(s.id)));
-  let best=[];
-  let bestScore=-1;
-  allSets.forEach(ids=>{
-    const unique=[...new Set(ids.map(String))];
-    const score=unique.filter(id=>songIds.has(id)).length;
-    if(score>bestScore){
-      bestScore=score;
-      best=unique;
-    }
-  });
-
-  if(best.length) return best;
-
-  // fallback: all songs in discovered library
-  return songs.map(s=>s.id);
-}
-
-function showDebug(){
-  const rows=allStorageDebug();
-  alert(rows.map(r=>r.key+" ("+r.len+") "+r.preview).join("\\n\\n") || "No localStorage keys");
+  }catch(e){}
+  return names;
 }
 
 function openDBByName(name){
@@ -224,29 +118,131 @@ async function readFromDB(dbName, storeName, id){
       const r = tx.objectStore(storeName).get(id);
       r.onsuccess = () => resolve(r.result || null);
       r.onerror = () => resolve(null);
-    }catch(e){
-      resolve(null);
-    }
+    }catch(e){ resolve(null); }
   });
 }
 
+async function scanPDFKeys(){
+  if(pdfKeyIndex) return pdfKeyIndex;
+  pdfKeyIndex = [];
+  const dbNames = await listDBNames();
+
+  for(const dbName of dbNames){
+    const db = await openDBByName(dbName);
+    if(!db || !db.objectStoreNames) continue;
+
+    const stores = Array.from(db.objectStoreNames);
+    for(const storeName of stores){
+      try{
+        await new Promise((resolve)=>{
+          const tx = db.transaction(storeName, "readonly");
+          const store = tx.objectStore(storeName);
+          const req = store.openCursor();
+          req.onsuccess = (e)=>{
+            const cursor = e.target.result;
+            if(cursor){
+              const key = String(cursor.key);
+              const value = cursor.value;
+              const type = value instanceof Blob ? "Blob" :
+                           value instanceof ArrayBuffer ? "ArrayBuffer" :
+                           value instanceof Uint8Array ? "Uint8Array" :
+                           typeof value;
+              let looksPdf = false;
+              if(typeof value === "string" && (value.startsWith("data:application/pdf") || value.length > 500)) looksPdf = true;
+              if(value instanceof Blob || value instanceof ArrayBuffer || value instanceof Uint8Array) looksPdf = true;
+              if(looksPdf){
+                pdfKeyIndex.push({dbName, storeName, key, type, size: value && (value.size || value.byteLength || value.length || 0)});
+              }
+              cursor.continue();
+            }else{
+              resolve();
+            }
+          };
+          req.onerror = ()=>resolve();
+        });
+      }catch(e){}
+    }
+  }
+  console.log("PDF key index", pdfKeyIndex);
+  return pdfKeyIndex;
+}
+
+function candidateIdsForSong(song){
+  if(!song)return [];
+  const vals = [
+    song.id, song.songId, song.pdfId, song.fileId, song.chartId, song.uid, song._id,
+    song.title, song.name, song.filename, song.fileName
+  ].filter(Boolean).map(String);
+
+  const out = [];
+  vals.forEach(v=>{
+    out.push(v);
+    out.push(sanitize(v));
+  });
+  return [...new Set(out.filter(Boolean))];
+}
+
 async function getFile(id){
-  // Some builds store a data URL directly in song object
   const song = songById(id);
+
+  // Direct embedded PDF data
   if(song){
-    const direct = song.pdf || song.pdfData || song.data || song.file || song.url;
+    const direct = song.pdf || song.pdfData || song.data || song.file || song.url || song.src;
     if(direct && typeof direct === "string" && direct.length > 50) return direct;
   }
 
-  for(const dbName of DB_CANDIDATES){
-    for(const storeName of STORE_CANDIDATES){
-      const data = await readFromDB(dbName, storeName, id);
-      if(data){
-        console.log("PDF found in", dbName, storeName, id);
-        return data;
+  // Exact common lookups by song id and possible fields
+  const ids = candidateIdsForSong(song);
+  ids.unshift(String(id));
+  const dbNames = await listDBNames();
+
+  for(const dbName of dbNames){
+    const db = await openDBByName(dbName);
+    if(!db || !db.objectStoreNames) continue;
+    const stores = Array.from(db.objectStoreNames);
+    for(const storeName of stores){
+      for(const lookupId of ids){
+        const data = await readFromDB(dbName, storeName, lookupId);
+        if(data){
+          console.log("PDF exact found", dbName, storeName, lookupId);
+          return data;
+        }
       }
     }
   }
+
+  // Fuzzy key matching
+  const index = await scanPDFKeys();
+  const songTokens = candidateIdsForSong(song);
+  let best = null;
+  let bestScore = 0;
+
+  for(const item of index){
+    const k = sanitize(item.key);
+    let score = 0;
+    songTokens.forEach(t=>{
+      const st = sanitize(t);
+      if(!st) return;
+      if(k === st) score += 100;
+      else if(k.includes(st) || st.includes(k)) score += Math.min(50, st.length);
+    });
+    if(score > bestScore){
+      bestScore = score;
+      best = item;
+    }
+  }
+
+  // If only one PDF exists and one song selected, use it
+  if(!best && index.length === 1) best = index[0];
+
+  if(best && bestScore >= 4){
+    const data = await readFromDB(best.dbName, best.storeName, best.key);
+    if(data){
+      console.log("PDF fuzzy found", best, bestScore);
+      return data;
+    }
+  }
+
   return null;
 }
 
@@ -256,7 +252,6 @@ async function getPdf(id){
   if(!data)return null;
 
   let source = data;
-  // IndexedDB may return ArrayBuffer, Blob, Uint8Array, or data URL.
   if(data instanceof Blob){
     source = {data: new Uint8Array(await data.arrayBuffer())};
   }else if(data instanceof ArrayBuffer){
@@ -264,11 +259,17 @@ async function getPdf(id){
   }else if(data instanceof Uint8Array){
     source = {data};
   }
-
   const pdf=await pdfjsLib.getDocument(source).promise;
   pdfCache[id]=pdf;
   return pdf;
 }
+
+async function showPDFKeys(){
+  const keys = await scanPDFKeys();
+  const lines = keys.map(k=>`${k.dbName}/${k.storeName} :: ${k.key} (${k.type}, ${k.size})`);
+  alert(lines.join("\\n\\n") || "PDF keys not found");
+}
+
 function songById(id){return songs.find(s=>s.id===id)}
 function clearCanvas(canvas){
   const ctx=canvas.getContext('2d');
@@ -286,7 +287,7 @@ async function drawSong(songId, canvas, labelEl){
   labelEl.textContent=song.title || 'Untitled';
   const pdf=await getPdf(songId);
   if(!pdf){
-    labelEl.textContent=(song.title||'Untitled')+' — PDF 없음';
+    labelEl.textContent=(song.title||'Untitled')+' — PDF 매칭 안됨';
     return;
   }
   const page=await pdf.getPage(1);
@@ -322,7 +323,7 @@ async function render(){
   const leftId=set[currentIndex];
   const rightId=set[currentIndex+1];
 
-  document.getElementById('subtitle').textContent=(currentIndex+1)+'/'+set.length+' 현재곡 + 다음곡 / AutoDetect';
+  document.getElementById('subtitle').textContent=(currentIndex+1)+'/'+set.length+' 현재곡 + 다음곡 / PDFMatch';
   status('Rendering...');
   try{
     await drawSong(leftId, document.getElementById('left'), document.getElementById('leftLabel'));

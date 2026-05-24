@@ -1,0 +1,1 @@
+dual-setlist.html v4 PDFMatch\n- scans IndexedDB databases/stores\n- lists PDF keys with PDF Keys button\n- fuzzy matches song id/title to PDF storage key\n\nOpen:\nhttps://terrysf-web.github.io/tvpcainos/dual-setlist.html?v=dual-setlist-v4-pdfmatch\n
