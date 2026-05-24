@@ -13,7 +13,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body,#app{margin:0;width:100%;height:100%;overflow:hidden;background:#f3f4f6;color:#111827;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 button,input,select{font:inherit}
-button{border:0;border-radius:12px;padding:10px 14px;font-weight:900;background:#1f2937;color:#fff;cursor:pointer}
+button{border:0;border-radius:12px;padding:10px 14px;font-weight:900;background:#1f2937;color:#fff}
 button.primary{background:#22c7d8;color:#031217}
 button.blue{background:#2563eb}
 button.gray{background:#e5e7eb;color:#111827}
@@ -41,29 +41,25 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .tabs{display:flex;gap:8px}.tabs button{background:#1b1f26}.tabs button.active{background:#22c7d8;color:#031217}
 
 .viewer{position:fixed;inset:0;z-index:50;background:#050608;display:grid;grid-template-rows:auto 1fr auto;overscroll-behavior:none}
-.vtop{height:64px;padding:0 12px;padding-top:env(safe-area-inset-top);background:#050608;color:#fff;display:grid;grid-template-columns:auto 1fr auto auto auto auto auto;gap:8px;align-items:center;border-bottom:1px solid #1f2937}
+.vtop{height:64px;padding:0 12px;padding-top:env(safe-area-inset-top);background:#050608;color:#fff;display:grid;grid-template-columns:auto 1fr auto auto auto;gap:8px;align-items:center;border-bottom:1px solid #1f2937}
 .vtitle{text-align:center;min-width:0;line-height:1.1}
 .vtitle b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px}
 .vtitle span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:#cbd5e1;margin-top:3px}
 .stage{position:relative;overflow:hidden;background:#1f2937;display:grid;place-items:center;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;padding:10px 14px}
 .dual-wrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:16px;padding:0}
 .sheet{position:relative;background:#fff;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.35);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.sheet-placeholder{height:100%;min-width:0;display:none}
 .pdfCanvas{position:absolute;left:0;top:0;z-index:1;background:#fff;pointer-events:none!important;touch-action:none}
 .inkCanvas{position:absolute;left:0;top:0;z-index:30;touch-action:none!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important}
-
-/* 코드 오버레이 배치용 스타일 레이아웃 */
-.chordOverlay{position:absolute;inset:0;z-index:35;pointer-events:none}
-.chord-badge{position:absolute;background:#ffffff;color:#2563eb;font-weight:bold;border:2px solid #2563eb;padding:2px 6px;border-radius:5px;font-size:14px;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.25)}
-
 .viewer.read .inkCanvas{pointer-events:none}
-.viewer.write .inkCanvas,.viewer.chord .inkCanvas{pointer-events:auto!important}
+.viewer.write .inkCanvas{pointer-events:auto!important}
 .write-lock{position:absolute;inset:0;z-index:20;background:transparent;pointer-events:none;touch-action:none}
-.viewer.write .write-lock,.viewer.chord .write-lock{pointer-events:auto}
-.vbottom{height:88px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:#050608;border-top:1px solid #1f2937;display:grid;grid-template-columns:92px 92px 92px 92px 92px 92px 1fr 70px 100px 70px 110px 80px;gap:8px;align-items:center}
+.viewer.write .write-lock{pointer-events:auto}
+.vbottom{height:88px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:#050608;border-top:1px solid #1f2937;display:grid;grid-template-columns:92px 92px 92px 92px 92px 1fr 70px 100px 70px 110px 80px;gap:8px;align-items:center}
 .vbottom button{height:58px;border-radius:14px;font-size:13px}
+.hint{display:none}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(15,23,42,.94);color:white;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:900;z-index:200}
 .toolbar-spacer{min-width:20px}
-.transpose-ctrl{display:flex;gap:4px;align-items:center;background:#1f2937;padding:4px 8px;border-radius:10px}
 @media(max-width:900px){.grid{grid-template-columns:1fr}.page{padding:12px}.vbottom{grid-template-columns:repeat(4,1fr);height:auto}.vbottom button{font-size:13px}.dual-wrap{gap:8px}}
 </style>
 </head>
@@ -78,17 +74,12 @@ async function putFile(id,data){const db=await openDB();return new Promise((res,
 async function getFile(id){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readonly");const r=tx.objectStore(STORE).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 async function getPdf(songId){if(pdfCache[songId])return pdfCache[songId];const data=await getFile(songId);if(!data)return null;const pdf=await pdfjsLib.getDocument(data).promise;pdfCache[songId]=pdf;return pdf}
 const $=s=>document.querySelector(s), app=$("#app");
-
-// 12음계 조바꿈 계산 배열 정의
-const SEMITONE_SCALE = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-
 const state={
  tab:"service",
  songs:JSON.parse(localStorage.getItem("tvpc_ainos_songs_stable")||localStorage.getItem("ais2_songs")||localStorage.getItem("ais_songs")||"[]"),
  services:JSON.parse(localStorage.getItem("tvpc_ainos_services_stable")||localStorage.getItem("ais2_services")||localStorage.getItem("ais_services")||"[]"),
  currentService:localStorage.getItem("tvpc_ainos_current_service_stable")||localStorage.getItem("ais2_current_service")||localStorage.getItem("ais_current_service")||null,
- viewer:null,mode:"read",viewMode:localStorage.getItem("tvpc_ainos_view_mode_stable")||localStorage.getItem("ais2_view_mode")||"single",page:1,total:1,draw:false,pts:[],activeSlot:null,startX:0,startY:0,color:"#ef4444",width:3,
- keyOffset: 0 // 실시간 변환 오프셋 추가
+ viewer:null,mode:"read",viewMode:localStorage.getItem("tvpc_ainos_view_mode_stable")||localStorage.getItem("ais2_view_mode")||"single",page:1,total:1,draw:false,pts:[],activeSlot:null,startX:0,startY:0,color:"#ef4444",width:3
 };
 if(!state.services.length){const id="svc_"+Date.now();state.services=[{id,name:"Sunday Service",date:new Date().toISOString().slice(0,10),songs:[]}];state.currentService=id;save();}
 function save(){localStorage.setItem("tvpc_ainos_songs_stable",JSON.stringify(state.songs));localStorage.setItem("tvpc_ainos_services_stable",JSON.stringify(state.services));localStorage.setItem("tvpc_ainos_view_mode_stable",state.viewMode);if(state.currentService)localStorage.setItem("tvpc_ainos_current_service_stable",state.currentService);localStorage.setItem("ais2_songs",JSON.stringify(state.songs));localStorage.setItem("ais2_services",JSON.stringify(state.services));}
@@ -107,11 +98,14 @@ function libraryHTML(){return `<div class="field"><label>Title</label><input id=
 function rowSong(s,inSet,i=0){return `<div class="row"><div><div class="title">${esc(s.title)}</div><div class="meta">Key ${esc(s.key||"-")}</div></div><div class="actions">${inSet?`<button class="blue small" onclick="openViewer('${s.id}')">Open</button><button class="gray small" onclick="moveSong(${i},-1)">↑</button><button class="gray small" onclick="moveSong(${i},1)">↓</button><button class="red small" onclick="removeSong(${i})">Remove</button>`:`<button class="primary small" onclick="addToService('${s.id}')">Add</button><button class="gray small" onclick="openViewer('${s.id}')">Test</button><button class="red small" onclick="deleteSong('${s.id}')">Delete</button>`}</div></div>`}
 function newService(){const id=uid();state.services.push({id,name:"New Service",date:new Date().toISOString().slice(0,10),songs:[]});state.currentService=id;save();render()}
 function deleteService(id){if(state.services.length<=1)return toast("최소 1개 필요");if(!confirm("Service 삭제?"))return;state.services=state.services.filter(s=>s.id!==id);if(state.currentService===id)state.currentService=state.services[0].id;save();render()}
-async function addSong(){const title=$("#title").value.trim(),key=$("#key").value,f=$("#pdf").files[0];if(!title||!f)return toast("Title/PDF 필요");const id=uid();await putFile(id,await fileData(f));state.songs.push({id,title,key,ink:{},chords:[],zoom:1});save();render();toast("곡 추가됨")}
+async function addSong(){const title=$("#title").value.trim(),key=$("#key").value,f=$("#pdf").files[0];if(!title||!f)return toast("Title/PDF 필요");const id=uid();await putFile(id,await fileData(f));state.songs.push({id,title,key,ink:{},zoom:1});save();render();toast("곡 추가됨")}
 function deleteSong(id){if(!confirm("곡 삭제?"))return;state.songs=state.songs.filter(s=>s.id!==id);state.services.forEach(s=>s.songs=s.songs.filter(x=>x!==id));save();render()}
 function addToService(id){currentSvc().songs.push(id);save();state.tab="service";render();toast("Service에 추가됨")}
 function removeSong(i){currentSvc().songs.splice(i,1);save();render()}
 function moveSong(i,d){const arr=currentSvc().songs,j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];save();render()}
 function startService(){const svc=currentSvc();if(!svc.songs.length)return toast("Setlist 없음");openViewer(svc.songs[0])}
-
-// 오리지널 100% 렌
+async function openViewer(id){const pdf=await getPdf(id);if(!pdf)return toast("PDF 없음");state.viewer={id};state.mode="read";state.page=1;state.total=pdf.numPages;renderViewer();await drawAll()}
+function closeViewer(){save();state.viewer=null;render()}
+async function getSlots(){const curr=currentSong(), pdf=await getPdf(curr.id);state.total=pdf.numPages;let slots=[{slot:0,songId:curr.id,page:state.page,pdf}];if(state.viewMode Pac==="dual" || state.viewMode==="dual"){if(state.page+1<=pdf.numPages){slots.push({slot:1,songId:curr.id,page:state.page+1,pdf})}else{const i=currentIndex(), nextId=currentSvc().songs[i+1];if(nextId){const npdf=await getPdf(nextId);if(npdf)slots.push({slot:1,songId:nextId,page:1,pdf:npdf})}}}return slots}
+function slotTitle(){if(state.viewMode!=="dual")return `Page ${state.page}/${state.total}`;return `Dual View`}
+function renderViewer(){const s=currentSong(), idx=currentIndex();app.innerHTML=`<div class="viewer ${state.mode}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+currentSvc().songs.length+" · ":""}${slotTitle()} · Key ${esc(s.key||"-")}</span></div><button class="${state.mode==='write'?'primary':'gold'
