@@ -106,9 +106,136 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 </head>
 <body>
 <div id="app"></div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getFirestore, collection, doc, getDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAzXyQA-BbL_0KsTnukODBfMBkIZINxiNM",
+  authDomain: "tvpcainos.firebaseapp.com",
+  projectId: "tvpcainos",
+  storageBucket: "tvpcainos.firebasestorage.app",
+  messagingSenderId: "721441022829",
+  appId: "1:721441022829:web:45a0ee8fc152090b09f064"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const DEFAULT_SONGS = [
+  {id:"1",title:"Amazing Grace",artist:"John Newton",key:"G"},
+  {id:"2",title:"10,000 Reasons",artist:"Matt Redman",key:"G"},
+  {id:"3",title:"How Great Is Our God",artist:"Chris Tomlin",key:"G"},
+  {id:"4",title:"Blessed Be Your Name",artist:"Matt Redman",key:"A"},
+  {id:"5",title:"위대하신 주",artist:"워십팀",key:"G"},
+  {id:"6",title:"주를 찬양해",artist:"교회 워십",key:"D"},
+  {id:"7",title:"주님 한 분만으로",artist:"예수전도단",key:"Bb"},
+  {id:"8",title:"Good Good Father",artist:"Chris Tomlin",key:"C"}
+];
+
+function norm(v){
+  return String(v || "")
+    .normalize("NFC")
+    .replace(/\.pdf$/i,"")
+    .replace(/\s+/g,"")
+    .trim()
+    .toLowerCase();
+}
+
+async function loadChunks(id){
+  const metaRef = doc(db, "pdfFiles", String(id));
+  const metaSnap = await getDoc(metaRef);
+  if(!metaSnap.exists()) return null;
+
+  const meta = metaSnap.data();
+  if(!meta || !meta.chunkCount) return null;
+
+  const parts = [];
+  for(let i=0;i<meta.chunkCount;i++){
+    const chunkSnap = await getDoc(doc(db, "pdfFiles", String(id), "chunks", String(i)));
+    if(chunkSnap.exists()) parts.push(chunkSnap.data().data || "");
+  }
+
+  const b64 = parts.join("");
+  if(!b64) return null;
+
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+
+  return { id:String(id), name:meta.name || "", data:bytes };
+}
+
+async function getAllSongs(){
+  const customSnap = await getDocs(collection(db, "customSongs"));
+  const custom = customSnap.docs.map(d=>({id:d.id, ...d.data(), custom:true}));
+  const all = [...DEFAULT_SONGS, ...custom];
+
+  const pdfSnap = await getDocs(collection(db, "pdfFiles"));
+  const pdfMap = {};
+  pdfSnap.docs.forEach(d=>{ pdfMap[String(d.id)] = d.data() || {}; });
+
+  return all
+    .filter(s => pdfMap[String(s.id)])
+    .map(s => ({
+      id:String(s.id),
+      title:s.title || s.name || "Untitled",
+      key:s.key || "",
+      pdf:s.pdf || pdfMap[String(s.id)]?.name || "",
+      firebasePdfId:String(s.id)
+    }))
+    .sort((a,b)=>(a.title||"").localeCompare(b.title||"", "ko"));
+}
+
+window.TVPC_FB_READY = Promise.resolve({
+  async getSongs(){
+    return await getAllSongs();
+  },
+
+  watchSongs(callback){
+    let unsubCustom = null;
+    let unsubPdf = null;
+    const refresh = async()=>callback(await getAllSongs());
+    unsubCustom = onSnapshot(collection(db, "customSongs"), refresh);
+    unsubPdf = onSnapshot(collection(db, "pdfFiles"), refresh);
+    refresh();
+    return ()=>{ if(unsubCustom)unsubCustom(); if(unsubPdf)unsubPdf(); };
+  },
+
+  async getPdfDataForSong(song){
+    const candidates = [
+      song.firebasePdfId,
+      song.id,
+      song.title,
+      song.pdf,
+      song.file,
+      song.filename
+    ].filter(Boolean);
+
+    for(const id of candidates){
+      const direct = await loadChunks(id).catch(()=>null);
+      if(direct) return direct;
+    }
+
+    const targetNames = new Set(candidates.map(norm).filter(Boolean));
+    const all = await getDocs(collection(db, "pdfFiles"));
+    for(const d of all.docs){
+      const m = d.data() || {};
+      const possible = [d.id, m.name].map(norm);
+      if(possible.some(x => targetNames.has(x))){
+        const found = await loadChunks(d.id).catch(()=>null);
+        if(found) return found;
+      }
+    }
+    return null;
+  }
+});
+
+window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebase library/PDF sync ready"); });
+</script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_FIREBASE_PDF_SYNC";
+const BUILD="AINOS_FIREBASE_LIBRARY_SYNC_FIXED";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -223,6 +350,14 @@ function share(){const svc=currentSvc();const payload={v:1,name:svc.name,date:sv
 window.addEventListener("resize",()=>{if(state.viewer)renderViewer()});
 async function loadSharedSongs(){
   try{
+    if(window.TVPC_FB_READY){
+      const api = await window.TVPC_FB_READY;
+      state.songs = await api.getSongs();
+      render();
+      api.watchSongs((songs)=>{ state.songs=songs; render(); });
+      return;
+    }
+
     const res = await fetch(SHARED_SONGS_URL,{cache:"no-store"});
     if(!res.ok) throw new Error("songs.json load failed " + res.status);
     const data = await res.json();
@@ -243,97 +378,9 @@ async function loadSharedSongs(){
 loadSharedSongs();
 </script>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getFirestore, collection, doc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyAzXyQA-BbL_0KsTnukODBfMBkIZINxiNM",
-  authDomain: "tvpcainos.firebaseapp.com",
-  projectId: "tvpcainos",
-  storageBucket: "tvpcainos.firebasestorage.app",
-  messagingSenderId: "721441022829",
-  appId: "1:721441022829:web:45a0ee8fc152090b09f064"
-};
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
 
-function norm(v){
-  return String(v || "")
-    .replace(/\.pdf$/i,"")
-    .replace(/\s+/g,"")
-    .trim()
-    .toLowerCase();
-}
-
-async function loadChunks(id){
-  const metaRef = doc(db, "pdfFiles", String(id));
-  const metaSnap = await getDoc(metaRef);
-  if(!metaSnap.exists()) return null;
-
-  const meta = metaSnap.data();
-  if(!meta || !meta.chunkCount) return null;
-
-  const parts = [];
-  for(let i=0;i<meta.chunkCount;i++){
-    const chunkSnap = await getDoc(doc(db, "pdfFiles", String(id), "chunks", String(i)));
-    if(chunkSnap.exists()) parts.push(chunkSnap.data().data || "");
-  }
-
-  const b64 = parts.join("");
-  if(!b64) return null;
-
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
-
-  return {
-    id:String(id),
-    name:meta.name || "",
-    data:bytes
-  };
-}
-
-window.TVPC_FB = {
-  async getPdfDataForSong(song){
-    const candidates = [
-      song.id,
-      song.title,
-      song.pdf,
-      song.file,
-      song.filename
-    ].filter(Boolean);
-
-    for(const id of candidates){
-      const direct = await loadChunks(id).catch(()=>null);
-      if(direct) return direct;
-    }
-
-    const targetNames = new Set([
-      norm(song.id),
-      norm(song.title),
-      norm(song.pdf),
-      norm(song.file),
-      norm(song.filename)
-    ].filter(Boolean));
-
-    const all = await getDocs(collection(db, "pdfFiles"));
-    for(const d of all.docs){
-      const m = d.data() || {};
-      const possible = [d.id, m.name].map(norm);
-      if(possible.some(x => targetNames.has(x))){
-        const found = await loadChunks(d.id).catch(()=>null);
-        if(found) return found;
-      }
-    }
-
-    return null;
-  }
-};
-
-console.log("TVPC Firebase PDF sync ready");
-</script>
 
 </body>
 </html>
