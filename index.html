@@ -101,6 +101,11 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 }
 .write-lock{position:absolute;inset:0;z-index:20;background:transparent;pointer-events:none;touch-action:none}
 .viewer.write .write-lock{pointer-events:auto}
+.viewer.dual .stage{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;align-items:center;justify-items:center}
+.viewer.dual .sheet{max-width:100%;max-height:100%}
+.dualSheet{position:relative;background:#fff;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.28)}
+#dualPdfCanvas{position:absolute;left:0;top:0;z-index:1;background:#fff;pointer-events:none!important;touch-action:none}
+.dualLabel{position:absolute;top:8px;left:8px;z-index:10;background:rgba(0,0,0,.62);color:white;font-size:12px;font-weight:900;border-radius:999px;padding:5px 9px;pointer-events:none}
 @media(max-width:900px){.grid{grid-template-columns:1fr}.page{padding:12px}.vbottom{grid-template-columns:1fr 1fr}.vbottom button{font-size:13px}}
 </style>
 </head>
@@ -263,7 +268,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_PDF_CACHE_PRELOAD";
+const BUILD="AINOS_DUAL_MODE_V1";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -303,6 +308,14 @@ async function loadPdfDocForSong(song){
   return pdfDoc;
 }
 
+function getNextSongForDual(currentId){
+  const svc=currentSvc();
+  const ids=(svc.songs||[]).map(x=>{const s=findSongByRef(x);return s?s.id:x});
+  const idx=ids.indexOf(currentId);
+  if(idx<0 || idx>=ids.length-1) return null;
+  return findSongByRef(ids[idx+1]);
+}
+
 async function preloadNextPdf(currentId){
   try{
     const svc=currentSvc();
@@ -336,7 +349,7 @@ const state={
  songs:[],
  services:JSON.parse(localStorage.getItem("ais_services")||"[]"),
  currentService:localStorage.getItem("ais_current_service")||null,
- viewer:null,pdf:null,mode:"read",page:1,total:1,draw:false,pts:[],startX:0,startY:0,color:"#ef4444",width:3
+ viewer:null,pdf:null,dual:false,dualPdf:null,dualSong:null,dualTotal:1,mode:"read",page:1,total:1,draw:false,pts:[],startX:0,startY:0,color:"#ef4444",width:3
 };
 if(!state.services.length){const id="svc_"+Date.now();state.services=[{id,name:"Sunday Service",date:new Date().toISOString().slice(0,10),songs:[]}];state.currentService=id;save();}
 function save(){localStorage.setItem("ais_services",JSON.stringify(state.services));if(state.currentService)localStorage.setItem("ais_current_service",state.currentService)}
@@ -374,17 +387,69 @@ state.viewer={id};state.mode="read";state.page=1;state.pdf=null;render();
 state.pdf=await loadPdfDocForSong(song);
 
 state.total=state.pdf.numPages;
+await prepareDual();
 await drawAll();
 preloadNextPdf(id);
 }catch(e){console.error(e);toast("PDF 열기 실패 - Firebase/파일 확인")}
 }
-function closeViewer(){save();state.viewer=null;state.pdf=null;render()}
+function closeViewer(){save();state.viewer=null;state.pdf=null;state.dualPdf=null;state.dualSong=null;render()}
 function currentSong(){return findSongByRef(state.viewer.id)}
-function renderViewer(){const s=currentSong(), svc=currentSvc(), svcIds=svc.songs.map(x=>{const ss=findSongByRef(x);return ss?ss.id:x}), idx=svcIds.indexOf(s.id);app.innerHTML=`<div class="viewer ${state.mode}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}Page ${state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><div style="display:flex;align-items:center;gap:8px">
+function renderViewer(){const s=currentSong(), svc=currentSvc(), svcIds=svc.songs.map(x=>{const ss=findSongByRef(x);return ss?ss.id:x}), idx=svcIds.indexOf(s.id);app.innerHTML=`<div class="viewer ${state.mode} ${state.dual?'dual':''}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}Page ${state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><div style="display:flex;align-items:center;gap:8px">
 <button class="${state.mode==='write'?'primary':'gold'}" onclick="toggleMode()">${state.mode==='write'?'WRITE ON':'READ'}</button>
 <span style="color:white;font-size:12px;font-weight:700;opacity:.85;white-space:nowrap;">${state.mode==='write'?'필기만 가능 / 이동 잠김':'Swipe 가능'}</span>
-</div><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="sheet" id="sheet"><canvas id="pdfCanvas"></canvas><div class="write-lock" id="writeLock"></div><canvas id="inkCanvas"></canvas></div></div><div class="vbottom"><button onclick="prev()">◀ PREV</button><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="next()" class="primary">NEXT ▶</button><button onclick="zoomToggle()" class="gray">Zoom</button></div></div>`;setTimeout(()=>drawAll(),0)}
-async function drawAll(){if(!state.pdf||!state.viewer)return;await drawPdf();setupInk();loadInk();setupWriteLock()}
+</div><button class="${state.dual?'primary':'gray'}" onclick="toggleDual()">DUAL</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="sheet" id="sheet"><canvas id="pdfCanvas"></canvas><div class="write-lock" id="writeLock"></div><canvas id="inkCanvas"></canvas></div>${state.dual?`<div class="dualSheet" id="dualSheet"><canvas id="dualPdfCanvas"></canvas><div class="dualLabel">${state.dualSong?esc(state.dualSong.title):'Next Song 없음'}</div></div>`:''}</div><div class="vbottom"><button onclick="prev()">◀ PREV</button><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="next()" class="primary">NEXT ▶</button><button onclick="toggleDual()" class="${state.dual?'primary':'gray'}">${state.dual?'Dual ON':'Dual'}</button></div></div>`;setTimeout(()=>drawAll(),0)}
+async function prepareDual(){
+  state.dualPdf=null;
+  state.dualSong=null;
+  state.dualTotal=1;
+  if(!state.dual || !state.viewer) return;
+
+  const nextSong=getNextSongForDual(state.viewer.id);
+  if(!nextSong) return;
+
+  try{
+    state.dualSong=nextSong;
+    state.dualPdf=await loadPdfDocForSong(nextSong);
+    state.dualTotal=state.dualPdf.numPages;
+  }catch(e){
+    console.warn("Dual PDF load failed", e);
+  }
+}
+
+async function drawDualPdf(){
+  if(!state.dual || !state.dualPdf) return;
+  const page=await state.dualPdf.getPage(1);
+  const stage=$("#stage"),canvas=$("#dualPdfCanvas"),sheet=$("#dualSheet");
+  if(!stage||!canvas||!sheet) return;
+
+  const base=page.getViewport({scale:1});
+  const targetW=Math.max(200, (stage.clientWidth-24)/2);
+  const targetH=Math.max(200, stage.clientHeight-16);
+  const fit=Math.min(targetW/base.width,targetH/base.height);
+  const vp=page.getViewport({scale:fit});
+  const dpr=window.devicePixelRatio||1;
+
+  sheet.style.width=Math.round(vp.width)+"px";
+  sheet.style.height=Math.round(vp.height)+"px";
+  canvas.width=Math.round(vp.width*dpr);
+  canvas.height=Math.round(vp.height*dpr);
+  canvas.style.width=Math.round(vp.width)+"px";
+  canvas.style.height=Math.round(vp.height)+"px";
+
+  const ctx=canvas.getContext("2d",{alpha:false});
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  await page.render({canvasContext:ctx,viewport:vp}).promise;
+}
+
+async function toggleDual(){
+  if(state.mode==="write") return toast("Write Mode에서는 Dual 변경 잠김");
+  state.dual=!state.dual;
+  await prepareDual();
+  renderViewer();
+}
+
+async function drawAll(){if(!state.pdf||!state.viewer)return;await drawPdf();setupInk();loadInk();setupWriteLock();await drawDualPdf()}
 async function drawPdf(){const page=await state.pdf.getPage(state.page),stage=$("#stage"),pdf=$("#pdfCanvas"),ink=$("#inkCanvas"),sheet=$("#sheet"),lock=$("#writeLock");if(!stage||!pdf||!ink)return;const base=page.getViewport({scale:1});const fit=Math.min(stage.clientWidth/base.width,stage.clientHeight/base.height)*(currentSong().zoom||1);const vp=page.getViewport({scale:fit});const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});if(lock){lock.style.width=Math.round(vp.width)+"px";lock.style.height=Math.round(vp.height)+"px"}const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await page.render({canvasContext:ctx,viewport:vp}).promise}
 function blockEvent(e){if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{};try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch{};return false}}
 function setupWriteLock(){const lock=$("#writeLock");if(!lock)return;["touchstart","touchmove","touchend","click","contextmenu","gesturestart","gesturechange","gestureend"].forEach(type=>lock.addEventListener(type,blockEvent,{passive:false,capture:true}))}
