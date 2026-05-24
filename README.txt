@@ -1,1 +1,1 @@
-TVPC Ainos Dual Safe v6. Conservative dual implementation. Open /index.html?v=dual-safe-v6
+TVPC Ainos Integrated Stable v1. Upload to tvpcainos repo root. Open /index.html?v=integrated-stable-v1
