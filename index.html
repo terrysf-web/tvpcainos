@@ -108,7 +108,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 <div id="app"></div>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_SHARED_LIBRARY_SERVICE_FIXED";
+const BUILD="AINOS_FIREBASE_PDF_SYNC";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -169,11 +169,24 @@ async function openViewer(id){
 const song=findSongByRef(id);
 if(!song)return toast("곡을 못 찾았습니다");
 id=song.id;
-const url=pdfUrlFor(song);
-if(!url)return toast("PDF 경로 없음");
 try{
 state.viewer={id};state.mode="read";state.page=1;state.pdf=null;render();
-state.pdf=await pdfjsLib.getDocument(url).promise;
+
+let loaded=false;
+if(window.TVPC_FB&&window.TVPC_FB.getPdfDataForSong){
+  const fbPdf=await window.TVPC_FB.getPdfDataForSong(song).catch(e=>{console.warn("Firebase PDF load failed",e);return null});
+  if(fbPdf&&fbPdf.data){
+    state.pdf=await pdfjsLib.getDocument({data:fbPdf.data}).promise;
+    loaded=true;
+  }
+}
+
+if(!loaded){
+  const url=pdfUrlFor(song);
+  if(!url)return toast("PDF 경로 없음");
+  state.pdf=await pdfjsLib.getDocument(url).promise;
+}
+
 state.total=state.pdf.numPages;
 await drawAll();
 }catch(e){console.error(e);toast("PDF 열기 실패")}
@@ -229,91 +242,98 @@ async function loadSharedSongs(){
 
 loadSharedSongs();
 </script>
-  <!-- TVPC Shared Firebase Bridge v1
-Place this before </body> in BOTH tvpc-worship/index.html and tvpcainos/index.html.
-Replace FIREBASE_CONFIG below with your Firebase web app config.
--->
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import {
-  getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-import {
-  getStorage, ref, uploadBytes, getDownloadURL
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
+import { getFirestore, collection, doc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-const FIREBASE_CONFIG = {
-  apiKey: "PASTE_FIREBASE_API_KEY",
-  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
-  projectId: "PASTE_PROJECT_ID",
-  storageBucket: "PASTE_PROJECT_ID.appspot.com",
-  messagingSenderId: "PASTE_SENDER_ID",
-  appId: "PASTE_APP_ID"
+const firebaseConfig = {
+  apiKey: "AIzaSyAzXyQA-BbL_0KsTnukODBfMBkIZINxiNM",
+  authDomain: "tvpcainos.firebaseapp.com",
+  projectId: "tvpcainos",
+  storageBucket: "tvpcainos.firebasestorage.app",
+  messagingSenderId: "721441022829",
+  appId: "1:721441022829:web:45a0ee8fc152090b09f064"
 };
 
-const TVPC_APP = initializeApp(FIREBASE_CONFIG);
-const TVPC_DB = getFirestore(TVPC_APP);
-const TVPC_STORAGE = getStorage(TVPC_APP);
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-window.TVPC_SHARED = {
-  async saveSong(song, pdfFile){
-    if(!song) throw new Error("song is required");
-    const id = song.id || (song.title || "song").toLowerCase().replace(/\s+/g,"-").replace(/[^\w가-힣-]/g,"") + "-" + Date.now();
-    let pdfUrl = song.pdfUrl || song.pdf || "";
+function norm(v){
+  return String(v || "")
+    .replace(/\.pdf$/i,"")
+    .replace(/\s+/g,"")
+    .trim()
+    .toLowerCase();
+}
 
-    if(pdfFile){
-      const storagePath = `pdfs/${id}/${pdfFile.name}`;
-      const storageRef = ref(TVPC_STORAGE, storagePath);
-      await uploadBytes(storageRef, pdfFile);
-      pdfUrl = await getDownloadURL(storageRef);
+async function loadChunks(id){
+  const metaRef = doc(db, "pdfFiles", String(id));
+  const metaSnap = await getDoc(metaRef);
+  if(!metaSnap.exists()) return null;
+
+  const meta = metaSnap.data();
+  if(!meta || !meta.chunkCount) return null;
+
+  const parts = [];
+  for(let i=0;i<meta.chunkCount;i++){
+    const chunkSnap = await getDoc(doc(db, "pdfFiles", String(id), "chunks", String(i)));
+    if(chunkSnap.exists()) parts.push(chunkSnap.data().data || "");
+  }
+
+  const b64 = parts.join("");
+  if(!b64) return null;
+
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+
+  return {
+    id:String(id),
+    name:meta.name || "",
+    data:bytes
+  };
+}
+
+window.TVPC_FB = {
+  async getPdfDataForSong(song){
+    const candidates = [
+      song.id,
+      song.title,
+      song.pdf,
+      song.file,
+      song.filename
+    ].filter(Boolean);
+
+    for(const id of candidates){
+      const direct = await loadChunks(id).catch(()=>null);
+      if(direct) return direct;
     }
 
-    const row = {
-      id,
-      title: song.title || song.name || "Untitled",
-      key: song.key || "",
-      pdf: song.pdf || "",
-      pdfUrl,
-      updatedAt: serverTimestamp()
-    };
+    const targetNames = new Set([
+      norm(song.id),
+      norm(song.title),
+      norm(song.pdf),
+      norm(song.file),
+      norm(song.filename)
+    ].filter(Boolean));
 
-    await setDoc(doc(TVPC_DB, "songs", id), row, {merge:true});
-    return row;
-  },
+    const all = await getDocs(collection(db, "pdfFiles"));
+    for(const d of all.docs){
+      const m = d.data() || {};
+      const possible = [d.id, m.name].map(norm);
+      if(possible.some(x => targetNames.has(x))){
+        const found = await loadChunks(d.id).catch(()=>null);
+        if(found) return found;
+      }
+    }
 
-  async deleteSong(id){
-    await deleteDoc(doc(TVPC_DB, "songs", id));
-  },
-
-  watchSongs(callback){
-    return onSnapshot(collection(TVPC_DB, "songs"), snap=>{
-      const songs = snap.docs.map(d=>({id:d.id, ...d.data()}))
-        .sort((a,b)=>(a.title||"").localeCompare(b.title||"", "ko"));
-      callback(songs);
-    });
-  },
-
-  async saveService(service){
-    const id = service.id || "service-" + Date.now();
-    await setDoc(doc(TVPC_DB, "services", id), {
-      id,
-      name: service.name || "Service",
-      date: service.date || "",
-      songs: service.songs || [],
-      updatedAt: serverTimestamp()
-    }, {merge:true});
-  },
-
-  watchServices(callback){
-    return onSnapshot(collection(TVPC_DB, "services"), snap=>{
-      const services = snap.docs.map(d=>({id:d.id, ...d.data()}))
-        .sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-      callback(services);
-    });
+    return null;
   }
 };
 
-console.log("TVPC Shared Firebase Bridge loaded");
+console.log("TVPC Firebase PDF sync ready");
 </script>
+
 </body>
 </html>
