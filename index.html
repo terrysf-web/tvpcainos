@@ -3,14 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>TVPC Ainos Piascore Dual Perfect Engine</title>
+<title>TVPC Ainos Piascore Dual Cloud Engine</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#050608">
+<meta name="theme-color" content="#020617">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Ainos Perfect">
+<meta name="apple-mobile-web-app-title" content="Ainos Cloud">
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
 <style>
-/* 1. 최상위 시스템 레이아웃 격리 공정 */
+/* 1. 글로벌 레이아웃 및 밴드 테마 클린 격리 */
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body,#app{
   margin:0;width:100%;height:100%;overflow:hidden;
@@ -19,22 +25,24 @@ html,body,#app{
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
 }
 button,input,select,textarea{font:inherit}
-button{border:0;border-radius:12px;padding:12px 16px;font-weight:900;background:#1e293b;color:#fff;cursor:pointer;transition:background 0.2s}
+button{border:0;border-radius:12px;padding:12px 16px;font-weight:900;background:#1e293b;color:#fff;cursor:pointer}
 button:active{background:#334155}
-button.primary{background:#06b6d4;color:#0f172a}
+button.primary{background:#06b6d4;color:#020617}
 button.primary:active{background:#0891b2}
-button.gold{background:#eab308;color:#0f172a}
+button.gold{background:#eab308;color:#020617}
 button.red{background:#ef4444;color:#fff}
-button.small{font-size:12px;padding:8px 10px;border-radius:10px}
+button.gray{background:#475569;color:#fff}
+button.small{font-size:12px;padding:6px 10px;border-radius:10px}
 
-/* 2. 메인 대시보드 리스트 라이브러리 UI */
-.app{height:100%;display:grid;grid-template-rows:auto 1fr}
+/* 2. 대시보드 리스트 & 로그인 셸 인터페이스 UI */
+.app{height:100%;display:grid;grid-template-rows:auto auto 1fr}
+.auth-bar{background:#0f172a;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e293b;font-size:13px;color:#94a3b8}
 .top{
   height:64px;padding:0 16px;padding-top:env(safe-area-inset-top);
   display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;
   background:#020617;border-bottom:1px solid #1e293b;
 }
-.logo{width:38px;height:38px;border-radius:10px;background:#06b6d4;color:#020617;display:grid;place-items:center;font-weight:1000;font-size:18px}
+.logo{width:36px;height:36px;border-radius:10px;background:#06b6d4;color:#020617;display:grid;place-items:center;font-weight:1000;font-size:18px}
 .top-title{line-height:1.2;text-align:center}.top-title b{display:block;font-size:18px;color:#f8fafc}.top-title span{display:block;color:#94a3b8;font-size:12px;margin-top:2px}
 .page{height:100%;overflow:auto;padding:20px}
 .grid{display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start}
@@ -53,13 +61,13 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .list{display:grid;gap:10px}.empty{padding:32px 10px;text-align:center;color:#94a3b8;font-weight:bold}
 .badge{display:inline-block;background:#06b6d4;color:#020617;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:900;margin-left:6px}
 
-/* 3. Piascore 커스텀 듀얼 스테이지 엔진 아키텍처 */
+/* 3. Piascore 커스텀 듀얼 스테이지 독립 아키텍처 */
 .viewer{
   position:fixed;inset:0;z-index:100;background:#090d16;
   display:grid;grid-template-rows:auto 1fr auto;overscroll-behavior:none;
 }
 .vtop{
-  height:64px;padding:0 16px;padding-top:env(safe-area-inset-top);
+  height:64px;padding:0 12px;padding-top:env(safe-area-inset-top);
   background:#020617;border-bottom:1px solid #1e293b;
   display:grid;grid-template-columns:auto 1fr auto auto auto auto;gap:12px;align-items:center;
 }
@@ -71,13 +79,11 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
   position:relative;overflow:hidden;background:#0f172a;
   display:flex;flex-direction:row;justify-content:center;align-items:center;gap:24px;
   touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
-  width:100%;height:100%;padding:12px;
+  width:100%;height:100%;padding:10px;
 }
-/* 복수 컨테이너 컴포넌트 격리화 공정 */
 .sheet-container{
   position:relative;background:#fff;overflow:hidden;
   border-radius:8px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.7);
-  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
 }
 .pdf-render-canvas{
   position:absolute;left:0;top:0;z-index:1;background:#fff;
@@ -85,7 +91,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 }
 .ink-drawing-canvas{
   position:absolute;left:0;top:0;z-index:30;
-  touch-action:none!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;
+  touch-action:none!important;
 }
 .chord-interactive-overlay {
   position: absolute; inset: 0; z-index: 35; pointer-events: none;
@@ -101,7 +107,6 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
   pointer-events:none;touch-action:none;
 }
 
-/* 터치 제어 라우터 전용 상태 필터 */
 .viewer.read .ink-drawing-canvas{pointer-events:none}
 .viewer.write .ink-drawing-canvas, .viewer.chord .ink-drawing-canvas{pointer-events:auto!important}
 .viewer.write .write-protection-shield, .viewer.chord .write-protection-shield{pointer-events:auto}
@@ -109,7 +114,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .vbottom{
   height:76px;padding:8px 16px calc(8px + env(safe-area-inset-bottom));
   background:#020617;border-top:1px solid #1e2937;
-  display:grid;grid-template-columns:1.2fr 1.2fr 1.2fr 1.2fr;gap:16px;
+  display:grid;grid-template-columns:1fr 1.2fr 1.2fr 1fr;gap:16px;
 }
 .vbottom button{border-radius:14px;font-weight:900;font-size:15px;height:100%}
 .hint{
@@ -120,636 +125,141 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .toast{
   position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);
   background:#06b6d4;color:#020617;border-radius:999px;padding:12px 20px;font-size:14px;font-weight:1000;z-index:200;
-  box-shadow:0 10px 25px rgba(6,182,212,0.4);
 }
 .transpose-ctrl{display:flex;gap:6px;align-items:center;background:#1e293b;padding:6px 12px;border-radius:12px;color:#fff;border:1px solid #334155}
 </style>
 </head>
 <body>
 <div id="app"></div>
-<script>
-// --- 전역 코어 데이터 맵 정보 로드 (IndexedDB 인프라 전면 복구) ---
-const STORAGE_DB="tvpc_ainos_clean_perfect_db_v1", STORE_NAME="pdf_blobs";
-let idbInstance=null, cachedPdfObjects={};
 
-function initIndexedDB(){
-  if(idbInstance) return idbInstance;
-  idbInstance = new Promise((res,rej)=>{
-    const req = indexedDB.open(STORAGE_DB, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
-    req.onsuccess = () => res(req.result);
-    req.onerror = () => rej(req.error);
-  });
-  return idbInstance;
-}
-async function savePdfToDB(songId, dataBlob){
-  const db = await initIndexedDB();
-  return new Promise((res,rej)=>{
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    tx.objectStore(STORE_NAME).put(dataBlob, songId);
-    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
-  });
-}
-async function loadPdfFromDB(songId){
-  const db = await initIndexedDB();
-  return new Promise((res,rej)=>{
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const req = tx.objectStore(STORE_NAME).get(songId);
-    req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error);
-  });
-}
-async function fetchPdfDocumentInstance(songId){
-  if(cachedPdfObjects[songId]) return cachedPdfObjects[songId];
-  const blob = await loadPdfFromDB(songId);
-  if(!blob) return null;
-  const pdfInstance = await pdfjsLib.getDocument(blob).promise;
-  cachedPdfObjects[songId] = pdfInstance;
-  return pdfInstance;
-}
+<script>
+// --- 사용자 제공 마스터 클라우드 설정 정보 완벽 결합 및 주입 공정 ---
+const firebaseConfig = {
+  apiKey: "AIzaSyB2iVlROco_aB4jL4cV35xXmVVaDU9fgEM",
+  authDomain: "worship-operations-cue-sheet.firebaseapp.com",
+  projectId: "worship-operations-cue-sheet",
+  storageBucket: "worship-operations-cue-sheet.firebasestorage.app",
+  messagingSenderId: "1052866950674",
+  appId: "1:1052866950674:web:bfd42600114ce0feea4acb"
+};
+
+// 클라우드 인프라 파이프라인 가동
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
 
 const appEngineRoot = document.getElementById("app");
 const SEMITONE_CIRCULAR_MAP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-// --- 무결점 완전 분리 상태 관리 객체 (State 아키텍처) ---
+// --- 격리 설계형 완벽 상태 전계 변수 객체 (State Map) ---
 const coreState = {
+  currentUser: null,     
   currentTab: "service",
-  songLibrary: JSON.parse(localStorage.getItem("clean_songs") || "[]"),
-  serviceSetlist: JSON.parse(localStorage.getItem("clean_services") || "[]"),
-  selectedServiceId: localStorage.getItem("clean_selected_service_id") || null,
+  songLibrary: [],       
+  serviceSetlist: [],    
+  selectedServiceId: null,
   
-  // 뷰어 활성화 타겟 서브 상태 도메인
-  activeViewer: null, // { songId: '...' }
+  // 개인 로그인 계정(UID) 필터 연동 기반 앰플리튜드 레이어
+  privateUserInk: {},    
+  privateUserChords: [], 
+
+  // 뷰어 타겟 제어 지표
+  activeViewer: null,
   currentPdfBinary: null,
-  leftGlobalPage: 1,  // 왼쪽 슬롯 타겟 페이지 번호
-  rightGlobalPage: 2, // 오른쪽 슬롯 타겟 페이지 번호
-  maxTotalPages: 1,
-  globalKeyOffset: 0,
-  currentMode: "read", // 'read' | 'write' | 'chord'
+  leftGlobalPage: 1, rightGlobalPage: 2, maxTotalPages: 1,
+  globalKeyOffset: 0, currentMode: "read",
   
-  // 드로잉 캐시 파이프라인 버퍼
-  isPointerDrawing: false,
-  activePointerSide: null,
-  accumulatedPoints: [],
-  touchStartX: 0, touchStartY: 0,
-  penColorHex: "#ef4444", penThickness: 3
+  isPointerDrawing: false, activePointerSide: null, accumulatedPoints: [],
+  touchStartX: 0, touchStartY: 0, penColorHex: "#ef4444", penThickness: 3
 };
 
-if(!coreState.serviceSetlist.length){
-  const defaultId = "svc_" + Date.now();
-  coreState.serviceSetlist = [{id: defaultId, name: "일요 대예배 세트리스트", date: new Date().toISOString().slice(0,10), songs: []}];
-  coreState.selectedServiceId = defaultId;
-  commitDataSync();
-}
-function commitDataSync(){
-  localStorage.setItem("clean_songs", JSON.stringify(coreState.songLibrary));
-  localStorage.setItem("clean_services", JSON.stringify(coreState.serviceSetlist));
-  if(coreState.selectedServiceId) localStorage.setItem("clean_selected_service_id", coreState.selectedServiceId);
-}
-function getActiveServiceStruct(){
-  return coreState.serviceSetlist.find(s => s.id === coreState.selectedServiceId) || coreState.serviceSetlist[0];
-}
-function findSongById(songId){
-  return coreState.songLibrary.find(s => s.id === songId);
+// --- 클라우드 인증 세션 모니터링 옵저버 ---
+auth.onAuthStateChanged(async (user) => {
+  coreState.currentUser = user;
+  if (user) {
+    toast(`${user.email} 계정 동기화 가동`);
+    await synchronizeCloudCoreDatabase();
+    if(coreState.activeViewer) {
+      await fetchPrivateUserLayerData();
+    }
+  } else {
+    coreState.songLibrary = [];
+    coreState.serviceSetlist = [];
+    coreState.privateUserInk = {};
+    coreState.privateUserChords = [];
+  }
+  executeRenderRouter();
+});
+
+// --- Firestore 마스터 클라우드 동기화 파이프라인 ---
+async function synchronizeCloudCoreDatabase() {
+  if (!coreState.currentUser) return;
+  const songSnap = await db.collection("worship_songs").get();
+  coreState.songLibrary = songSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  const svcSnap = await db.collection("worship_services").orderBy("date", "desc").get();
+  coreState.serviceSetlist = svcSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  if (coreState.serviceSetlist.length && !coreState.selectedServiceId) {
+    coreState.selectedServiceId = coreState.serviceSetlist[0].id;
+  }
 }
 
-// --- 공통 코어 UI 렌더러 컨트롤 모듈 ---
-function executeRenderRouter(){
-  if(coreState.activeViewer) return displayDualSheetViewer();
+// --- 멤버 격리 정보 레이어 피치 패치 기술 수렴 ---
+async function fetchPrivateUserLayerData() {
+  if (!coreState.currentUser || !coreState.activeViewer) return;
+  const uid = coreState.currentUser.uid;
+  const songId = coreState.activeViewer.songId;
+
+  const chordSnap = await db.collection("user_private_chords")
+    .where("uid", "==", uid)
+    .where("songId", "==", songId).get();
+  coreState.privateUserChords = chordSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  const inkSnap = await db.collection("user_private_ink")
+    .where("uid", "==", uid)
+    .where("songId", "==", songId).get();
   
-  const svc = getActiveServiceStruct();
+  coreState.privateUserInk = {};
+  inkSnap.docs.forEach(doc => {
+    const data = doc.data();
+    coreState.privateUserInk[`p${data.page}`] = data.strokes || [];
+  });
+}
+
+async function savePrivateInkToCloud(pageScope, strokes) {
+  if (!coreState.currentUser || !coreState.activeViewer) return;
+  const uid = coreState.currentUser.uid;
+  const songId = coreState.activeViewer.songId;
+  const docId = `${uid}_${songId}_p${pageScope}`;
+
+  await db.collection("user_private_ink").doc(docId).set({
+    uid: uid, songId: songId, page: pageScope, strokes: strokes, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+// --- 사용자 메인 쉘 엔진 화면전환 라우터 ---
+function executeRenderRouter() {
+  if (coreState.activeViewer) return displayDualSheetViewer();
+  
+  if (!coreState.currentUser) {
+    appEngineRoot.innerHTML = `
+      <div style="max-width: 400px; margin: 120px auto; padding: 24px;" class="card">
+        <h2 style="text-align:center; color:#06b6d4; margin-top: 0;">Ainos 찬양팀 클라우드</h2>
+        <div class="card-body">
+          <div class="field"><label>이메일 계정</label><input id="loginEmail" type="email" placeholder="name@domain.com"></div>
+          <div class="field"><label>비밀번호</label><input id="loginPw" type="password" placeholder="••••••••"></div>
+          <button class="primary" onclick="triggerEmailAuthSignIn()">로그인</button>
+          <button class="gray small" onclick="triggerEmailAuthSignUp()">새 찬양팀원 등록</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const svc = coreState.serviceSetlist.find(s => s.id === coreState.selectedServiceId) || coreState.serviceSetlist[0] || { name: "등록된 예배 일정이 없습니다.", date: "" };
   appEngineRoot.innerHTML = `
     <div class="app">
-      <div class="top">
-        <div class="logo">A</div>
-        <div class="top-title"><b>TVPC Ainos <span>Perfect Engine v1</span></b><span>${esc(svc.name)} · ${esc(svc.date)}</span></div>
-        <button class="primary small" onclick="triggerDataShareLink()">Setlist Share</button>
-      </div>
-      <div class="page">
-        <div class="grid">
-          <section class="card">
-            <div class="card-head"><h2>예배 세트리스트 일정</h2><button class="gray small" onclick="createNewServiceSchedule()">추가</button></div>
-            <div class="card-body">${buildServiceSchedulesHTML()}</div>
-          </section>
-          <section class="card">
-            <div class="card-head">
-              <h2>${coreState.currentTab === 'service' ? '선택된 찬양 목록' : '라이브러리 전체 곡'}</h2>
-              <div class="tabs">
-                <button class="${coreState.currentTab === 'service' ? 'active' : ''} small" onclick="coreState.currentTab='service';executeRenderRouter()">현재 세트</button>
-                <button class="${coreState.currentTab === 'library' ? 'active' : ''} small" onclick="coreState.currentTab='library';executeRenderRouter()">전체 가방</button>
-              </div>
-            </div>
-            <div class="card-body">${coreState.currentTab === 'service' ? buildActiveSetlistHTML() : buildLibraryPoolHTML()}</div>
-          </section>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function buildServiceSchedulesHTML(){
-  return `
-    <div class="field"><label>예배칭호 수정</label><input value="${esc(getActiveServiceStruct().name)}" onchange="getActiveServiceStruct().name=this.value;commitDataSync();executeRenderRouter()"></div>
-    <div class="field"><label>예배일자 변경</label><input type="date" value="${esc(getActiveServiceStruct().date)}" onchange="getActiveServiceStruct().date=this.value;commitDataSync();executeRenderRouter()"></div>
-    <div class="list">${coreState.serviceSetlist.map(s => `
-      <div class="row">
-        <div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date)} · 총 ${s.songs.length}곡</div></div>
-        <div class="actions">
-          <button class="${s.id === coreState.selectedServiceId ? 'primary' : 'gray'} small" onclick="coreState.selectedServiceId='${s.id}';commitDataSync();executeRenderRouter()">선택</button>
-          <button class="red small" onclick="removeServiceSchedule('${s.id}')">삭제</button>
-        </div>
-      </div>
-    `).join("")}</div>
-  `;
-}
-
-function buildActiveSetlistHTML(){
-  const svc = getActiveServiceStruct();
-  return `
-    <div class="list">${svc.songs.map((id, index) => {
-      const s = findSongById(id);
-      if(!s) return "";
-      return `
-        <div class="row">
-          <div><div class="title">${esc(s.title)}</div><div class="meta">원본 Key: ${esc(s.key)}</div></div>
-          <div class="actions">
-            <button class="primary small" onclick="activateFullViewer('${s.id}')">악보 열기</button>
-            <button class="gray small" onclick="shiftSongOrder(${index}, -1)">↑</button>
-            <button class="gray small" onclick="shiftSongOrder(${index}, 1)">↓</button>
-            <button class="red small" onclick="dropSongFromSetlist(${index})">제외</button>
-          </div>
-        </div>
-      `;
-    }).join("") || '<div class="empty">라이브러리 탭에서 곡을 집어넣으세요.</div>'}</div>
-    <button class="primary" onclick="startSequenceWorship()">첫 곡부터 순서대로 예배시작</button>
-  `;
-}
-
-function buildLibraryPoolHTML(){
-  return `
-    <div class="field"><label>곡 제목 입력</label><input id="regTitle" placeholder="예: 내 모습 이대로"></div>
-    <div class="field"><label>원본 Key 설정</label><select id="regKey">${SEMITONE_CIRCULAR_MAP.map(k=>`<option>${k}</option>`).join("")}</select></div>
-    <div class="field"><label>PDF 악보 스캔 매핑</label><input id="regFile" type="file" accept="application/pdf"></div>
-    <button class="blue" onclick="registerNewSongItem()">새 찬양 등록 및 서버 캐싱</button>
-    <div class="list">${coreState.songLibrary.map(s => `
-      <div class="row">
-        <div><div class="title">${esc(s.title)}</div><div class="meta">기본 Key: ${esc(s.key)}</div></div>
-        <div class="actions">
-          <button class="primary small" onclick="injectSongToActiveSet('${s.id}')">세트 추가</button>
-          <button class="gray small" onclick="activateFullViewer('${s.id}')">단독 보기</button>
-          <button class="red small" onclick="completelyEraseSong('${s.id}')">완전 영구삭제</button>
-        </div>
-      </div>
-    `).join("") || '<div class="empty">가방이 비었습니다. PDF를 등록해 주세요.</div>'}</div>
-  `;
-}
-
-// --- 데이터 로직 비즈니스 트랜잭션 ---
-function createNewServiceSchedule(){
-  const nid = "svc_" + Date.now();
-  coreState.serviceSetlist.push({id: nid, name: "새로운 예배 일정", date: new Date().toISOString().slice(0,10), songs: []});
-  coreState.selectedServiceId = nid; commitDataSync(); executeRenderRouter();
-}
-function removeServiceSchedule(id){
-  if(coreState.serviceSetlist.length <= 1) return toast("최소한 1개의 예배 일정 구조가 유지되어야 합니다.");
-  if(!confirm("해당 세트리스트 일정을 정말 삭제할까요?")) return;
-  coreState.serviceSetlist = coreState.serviceSetlist.filter(s=>s.id!==id);
-  if(coreState.selectedServiceId === id) coreState.selectedServiceId = coreState.serviceSetlist[0].id;
-  commitDataSync(); executeRenderRouter();
-}
-async function registerNewSongItem(){
-  const t = document.getElementById("regTitle").value.trim(), k = document.getElementById("regKey").value, f = document.getElementById("regFile").files[0];
-  if(!t || !f) return toast("곡 제목과 PDF 파일은 필수 항목입니다.");
-  const id = "song_" + Date.now();
-  await savePdfToDB(id, await fileData(f));
-  coreState.songLibrary.push({id, title: t, key: k, ink: {}, chords: [], zoom: 1});
-  commitDataSync(); executeRenderRouter(); toast("라이브러리에 찬양이 등록되었습니다.");
-}
-function completelyEraseSong(id){
-  if(!confirm("해당 곡을 영구 삭제하시겠습니까?")) return;
-  coreState.songLibrary = coreState.songLibrary.filter(s=>s.id!==id);
-  coreState.serviceSetlist.forEach(s => s.songs = s.songs.filter(x=>x!==id));
-  commitDataSync(); executeRenderRouter();
-}
-function injectSongToActiveSet(id){
-  getActiveServiceStruct().songs.push(id); commitDataSync(); coreState.currentTab = "service"; executeRenderRouter(); toast("세트리스트에 추가됨");
-}
-function dropSongFromSetlist(index){
-  getActiveServiceStruct().songs.splice(index, 1); commitDataSync(); executeRenderRouter();
-}
-function shiftSongOrder(index, direction){
-  const arr = getActiveServiceStruct().songs, target = index + direction;
-  if(target < 0 || target >= arr.length) return;
-  [arr[index], arr[target]] = [arr[target], arr[index]]; commitDataSync(); executeRenderRouter();
-}
-function startSequenceWorship(){
-  const svc = getActiveServiceStruct();
-  if(!svc.songs.length) return toast("세트리스트에 배정된 찬양이 없습니다.");
-  activateFullViewer(svc.songs[0]);
-}
-
-// --- Piascore 커스텀 듀얼 핵심 뷰어 비즈니스 아키텍처 진입 ---
-async function activateFullViewer(songId){
-  const pdfInstance = await fetchPdfDocumentInstance(songId);
-  if(!pdfInstance) return toast("매핑된 PDF 파일을 스토리지에서 찾을 수 없습니다.");
-  
-  coreState.activeViewer = { songId: songId };
-  coreState.currentPdfBinary = pdfInstance;
-  coreState.leftGlobalPage = 1;
-  coreState.rightGlobalPage = 2;
-  coreState.maxTotalPages = pdfInstance.numPages;
-  coreState.globalKeyOffset = 0;
-  coreState.currentMode = "read";
-  
-  displayDualSheetViewer();
-}
-
-function displayDualSheetViewer(){
-  const s = currentSong(), svc = getActiveServiceStruct(), idx = svc.songs.indexOf(s.id);
-  const leftNum = coreState.leftGlobalPage;
-  const rightNum = coreState.rightGlobalPage;
-  const rightPageLabel = rightNum <= coreState.maxTotalPages ? `, ${rightNum}` : "";
-
-  appEngineRoot.innerHTML = `
-    <div class="viewer ${coreState.currentMode}">
-      <div class="vtop">
-        <button class="gray" onclick="exitFullSheetViewer()">Back</button>
-        <div class="vtitle">
-          <b>${esc(s.title)}</b>
-          <span>${idx >= 0 ? (idx + 1) + "/" + svc.songs.length + " · " : ""}쪽: ${leftNum}${rightPageLabel} / ${coreState.maxTotalPages} · 원본: ${esc(s.key)}</span>
-        </div>
-        <button class="${coreState.currentMode === 'write' ? 'primary' : 'gold'}" onclick="toggleViewerModuleMode('write')">${coreState.currentMode === 'write' ? '필기 작동중' : '메모 기능'}</button>
-        <button class="${coreState.currentMode === 'chord' ? 'primary' : 'gray'}" onclick="toggleViewerModuleMode('chord')">➕ 코드 덮어쓰기</button>
-        
-        <div class="transpose-ctrl">
-          <button onclick="applyScaleTransposeOffset(-1)">♭</button>
-          <b id="keyDisplay">Key ${coreState.globalKeyOffset >= 0 ? '+' + coreState.globalKeyOffset : coreState.globalKeyOffset}</b>
-          <button onclick="applyScaleTransposeOffset(1)">♯</button>
-        </div>
-        
-        <button class="red" onclick="wipeOutCurrentActiveInk()">메모 지우기</button>
-      </div>
-
-      <div class="stage" id="stage" ontouchstart="captureSwipeStart(event)" ontouchend="captureSwipeEnd(event)">
-        <div class="sheet-container" id="sheetContainer_left" data-side="left">
-          <canvas id="pdfCanvas_left" class="pdf-render-canvas"></canvas>
-          <div class="write-protection-shield" id="shield_left"></div>
-          <canvas id="inkCanvas_left" class="ink-drawing-canvas" data-side="left"></canvas>
-          <div class="chord-interactive-overlay" id="overlay_left"></div>
-        </div>
-
-        <div class="sheet-container" id="sheetContainer_right" data-side="right">
-          <canvas id="pdfCanvas_right" class="pdf-render-canvas"></canvas>
-          <div class="write-protection-shield" id="shield_right"></div>
-          <canvas id="inkCanvas_right" class="ink-drawing-canvas" data-side="right"></canvas>
-          <div class="chord-interactive-overlay" id="overlay_right"></div>
-        </div>
-
-        <div class="hint">
-          ${coreState.currentMode === 'write' ? '✏️ 메모 모드 활성화: 양쪽 화면에 애플펜슬 및 손가락으로 정밀 필기가 가능합니다.' : 
-            coreState.currentMode === 'chord' ? '🎼 코드 등록 모드: 악보를 터치하여 원하는 자리에 조바꿈 연동형 코드를 얹습니다.' : 
-            '🖐️ 뷰어 모드: 가로 화면을 좌우로 스와이프하면 한 장씩 자연스럽게 악보가 슬라이딩됩니다.'}
-        </div>
-      </div>
-
-      <div class="vbottom">
-        <button onclick="executeShiftPiascorePage(-1)">◀ PREV (이전 페이지 한 장 밀기)</button>
-        <button onclick="toggleViewerModuleMode('write')" class="${coreState.currentMode === 'write' ? 'primary' : 'gold'}">✎ 필기모드 스위치</button>
-        <button onclick="toggleViewerModuleMode('chord')" class="${coreState.currentMode === 'chord' ? 'primary' : 'gray'}">🎼 코드등록 스위치</button>
-        <button onclick="executeShiftPiascorePage(1)" class="primary">NEXT (다음 페이지 한 장 밀기) ▶</button>
-      </div>
-    </div>
-  `;
-
-  // UI 스레드 렌더링 동기화 연동 예약
-  setTimeout(() => renderDualPageGraphicsPipeline(), 0);
-}
-
-function exitFullSheetViewer(){
-  commitDataSync(); coreState.activeViewer = null; coreState.currentPdfBinary = null; executeRenderRouter();
-}
-function toggleViewerModuleMode(targetMode){
-  coreState.currentMode = coreState.currentMode === targetMode ? "read" : targetMode;
-  displayDualSheetViewer();
-}
-
-// --- 하드웨어 가속 결합형 듀얼 그래픽스 렌더링 파이프라인 ---
-async function renderDualPageGraphicsPipeline(){
-  if(!coreState.currentPdfBinary || !coreState.activeViewer) return;
-
-  // 1. 왼쪽 페이지 연산 출력
-  await renderIsolatedPageSlot(coreState.leftGlobalPage, 'left');
-  
-  // 2. 오른쪽 페이지 연산 출력 (총 페이지 수 범위 내에 존재할 때만 스케일링 온)
-  if(coreState.rightGlobalPage <= coreState.maxTotalPages) {
-    document.getElementById("sheetContainer_right").style.display = "block";
-    await renderIsolatedPageSlot(coreState.rightGlobalPage, 'right');
-  } else {
-    document.getElementById("sheetContainer_right").style.display = "none";
-  }
-
-  // 3. 독립 캔버스 라우터 인터랙션 및 필기 잉크 로드 바인딩
-  ['left', 'right'].forEach(side => {
-    bindPointerDrawingDeviceEvents(side);
-    loadInkStrokeOverlayData(side);
-    bindShieldBlocker(side);
-    injectChordOverlayStickers(side);
-  });
-}
-
-async function renderIsolatedPageSlot(pageNum, side){
-  const page = await coreState.currentPdfBinary.getPage(pageNum);
-  const stage = document.getElementById("stage");
-  const pdfCanvas = document.getElementById(`pdfCanvas_${side}`);
-  const inkCanvas = document.getElementById(`inkCanvas_${side}`);
-  const container = document.getElementById(`sheetContainer_${side}`);
-  const shield = document.getElementById(`shield_${side}`);
-  if(!stage || !pdfCanvas || !inkCanvas || !container) return;
-
-  const baseViewport = page.getViewport({scale: 1});
-  // 가로 양옆 정분할 배치 여백을 연산하여 최적 크기 강제 수렴
-  const finalFitScale = Math.min((stage.clientWidth / 2 - 24) / baseViewport.width, (stage.clientHeight - 32) / baseViewport.height) * (currentSong().zoom || 1);
-  const targetViewport = page.getViewport({scale: finalFitScale});
-  const devicePixelScaleRatio = window.devicePixelRatio || 1;
-
-  container.style.width = Math.round(targetViewport.width) + "px";
-  container.style.height = Math.round(targetViewport.height) + "px";
-
-  [pdfCanvas, inkCanvas].forEach(canvasElement => {
-    canvasElement.width = Math.round(targetViewport.width * devicePixelScaleRatio);
-    canvasElement.height = Math.round(targetViewport.height * devicePixelScaleRatio);
-    canvasElement.style.width = Math.round(targetViewport.width) + "px";
-    canvasElement.style.height = Math.round(targetViewport.height) + "px";
-  });
-  if(shield){
-    shield.style.width = Math.round(targetViewport.width) + "px";
-    shield.style.height = Math.round(targetViewport.height) + "px";
-  }
-
-  const ctx = pdfCanvas.getContext("2d", {alpha: false});
-  ctx.setTransform(devicePixelScaleRatio, 0, 0, devicePixelScaleRatio, 0, 0);
-  ctx.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
-  await page.render({canvasContext: ctx, viewport: targetViewport}).promise;
-}
-
-// --- 무결점 제어 포인터 라우터 및 터치 제어 블로커 ---
-function executeEventShieldFiltering(e){
-  if(coreState.currentMode === "write" || coreState.currentMode === "chord"){
-    try{e.preventDefault()}catch(_){}
-    try{e.stopPropagation()}catch(_){}
-    try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch(_){}
-    return false;
-  }
-}
-function bindShieldBlocker(side){
-  const lock = document.getElementById(`shield_${side}`); if(!lock) return;
-  ["touchstart","touchmove","touchend","click","contextmenu","gesturestart","gesturechange","gestureend"].forEach(t=>lock.addEventListener(t,executeEventShieldFiltering,{passive:false,capture:true}));
-}
-function bindPointerDrawingDeviceEvents(side){
-  const targetCanvas = document.getElementById(`inkCanvas_${side}`); if(!targetCanvas) return;
-  targetCanvas.onpointerdown = handleMasterPenDownRouter;
-  targetCanvas.onpointermove = handleMasterPenMoveRouter;
-  targetCanvas.onpointerup = handleMasterPenUpRouter;
-  targetCanvas.onpointercancel = handleMasterPenUpRouter;
-  targetCanvas.onpointerleave = null;
-  
-  ["touchstart","touchmove","touchend","gesturestart","contextmenu","click"].forEach(type=>targetCanvas.addEventListener(type,e=>{
-    if(coreState.currentMode==="write"||coreState.currentMode==="chord"){
-      try{e.preventDefault()}catch(_){} try{e.stopPropagation()}catch(_){}
-    }
-  },{passive:false,capture:true}));
-}
-
-function resolveInternalCanvasCoords(e, canvasElement){
-  const boundingRectangle = canvasElement.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  return {
-    computedX: (e.clientX - boundingRectangle.left) * dpr,
-    computedY: (e.clientY - boundingRectangle.top) * dpr,
-    pressureVal: e.pressure || 0.5,
-    percentWidthRatio: (e.clientX - boundingRectangle.left) / boundingRectangle.width,
-    percentHeightRatio: (e.clientY - boundingRectangle.top) / boundingRectangle.height
-  };
-}
-
-// --- 정밀 터치 필기 & 코드 컨텍스트 바인딩 모듈 ---
-function handleMasterPenDownRouter(e){
-  const side = e.currentTarget.dataset.side;
-  const pageScope = side === 'left' ? coreState.leftGlobalPage : coreState.rightGlobalPage;
-  const metrics = resolveInternalCanvasCoords(e, e.currentTarget);
-
-  if(coreState.currentMode === "chord"){
-    e.preventDefault(); e.stopPropagation();
-    const input = prompt("터치한 위치에 덮어씌울 새 코드를 입력하세요 (C, Am, F#m7 등):");
-    if(input){
-      const s = currentSong(); s.chords = s.chords || [];
-      s.chords.push({id: "c_" + Date.now(), page: pageScope, xRatio: metrics.percentWidthRatio, yRatio: metrics.percentHeightRatio, originalChord: input});
-      commitDataSync(); injectChordOverlayStickers(side);
-    }
-    return;
-  }
-
-  if(coreState.currentMode !== "write") return;
-  e.preventDefault(); e.stopPropagation();
-  try{e.currentTarget.setPointerCapture(e.pointerId)}catch(_){}
-  
-  coreState.isPointerDrawing = true;
-  coreState.activePointerSide = side;
-  coreState.accumulatedPoints = [{x: metrics.computedX, y: metrics.computedY, p: metrics.pressureVal}];
-}
-
-function handleMasterPenMoveRouter(e){
-  if(!coreState.isPointerDrawing || coreState.currentMode !== "write") return;
-  e.preventDefault(); e.stopPropagation();
-  
-  const side = coreState.activePointerSide;
-  const targetCanvas = document.getElementById(`inkCanvas_${side}`);
-  const metrics = resolveInternalCanvasCoords(e, targetCanvas);
-  
-  coreState.accumulatedPoints.push({x: metrics.computedX, y: metrics.computedY, p: metrics.pressureVal});
-  const len = coreState.accumulatedPoints.length;
-  
-  const ctx = targetCanvas.getContext("2d", {desynchronized: true});
-  ctx.lineCap = "round"; ctx.lineJoin = "round";
-  ctx.strokeStyle = coreState.penColorHex;
-  
-  if(len < 3){
-    ctx.fillStyle = coreState.penColorHex; ctx.beginPath();
-    ctx.arc(metrics.computedX, metrics.computedY, 1.8 * (window.devicePixelRatio || 1), 0, Math.PI * 2); ctx.fill();
-    return;
-  }
-  
-  const p0 = coreState.accumulatedPoints[len-3], p1 = coreState.accumulatedPoints[len-2], p2 = coreState.accumulatedPoints[len-1];
-  const mid1 = {x: (p0.x + p1.x)/2, y: (p0.y + p1.y)/2};
-  const mid2 = {x: (p1.x + p2.x)/2, y: (p1.y + p2.y)/2};
-  
-  ctx.lineWidth = (coreState.penThickness + Math.max(0.1, p1.p) * 2) * (window.devicePixelRatio || 1);
-  ctx.beginPath(); ctx.moveTo(mid1.x, mid1.y); ctx.quadraticCurveTo(p1.x, p1.y, mid2.x, mid2.y); ctx.stroke();
-}
-
-function handleMasterPenUpRouter(e){
-  if(!coreState.isPointerDrawing) return;
-  e.preventDefault(); e.stopPropagation();
-  try{e.currentTarget.releasePointerCapture(e.pointerId)}catch(_){}
-  
-  coreState.isPointerDrawing = false;
-  const side = coreState.activePointerSide;
-  const pageScope = side === 'left' ? coreState.leftGlobalPage : coreState.rightGlobalPage;
-  
-  const s = currentSong(); s.ink = s.ink || {};
-  const key = "p" + pageScope;
-  s.ink[key] = s.ink[key] || [];
-  s.ink[key].push({color: coreState.penColorHex, width: coreState.penThickness, pts: coreState.accumulatedPoints});
-  
-  coreState.accumulatedPoints = []; commitDataSync();
-}
-
-function loadInkStrokeOverlayData(side){
-  const pageScope = side === 'left' ? coreState.leftGlobalPage : coreState.rightGlobalPage;
-  const canvas = document.getElementById(`inkCanvas_${side}`); if(!canvas) return;
-  const s = currentSong(), strokes = (s.ink && s.ink["p" + pageScope]) || [];
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
-  strokes.forEach(stroke => {
-    ctx.lineCap = "round"; ctx.lineJoin = "round";
-    ctx.strokeStyle = stroke.color || "#ef4444";
-    ctx.lineWidth = (stroke.width || 3) * (window.devicePixelRatio || 1);
-    const pts = stroke.pts || [];
-    for(let i = 2; i < pts.length; i++){
-      const p0 = pts[i-2], p1 = pts[i-1], p2 = pts[i];
-      const m1 = {x: (p0.x + p1.x)/2, y: (p0.y + p1.y)/2};
-      const m2 = {x: (p1.x + p2.x)/2, y: (p1.y + p2.y)/2};
-      ctx.beginPath(); ctx.moveTo(m1.x, m1.y); ctx.quadraticCurveTo(p1.x, p1.y, m2.x, m2.y); ctx.stroke();
-    }
-  });
-}
-
-function wipeOutCurrentActiveInk(){
-  if(!confirm("현재 펼쳐진 양쪽 페이지의 필기 메모를 전부 초기화할까요?")) return;
-  const s = currentSong();
-  if(s.ink){
-    s.ink["p" + coreState.leftGlobalPage] = [];
-    s.ink["p" + coreState.rightGlobalPage] = [];
-  }
-  commitDataSync(); loadInkStrokeOverlayData('left'); loadInkStrokeOverlayData('right');
-}
-
-// --- 반응형 가상 덮어쓰기 코드 스티커 오버레이 인젝터 ---
-function injectChordOverlayStickers(side){
-  const overlayNode = document.getElementById(`chordOverlay_${side}`) || document.getElementById(`overlay_${side}`);
-  if(!overlayNode) return;
-  overlayNode.innerHTML = '';
-  
-  const s = currentSong(); if(!s || !s.chords) return;
-  const pageScope = side === 'left' ? coreState.leftGlobalPage : coreState.rightGlobalPage;
-  
-  s.chords.filter(c => c.page === pageScope).forEach(chord => {
-    const sticker = document.createElement("div");
-    sticker.className = "chord-sticker";
-    sticker.style.left = `${chord.xRatio * 100}%`;
-    sticker.style.top = `${chord.yRatio * 100}%`;
-    sticker.textContent = computeTransposeCalculationFormula(chord.originalChord, coreState.globalKeyOffset);
-    
-    sticker.onpointerdown = (e) => e.stopPropagation();
-    sticker.onclick = (e) => {
-      e.stopPropagation();
-      if(confirm(`"${chord.originalChord}" 코드를 악보 레이어에서 삭제하시겠습니까?`)){
-        s.chords = s.chords.filter(c => c.id !== chord.id);
-        commitDataSync(); injectChordOverlayStickers(side);
-      }
-    };
-    overlayNode.appendChild(sticker);
-  });
-}
-
-function computeTransposeCalculationFormula(originalString, offset){
-  if(offset === 0) return originalString;
-  const parsedMatch = originalString.match(/^([A-G]#?|b?)(.*)$/);
-  if(!parsedMatch) return originalString;
-  
-  let rootTone = parsedMatch[1], tailExtension = parsedMatch[2];
-  if(rootTone === "Db") rootTone = "C#"; if(rootTone === "Eb") rootTone = "D#";
-  if(rootTone === "Gb") rootTone = "F#"; if(rootTone === "Ab") rootTone = "G#";
-  if(rootTone === "Bb") rootTone = "A#";
-  
-  const baseIndex = SEMITONE_CIRCULAR_MAP.indexOf(rootTone);
-  if(baseIndex === -1) return originalString;
-  
-  let targetedIndex = (baseIndex + offset) % 12;
-  if(targetedIndex < 0) targetedIndex += 12;
-  return SEMITONE_CIRCULAR_MAP[targetedIndex] + tailExtension;
-}
-
-function applyScaleTransposeOffset(amount){
-  coreState.globalKeyOffset += amount;
-  document.getElementById("keyDisplay").textContent = `Key ${coreState.globalKeyOffset >= 0 ? '+' + coreState.globalKeyOffset : coreState.globalKeyOffset}`;
-  injectChordOverlayStickers('left'); injectChordOverlayStickers('right');
-}
-
-// --- Piascore 커스텀 정밀 '1페이지 단위 쉬프트' 슬라이딩 페이징 알고리즘 ---
-function executeShiftPiascorePage(step){
-  if(coreState.currentMode === "write" || coreState.currentMode === "chord") {
-    return toast("편집 및 코드 마운트 모드 중에는 악보 스크롤 이동이 제한됩니다.");
-  }
-  
-  if(step > 0) {
-    // 다음 페이지로 이동할 때: 현재 왼쪽 페이지 기준으로 1장씩만 인크리먼트 쉬프트 처리
-    if(coreState.leftGlobalPage < coreState.maxTotalPages) {
-      coreState.leftGlobalPage += 1;
-      coreState.rightGlobalPage += 1;
-      displayDualSheetViewer();
-    } else {
-      // 해당 곡의 마지막 장에 도달 시, 세트리스트의 다음 찬양 자동 가동
-      const svc = getActiveServiceStruct(), nextIdx = currentIndex() + 1;
-      if(nextIdx >= 0 && nextIdx < svc.songs.length) activateFullViewer(svc.songs[nextIdx]);
-      else toast("현재 예배 세트리스트의 마지막 찬양 악보입니다.");
-    }
-  } else {
-    // 이전 페이지로 이동할 때: 1장씩 단일 디크리먼트 시프트 처리
-    if(coreState.leftGlobalPage > 1) {
-      coreState.leftGlobalPage -= 1;
-      coreState.rightGlobalPage -= 1;
-      displayDualSheetViewer();
-    } else {
-      // 첫 페이지에서 이전을 누르면 세트리스트의 이전 찬양 자동 전개
-      const svc = getActiveServiceStruct(), prevIdx = currentIndex() - 1;
-      if(prevIdx >= 0) activateFullViewer(svc.songs[prevIdx]);
-      else toast("현재 세트리스트의 첫 번째 곡입니다.");
-    }
-  }
-}
-
-// --- 제스처 터치 스와이프 라우터 연산 엔진 ---
-function captureSwipeStart(e){
-  if(coreState.currentMode === "write" || coreState.currentMode === "chord") return;
-  coreState.touchStartX = e.changedTouches[0].clientX;
-  coreState.touchStartY = e.changedTouches[0].clientY;
-}
-function captureSwipeEnd(e){
-  if(coreState.currentMode === "write" || coreState.currentMode === "chord") return;
-  const deltaX = e.changedTouches[0].clientX - coreState.touchStartX;
-  const deltaY = e.changedTouches[0].clientY - coreState.touchStartY;
-  if(Math.abs(deltaX) > 75 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3){
-    if(deltaX < 0) executeShiftPiascorePage(1); else executeShiftPiascorePage(-1);
-  }
-}
-
-// --- 유틸리티 공정 파이프라인 함수군 ---
-function triggerDataShareLink(){
-  const svc = getActiveServiceStruct();
-  const packet = {v:1, name: svc.name, date: svc.date, songs: svc.songs.map(id => {
-    const s = findSongById(id); return s ? {id: s.id, title: s.title, key: s.key} : null;
-  }).filter(Boolean)};
-  const sharedUrl = window.location.origin + window.location.pathname + "#share=" + btoa(unescape(encodeURIComponent(JSON.stringify(packet))));
-  navigator.clipboard ? navigator.clipboard.writeText(sharedUrl).then(()=>toast("세트리스트 공유 링크가 복사되었습니다.")) : toast("클립보드 API가 지원되지 않는 환경입니다.");
-}
-window.addEventListener("resize", () => { if(coreState.activeViewer) displayDualSheetViewer(); });
-function renderColorToggle(){ coreState.penColorHex = coreState.penColorHex === "#ef4444" ? "#2563eb" : "#ef4444"; toast("필기 잉크 색상 변경"); }
-function esc(str) { return (str || "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m])); }
-function fileData(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); }); }
-
-// 초기화 가동 실행
-executeRenderRouter();
-</script>
-</body>
-</html>
+      <div class="auth-bar">
+        <span>접속자
