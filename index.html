@@ -108,6 +108,34 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 #dualInkCanvas{position:absolute;left:0;top:0;z-index:5;pointer-events:none!important;touch-action:none}
 .dualLabel{position:absolute;top:8px;left:8px;z-index:10;background:rgba(0,0,0,.62);color:white;font-size:12px;font-weight:900;border-radius:999px;padding:5px 9px;pointer-events:none}
 @media(max-width:900px){.grid{grid-template-columns:1fr}.page{padding:12px}.vbottom{grid-template-columns:1fr 1fr}.vbottom button{font-size:13px}}
+
+.vtop{
+  position:relative!important;
+  z-index:120!important;
+  min-height:60px!important;
+}
+.vtop button{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+}
+.viewer.write .vtop,
+.viewer.write .vtop *{
+  pointer-events:auto!important;
+}
+.viewer.write .write-lock{
+  z-index:20!important;
+}
+#inkCanvas{
+  z-index:30;
+}
+.viewer.write #inkCanvas{
+  pointer-events:auto!important;
+}
+
 </style>
 </head>
 <body>
@@ -269,7 +297,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_V3_MENU_RESTORED_PEN_FIXED";
+const BUILD="AINOS_V3_MENU_VISIBILITY_FIXED";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
