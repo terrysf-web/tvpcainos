@@ -1,0 +1,1 @@
+index.html = 기존 안정 앱 유지\ndual-lab.html = 별도 듀얼 테스트 페이지\n\nOpen:\nhttps://terrysf-web.github.io/tvpcainos/index.html?v=service-open-fix\nhttps://terrysf-web.github.io/tvpcainos/dual-lab.html?v=dual-lab-1\n

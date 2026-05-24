@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TVPC Ainos Dual Lab</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050608;color:white;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr auto}
+.top{height:60px;padding:0 12px;padding-top:env(safe-area-inset-top);display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:#050608;border-bottom:1px solid #1f2937}
+button{border:0;border-radius:12px;padding:10px 14px;font-weight:900;background:#374151;color:white}
+button.primary{background:#22c7d8;color:#031217}
+.stage{background:#1f2937;display:flex;align-items:center;justify-content:center;gap:16px;padding:12px;overflow:hidden}
+.pageBox{position:relative;background:white;box-shadow:0 10px 32px rgba(0,0,0,.45);overflow:hidden}
+.pageBox canvas{display:block}
+.bottom{height:76px;padding:8px 12px calc(8px + env(safe-area-inset-bottom));display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;background:#050608;border-top:1px solid #1f2937}
+.filebar{display:flex;gap:8px;align-items:center;justify-content:center}
+input{max-width:260px;color:white}
+.label{text-align:center;font-size:13px;color:#cbd5e1;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <button onclick="location.href='index.html'">Back</button>
+    <div style="text-align:center;font-weight:900">TVPC Dual Lab</div>
+    <button class="primary" onclick="renderDual()">Refresh</button>
+  </div>
+  <div class="stage">
+    <div><div class="pageBox"><canvas id="left"></canvas></div><div class="label">Left PDF</div></div>
+    <div><div class="pageBox"><canvas id="right"></canvas></div><div class="label">Right PDF</div></div>
+  </div>
+  <div class="bottom">
+    <div class="filebar"><span>Left</span><input id="leftFile" type="file" accept="application/pdf"></div>
+    <div class="filebar"><span>Right</span><input id="rightFile" type="file" accept="application/pdf"></div>
+    <button onclick="renderDual()">Show 2 Pages</button>
+    <button class="primary" onclick="fitMode = fitMode==='height'?'width':'height'; renderDual()">Fit Toggle</button>
+  </div>
+</div>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+let fitMode='height';
+function readFile(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(new Uint8Array(r.result));r.onerror=reject;r.readAsArrayBuffer(file);});}
+async function drawPdf(file, canvas){
+  if(!file)return;
+  const data=await readFile(file);
+  const pdf=await pdfjsLib.getDocument({data}).promise;
+  const page=await pdf.getPage(1);
+  const stage=document.querySelector('.stage');
+  const base=page.getViewport({scale:1});
+  const perW=(stage.clientWidth-52)/2;
+  const maxH=stage.clientHeight-42;
+  let fit = fitMode==='height' ? maxH/base.height : perW/base.width;
+  fit = Math.min(fit, perW/base.width, maxH/base.height);
+  const vp=page.getViewport({scale:fit});
+  const dpr=window.devicePixelRatio||1;
+  const box=canvas.parentElement;
+  box.style.width=Math.round(vp.width)+'px';
+  box.style.height=Math.round(vp.height)+'px';
+  canvas.width=Math.round(vp.width*dpr);
+  canvas.height=Math.round(vp.height*dpr);
+  canvas.style.width=Math.round(vp.width)+'px';
+  canvas.style.height=Math.round(vp.height)+'px';
+  const ctx=canvas.getContext('2d',{alpha:false});
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  await page.render({canvasContext:ctx,viewport:vp}).promise;
+}
+async function renderDual(){
+  try{
+    await drawPdf(document.getElementById('leftFile').files[0], document.getElementById('left'));
+    await drawPdf(document.getElementById('rightFile').files[0], document.getElementById('right'));
+  }catch(e){ alert('PDF 표시 오류: '+e.message); }
+}
+</script>
+</body>
+</html>
