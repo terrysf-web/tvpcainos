@@ -60,7 +60,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
   display:grid;grid-template-rows:auto 1fr auto;
   overscroll-behavior:none;
 }
-.vtop{position:relative;z-index:90;
+.vtop{
   height:60px;padding:0 12px;padding-top:env(safe-area-inset-top);
   background:#050608;color:#fff;display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;
 }
@@ -86,7 +86,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 }
 .viewer.read #inkCanvas{pointer-events:none}
 .viewer.write #inkCanvas{pointer-events:auto!important}
-.vbottom{position:relative;z-index:90;
+.vbottom{
   height:70px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));
   background:#050608;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;
 }
@@ -107,7 +107,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 #dualPdfCanvas{position:absolute;left:0;top:0;z-index:1;background:#fff;pointer-events:none!important;touch-action:none}
 #dualInkCanvas{position:absolute;left:0;top:0;z-index:5;pointer-events:none!important;touch-action:none}
 .dualLabel{position:absolute;top:8px;left:8px;z-index:10;background:rgba(0,0,0,.62);color:white;font-size:12px;font-weight:900;border-radius:999px;padding:5px 9px;pointer-events:none}
-@media(max-width:900px){.grid{grid-template-columns:1fr}.page{padding:12px}.vbottom{position:relative;z-index:90;grid-template-columns:1fr 1fr}.vbottom button{font-size:13px}}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.page{padding:12px}.vbottom{grid-template-columns:1fr 1fr}.vbottom button{font-size:13px}}
 </style>
 </head>
 <body>
@@ -269,7 +269,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_V3_PEN_TOGGLE_FIXED";
+const BUILD="AINOS_V3_MENU_RESTORED_PEN_FIXED";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
