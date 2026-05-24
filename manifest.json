@@ -1,7 +1,7 @@
 {
-  "name": "TVPC Ainos Service Open Fix",
-  "short_name": "AinosFix",
-  "start_url": "./index.html?v=service-open-fix",
+  "name": "TVPC Ainos Integrated Stable v1",
+  "short_name": "AinosStable",
+  "start_url": "./index.html?v=integrated-stable-v1",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#050608",
