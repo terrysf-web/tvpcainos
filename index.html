@@ -61,12 +61,12 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
   overscroll-behavior:none;
 }
 .vtop{
-  height:60px;padding:0 12px;padding-top:env(safe-area-inset-top);
-  background:#050608;color:#fff;display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;
+  height:44px;padding:0 8px;padding-top:env(safe-area-inset-top);
+  background:#050608;color:#fff;display:grid;grid-template-columns:auto 1fr auto auto auto;gap:6px;align-items:center;
 }
 .vtitle{text-align:center;min-width:0;line-height:1.1}
-.vtitle b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px}
-.vtitle span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:#cbd5e1;margin-top:3px}
+.vtitle b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.vtitle span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;color:#cbd5e1;margin-top:1px}
 .stage{
   position:relative;overflow:hidden;background:#e5e7eb;display:grid;place-items:center;
   touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
@@ -101,6 +101,34 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 }
 .write-lock{position:absolute;inset:0;z-index:20;background:transparent;pointer-events:none;touch-action:none}
 .viewer.write .write-lock{pointer-events:auto}
+.viewer .vtop button{font-size:12px;padding:7px 9px;border-radius:9px}
+.viewer .vbottom{display:none!important}
+.stage{height:100%}
+.floatingTools{
+  position:absolute;
+  right:10px;
+  bottom:calc(12px + env(safe-area-inset-bottom));
+  z-index:80;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.floatingTools button{
+  width:44px;
+  height:44px;
+  border-radius:999px;
+  padding:0;
+  box-shadow:0 10px 28px rgba(0,0,0,.22);
+  font-size:18px;
+}
+.viewer.dual .floatingTools{right:12px}
+.viewer.write .floatingTools button.penBtn{background:#22c7d8;color:#031217}
+@media(max-width:900px){
+  .vtop{height:42px}
+  .viewer .vtop button{font-size:11px;padding:6px 8px}
+  .floatingTools button{width:42px;height:42px}
+}
+
 .viewer.dual .stage{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;align-items:center;justify-items:center}
 .viewer.dual .sheet{max-width:100%;max-height:100%}
 .dualSheet{position:relative;background:#fff;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.28)}
@@ -269,7 +297,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_DUAL_MODE_V3_INK_PERSIST";
+const BUILD="AINOS_PIASCORE_UI_V1_SAFE";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -429,10 +457,15 @@ preloadNextPdf(id);
 }
 function closeViewer(){save();state.viewer=null;state.pdf=null;state.dualPdf=null;state.dualSong=null;render()}
 function currentSong(){return state.viewer?findSongByRef(state.viewer.id):null}
-function renderViewer(){const s=currentSong(), svc=currentSvc(), svcIds=svc.songs.map(x=>{const ss=findSongByRef(x);return ss?ss.id:x}), idx=svcIds.indexOf(s.id);app.innerHTML=`<div class="viewer ${state.mode} ${state.dual?'dual':''}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}Page ${state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><div style="display:flex;align-items:center;gap:8px">
+function renderViewer(){const s=currentSong(), svc=currentSvc(), svcIds=svc.songs.map(x=>{const ss=findSongByRef(x);return ss?ss.id:x}), idx=svcIds.indexOf(s.id);app.innerHTML=`<div class="viewer ${state.mode} ${state.dual?'dual':''}"><div class="vtop"><button class="gray" onclick="closeViewer()">‹</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}Page ${state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><div style="display:flex;align-items:center;gap:8px">
 <button class="${state.mode==='write'?'primary':'gold'}" onclick="toggleMode()">${state.mode==='write'?'WRITE ON':'READ'}</button>
-<span style="color:white;font-size:12px;font-weight:700;opacity:.85;white-space:nowrap;">${state.mode==='write'?'필기만 가능 / 이동 잠김':'Swipe 가능'}</span>
-</div><button class="${state.dual?'primary':'gray'}" onclick="toggleDual()">DUAL</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="sheet" id="sheet"><canvas id="pdfCanvas"></canvas><div class="write-lock" id="writeLock"></div><canvas id="inkCanvas"></canvas></div>${state.dual?`<div class="dualSheet" id="dualSheet"><canvas id="dualPdfCanvas"></canvas><canvas id="dualInkCanvas"></canvas><div class="dualLabel">${state.dualSong?esc(state.dualSong.title):'Next Song 없음'}</div></div>`:''}</div><div class="vbottom"><button onclick="prev()">◀ PREV</button><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="next()" class="primary">NEXT ▶</button><button onclick="toggleDual()" class="${state.dual?'primary':'gray'}">${state.dual?'Dual ON':'Dual'}</button></div></div>`;setTimeout(()=>drawAll(),0)}
+<span style="color:white;font-size:12px;font-weight:700;opacity:.85;white-space:nowrap;">${state.mode==='write'?'Write Lock':'Swipe'}</span>
+</div><button class="${state.dual?'primary':'gray'}" onclick="toggleDual()">DUAL</button><button class="gray" onclick="toggleToolMenu()">☰</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="sheet" id="sheet"><canvas id="pdfCanvas"></canvas><div class="write-lock" id="writeLock"></div><canvas id="inkCanvas"></canvas></div>${state.dual?`<div class="dualSheet" id="dualSheet"><canvas id="dualPdfCanvas"></canvas><canvas id="dualInkCanvas"></canvas><div class="dualLabel">${state.dualSong?esc(state.dualSong.title):'Next Song 없음'}</div></div>`:''}<div class="floatingTools">
+<button class="gray" onclick="prev()" title="Previous">‹</button>
+<button class="penBtn ${state.mode==='write'?'primary':'gold'}" onclick="toggleMode()" title="Write">${state.mode==='write'?'✎':'✐'}</button>
+<button class="${state.dual?'primary':'gray'}" onclick="toggleDual()" title="Dual">▣</button>
+<button class="primary" onclick="next()" title="Next">›</button>
+</div></div><div class="vbottom"><button onclick="prev()">◀ PREV</button><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="next()" class="primary">NEXT ▶</button><button onclick="toggleDual()" class="${state.dual?'primary':'gray'}">${state.dual?'Dual ON':'Dual'}</button></div></div>`;setTimeout(()=>drawAll(),0)}
 async function prepareDual(){
   state.dualPdf=null;
   state.dualSong=null;
@@ -510,6 +543,9 @@ function drawDualInk(dualPage=1){
   });
 }
 
+function toggleToolMenu(){
+  toast("Tools menu 준비중");
+}
 async function toggleDual(){
   if(state.mode==="write") return toast("Write Mode에서는 Dual 변경 잠김");
   state.dual=!state.dual;
