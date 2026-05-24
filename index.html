@@ -269,7 +269,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_DUAL_MODE_V2_INK_SYNC";
+const BUILD="AINOS_DUAL_MODE_V3_INK_PERSIST";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -333,6 +333,40 @@ async function preloadNextPdf(currentId){
   }
 }
 
+const INK_STORAGE_KEY="tvpcainos_ink_v3";
+
+function loadAllInk(){
+  try{
+    return JSON.parse(localStorage.getItem(INK_STORAGE_KEY)||"{}");
+  }catch(e){
+    console.warn("Ink load failed",e);
+    return {};
+  }
+}
+
+function saveAllInk(map){
+  try{
+    localStorage.setItem(INK_STORAGE_KEY,JSON.stringify(map||{}));
+  }catch(e){
+    console.warn("Ink save failed",e);
+  }
+}
+
+function attachSavedInkToSongs(){
+  const inkMap=loadAllInk();
+  state.songs=(state.songs||[]).map(s=>({
+    ...s,
+    ink: inkMap[String(s.id)] || s.ink || {}
+  }));
+}
+
+function persistSongInk(song){
+  if(!song||!song.id) return;
+  const inkMap=loadAllInk();
+  inkMap[String(song.id)] = song.ink || {};
+  saveAllInk(inkMap);
+}
+
 function findSongByRef(ref){
   return state.songs.find(s=>s.id===ref)
     || state.songs.find(s=>s.title===ref)
@@ -394,7 +428,7 @@ preloadNextPdf(id);
 }catch(e){console.error(e);toast("PDF 열기 실패 - Firebase/파일 확인")}
 }
 function closeViewer(){save();state.viewer=null;state.pdf=null;state.dualPdf=null;state.dualSong=null;render()}
-function currentSong(){return findSongByRef(state.viewer.id)}
+function currentSong(){return state.viewer?findSongByRef(state.viewer.id):null}
 function renderViewer(){const s=currentSong(), svc=currentSvc(), svcIds=svc.songs.map(x=>{const ss=findSongByRef(x);return ss?ss.id:x}), idx=svcIds.indexOf(s.id);app.innerHTML=`<div class="viewer ${state.mode} ${state.dual?'dual':''}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}Page ${state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><div style="display:flex;align-items:center;gap:8px">
 <button class="${state.mode==='write'?'primary':'gold'}" onclick="toggleMode()">${state.mode==='write'?'WRITE ON':'READ'}</button>
 <span style="color:white;font-size:12px;font-weight:700;opacity:.85;white-space:nowrap;">${state.mode==='write'?'필기만 가능 / 이동 잠김':'Swipe 가능'}</span>
@@ -495,9 +529,28 @@ function penDown(e){if(state.mode!=="write")return;e.preventDefault();e.stopProp
 function penMove(e){if(state.mode!=="write"||!state.draw)return;e.preventDefault();e.stopPropagation();const p=pos(e);state.pts.push(p);const n=state.pts.length;if(n<3){dot(p);return}const p0=state.pts[n-3],p1=state.pts[n-2],p2=state.pts[n-1],m1=mid(p0,p1),m2=mid(p1,p2);const ctx=$("#inkCanvas").getContext("2d",{desynchronized:true});ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=state.color;ctx.lineWidth=(state.width+Math.max(.2,p1.p)*2)*(window.devicePixelRatio||1);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}
 function penUp(e){if(!state.draw)return;e.preventDefault();e.stopPropagation();try{e.currentTarget.releasePointerCapture(e.pointerId)}catch{}state.draw=false;saveStroke(state.pts);state.pts=[];if(state.dual&&state.dualSong&&state.dualSong.id===state.viewer.id){drawDualInk(state.page)}}
 function dot(p){const ctx=$("#inkCanvas").getContext("2d");ctx.fillStyle=state.color;ctx.beginPath();ctx.arc(p.x,p.y,1.8*(window.devicePixelRatio||1),0,Math.PI*2);ctx.fill()}
-function saveStroke(pts){const s=currentSong();s.ink=s.ink||{};s.ink[pageKey()]=s.ink[pageKey()]||[];s.ink[pageKey()].push({color:state.color,width:state.width,pts});save()}
+function saveStroke(pts){
+const s=currentSong();
+if(!s)return;
+s.ink=s.ink||{};
+s.ink[pageKey()]=s.ink[pageKey()]||[];
+s.ink[pageKey()].push({color:state.color,width:state.width,pts});
+persistSongInk(s);
+save();
+}
 function loadInk(){const s=currentSong(),strokes=(s.ink&&s.ink[pageKey()])||[],ctx=$("#inkCanvas").getContext("2d");ctx.clearRect(0,0,$("#inkCanvas").width,$("#inkCanvas").height);strokes.forEach(st=>{ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=st.color||"#ef4444";ctx.lineWidth=(st.width||3)*(window.devicePixelRatio||1);const pts=st.pts||[];for(let i=2;i<pts.length;i++){const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}})}
-function clearInk(){if(!confirm("현재 페이지 필기 삭제?"))return;const s=currentSong();if(s.ink)s.ink[pageKey()]=[];save();loadInk()}
+function clearInk(){
+if(!confirm("현재 페이지 필기 삭제?"))return;
+const s=currentSong();
+if(s){
+  s.ink=s.ink||{};
+  s.ink[pageKey()]=[];
+  persistSongInk(s);
+}
+save();
+loadInk();
+if(state.dual&&state.dualSong&&state.dualSong.id===state.viewer.id){drawDualInk(state.page)}
+}
 function toggleMode(){state.mode=state.mode==="write"?"read":"write";renderViewer()}
 function prev(){if(state.mode==="write")return toast("Write Mode에서는 이동 잠김");if(state.page>1){state.page--;renderViewer();return}const arr=currentSvc().songs.map(x=>{const s=findSongByRef(x);return s?s.id:x}),i=arr.indexOf(state.viewer.id);if(i>0)openViewer(arr[i-1]);else toast("첫 곡입니다")}
 function next(){if(state.mode==="write")return toast("Write Mode에서는 이동 잠김");if(state.page<state.total){state.page++;renderViewer();return}const arr=currentSvc().songs.map(x=>{const s=findSongByRef(x);return s?s.id:x}),i=arr.indexOf(state.viewer.id);if(i>=0&&i<arr.length-1)openViewer(arr[i+1]);else toast("마지막입니다")}
@@ -519,8 +572,9 @@ async function loadSharedSongs(){
     const api = await waitForFirebaseApi();
     if(api){
       state.songs = await api.getSongs();
+      attachSavedInkToSongs();
       render();
-      api.watchSongs((songs)=>{ state.songs=songs; render(); });
+      api.watchSongs((songs)=>{ state.songs=songs; attachSavedInkToSongs(); render(); });
       return;
     }
 
@@ -533,6 +587,7 @@ async function loadSharedSongs(){
       key: s.key || "",
       pdf: s.pdf || s.file || s.filename || ""
     })) : [];
+    attachSavedInkToSongs();
     render();
   }catch(e){
     console.error(e);
