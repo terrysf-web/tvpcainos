@@ -26,7 +26,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .top-title{text-align:center;line-height:1.1}.top-title b{display:block;font-size:17px}.top-title span{display:block;color:#cbd5e1;font-size:12px;margin-top:4px}
 .page{height:100%;overflow:auto;padding:16px}
 .grid{display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start}
-.card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 10px 28 rgba(15,23,42,.08);overflow:hidden}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 10px 28px rgba(15,23,42,.08);overflow:hidden}
 .card-head{padding:14px 16px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:10px}
 .card-head h2{margin:0;font-size:17px}
 .card-body{padding:14px;display:grid;gap:12px}
@@ -40,7 +40,6 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .service-title{font-size:18px;font-weight:950}
 .tabs{display:flex;gap:8px}.tabs button{background:#1b1f26}.tabs button.active{background:#22c7d8;color:#031217}
 
-/* 뷰어 영역 UI 확장 및 코드 레이어 최적화 */
 .viewer{position:fixed;inset:0;z-index:50;background:#050608;display:grid;grid-template-rows:auto 1fr auto;overscroll-behavior:none}
 .vtop{height:64px;padding:0 12px;padding-top:env(safe-area-inset-top);background:#050608;color:#fff;display:grid;grid-template-columns:auto 1fr auto auto auto auto auto;gap:8px;align-items:center;border-bottom:1px solid #1f2937}
 .vtitle{text-align:center;min-width:0;line-height:1.1}
@@ -52,7 +51,6 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .pdfCanvas{position:absolute;left:0;top:0;z-index:1;background:#fff;pointer-events:none!important;touch-action:none}
 .inkCanvas{position:absolute;left:0;top:0;z-index:30;touch-action:none!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important}
 
-/* 코드 스티커 레이어 배치 */
 .chordOverlay{position:absolute;inset:0;z-index:35;pointer-events:none}
 .chord-badge{position:absolute;background:#ffffff;color:#2563eb;font-weight:bold;border:2px solid #2563eb;padding:2px 6px;border-radius:5px;font-size:14px;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.25)}
 
@@ -80,7 +78,6 @@ async function getFile(id){const db=await openDB();return new Promise((res,rej)=
 async function getPdf(songId){if(pdfCache[songId])return pdfCache[songId];const data=await getFile(songId);if(!data)return null;const pdf=await pdfjsLib.getDocument(data).promise;pdfCache[songId]=pdf;return pdf}
 const $=s=>document.querySelector(s), app=$("#app");
 
-// 12음계 순환 매핑용 글로벌 스케일 정의
 const SEMITONE_SCALE = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 const state={
@@ -89,10 +86,10 @@ const state={
  services:JSON.parse(localStorage.getItem("tvpc_ainos_services_stable")||localStorage.getItem("ais2_services")||localStorage.getItem("ais_services")||"[]"),
  currentService:localStorage.getItem("tvpc_ainos_current_service_stable")||localStorage.getItem("ais2_current_service")||localStorage.getItem("ais_current_service")||null,
  viewer:null,
- mode:"read", // 'read', 'write', 'chord' 모드로 유연하게 가동
+ mode:"read", 
  viewMode:localStorage.getItem("tvpc_ainos_view_mode_stable")||localStorage.getItem("ais2_view_mode")||"single",
  page:1,total:1,draw:false,pts:[],activeSlot:null,startX:0,startY:0,color:"#ef4444",width:3,
- keyOffset: 0 // 트랜스포즈용 세미톤 단위 디스플레이 오프셋 데이터 추가
+ keyOffset: 0 
 };
 
 if(!state.services.length){const id="svc_"+Date.now();state.services=[{id,name:"Sunday Service",date:new Date().toISOString().slice(0,10),songs:[]}];state.currentService=id;save();}
@@ -123,22 +120,18 @@ function closeViewer(){save();state.viewer=null;render()}
 async function getSlots(){const curr=currentSong(), pdf=await getPdf(curr.id);state.total=pdf.numPages;let slots=[{slot:0,songId:curr.id,page:state.page,pdf}];if(state.viewMode==="dual"){if(state.page+1<=pdf.numPages){slots.push({slot:1,songId:curr.id,page:state.page+1,pdf})}else{const i=currentIndex(), nextId=currentSvc().songs[i+1];if(nextId){const npdf=await getPdf(nextId);if(npdf)slots.push({slot:1,songId:nextId,page:1,pdf:npdf})}}}return slots}
 function slotTitle(){if(state.viewMode!=="dual")return `Page ${state.page}/${state.total}`;return `Dual View`}
 
-// Piascore 확장 헤더 컨트롤 탑재 및 트랜스포즈 버튼 조율
 function renderViewer(){const s=currentSong(), idx=currentIndex();app.innerHTML=`<div class="viewer ${state.mode}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+currentSvc().songs.length+" · ":""}${slotTitle()} · Key ${esc(s.key||"-")}</span></div><button class="${state.mode==='write'?'primary':'gold'}" onclick="setViewerMode('write')">${state.mode==='write'?'WRITE ON':'READ'}</button><button class="${state.mode==='chord'?'primary':'gray'}" onclick="setViewerMode('chord')">➕ 코드심기</button><div class="transpose-ctrl"><button onclick="changeKey(-1)" style="padding:6px 10px;border-radius:6px">♭</button><b style="min-width:55px;text-align:center;font-size:13px">Key ${state.keyOffset>=0?'+'+state.keyOffset:state.keyOffset}</b><button onclick="changeKey(1)" style="padding:6px 10px;border-radius:6px">♯</button></div><button class="${state.viewMode==='dual'?'primary':'gray'}" onclick="toggleViewMode()">${state.viewMode==='dual'?'2 PAGE':'1 PAGE'}</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="dual-wrap" id="dualWrap"></div><div class="hint"></div></div><div class="vbottom"><button onclick="setViewerMode('write')" class="${state.mode==='write'?'primary':'gold'}">✎<br>${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="setViewerMode('chord')" class="${state.mode==='chord'?'primary':'gray'}">🎼<br>코드 등록</button><button onclick="toggleColor()">◉<br>색상</button><button onclick="undoInk()">↶<br>실행 취소</button><button onclick="clearInk()" class="red">⌧<br>전체 지우기</button><span class="toolbar-spacer"></span><button onclick="prev()">‹</button><button class="gray">${state.viewMode==='dual'?'Dual':state.page+'/'+state.total}</button><button onclick="next()">›</button><button onclick="toggleViewMode()" class="${state.viewMode==='dual'?'primary':'gray'}">${state.viewMode==='dual'?'2 페이지':'1 페이지'}</button><button onclick="zoomToggle()" class="gray">${Math.round((currentSong().zoom||1)*100)}%</button></div></div>`;setTimeout(drawAll,0)}
-function sheetHTML(slot){const key=slot.songId+"_"+slot.page;return `<div class="sheet" data-key="${key}" data-song="${slot.songId}" data-page="${slot.page}"><canvas class="pdfCanvas" id="pdf_${key}"></canvas><div class="write-lock" id="lock_${key}"></div><canvas class="inkCanvas" id="ink_${key}" data-song="${slot.songId}" data-page="${slot.page}"></canvas><div class="chordOverlay" id="chord_${key}"></div></div>`}
+function sheetHTML(slot){const key=slot.songId+"_"+slot.page;return `<div class="sheet" id="sheet_${key}" data-key="${key}" data-song="${slot.songId}" data-page="${slot.page}"><canvas class="pdfCanvas" id="pdf_${key}"></canvas><div class="write-lock" id="lock_${key}"></div><canvas class="inkCanvas" id="ink_${key}" data-song="${slot.songId}" data-page="${slot.page}"></canvas><div class="chordOverlay" id="chord_${key}"></div></div>`}
 
-// 렌더 파이프라인 및 기존 제어 메커니즘 통합 연계 
 async function drawAll(){const wrap=$("#dualWrap");if(!wrap)return;const slots=await getSlots();wrap.innerHTML=slots.map(sheetHTML).join("");await drawSlots(slots);setupInk();loadAllInk(slots);setupWriteLocks();renderChordsOverlay(slots)}
-async function drawSlots(slots){const stage=$("#stage");const gap=state.viewMode==="dual"?16:0;const availableW=stage.clientWidth-28-gap;const availableH=stage.clientHeight-20;let infos=[];for(const slot of slots){const page=await slot.pdf.getPage(slot.page);const base=page.getViewport({scale:1});infos.push({...slot,page,base})}const perW=state.viewMode==="dual"?availableW/2:availableW;const baseFit=Math.min(...infos.map(info=>Math.min(perW/info.base.width,availableH/info.base.height)));for(const info of infos){const zoom=(songById(info.songId)?.zoom)||1;const vp=info.page.getViewport({scale:baseFit*zoom});const key=info.songId+"_"+info.page,sheet=document.querySelector(`.sheet[data-key="${key}"]`),pdf=$(`#pdf_${CSS.escape(key)}`),ink=$(`#ink_${CSS.escape(key)}`),lock=$(`#lock_${CSS.escape(key)}`);if(!sheet||!pdf||!ink)continue;const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});if(lock){lock.style.width=Math.round(vp.width)+"px";lock.style.height=Math.round(vp.height)+"px"}const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await info.page.render({canvasContext:ctx,viewport:vp}).promise}}
+async function drawSlots(slots){const stage=$("#stage");const gap=state.viewMode==="dual"?16:0;const availableW=stage.clientWidth-28-gap;const availableH=stage.clientHeight-20;let infos=[];for(const slot of slots){const page=await slot.pdf.getPage(slot.page);const base=page.getViewport({scale:1});infos.push({...slot,page,base})}const perW=state.viewMode==="dual"?availableW/2:availableW;const baseFit=Math.min(...infos.map(info=>Math.min(perW/info.base.width,availableH/info.base.height)));for(const info of infos){const zoom=(songById(info.songId)?.zoom)||1;const vp=info.page.getViewport({scale:baseFit*zoom});const key=info.songId+"_"+info.page,sheet=document.getElementById(`sheet_${key}`),pdf=$(`#pdf_${CSS.escape(key)}`),ink=$(`#ink_${CSS.escape(key)}`),lock=$(`#lock_${CSS.escape(key)}`);if(!sheet||!pdf||!ink)continue;const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});if(lock){lock.style.width=Math.round(vp.width)+"px";lock.style.height=Math.round(vp.height)+"px"}const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await info.page.render({canvasContext:ctx,viewport:vp}).promise}}
 function blockEvent(e){if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{};try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch{};return false}}
 function setupWriteLocks(){document.querySelectorAll(".write-lock").forEach(lock=>["touchstart","touchmove","touchend","click","contextmenu","gesturestart","gesturechange","gestureend"].forEach(type=>lock.addEventListener(type,blockEvent,{passive:false,capture:true})))}
 function setupInk(){document.querySelectorAll(".inkCanvas").forEach(c=>{c.onpointerdown=penDown;c.onpointermove=penMove;c.onpointerup=penUp;c.onpointercancel=penUp;c.onpointerleave=null;["touchstart","touchmove","touchend","gesturestart","contextmenu","click"].forEach(type=>c.addEventListener(type,e=>{if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}))})}
 function pageKey(p){return "p"+p}
 function pos(e,canvas){const r=canvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1;return{x:(e.clientX-r.left)*dpr,y:(e.clientY-r.top)*dpr,p:e.pressure||0.5}}
-function mid(a,b){return{x:(a.x+b.x)/2,y:(a.y+b.y)/2}
-}
+function mid(a,b){return{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
 
-// 부드러운 드로잉 이벤트 연산 내에 코드 터치 삽입 분기 조건 결합
 function penDown(e){
  if(state.mode==="chord"){
    e.preventDefault(); e.stopPropagation();
@@ -169,7 +162,6 @@ function saveStroke(songId,page,pts){const s=songById(songId);s.ink=s.ink||{};s.
 function loadAllInk(slots){slots.forEach(slot=>loadInk(slot.songId,slot.page))}
 function loadInk(songId,page){const s=songById(songId),key=songId+"_"+page,canvas=$(`#ink_${CSS.escape(key)}`);if(!canvas)return;const strokes=(s.ink&&s.ink[pageKey(page)])||[],ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);strokes.forEach(st=>{ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=st.color||"#ef4444";ctx.lineWidth=(st.width||3)*(window.devicePixelRatio||1);const pts=st.pts||[];for(let i=2;i<pts.length;i++){const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}})}
 
-// 악보 위 투명 반응형 레이어에 실시간 계산된 코드 스티커 출력
 function renderChordsOverlay(slots){
  slots.forEach(slot=>{
    const key=slot.songId+"_"+slot.page;
@@ -186,7 +178,6 @@ function renderChordsOverlay(slots){
      el.style.top=`${chord.yRatio*100}%`;
      el.textContent=getTransposedChord(chord.originalChord, state.keyOffset);
      
-     // 터치 캡처 충돌 회피 및 개별 코드 삭제 기능 부여
      el.onpointerdown=(e)=>{e.stopPropagation();};
      el.onclick=(e)=>{
        e.stopPropagation();
@@ -201,7 +192,6 @@ function renderChordsOverlay(slots){
  });
 }
 
-// 조바꿈 연산 공식 (정규표현식 구조 분해)
 function getTransposedChord(orig, offset){
  if(offset===0)return orig;
  const match=orig.match(/^([A-G]#?|b?)(.*)$/);
@@ -217,7 +207,6 @@ function getTransposedChord(orig, offset){
  return SEMITONE_SCALE[newIdx]+ext;
 }
 
-// 툴 유틸리티 및 오프셋 핸들러
 function changeKey(amount){
  state.keyOffset+=amount;
  const badge=$(".transpose-ctrl b");
@@ -239,7 +228,7 @@ async function prev(){if(state.mode==="write"||state.mode==="chord")return toast
 async function next(){if(state.mode==="write"||state.mode==="chord")return toast("편집 Mode에서는 이동 잠김");const pdf=await getPdf(state.viewer.id);if(state.page+(state.viewMode==="dual"?2:1)-1<pdf.numPages){state.page+=state.viewMode==="dual"?2:1;renderViewer();return}const arr=currentSvc().songs,i=currentIndex();if(i>=0&&i<arr.length-1)openViewer(arr[i+1]);else toast("마지막입니다")}
 function swipeStart(e){if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};return}state.startX=e.changedTouches[0].clientX;state.startY=e.changedTouches[0].clientY}
 function swipeEnd(e){if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};return}const dx=e.changedTouches[0].clientX-state.startX,dy=e.changedTouches[0].clientY-state.startY;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.3){dx<0?next():prev()}}
-function exportData(){const data={songs:state.songs,services:state.services,currentService:state.currentService,viewMode:state.viewMode,exportedAt:new Date().toISOString()};navigator.clipboard&&navigator.clipboard.writeText(JSON.stringify(data));toast("Backup copied")}
+function exportData(){const data={songs:state.songs,services:state.services,currentService:state.currentService,viewMode:state.viewMode,exportedAt:new Date().toISOString()};navigator.clipboard&&navigator.clipboard Gram.writeText(JSON.stringify(data));toast("Backup copied")}
 function share(){const svc=currentSvc();const payload={v:5,name:svc.name,date:svc.date,songs:svc.songs.map(id=>{const s=songById(id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};const url="https://terrysf-web.github.io/tvpcainos/index.html#share="+btoa(unescape(encodeURIComponent(JSON.stringify(payload))));navigator.clipboard?.writeText(url);toast("Share copied")}
 ["contextmenu","dragstart","gesturestart","gesturechange","gestureend"].forEach(type=>document.addEventListener(type,e=>{if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}));
 window.addEventListener("resize",()=>{if(state.viewer)renderViewer()});
