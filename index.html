@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 
 <style>
-/* 1. 글로벌 레이아웃 및 밴드 테마 클린 격리 */
+/* 글로벌 레이아웃 및 밴드 테마 격리 */
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body,#app{
   margin:0;width:100%;height:100%;overflow:hidden;
@@ -34,7 +34,6 @@ button.red{background:#ef4444;color:#fff}
 button.gray{background:#475569;color:#fff}
 button.small{font-size:12px;padding:6px 10px;border-radius:10px}
 
-/* 2. 대시보드 리스트 & 로그인 셸 인터페이스 UI */
 .app{height:100%;display:grid;grid-template-rows:auto auto 1fr}
 .auth-bar{background:#0f172a;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e293b;font-size:13px;color:#94a3b8}
 .top{
@@ -59,9 +58,7 @@ button.small{font-size:12px;padding:6px 10px;border-radius:10px}
 .title{font-weight:950;font-size:16px;color:#f8fafc}.meta{font-size:12px;color:#cbd5e1;margin-top:4px}
 .actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 .list{display:grid;gap:10px}.empty{padding:32px 10px;text-align:center;color:#94a3b8;font-weight:bold}
-.badge{display:inline-block;background:#06b6d4;color:#020617;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:900;margin-left:6px}
 
-/* 3. Piascore 커스텀 듀얼 스테이지 독립 아키텍처 */
 .viewer{
   position:fixed;inset:0;z-index:100;background:#090d16;
   display:grid;grid-template-rows:auto 1fr auto;overscroll-behavior:none;
@@ -78,8 +75,7 @@ button.small{font-size:12px;padding:6px 10px;border-radius:10px}
 .stage{
   position:relative;overflow:hidden;background:#0f172a;
   display:flex;flex-direction:row;justify-content:center;align-items:center;gap:24px;
-  touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
-  width:100%;height:100%;padding:10px;
+  touch-action:none;width:100%;height:100%;padding:10px;
 }
 .sheet-container{
   position:relative;background:#fff;overflow:hidden;
@@ -133,7 +129,6 @@ button.small{font-size:12px;padding:6px 10px;border-radius:10px}
 <div id="app"></div>
 
 <script>
-// --- 전역 설정 정보 주입 공정 ---
 const firebaseConfig = {
   apiKey: "AIzaSyB2iVlROco_aB4jL4cV35xXmVVaDU9fgEM",
   authDomain: "worship-operations-cue-sheet.firebaseapp.com",
@@ -228,8 +223,15 @@ async function savePrivateInkToCloud(pageScope, strokes) {
   const songId = state.activeViewer.songId;
   const docId = `${uid}_${songId}_p${pageScope}`;
 
+  // 순수 직렬화 가능한 좌표 객체 배열로 정제하여 파이어베이스 전송 충돌 차단
+  const cleanStrokes = strokes.map(s => ({
+    color: s.color,
+    width: s.width,
+    pts: s.pts.map(p => ({ x: p.x, y: p.y, p: p.p }))
+  }));
+
   await db.collection("user_private_ink").doc(docId).set({
-    uid: uid, songId: songId, page: pageScope, strokes: strokes, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    uid: uid, songId: songId, page: pageScope, strokes: cleanStrokes, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   });
 }
 
@@ -407,4 +409,132 @@ async function registerNewSongItemToCloud(){
 }
 
 async function activateFullViewer(songId){
-  const s = state.
+  const s = state.songLibrary.find(x => x.id === songId);
+  if(!s || !s.pdfUrl) return toast("악보 PDF 클라우드 주소를 탐색하지 못했습니다.");
+  
+  toast("클라우드 악보 동기화 로드 중...");
+  state.activeViewer = { songId: songId };
+  state.currentPdfBinary = await pdfjsLib.getDocument(s.pdfUrl).promise;
+  state.leftGlobalPage = 1;
+  state.rightGlobalPage = 2;
+  state.maxTotalPages = state.currentPdfBinary.numPages;
+  state.globalKeyOffset = 0;
+  state.currentMode = "read";
+
+  await fetchPrivateUserLayerData();
+  displayDualSheetViewer();
+}
+
+function displayDualSheetViewer(){
+  const s = currentSong(), svc = getActiveServiceStruct(), idx = svc.songs.indexOf(s.id);
+  const leftNum = state.leftGlobalPage;
+  const rightNum = state.rightGlobalPage;
+  const rightPageLabel = rightNum <= state.maxTotalPages ? `, ${rightNum}` : "";
+
+  appEngineRoot.innerHTML = `
+    <div class="viewer ${state.currentMode}">
+      <div class="vtop">
+        <button class="gray" onclick="exitFullSheetViewer()">Back</button>
+        <div class="vtitle">
+          <b>${esc(s.title)}</b>
+          <span>${idx >= 0 ? (idx + 1) + "/" + svc.songs.length + " · " : ""}쪽: ${leftNum}${rightPageLabel} / ${state.maxTotalPages}</span>
+        </div>
+        <button class="${state.currentMode === 'write' ? 'primary' : 'gold'}" onclick="toggleViewerModuleMode('write')">${state.currentMode === 'write' ? '필기 작동중' : '메모하기'}</button>
+        <button class="${state.currentMode === 'chord' ? 'primary' : 'gray'}" onclick="toggleViewerModuleMode('chord')">➕ 코드심기</button>
+        
+        <div class="transpose-ctrl">
+          <button onclick="applyScaleTransposeOffset(-1)">♭</button>
+          <b id="keyDisplay">Key ${state.globalKeyOffset >= 0 ? '+' + state.globalKeyOffset : state.globalKeyOffset}</b>
+          <button onclick="applyScaleTransposeOffset(1)">♯</button>
+        </div>
+        
+        <button class="red" onclick="wipeOutCurrentActiveInk()">메모 지우기</button>
+      </div>
+
+      <div class="stage" id="stage" ontouchstart="captureSwipeStart(event)" ontouchend="captureSwipeEnd(event)">
+        <div class="sheet-container" id="sheetContainer_left" data-side="left">
+          <canvas id="pdfCanvas_left" class="pdf-render-canvas"></canvas>
+          <div class="write-protection-shield" id="shield_left"></div>
+          <canvas id="inkCanvas_left" class="ink-drawing-canvas" data-side="left"></canvas>
+          <div class="chord-interactive-overlay" id="overlay_left"></div>
+        </div>
+
+        <div class="sheet-container" id="sheetContainer_right" data-side="right">
+          <canvas id="pdfCanvas_right" class="pdf-render-canvas"></canvas>
+          <div class="write-protection-shield" id="shield_right"></div>
+          <canvas id="inkCanvas_right" class="ink-drawing-canvas" data-side="right"></canvas>
+          <div class="chord-interactive-overlay" id="overlay_right"></div>
+        </div>
+
+        <div class="hint">
+          ${state.currentMode === 'write' ? '✏️ 내 계정 메모레이어 활성화: 애플펜슬 및 정밀 터치 필기가 전개됩니다.' : 
+            state.currentMode === 'chord' ? '🎼 내 계정 코드레이어 활성화: 터치 지점에 나만의 변환용 코드를 얹습니다.' : 
+            '🖐️ 뷰어 모드: 가로 화면 스와이프 시 Piascore 스타일의 1쪽 단위 슬라이딩 이동이 적용됩니다.'}
+        </div>
+      </div>
+
+      <div class="vbottom">
+        <button onclick="executeShiftPiascorePage(-1)">◀ PREV (이전 페이지 1장 밀기)</button>
+        <button onclick="toggleViewerModuleMode('write')" class="${state.currentMode === 'write' ? 'primary' : 'gold'}">✎ 필기모드 스위치</button>
+        <button onclick="toggleViewerModuleMode('chord')" class="${state.currentMode === 'chord' ? 'primary' : 'gray'}">🎼 코드등록 스위치</button>
+        <button onclick="executeShiftPiascorePage(1)" class="primary">NEXT (다음 페이지 1장 밀기) ▶</button>
+      </div>
+    </div>
+  `;
+
+  setTimeout(() => renderDualPageGraphicsPipeline(), 0);
+}
+
+function exitFullSheetViewer(){ state.activeViewer = null; state.currentPdfBinary = null; executeRenderRouter(); }
+function toggleViewerModuleMode(targetMode){ state.currentMode = state.currentMode === targetMode ? "read" : targetMode; displayDualSheetViewer(); }
+
+// 타이밍 에러 차단을 위해 동적 DOM 바인딩 파이프라인 정합화 완성
+async function renderDualPageGraphicsPipeline(){
+  if(!state.currentPdfBinary || !state.activeViewer) return;
+  await renderIsolatedPageSlot(state.leftGlobalPage, 'left');
+  if(state.rightGlobalPage <= state.maxTotalPages) {
+    const rSheet = document.getElementById("sheetContainer_right");
+    if(rSheet) rSheet.style.display = "block";
+    await renderIsolatedPageSlot(state.rightGlobalPage, 'right');
+  } else {
+    const rSheet = document.getElementById("sheetContainer_right");
+    if(rSheet) rSheet.style.display = "none";
+  }
+
+  ['left', 'right'].forEach(side => {
+    bindPointerDrawingDeviceEvents(side);
+    loadInkStrokeOverlayData(side);
+    bindShieldBlocker(side);
+    injectChordOverlayStickers(side);
+  });
+}
+
+async function renderIsolatedPageSlot(pageNum, side){
+  const page = await state.currentPdfBinary.getPage(pageNum);
+  const stage = document.getElementById("stage");
+  const pdfCanvas = document.getElementById(`pdfCanvas_${side}`);
+  const inkCanvas = document.getElementById(`inkCanvas_${side}`);
+  const container = document.getElementById(`sheetContainer_${side}`);
+  const shield = document.getElementById(`shield_${side}`);
+  if(!stage || !pdfCanvas || !inkCanvas || !container) return;
+
+  const baseViewport = page.getViewport({scale: 1});
+  const finalFitScale = Math.min((stage.clientWidth / 2 - 24) / baseViewport.width, (stage.clientHeight - 32) / baseViewport.height) * (currentSong().zoom || 1);
+  const targetViewport = page.getViewport({scale: finalFitScale});
+  const devicePixelScaleRatio = window.devicePixelRatio || 1;
+
+  container.style.width = Math.round(targetViewport.width) + "px";
+  container.style.height = Math.round(targetViewport.height) + "px";
+
+  [pdfCanvas, inkCanvas].forEach(canvasElement => {
+    canvasElement.width = Math.round(targetViewport.width * devicePixelScaleRatio);
+    canvasElement.height = Math.round(targetViewport.height * devicePixelScaleRatio);
+    canvasElement.style.width = Math.round(targetViewport.width) + "px";
+    canvasElement.style.height = Math.round(targetViewport.height) + "px";
+  });
+  if(shield) {
+    shield.style.width = Math.round(targetViewport.width) + "px";
+    shield.style.height = Math.round(targetViewport.height) + "px";
+  }
+  const ctx = pdfCanvas.getContext("2d", {alpha: false});
+  ctx.setTransform(devicePixelScaleRatio, 0, 0, device
