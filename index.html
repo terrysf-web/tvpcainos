@@ -51,7 +51,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .pdfCanvas{position:absolute;left:0;top:0;z-index:1;background:#fff;pointer-events:none!important;touch-action:none}
 .inkCanvas{position:absolute;left:0;top:0;z-index:30;touch-action:none!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important}
 
-/* 코드 오버레이 배치용 스타일 */
+/* 코드 스티커 레이어 스타일 */
 .chordOverlay{position:absolute;inset:0;z-index:35;pointer-events:none}
 .chord-badge{position:absolute;background:#ffffff;color:#2563eb;font-weight:bold;border:2px solid #2563eb;padding:2px 6px;border-radius:5px;font-size:14px;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.25)}
 
@@ -117,79 +117,38 @@ function removeSong(i){currentSvc().songs.splice(i,1);save();render()}
 function moveSong(i,d){const arr=currentSvc().songs,j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];save();render()}
 function startService(){const svc=currentSvc();if(!svc.songs.length)return toast("Setlist 없음");openViewer(svc.songs[0])}
 
+// 순정 엔진 구조 100% 보존 매핑 진입점
 async function openViewer(id){
  const pdf=await getPdf(id);
  if(!pdf)return toast("PDF 없음");
- state.viewer={id}; 
+ state.viewer={id}; // 원본 순정 구조 복원
  state.mode="read";
  state.page=1;
  state.keyOffset=0;
  state.total=pdf.numPages;
  renderViewer();
 }
-
 function closeViewer(){save();state.viewer=null;render()}
 
+// 오리지널 순정 슬롯 파이프라인 정합성 완전 매칭 복원
 async function getSlots(){
- const curr=currentSong(); 
- if(!curr) return [];
+ const curr=currentSong();
+ if(!curr)return[];
  const pdf=await getPdf(curr.id);
- if(!pdf) return [];
+ if(!pdf)return[];
  state.total=pdf.numPages;
  let slots=[{slot:0,songId:curr.id,page:state.page,pdf}];
  if(state.viewMode==="dual"){
    if(state.page+1<=pdf.numPages){
      slots.push({slot:1,songId:curr.id,page:state.page+1,pdf})
    }else{
-     const i=currentIndex(), nextId=currentSvc().songs[i+1];
-     if(nextId){
-       const npdf=await getPdf(nextId);
-       if(npdf)slots.push({slot:1,songId:nextId,page:1,pdf:npdf})
-     }
+     const i=currentIndex(),nextId=currentSvc().songs[i+1];
+     if(nextId){const npdf=await getPdf(nextId);if(npdf)slots.push({slot:1,songId:nextId,page:1,pdf:npdf})}
    }
  }
  return slots;
 }
 function slotTitle(){if(state.viewMode!=="dual")return `Page ${state.page}/${state.total}`;return `Dual View`}
 
-function renderViewer(){const s=currentSong(), idx=currentIndex(); app.innerHTML=`<div class="viewer ${state.mode}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+currentSvc().songs.length+" · ":""}${slotTitle()} · Key ${esc(s.key||"-")}</span></div><button class="${state.mode==='write'?'primary':'gold'}" onclick="setViewerMode('write')">${state.mode==='write'?'WRITE ON':'READ'}</button><button class="${state.mode==='chord'?'primary':'gray'}" onclick="setViewerMode('chord')">➕ 코드심기</button><div class="transpose-ctrl"><button onclick="changeKey(-1)" style="padding:6px 10px;border-radius:6px">♭</button><b style="min-width:55px;text-align:center;font-size:13px">Key ${state.keyOffset>=0?'+'+state.keyOffset:state.keyOffset}</b><button onclick="changeKey(1)" style="padding:6px 10px;border-radius:6px">♯</button></div><button class="${state.viewMode==='dual'?'primary':'gray'}" onclick="toggleViewMode()">${state.viewMode==='dual'?'2 PAGE':'1 PAGE'}</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="dual-wrap" id="dualWrap"></div><div class="hint"></div></div><div class="vbottom"><button onclick="setViewerMode('write')" class="${state.mode==='write'?'primary':'gold'}">✎<br>${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="setViewerMode('chord')" class="${state.mode==='chord'?'primary':'gray'}">🎼<br>코드 등록</button><button onclick="toggleColor()">◉<br>색상</button><button onclick="undoInk()">↶<br>실행 취소</button><button onclick="clearInk()" class="red">⌧<br>전체 지우기</button><span class="toolbar-spacer"></span><button onclick="prev()">‹</button><button class="gray">${state.viewMode==='dual'?'Dual':state.page+'/'+state.total}</button><button onclick="next()">›</button><button onclick="toggleViewMode()" class="${state.viewMode==='dual'?'primary':'gray'}">${state.viewMode==='dual'?'2 페이지':'1 페이지'}</button><button onclick="zoomToggle()" class="gray">${Math.round((currentSong().zoom||1)*100)}%</button></div></div>`;setTimeout(drawAll,0)}
-function sheetHTML(slot){const key=slot.songId+"_"+slot.page;return `<div class="sheet" id="sheet_${key}" data-key="${key}" data-song="${slot.songId}" data-page="${slot.page}"><canvas class="pdfCanvas" id="pdf_${key}"></canvas><div class="write-lock" id="lock_${key}"></div><canvas class="inkCanvas" id="ink_${key}" data-song="${slot.songId}" data-page="${slot.page}"></canvas><div class="chordOverlay" id="chord_${key}"></div></div>`}
-
-async function drawAll(){const wrap=$("#dualWrap");if(!wrap)return;const slots=await getSlots();wrap.innerHTML=slots.map(sheetHTML).join("");await drawSlots(slots);setupInk();loadAllInk(slots);setupWriteLocks();renderChordsOverlay(slots)}
-async function drawSlots(slots){const stage=$("#stage");const gap=state.viewMode==="dual"?16:0;const availableW=stage.clientWidth-28-gap;const availableH=stage.clientHeight-20;let infos=[];for(const slot of slots){const page=await slot.pdf.getPage(slot.page);const base=page.getViewport({scale:1});infos.push({...slot,page,base})}const perW=state.viewMode==="dual"?availableW/2:availableW;const baseFit=Math.min(...infos.map(info=>Math.min(perW/info.base.width,availableH/info.base.height)));for(const info of infos){const zoom=(songById(info.songId)?.zoom)||1;const vp=info.page.getViewport({scale:baseFit*zoom});const key=info.songId+"_"+info.page,sheet=document.getElementById(`sheet_${key}`),pdf=document.getElementById(`pdf_${key}`),ink=document.getElementById(`ink_${key}`),lock=document.getElementById(`lock_${key}`);if(!sheet||!pdf||!ink)continue;const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});if(lock){lock.style.width=Math.round(vp.width)+"px";lock.style.height=Math.round(vp.height)+"px"}const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await info.page.render({canvasContext:ctx,viewport:vp}).promise}}
-function blockEvent(e){if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{};try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch{};return false}}
-function setupWriteLocks(){document.querySelectorAll(".write-lock").forEach(lock=>["touchstart","touchmove","touchend","click","contextmenu","gesturestart","gesturechange","gestureend"].forEach(type=>lock.addEventListener(type,blockEvent,{passive:false,capture:true})))}
-function setupInk(){document.querySelectorAll(".inkCanvas").forEach(c=>{c.onpointerdown=penDown;c.onpointermove=penMove;c.onpointerup=penUp;c.onpointercancel=penUp;c.onpointerleave=null;["touchstart","touchmove","touchend","gesturestart","contextmenu","click"].forEach(type=>c.addEventListener(type,e=>{if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}))})}
-function pageKey(p){return "p"+p}
-function pos(e,canvas){const r=canvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1;return{x:(e.clientX-r.left)*dpr,y:(e.clientY-r.top)*dpr,p:e.pressure||0.5}}
-function mid(a,b){return{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
-
-function penDown(e){
- if(state.mode==="chord"){
-   e.preventDefault(); e.stopPropagation();
-   const canvas=e.currentTarget;
-   const r=canvas.getBoundingClientRect();
-   const xRatio=(e.clientX-r.left)/r.width;
-   const yRatio=(e.clientY-r.top)/r.height;
-   const input=prompt("이 위치에 덮어씌울 코드를 입력하세요 (예: C, Am, G7):");
-   if(input){
-     const songId=canvas.dataset.song, pageNum=Number(canvas.dataset.page);
-     const s=songById(songId);
-     s.chords=s.chords||[];
-     s.chords.push({id:`c_${Date.now()}`,page:pageNum,xRatio,yRatio,originalChord:input});
-     save();
-     drawAll();
-   }
-   return;
- }
- if(state.mode!=="write")return;
- e.preventDefault();e.stopPropagation();
- const canvas=e.currentTarget;
- try{canvas.setPointerCapture(e.pointerId)}catch{}state.draw=true;state.activeSlot={songId:canvas.dataset.song,page:Number(canvas.dataset.page)};state.pts=[pos(e,canvas)]
-}
-function penMove(e){if(state.mode!=="write"||!state.draw)return;e.preventDefault();e.stopPropagation();const canvas=e.currentTarget;if(!state.activeSlot||canvas.dataset.song!==state.activeSlot.songId||Number(canvas.dataset.page)!==state.activeSlot.page)return;const p=pos(e,canvas);state.pts.push(p);const n=state.pts.length;if(n<3){dot(p,canvas);return}const p0=state.pts[n-3],p1=state.pts[n-2],p2=state.pts[n-1],m1=mid(p0,p1),m2=mid(p1,p2);const ctx=canvas.getContext("2d",{desynchronized:true});ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=state.color;ctx.lineWidth=(state.width+Math.max(.2,p1.p)*2)*(window.devicePixelRatio||1);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}
-function penUp(e){if(!state.draw)return;e.preventDefault();e.stopPropagation();try{e.currentTarget.releasePointerCapture(e.pointerId)}catch{}state.draw=false;saveStroke(state.activeSlot.songId,state.activeSlot.page,state.pts);state.pts=[];state.activeSlot=null}
-function dot(p,canvas){const ctx=canvas.getContext("2d");ctx.fillStyle=state.color;ctx.beginPath();ctx.arc(p.x,p.y,1.8*(window.devicePixelRatio||1),0,Math.PI*2);ctx.fill()}
-function saveStroke(songId,page,pts){const s=songById(songId);s.ink=s.ink||{};s.ink[pageKey(page)]=s.ink[pageKey(page)]||[];s.ink[pageKey(page)].push({color:state.color,width:state.width,pts});save()}
-function loadAllInk(slots){slots.forEach(slot=>loadInk(slot.songId,slot.page))}
-function loadInk(songId,page){const s=songById(songId),key=songId+"_"+page,canvas=document.getElementById(`ink_${key}`);if(!canvas)return;const strokes=(s.ink&&s.ink[pageKey(page)])||[],ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);strokes.forEach(st=>{ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=st.color||"#ef4444";ctx.lineWidth=(st.width||3)*(window.devicePixelRatio||1);const pts=st.pts||[];for(let i=2;i<pts.length;i++){const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y
+// 상단 헤더 툴바에 코드 기능 및 조바꿈 통합
+function renderViewer(){const s=currentSong(), idx=currentIndex();app.innerHTML=`<div class="viewer ${state.mode}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+currentSvc().songs.length+" · ":""}${slotTitle()} · Key ${esc(s.key||"-")}</span></div><button class="${state.mode==='write'?'primary':'gold'}" onclick="setViewerMode('write')">${state.mode==='write'?'WRITE ON':'READ'}</button><button class="${state.mode==='chord'?'primary':'gray'}" onclick="setViewerMode('chord')">➕ 코드심기</button><div class="transpose-ctrl"><button onclick="changeKey(-1)" style="padding:6px 10px;border-radius:6px">♭</button><b style="min-width:55px;text-align:center;font-size:13px">Key ${state.keyOffset>=0?'+'+state.keyOffset:state.keyOffset}</b><button onclick="changeKey(1)" style="padding:6px 10px;border-radius:6px">♯</button></div><button class="${state.viewMode==='dual'?'primary':'gray'}" onclick="toggleViewMode()">${state.viewMode==='dual'?'2 PAGE':'1 PAGE'}</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd
