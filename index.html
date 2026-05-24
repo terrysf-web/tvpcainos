@@ -263,7 +263,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_FIREBASE_DATAURL_AUTH_FIXED";
+const BUILD="AINOS_PDF_CACHE_PRELOAD";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -275,6 +275,50 @@ function pdfUrlFor(song){
   }
   return SHARED_BASE + "/pdfs/" + encodeURIComponent(p);
 }
+const PDF_DOC_CACHE = new Map();
+
+async function loadPdfDocForSong(song){
+  const cacheKey = String(song.id || song.title || song.pdf || "");
+  if(cacheKey && PDF_DOC_CACHE.has(cacheKey)) return PDF_DOC_CACHE.get(cacheKey);
+
+  let pdfDoc = null;
+
+  if(window.TVPC_FB&&window.TVPC_FB.getPdfDataForSong){
+    const fbPdf = await window.TVPC_FB.getPdfDataForSong(song).catch(e=>{
+      console.warn("Firebase PDF load failed", e);
+      return null;
+    });
+    if(fbPdf&&fbPdf.data){
+      pdfDoc = await pdfjsLib.getDocument({data:fbPdf.data}).promise;
+    }
+  }
+
+  if(!pdfDoc){
+    const url = pdfUrlFor(song);
+    if(!url) throw new Error("PDF 경로 없음");
+    pdfDoc = await pdfjsLib.getDocument(url).promise;
+  }
+
+  if(cacheKey) PDF_DOC_CACHE.set(cacheKey, pdfDoc);
+  return pdfDoc;
+}
+
+async function preloadNextPdf(currentId){
+  try{
+    const svc=currentSvc();
+    const ids=(svc.songs||[]).map(x=>{const s=findSongByRef(x);return s?s.id:x});
+    const idx=ids.indexOf(currentId);
+    if(idx<0 || idx>=ids.length-1) return;
+    const nextSong=findSongByRef(ids[idx+1]);
+    if(!nextSong) return;
+    const key=String(nextSong.id || nextSong.title || nextSong.pdf || "");
+    if(key && PDF_DOC_CACHE.has(key)) return;
+    await loadPdfDocForSong(nextSong);
+  }catch(e){
+    console.warn("Next PDF preload failed", e);
+  }
+}
+
 function findSongByRef(ref){
   return state.songs.find(s=>s.id===ref)
     || state.songs.find(s=>s.title===ref)
@@ -327,23 +371,11 @@ id=song.id;
 try{
 state.viewer={id};state.mode="read";state.page=1;state.pdf=null;render();
 
-let loaded=false;
-if(window.TVPC_FB&&window.TVPC_FB.getPdfDataForSong){
-  const fbPdf=await window.TVPC_FB.getPdfDataForSong(song).catch(e=>{console.warn("Firebase PDF load failed",e);return null});
-  if(fbPdf&&fbPdf.data){
-    state.pdf=await pdfjsLib.getDocument({data:fbPdf.data}).promise;
-    loaded=true;
-  }
-}
-
-if(!loaded){
-  const url=pdfUrlFor(song);
-  if(!url)return toast("PDF 경로 없음");
-  state.pdf=await pdfjsLib.getDocument(url).promise;
-}
+state.pdf=await loadPdfDocForSong(song);
 
 state.total=state.pdf.numPages;
 await drawAll();
+preloadNextPdf(id);
 }catch(e){console.error(e);toast("PDF 열기 실패 - Firebase/파일 확인")}
 }
 function closeViewer(){save();state.viewer=null;state.pdf=null;render()}
