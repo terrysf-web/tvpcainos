@@ -108,69 +108,100 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 <div id="app"></div>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_INTEGRATED_STABLE_V1";
-const DB="tvpc_ainos_integrated_stable_v1", STORE="pdfs";
-let dbp=null;
-function openDB(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});return dbp}
-async function putFile(id,data){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(data,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
-async function getFile(id){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readonly");const r=tx.objectStore(STORE).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+const BUILD="AINOS_SHARED_TVPC_WORSHIP_LIBRARY_V1";
+const SHARED_LIBRARY_URL="https://terrysf-web.github.io/tvpc-worship/data/songs.json";
+const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const $=s=>document.querySelector(s), app=$("#app");
 const state={
  tab:"service",
- songs:JSON.parse(localStorage.getItem("ais_songs")||"[]"),
- services:JSON.parse(localStorage.getItem("ais_services")||"[]"),
- currentService:localStorage.getItem("ais_current_service")||null,
- viewer:null,pdf:null,mode:"read",page:1,total:1,draw:false,pts:[],startX:0,startY:0,color:"#ef4444",width:3
+ songs:[],
+ services:JSON.parse(localStorage.getItem("ais_services_shared")||"[]"),
+ currentService:localStorage.getItem("ais_current_service_shared")||null,
+ viewer:null,pdf:null,mode:"read",page:1,total:1,draw:false,pts:[],startX:0,startY:0,color:"#ef4444",width:3,
+ loading:true,error:""
 };
-if(!state.services.length){const id="svc_"+Date.now();state.services=[{id,name:"Sunday Service",date:new Date().toISOString().slice(0,10),songs:[]}];state.currentService=id;save();}
-function save(){localStorage.setItem("ais_songs",JSON.stringify(state.songs));localStorage.setItem("ais_services",JSON.stringify(state.services));if(state.currentService)localStorage.setItem("ais_current_service",state.currentService)}
+function save(){localStorage.setItem("ais_services_shared",JSON.stringify(state.services));if(state.currentService)localStorage.setItem("ais_current_service_shared",state.currentService)}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
 function esc(s){return(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-function toast(m){const old=$(".toast");if(old)old.remove();const t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),1700)}
-function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
-function currentSvc(){return state.services.find(s=>s.id===state.currentService)||state.services[0]}
-function render(){if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Service Open Fix</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><button class="primary" onclick="share()">Share</button></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
-function servicesHTML(){return `<div class="field"><label>Service Name</label><input value="${esc(currentSvc().name)}" onchange="currentSvc().name=this.value;save();render()"></div><div class="field"><label>Date</label><input type="date" value="${esc(currentSvc().date||"")}" onchange="currentSvc().date=this.value;save();render()"></div><div class="list">${state.services.map(s=>`<div class="row"><div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date||"")} · ${s.songs.length} songs</div></div><div class="actions"><button class="${s.id===state.currentService?'primary':'gray'} small" onclick="state.currentService='${s.id}';save();render()">Open</button><button class="red small" onclick="deleteService('${s.id}')">Delete</button></div></div>`).join("")}</div>`}
-function serviceHTML(){const svc=currentSvc();return `<div class="service-title">${esc(svc.name)}</div><div class="meta">${esc(svc.date||"")}</div><div class="list">${svc.songs.map((id,i)=>{const s=state.songs.find(x=>x.id===id);return s?rowSong(s,true,i):""}).join("")||'<div class="empty">Library에서 곡을 추가하세요.</div>'}</div><button class="primary" onclick="startService()">Start Service</button>`}
-function libraryHTML(){return `<div class="field"><label>Title</label><input id="title" placeholder="곡 제목"></div><div class="field"><label>Key</label><select id="key">${["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"].map(k=>`<option>${k}</option>`).join("")}</select></div><div class="field"><label>PDF</label><input id="pdf" type="file" accept="application/pdf"></div><button class="blue" onclick="addSong()">Add Song</button><div class="list">${state.songs.map(s=>rowSong(s,false)).join("")||'<div class="empty">곡을 추가하세요.</div>'}</div>`}
-function rowSong(s,inSet,i=0){return `<div class="row"><div><div class="title">${esc(s.title)}</div><div class="meta">Key ${esc(s.key||"-")}</div></div><div class="actions">${inSet?`<button class="blue small" onclick="openViewer('${s.id}')">Open</button><button class="gray small" onclick="moveSong(${i},-1)">↑</button><button class="gray small" onclick="moveSong(${i},1)">↓</button><button class="red small" onclick="removeSong(${i})">Remove</button>`:`<button class="primary small" onclick="addToService('${s.id}')">Add</button><button class="gray small" onclick="openViewer('${s.id}')">Test</button><button class="red small" onclick="deleteSong('${s.id}')">Delete</button>`}</div></div>`}
+function toast(m){const old=$(".toast");if(old)old.remove();const t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),1900)}
+function normalizeSong(x,i){
+ const title=x.title||x.name||x.song||`Song ${i+1}`;
+ const id=x.id||title.toLowerCase().replace(/[^a-z0-9가-힣]+/gi,"_")||`song_${i+1}`;
+ let pdf=x.pdf||x.file||x.url||x.path||"";
+ if(pdf && !/^https?:\/\//i.test(pdf)){
+   pdf=pdf.replace(/^\/?/,"");
+   if(!pdf.startsWith("pdfs/")) pdf="pdfs/"+pdf;
+   pdf=SHARED_BASE+"/"+pdf.split("/").map(encodeURIComponent).join("/").replace(/%2F/g,"/");
+ }
+ return {id,title,key:x.key||x.originalKey||x.songKey||"-",pdf,ink:{},zoom:1};
+}
+async function loadLibrary(){
+ state.loading=true; state.error=""; render();
+ try{
+   const res=await fetch(SHARED_LIBRARY_URL+"?v="+Date.now(),{cache:"no-store"});
+   if(!res.ok) throw new Error(`songs.json ${res.status}`);
+   const raw=await res.json();
+   const arr=Array.isArray(raw)?raw:(raw.songs||raw.library||[]);
+   state.songs=arr.map(normalizeSong).filter(s=>s.pdf);
+   state.loading=false;
+   if(!state.services.length){const id="svc_"+Date.now();state.services=[{id,name:"Sunday Service",date:new Date().toISOString().slice(0,10),songs:[]}];state.currentService=id;save();}
+   // remove service song ids that no longer exist
+   const valid=new Set(state.songs.map(s=>s.id));
+   state.services.forEach(s=>s.songs=s.songs.filter(id=>valid.has(id)));
+   if(!state.currentService||!state.services.find(s=>s.id===state.currentService)) state.currentService=state.services[0]?.id||null;
+   save(); render();
+ }catch(e){
+   state.loading=false; state.error="Song Library를 불러오지 못했습니다: "+e.message; render();
+ }
+}
+function currentSvc(){return state.services.find(s=>s.id===state.currentService)||state.services[0]||{id:"",name:"No Service",date:"",songs:[]}}
+function render(){
+ if(state.viewer)return renderViewer();
+ const svc=currentSvc();
+ app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Shared Library</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><button class="primary" onclick="share()">Share</button></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'TVPC-Worship Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button><button class="gray small" onclick="loadLibrary()">Reload</button></div></div><div class="card-body">${mainHTML()}</div></section></div></div></div>`
+}
+function mainHTML(){if(state.loading)return '<div class="empty">TVPC-worship Song Library 불러오는 중...</div>'; if(state.error)return `<div class="empty">${esc(state.error)}<br><br><button class="primary" onclick="loadLibrary()">Retry</button></div>`; return state.tab==='service'?serviceHTML():libraryHTML();}
+function servicesHTML(){const svc=currentSvc();return `<div class="field"><label>Service Name</label><input value="${esc(svc.name)}" onchange="currentSvc().name=this.value;save();render()"></div><div class="field"><label>Date</label><input type="date" value="${esc(svc.date||"")}" onchange="currentSvc().date=this.value;save();render()"></div><div class="list">${state.services.map(s=>`<div class="row"><div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date||"")} · ${s.songs.length} songs</div></div><div class="actions"><button class="${s.id===state.currentService?'primary':'gray'} small" onclick="state.currentService='${s.id}';save();render()">Open</button><button class="red small" onclick="deleteService('${s.id}')">Delete</button></div></div>`).join("")}</div>`}
+function serviceHTML(){const svc=currentSvc();return `<div class="service-title">${esc(svc.name)}</div><div class="meta">${esc(svc.date||"")} · Library: ${state.songs.length} songs</div><div class="list">${svc.songs.map((id,i)=>{const s=state.songs.find(x=>x.id===id);return s?rowSong(s,true,i):""}).join("")||'<div class="empty">Library에서 곡을 추가하세요.</div>'}</div><button class="primary" onclick="startService()">Start Service</button>`}
+function libraryHTML(){return `<div class="meta">Source: TVPC-worship / data/songs.json</div><div class="list">${state.songs.map(s=>rowSong(s,false)).join("")||'<div class="empty">songs.json에 곡이 없습니다.</div>'}</div>`}
+function rowSong(s,inSet,i=0){return `<div class="row"><div><div class="title">${esc(s.title)}</div><div class="meta">Key ${esc(s.key||"-")}</div></div><div class="actions">${inSet?`<button class="blue small" onclick="openViewer('${s.id}')">Open</button><button class="gray small" onclick="moveSong(${i},-1)">↑</button><button class="gray small" onclick="moveSong(${i},1)">↓</button><button class="red small" onclick="removeSong(${i})">Remove</button>`:`<button class="primary small" onclick="addToService('${s.id}')">Add</button><button class="gray small" onclick="openViewer('${s.id}')">Test</button>`}</div></div>`}
 function newService(){const id=uid();state.services.push({id,name:"New Service",date:new Date().toISOString().slice(0,10),songs:[]});state.currentService=id;save();render()}
 function deleteService(id){if(state.services.length<=1)return toast("최소 1개 필요");if(!confirm("Service 삭제?"))return;state.services=state.services.filter(s=>s.id!==id);if(state.currentService===id)state.currentService=state.services[0].id;save();render()}
-async function addSong(){const title=$("#title").value.trim(),key=$("#key").value,f=$("#pdf").files[0];if(!title||!f)return toast("Title/PDF 필요");const id=uid();await putFile(id,await fileData(f));state.songs.push({id,title,key,ink:{},zoom:1});save();render();toast("곡 추가됨")}
-function deleteSong(id){if(!confirm("곡 삭제?"))return;state.songs=state.songs.filter(s=>s.id!==id);state.services.forEach(s=>s.songs=s.songs.filter(x=>x!==id));save();render()}
-function addToService(id){currentSvc().songs.push(id);save();state.tab="service";render();toast("Service에 추가됨")}
+function addToService(id){if(currentSvc().songs.includes(id))return toast("이미 Service에 있음");currentSvc().songs.push(id);save();state.tab="service";render();toast("Service에 추가됨")}
 function removeSong(i){currentSvc().songs.splice(i,1);save();render()}
 function moveSong(i,d){const arr=currentSvc().songs,j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];save();render()}
 function startService(){const svc=currentSvc();if(!svc.songs.length)return toast("Setlist 없음");openViewer(svc.songs[0])}
-async function openViewer(id){const data=await getFile(id);if(!data)return toast("PDF 없음");state.viewer={id};state.mode="read";state.page=1;state.pdf=null;render();state.pdf=await pdfjsLib.getDocument(data).promise;state.total=state.pdf.numPages;await drawAll()}
+async function openViewer(id){const s=state.songs.find(x=>x.id===id);if(!s||!s.pdf)return toast("PDF URL 없음");state.viewer={id};state.mode="read";state.page=1;state.pdf=null;state.total=1;render();try{state.pdf=await pdfjsLib.getDocument(s.pdf).promise;state.total=state.pdf.numPages;await drawAll()}catch(e){toast("PDF 열기 실패: "+e.message);closeViewer();}}
 function closeViewer(){save();state.viewer=null;state.pdf=null;render()}
 function currentSong(){return state.songs.find(s=>s.id===state.viewer.id)}
 function renderViewer(){const s=currentSong(), svc=currentSvc(), idx=svc.songs.indexOf(s.id);app.innerHTML=`<div class="viewer ${state.mode}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}Page ${state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><button class="${state.mode==='write'?'primary':'gold'}" onclick="toggleMode()">${state.mode==='write'?'WRITE ON':'READ'}</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="sheet" id="sheet"><canvas id="pdfCanvas"></canvas><div class="write-lock" id="writeLock"></div><canvas id="inkCanvas"></canvas></div><div class="hint">${state.mode==='write'?'Write Mode: 필기만 가능 / 이동 잠김':'Read Mode: Swipe 가능'}</div></div><div class="vbottom"><button onclick="prev()">◀ PREV</button><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="next()" class="primary">NEXT ▶</button><button onclick="zoomToggle()" class="gray">Zoom</button></div></div>`;setTimeout(()=>drawAll(),0)}
 async function drawAll(){if(!state.pdf||!state.viewer)return;await drawPdf();setupInk();loadInk();setupWriteLock()}
 async function drawPdf(){const page=await state.pdf.getPage(state.page),stage=$("#stage"),pdf=$("#pdfCanvas"),ink=$("#inkCanvas"),sheet=$("#sheet"),lock=$("#writeLock");if(!stage||!pdf||!ink)return;const base=page.getViewport({scale:1});const fit=Math.min(stage.clientWidth/base.width,stage.clientHeight/base.height)*(currentSong().zoom||1);const vp=page.getViewport({scale:fit});const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});if(lock){lock.style.width=Math.round(vp.width)+"px";lock.style.height=Math.round(vp.height)+"px"}const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await page.render({canvasContext:ctx,viewport:vp}).promise}
+function inkKey(){return "ink_"+currentSong().id+"_p"+state.page}
 function blockEvent(e){if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{};try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch{};return false}}
 function setupWriteLock(){const lock=$("#writeLock");if(!lock)return;["touchstart","touchmove","touchend","click","contextmenu","gesturestart","gesturechange","gestureend"].forEach(type=>lock.addEventListener(type,blockEvent,{passive:false,capture:true}))}
 function setupInk(){const c=$("#inkCanvas");if(!c)return;c.onpointerdown=penDown;c.onpointermove=penMove;c.onpointerup=penUp;c.onpointercancel=penUp;c.onpointerleave=null;["touchstart","touchmove","touchend","gesturestart","contextmenu","click"].forEach(type=>c.addEventListener(type,e=>{if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}))}
-function pageKey(){return "p"+state.page}
 function pos(e){const r=$("#inkCanvas").getBoundingClientRect(),dpr=window.devicePixelRatio||1;return{x:(e.clientX-r.left)*dpr,y:(e.clientY-r.top)*dpr,p:e.pressure||0.5}}
 function mid(a,b){return{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
 function penDown(e){if(state.mode!=="write")return;e.preventDefault();e.stopPropagation();try{e.currentTarget.setPointerCapture(e.pointerId)}catch{}state.draw=true;state.pts=[pos(e)]}
 function penMove(e){if(state.mode!=="write"||!state.draw)return;e.preventDefault();e.stopPropagation();const p=pos(e);state.pts.push(p);const n=state.pts.length;if(n<3){dot(p);return}const p0=state.pts[n-3],p1=state.pts[n-2],p2=state.pts[n-1],m1=mid(p0,p1),m2=mid(p1,p2);const ctx=$("#inkCanvas").getContext("2d",{desynchronized:true});ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=state.color;ctx.lineWidth=(state.width+Math.max(.2,p1.p)*2)*(window.devicePixelRatio||1);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}
 function penUp(e){if(!state.draw)return;e.preventDefault();e.stopPropagation();try{e.currentTarget.releasePointerCapture(e.pointerId)}catch{}state.draw=false;saveStroke(state.pts);state.pts=[]}
 function dot(p){const ctx=$("#inkCanvas").getContext("2d");ctx.fillStyle=state.color;ctx.beginPath();ctx.arc(p.x,p.y,1.8*(window.devicePixelRatio||1),0,Math.PI*2);ctx.fill()}
-function saveStroke(pts){const s=currentSong();s.ink=s.ink||{};s.ink[pageKey()]=s.ink[pageKey()]||[];s.ink[pageKey()].push({color:state.color,width:state.width,pts});save()}
-function loadInk(){const s=currentSong(),strokes=(s.ink&&s.ink[pageKey()])||[],ctx=$("#inkCanvas").getContext("2d");ctx.clearRect(0,0,$("#inkCanvas").width,$("#inkCanvas").height);strokes.forEach(st=>{ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=st.color||"#ef4444";ctx.lineWidth=(st.width||3)*(window.devicePixelRatio||1);const pts=st.pts||[];for(let i=2;i<pts.length;i++){const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}})}
-function clearInk(){if(!confirm("현재 페이지 필기 삭제?"))return;const s=currentSong();if(s.ink)s.ink[pageKey()]=[];save();loadInk()}
+function saveStroke(pts){const strokes=JSON.parse(localStorage.getItem(inkKey())||"[]");strokes.push({color:state.color,width:state.width,pts});localStorage.setItem(inkKey(),JSON.stringify(strokes))}
+function loadInk(){const strokes=JSON.parse(localStorage.getItem(inkKey())||"[]"),ctx=$("#inkCanvas").getContext("2d");ctx.clearRect(0,0,$("#inkCanvas").width,$("#inkCanvas").height);strokes.forEach(st=>{ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=st.color||"#ef4444";ctx.lineWidth=(st.width||3)*(window.devicePixelRatio||1);const pts=st.pts||[];for(let i=2;i<pts.length;i++){const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}})}
+function clearInk(){if(!confirm("현재 페이지 필기 삭제?"))return;localStorage.setItem(inkKey(),"[]");loadInk()}
 function toggleMode(){state.mode=state.mode==="write"?"read":"write";renderViewer()}
 function prev(){if(state.mode==="write")return toast("Write Mode에서는 이동 잠김");if(state.page>1){state.page--;renderViewer();return}const arr=currentSvc().songs,i=arr.indexOf(state.viewer.id);if(i>0)openViewer(arr[i-1]);else toast("첫 곡입니다")}
 function next(){if(state.mode==="write")return toast("Write Mode에서는 이동 잠김");if(state.page<state.total){state.page++;renderViewer();return}const arr=currentSvc().songs,i=arr.indexOf(state.viewer.id);if(i>=0&&i<arr.length-1)openViewer(arr[i+1]);else toast("마지막입니다")}
 function swipeStart(e){if(state.mode==="write"){try{e.preventDefault()}catch{};return}state.startX=e.changedTouches[0].clientX;state.startY=e.changedTouches[0].clientY}
 function swipeEnd(e){if(state.mode==="write"){try{e.preventDefault()}catch{};return}const dx=e.changedTouches[0].clientX-state.startX,dy=e.changedTouches[0].clientY-state.startY;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.3){dx<0?next():prev()}}
-function zoomToggle(){const s=currentSong();s.zoom=s.zoom===1?1.25:1;save();renderViewer()}
-function share(){const svc=currentSvc();const payload={v:1,name:svc.name,date:svc.date,songs:svc.songs.map(id=>{const s=state.songs.find(x=>x.id===id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};const url="https://terrysf-web.github.io/tvpcainos/index.html#share="+btoa(unescape(encodeURIComponent(JSON.stringify(payload))));navigator.clipboard?.writeText(url);toast("Share copied")}
+function zoomToggle(){const s=currentSong();s.zoom=s.zoom===1?1.25:1;renderViewer()}
+function share(){const svc=currentSvc();const payload={v:2,source:"tvpc-worship",name:svc.name,date:svc.date,songs:svc.songs};const url="https://terrysf-web.github.io/tvpcainos/index.html#share="+btoa(unescape(encodeURIComponent(JSON.stringify(payload))));navigator.clipboard?.writeText(url);toast("Share copied")}
+function loadSharedFromHash(){try{const h=location.hash||"";const m=h.match(/share=([^&]+)/);if(!m)return;const payload=JSON.parse(decodeURIComponent(escape(atob(m[1]))));if(payload&&Array.isArray(payload.songs)){const id="svc_"+Date.now();state.services.push({id,name:payload.name||"Shared Service",date:payload.date||new Date().toISOString().slice(0,10),songs:payload.songs});state.currentService=id;save();history.replaceState(null,"",location.pathname)}}catch(e){}}
 ["contextmenu","dragstart","gesturestart","gesturechange","gestureend"].forEach(type=>document.addEventListener(type,e=>{if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}));
 window.addEventListener("resize",()=>{if(state.viewer)renderViewer()});
-render();
+loadSharedFromHash();
+loadLibrary();
 </script>
 </body>
 </html>
