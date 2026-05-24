@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>TVPC Ainos Piascore Dual Final</title>
+<title>TVPC Ainos Piascore Dual Perfect</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#050608">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -39,7 +39,8 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .card-head{padding:14px 16px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:10px}
 .card-head h2{margin:0;font-size:17px}
 .card-body{padding:14px;display:grid;gap:12px}
-.field{display:grid;gap:6px}.field label{font-size:12px;color:#64748b;font-weight:900}
+.field{display:grid;gap:6px}
+.field label{font-size:12px;color:#64748b;font-weight:900}
 .field input,.field select,.field textarea{border:1px solid #cbd5e1;border-radius:12px;padding:11px;background:#fff}
 .row{
   display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
@@ -47,12 +48,14 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 }
 .title{font-weight:950;font-size:15px}.meta{font-size:12px;color:#64748b;margin-top:4px}
 .actions{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}
-.list{display:grid;gap:10px}.empty{padding:28px 10px;text-align:center;color:#64748b}
+.list{display:grid;gap:10px}
+.empty{padding:28px 10px;text-align:center;color:#64748b}
 .badge{display:inline-block;background:#22c7d8;color:#031217;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:900;margin-left:6px}
 .service-title{font-size:18px;font-weight:950}
-.tabs{display:flex;gap:8px}.tabs button{background:#1b1f26}.tabs button.active{background:#22c7d8;color:#031217}
+.tabs{display:flex;gap:8px}
+.tabs button{background:#1b1f26}
+.tabs button.active{background:#22c7d8;color:#031217}
 
-/* 아이패드 가로 전용 양옆 분할 뷰어 레이아웃 */
 .viewer{
   position:fixed;inset:0;z-index:50;background:#111827;
   display:grid;grid-template-rows:auto 1fr auto;
@@ -66,25 +69,38 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .vtitle b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px}
 .vtitle span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:#cbd5e1;margin-top:3px}
 
+/* 아이패드 가로 모드를 형상화한 Piascore 스타일 듀얼 컨테이너 무대 */
 .stage{
   position:relative;overflow:hidden;background:#1e2530;
   display:flex;flex-direction:row;justify-content:center;align-items:center;gap:16px;
   touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
   width:100%;height:100%;padding:10px;
 }
+/* 순정 크기 연산식을 완벽하게 수렴하기 위해 단일 구조 원본 보존 */
 .sheet{
   position:relative;background:#fff;overflow:hidden;
-  box-shadow:0 18px 60px rgba(0,0,0,.45);
+  box-shadow:0 18px 60px rgba(0,0,0,.35);
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
 }
-.pdfCanvas{
+#pdfCanvas{
   position:absolute;left:0;top:0;z-index:1;background:#fff;
   pointer-events:none!important;touch-action:none;
 }
-.inkCanvas{
+#pdfCanvas_right{
+  position:absolute;left:0;top:0;z-index:2;background:#fff;
+  pointer-events:none!important;touch-action:none;display:none;
+}
+#inkCanvas{
   position:absolute;left:0;top:0;z-index:30;
   touch-action:none!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;
 }
+#inkCanvas_right{
+  position:absolute;left:0;top:0;z-index:31;
+  touch-action:none!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;
+  display:none;
+}
+
+/* 코드 스티커 배치 오버레이 레이어 */
 .chordOverlay {
   position: absolute; inset: 0; z-index: 35; pointer-events: none;
 }
@@ -94,11 +110,10 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
   transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer;
   box-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
-.write-lock{position:absolute;inset:0;z-index:20;background:transparent;pointer-events:none;touch-action:none}
 
-.viewer.read .inkCanvas{pointer-events:none}
-.viewer.write .inkCanvas,.viewer.chord .inkCanvas{pointer-events:auto!important}
-.viewer.write .write-lock,.viewer.chord .write-lock{pointer-events:auto}
+.viewer.read #inkCanvas, .viewer.read #inkCanvas_right{pointer-events:none}
+.viewer.write #inkCanvas, .viewer.write #inkCanvas_right{pointer-events:auto!important}
+.viewer.chord #inkCanvas, .viewer.chord #inkCanvas_right{pointer-events:auto!important}
 
 .vbottom{
   height:75px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));
@@ -111,8 +126,12 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 }
 .toast{
   position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);
-  background:rgba(15,23,42,.94);color:white;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:900;z-index:200}
+  background:rgba(15,23,42,.94);color:white;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:900;z-index:200;
+}
+.write-lock{position:absolute;inset:0;z-index:20;background:transparent;pointer-events:none;touch-action:none}
+.viewer.write .write-lock, .viewer.chord .write-lock{pointer-events:auto}
 .transpose-ctrl{display:flex;gap:4px;align-items:center;background:#1f2937;padding:4px 8px;border-radius:10px;color:#fff}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.page{padding:12px}.vbottom{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -120,11 +139,10 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 const DB="tvpc_ainos_integrated_stable_v1", STORE="pdfs";
-let dbp=null,pdfCache={};
+let dbp=null;
 function openDB(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});return dbp}
 async function putFile(id,data){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(data,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
 async function getFile(id){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readonly");const r=tx.objectStore(STORE).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
-async function getPdf(songId){if(pdfCache[songId])return pdfCache[songId];const data=await getFile(songId);if(!data)return null;const pdf=await pdfjsLib.getDocument(data).promise;pdfCache[songId]=pdf;return pdf}
 const $=s=>document.querySelector(s), app=$("#app");
 
 const SEMITONE_SCALE = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -134,7 +152,7 @@ const state={
  songs:JSON.parse(localStorage.getItem("ais_songs")||"[]"),
  services:JSON.parse(localStorage.getItem("ais_services")||"[]"),
  currentService:localStorage.getItem("ais_current_service")||null,
- viewer:null,pdf:null,mode:"read",page:1,total:1,draw:false,pts:[],activeSide:null,startX:0,startY:0,color:"#ef4444",width:3,
+ viewer:null,pdf:null,mode:"read",page:1,total:1,draw:false,pts:[],activeCanvasId:'inkCanvas',startX:0,startY:0,color:"#ef4444",width:3,
  keyOffset:0
 };
 
@@ -145,7 +163,6 @@ function esc(s){return(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">"
 function toast(m){const old=$(".toast");if(old)old.remove();const t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),1700)}
 function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
 function currentSvc(){return state.services.find(s=>s.id===state.currentService)||state.services[0]}
-function songById(id){return state.songs.find(s=>s.id===id)}
 function currentSong(){return state.songs.find(s=>s.id===state.viewer?.id)}
 function currentIndex(){return currentSvc().songs.indexOf(state.viewer?.id)}
 
@@ -163,11 +180,9 @@ function removeSong(i){currentSvc().songs.splice(i,1);save();render()}
 function moveSong(i,d){const arr=currentSvc().songs,j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];save();render()}
 function startService(){const svc=currentSvc();if(!svc.songs.length)return toast("Setlist 없음");openViewer(svc.songs[0])}
 
-// 순정 캐시 파이프라인 무조건 탑재
-async function openViewer(id){const pdf=await getPdf(id);if(!pdf)return toast("PDF 없음");state.viewer={id};state.mode="read";state.page=1;state.keyOffset=0;state.pdf=pdf;state.total=pdf.numPages;renderViewer();await drawAll()}
+async function openViewer(id){const data=await getFile(id);if(!data)return toast("PDF 없음");state.viewer={id};state.mode="read";state.page=1;state.keyOffset=0;state.pdf=null;render();state.pdf=await pdfjsLib.getDocument(data).promise;state.total=state.pdf.numPages;await drawAll()}
 function closeViewer(){save();state.viewer=null;state.pdf=null;render()}
 
-// 가로 양옆을 정밀 분할하는 복합 마크업 렌더링
 function renderViewer(){
   const s=currentSong(), svc=currentSvc(), idx=svc.songs.indexOf(s.id);
   const leftPage = state.page;
@@ -192,21 +207,21 @@ function renderViewer(){
     </div>
     
     <div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)">
-      <div class="sheet" id="sheet_left" data-side="left">
-        <canvas id="pdfCanvas_left" class="pdfCanvas"></canvas>
-        <div class="write-lock" id="writeLock_left"></div>
-        <canvas id="inkCanvas_left" class="inkCanvas" data-side="left"></canvas>
-        <div class="chordOverlay" id="chordOverlay_left"></div>
+      <div class="sheet" id="sheet">
+        <canvas id="pdfCanvas"></canvas>
+        <div class="write-lock" id="writeLock"></div>
+        <canvas id="inkCanvas"></canvas>
+        <div class="chordOverlay" id="chordOverlay"></div>
       </div>
       
-      <div class="sheet" id="sheet_right" data-side="right">
-        <canvas id="pdfCanvas_right" class="pdfCanvas"></canvas>
+      <div class="sheet" id="sheet_right" style="display:none;">
+        <canvas id="pdfCanvas_right"></canvas>
         <div class="write-lock" id="writeLock_right"></div>
-        <canvas id="inkCanvas_right" class="inkCanvas" data-side="right"></canvas>
+        <canvas id="inkCanvas_right"></canvas>
         <div class="chordOverlay" id="chordOverlay_right"></div>
       </div>
       
-      <div class="hint">${state.mode==='write'?'Write Mode: 자유로운 필기 메모 가능':state.mode==='chord'?'코드 등록 Mode: 터치하여 새 코드 추가':'Read Mode: 스와이프하여 한 페이지씩 스무스하게 이동'}</div>
+      <div class="hint">${state.mode==='write'?'Write Mode: 자유로운 필기 메모 가능':state.mode==='chord'?'코드 등록 Mode: 터치하여 새 코드 추가':'Read Mode: 스와이프하여 한 페이지씩 이동'}</div>
     </div>
     
     <div class="vbottom">
@@ -219,37 +234,42 @@ function renderViewer(){
   setTimeout(()=>drawAll(),0);
 }
 
-// 듀얼 파이프라인 안전 연동 빌더
+// 듀얼 파이프라인 안전 연동 엔진
 async function drawAll(){
   if(!state.pdf || !state.viewer) return;
   
-  await drawPageSlot(state.page, 'left');
+  // 1. 왼쪽 슬롯 드로우 (현재 페이지)
+  await drawPageSlot(state.page, '');
+  setupInk('');
+  loadInk(state.page, '');
+  setupWriteLock('');
+  renderChordsOverlay(state.page, '');
+
+  // 2. 오른쪽 슬롯 드로우 (다음 페이지가 있다면)
   if(state.page + 1 <= state.total) {
+    document.getElementById("sheet_right").style.style.display = "block";
     document.getElementById("sheet_right").style.display = "block";
-    await drawPageSlot(state.page + 1, 'right');
+    await drawPageSlot(state.page + 1, '_right');
+    setupInk('_right');
+    loadInk(state.page + 1, '_right');
+    setupWriteLock('_right');
+    renderChordsOverlay(state.page + 1, '_right');
   } else {
     document.getElementById("sheet_right").style.display = "none";
   }
-  
-  ['left', 'right'].forEach(side => {
-    setupInk(side);
-    loadInk(side);
-    setupWriteLock(side);
-    renderChordsOverlay(side);
-  });
 }
 
-async function drawPageSlot(pageNum, side){
+async function drawPageSlot(pageNum, suffix){
   const page = await state.pdf.getPage(pageNum);
   const stage = document.getElementById("stage");
-  const pdf = document.getElementById(`pdfCanvas_${side}`);
-  const ink = document.getElementById(`inkCanvas_${side}`);
-  const sheet = document.getElementById(`sheet_${side}`);
-  const lock = document.getElementById(`writeLock_${side}`);
+  const pdf = document.getElementById(`pdfCanvas${suffix}`);
+  const ink = document.getElementById(`inkCanvas${suffix}`);
+  const sheet = document.getElementById(`sheet${suffix}`);
+  const lock = document.getElementById(`writeLock${suffix}`);
   if(!stage || !pdf || !ink || !sheet) return;
 
   const base = page.getViewport({scale:1});
-  // 가로 너비를 절반으로 정교하게 유도하여 두장 나열 배치 비율 수렴
+  // 가로 모드 공간 분할 스케일 연산 유도
   const fit = Math.min((stage.clientWidth / 2 - 20) / base.width, stage.clientHeight / base.height) * (currentSong().zoom||1);
   const vp = page.getViewport({scale:fit});
   const dpr = window.devicePixelRatio || 1;
@@ -274,11 +294,11 @@ async function drawPageSlot(pageNum, side){
   await page.render({canvasContext:ctx, viewport:vp}).promise;
 }
 
-function blockEvent(e){if(state.mode==="write" || state.mode==="chord"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{};try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch{};return false}}
-function setupWriteLock(side){const lock=document.getElementById(`writeLock_${side}`);if(!lock)return;["touchstart","touchmove","touchend","click","contextmenu","gesturestart","gesturechange","gestureend"].forEach(type=>lock.addEventListener(type,blockEvent,{passive:false,capture:true}))}
+function blockEvent(e){if(state.mode Pac || state.mode==="write" || state.mode==="chord"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{};try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch{};return false}}
+function setupWriteLock(suffix){const lock=document.getElementById(`writeLock${suffix}`);if(!lock)return;["touchstart","touchmove","touchend","click","contextmenu","gesturestart","gesturechange","gestureend"].forEach(type=>lock.addEventListener(type,blockEvent,{passive:false,capture:true}))}
 
-function setupInk(side){
-  const c=document.getElementById(`inkCanvas_${side}`);
+function setupInk(suffix){
+  const c=document.getElementById(`inkCanvas${suffix}`);
   if(!c)return;
   c.onpointerdown=penDown;
   c.onpointermove=penMove;
@@ -289,15 +309,16 @@ function setupInk(side){
 }
 
 function pageKey(pageNum){return "p"+pageNum}
-function pos(e, side){
-  const r=document.getElementById(`inkCanvas_${side}`).getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+function pos(e, suffix){
+  const r=document.getElementById(`inkCanvas${suffix}`).getBoundingClientRect(),dpr=window.devicePixelRatio||1;
   return{x:(e.clientX-r.left)*dpr,y:(e.clientY-r.top)*dpr,p:e.pressure||0.5};
 }
 function mid(a,b){return{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
 
 function penDown(e){
-  const side = e.currentTarget.dataset.side;
-  const targetPage = side === 'left' ? state.page : state.page + 1;
+  const suffix = e.currentTarget.id.includes('right') ? '_right' : '';
+  const targetPage = suffix === '' ? state.page : state.page + 1;
+  state.activeCanvasId = e.currentTarget.id;
   
   if(state.mode==="chord"){
     e.preventDefault(); e.stopPropagation();
@@ -311,7 +332,7 @@ function penDown(e){
       s.chords=s.chords||[];
       s.chords.push({id:`c_${Date.now()}`,page:targetPage,xRatio,yRatio,originalChord:input});
       save();
-      renderChordsOverlay(side);
+      renderChordsOverlay(targetPage, suffix);
     }
     return;
   }
@@ -319,19 +340,18 @@ function penDown(e){
   e.preventDefault();e.stopPropagation();
   try{e.currentTarget.setPointerCapture(e.pointerId)}catch{}
   state.draw=true;
-  state.activeSide = side; 
-  state.pts=[pos(e, side)];
+  state.pts=[pos(e, suffix)];
 }
 
 function penMove(e){
   if(state.mode!=="write"||!state.draw)return;
   e.preventDefault();e.stopPropagation();
-  const side = state.activeSide;
-  const p=pos(e, side);
+  const suffix = state.activeCanvasId.includes('right') ? '_right' : '';
+  const p=pos(e, suffix);
   state.pts.push(p);
   const n=state.pts.length;
-  const canvas=document.getElementById(`inkCanvas_${side}`);
-  if(n<3){dot(p, side);return}
+  const canvas=document.getElementById(state.activeCanvasId);
+  if(n<3){dot(p, suffix);return}
   const p0=state.pts[n-3],p1=state.pts[n-2],p2=state.pts[n-1],m1=mid(p0,p1),m2=mid(p1,p2);
   const ctx=canvas.getContext("2d",{desynchronized:true});
   ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=state.color;ctx.lineWidth=(state.width+Math.max(.2,p1.p)*2)*(window.devicePixelRatio||1);
@@ -343,14 +363,14 @@ function penUp(e){
   e.preventDefault();e.stopPropagation();
   try{e.currentTarget.releasePointerCapture(e.pointerId)}catch{}
   state.draw=false;
-  const side = state.activeSide;
-  const targetPage = side === 'left' ? state.page : state.page + 1;
+  const suffix = state.activeCanvasId.includes('right') ? '_right' : '';
+  const targetPage = suffix === '' ? state.page : state.page + 1;
   saveStroke(targetPage, state.pts);
   state.pts=[];
 }
 
-function dot(p, side){
-  const ctx=document.getElementById(`inkCanvas_${side}`).getContext("2d");
+function dot(p, suffix){
+  const ctx=document.getElementById(`inkCanvas${suffix}`).getContext("2d");
   ctx.fillStyle=state.color;ctx.beginPath();ctx.arc(p.x,p.y,1.8*(window.devicePixelRatio||1),0,Math.PI*2);ctx.fill();
 }
 
@@ -362,11 +382,10 @@ function saveStroke(targetPage, pts){
   save();
 }
 
-function loadInk(side){
-  const targetPage = side === 'left' ? state.page : state.page + 1;
-  const canvas=document.getElementById(`inkCanvas_${side}`);
+function loadInk(pageNum, suffix){
+  const canvas=document.getElementById(`inkCanvas${suffix}`);
   if(!canvas) return;
-  const s=currentSong(),strokes=(s.ink&&s.ink[pageKey(targetPage)])||[],ctx=canvas.getContext("2d");
+  const s=currentSong(),strokes=(s.ink&&s.ink[pageKey(pageNum)])||[],ctx=canvas.getContext("2d");
   ctx.clearRect(0,0,canvas.width,canvas.height);
   strokes.forEach(st=>{
     ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=st.color||"#ef4444";ctx.lineWidth=(st.width||3)*(window.devicePixelRatio||1);
@@ -379,26 +398,24 @@ function loadInk(side){
 }
 
 function clearInk(){
-  if(!confirm("현재 열려있는 페이지들의 필기를 모두 삭제하시겠습니까?"))return;
+  if(!confirm("현재 펼쳐진 악보의 모든 필기를 삭제할까요?"))return;
   const s=currentSong();
   if(s.ink){
     s.ink[pageKey(state.page)]=[];
     s.ink[pageKey(state.page+1)]=[];
   }
   save();
-  loadInk('left');
-  loadInk('right');
+  drawAll();
 }
 
-function renderChordsOverlay(side){
-  const container=document.getElementById(`chordOverlay_${side}`);
+function renderChordsOverlay(pageNum, suffix){
+  const container=document.getElementById(`chordOverlay${suffix}`);
   if(!container)return;
   container.innerHTML='';
   const s=currentSong();
   if(!s||!s.chords)return;
-  const targetPage = side === 'left' ? state.page : state.page + 1;
   
-  s.chords.filter(c=>c.page===targetPage).forEach(chord=>{
+  s.chords.filter(c=>c.page===pageNum).forEach(chord=>{
     const el=document.createElement('div');
     el.className='chord-badge';
     el.style.left=`${chord.xRatio*100}%`;
@@ -411,7 +428,7 @@ function renderChordsOverlay(side){
       if(confirm(`"${chord.originalChord}" 코드를 삭제하시겠습니까?`)){
         s.chords=s.chords.filter(c=>c.id!==chord.id);
         save();
-        renderChordsOverlay(side);
+        renderChordsOverlay(pageNum, suffix);
       }
     };
     container.appendChild(el);
@@ -437,8 +454,7 @@ function changeKey(amount){
   state.keyOffset+=amount;
   const display=document.getElementById("keyDisplay");
   if(display)display.textContent=`Key ${state.keyOffset>=0?'+'+state.keyOffset:state.keyOffset}`;
-  renderChordsOverlay('left');
-  renderChordsOverlay('right');
+  drawAll();
 }
 
 function setViewerMode(m){
@@ -446,7 +462,7 @@ function setViewerMode(m){
   renderViewer();
 }
 
-// 1페이지 단위 Piascore 스타일 쉬프트 슬라이딩 배정 알고리즘
+// 1페이지 단위 Piascore 스타일 슬라이딩 쉬프트
 function prev(){
   if(state.mode==="write"||state.mode==="chord")return toast("편집 Mode에서는 이동 잠김");
   if(state.page > 1){
@@ -455,4 +471,27 @@ function prev(){
     return;
   }
   const arr=currentSvc().songs,i=arr.indexOf(state.viewer.id);
-  if(i
+  if(i>0) openViewer(arr[i-1]); else toast("첫 곡입니다");
+}
+
+function next(){
+  if(state.mode==="write"||state.mode==="chord")return toast("편집 Mode에서는 이동 잠김");
+  if(state.page < state.total){
+    state.page++;
+    renderViewer();
+    return;
+  }
+  const arr=currentSvc().songs,i=arr.indexOf(state.viewer.id);
+  if(i>=0 && i<arr.length-1) openViewer(arr[i+1]); else toast("마지막입니다");
+}
+
+function swipeStart(e){if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};return}state.startX=e.changedTouches[0].clientX;state.startY=e.changedTouches[0].clientY}
+function swipeEnd(e){if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};return}const dx=e.changedTouches[0].clientX-state.startX,dy=e.changedTouches[0].clientY-state.startY;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.3){dx<0?next():prev()}}
+function zoomToggle(){const s=currentSong();s.zoom=s.zoom===1?1.25:1;save();renderViewer()}
+function share(){const svc=currentSvc();const payload={v:1,name:svc.name,date:svc.date,songs:svc.songs.map(id=>{const s=state.songs.find(x=>x.id===id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};const url="https://terrysf-web.github.io/tvpcainos/index.html#share="+btoa(unescape(encodeURIComponent(JSON.stringify(payload))));navigator.clipboard?.writeText(url);toast("Share copied")}
+["contextmenu","dragstart","gesturestart","gesturechange","gestureend"].forEach(type=>document.addEventListener(type,e=>{if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}));
+window.addEventListener("resize",()=>{if(state.viewer)renderViewer()});
+render();
+</script>
+</body>
+</html>
