@@ -229,5 +229,91 @@ async function loadSharedSongs(){
 
 loadSharedSongs();
 </script>
+  <!-- TVPC Shared Firebase Bridge v1
+Place this before </body> in BOTH tvpc-worship/index.html and tvpcainos/index.html.
+Replace FIREBASE_CONFIG below with your Firebase web app config.
+-->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import {
+  getStorage, ref, uploadBytes, getDownloadURL
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
+
+const FIREBASE_CONFIG = {
+  apiKey: "PASTE_FIREBASE_API_KEY",
+  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
+  projectId: "PASTE_PROJECT_ID",
+  storageBucket: "PASTE_PROJECT_ID.appspot.com",
+  messagingSenderId: "PASTE_SENDER_ID",
+  appId: "PASTE_APP_ID"
+};
+
+const TVPC_APP = initializeApp(FIREBASE_CONFIG);
+const TVPC_DB = getFirestore(TVPC_APP);
+const TVPC_STORAGE = getStorage(TVPC_APP);
+
+window.TVPC_SHARED = {
+  async saveSong(song, pdfFile){
+    if(!song) throw new Error("song is required");
+    const id = song.id || (song.title || "song").toLowerCase().replace(/\s+/g,"-").replace(/[^\w가-힣-]/g,"") + "-" + Date.now();
+    let pdfUrl = song.pdfUrl || song.pdf || "";
+
+    if(pdfFile){
+      const storagePath = `pdfs/${id}/${pdfFile.name}`;
+      const storageRef = ref(TVPC_STORAGE, storagePath);
+      await uploadBytes(storageRef, pdfFile);
+      pdfUrl = await getDownloadURL(storageRef);
+    }
+
+    const row = {
+      id,
+      title: song.title || song.name || "Untitled",
+      key: song.key || "",
+      pdf: song.pdf || "",
+      pdfUrl,
+      updatedAt: serverTimestamp()
+    };
+
+    await setDoc(doc(TVPC_DB, "songs", id), row, {merge:true});
+    return row;
+  },
+
+  async deleteSong(id){
+    await deleteDoc(doc(TVPC_DB, "songs", id));
+  },
+
+  watchSongs(callback){
+    return onSnapshot(collection(TVPC_DB, "songs"), snap=>{
+      const songs = snap.docs.map(d=>({id:d.id, ...d.data()}))
+        .sort((a,b)=>(a.title||"").localeCompare(b.title||"", "ko"));
+      callback(songs);
+    });
+  },
+
+  async saveService(service){
+    const id = service.id || "service-" + Date.now();
+    await setDoc(doc(TVPC_DB, "services", id), {
+      id,
+      name: service.name || "Service",
+      date: service.date || "",
+      songs: service.songs || [],
+      updatedAt: serverTimestamp()
+    }, {merge:true});
+  },
+
+  watchServices(callback){
+    return onSnapshot(collection(TVPC_DB, "services"), snap=>{
+      const services = snap.docs.map(d=>({id:d.id, ...d.data()}))
+        .sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+      callback(services);
+    });
+  }
+};
+
+console.log("TVPC Shared Firebase Bridge loaded");
+</script>
 </body>
 </html>
