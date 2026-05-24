@@ -29,7 +29,8 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .top{
   height:62px;padding:0 14px;padding-top:env(safe-area-inset-top);
   display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
-  background:#050608;color:#fff;border-bottom:1px solid #222}
+  background:#050608;color:#fff;border-bottom:1px solid #222;
+}
 .logo{width:36px;height:36px;border-radius:10px;background:#22c7d8;color:#031217;display:grid;place-items:center;font-weight:1000}
 .top-title{line-height:1.1;text-align:center}.top-title b{display:block;font-size:17px}.top-title span{display:block;color:#cbd5e1;font-size:12px;margin-top:4px}
 .page{height:100%;overflow:auto;padding:16px}
@@ -51,7 +52,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .service-title{font-size:18px;font-weight:950}
 .tabs{display:flex;gap:8px}.tabs button{background:#1b1f26}.tabs button.active{background:#22c7d8;color:#031217}
 
-/* 듀얼 뷰어 최적화 스타일 레이아웃 */
+/* 가로 듀얼 스테이지 대칭구조 레이아웃 설계 */
 .viewer{
   position:fixed;inset:0;z-index:50;background:#111827;
   display:grid;grid-template-rows:auto 1fr auto;
@@ -119,11 +120,12 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 <div id="app"></div>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const DB="tvpc_ainos_piascore_dual_v1", STORE="pdfs";
-let dbp=null;
+const DB="tvpc_ainos_integrated_stable_v1", STORE="pdfs";
+let dbp=null,pdfCache={};
 function openDB(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});return dbp}
 async function putFile(id,data){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(data,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
 async function getFile(id){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readonly");const r=tx.objectStore(STORE).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function getPdf(songId){if(pdfCache[songId])return pdfCache[songId];const data=await getFile(songId);if(!data)return null;const pdf=await pdfjsLib.getDocument(data).promise;pdfCache[songId]=pdf;return pdf}
 const $=s=>document.querySelector(s), app=$("#app");
 
 const SEMITONE_SCALE = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -133,9 +135,7 @@ const state={
  songs:JSON.parse(localStorage.getItem("ais_songs")||"[]"),
  services:JSON.parse(localStorage.getItem("ais_services")||"[]"),
  currentService:localStorage.getItem("ais_current_service")||null,
- viewer:null,pdf:null,
- mode:"read", // 'read', 'write', 'chord'
- page:1,total:1,draw:false,pts:[],startX:0,startY:0,color:"#ef4444",width:3,
+ viewer:null,pdf:null,mode:"read",page:1,total:1,draw:false,pts:[],activeSide:null,startX:0,startY:0,color:"#ef4444",width:3,
  keyOffset:0
 };
 
@@ -146,6 +146,10 @@ function esc(s){return(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">"
 function toast(m){const old=$(".toast");if(old)old.remove();const t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),1700)}
 function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
 function currentSvc(){return state.services.find(s=>s.id===state.currentService)||state.services[0]}
+function songById(id){return state.songs.find(s=>s.id===id)}
+function currentSong(){return state.songs.find(s=>s.id===state.viewer?.id)}
+function currentIndex(){return currentSvc().songs.indexOf(state.viewer?.id)}
+
 function render(){if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Piascore Dual v1</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><button class="primary" onclick="share()">Share</button></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
 function servicesHTML(){return `<div class="field"><label>Service Name</label><input value="${esc(currentSvc().name)}" onchange="currentSvc().name=this.value;save();render()"></div><div class="field"><label>Date</label><input type="date" value="${esc(currentSvc().date||"")}" onchange="currentSvc().date=this.value;save();render()"></div><div class="list">${state.services.map(s=>`<div class="row"><div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date||"")} · ${s.songs.length} songs</div></div><div class="actions"><button class="${s.id===state.currentService?'primary':'gray'} small" onclick="state.currentService='${s.id}';save();render()">Open</button><button class="red small" onclick="deleteService('${s.id}')">Delete</button></div></div>`).join("")}</div>`}
 function serviceHTML(){const svc=currentSvc();return `<div class="service-title">${esc(svc.name)}</div><div class="meta">${esc(svc.date||"")}</div><div class="list">${svc.songs.map((id,i)=>{const s=state.songs.find(x=>x.id===id);return s?rowSong(s,true,i):""}).join("")||'<div class="empty">Library에서 곡을 추가하세요.</div>'}</div><button class="primary" onclick="startService()">Start Service</button>`}
@@ -159,11 +163,11 @@ function addToService(id){currentSvc().songs.push(id);save();state.tab="service"
 function removeSong(i){currentSvc().songs.splice(i,1);save();render()}
 function moveSong(i,d){const arr=currentSvc().songs,j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];save();render()}
 function startService(){const svc=currentSvc();if(!svc.songs.length)return toast("Setlist 없음");openViewer(svc.songs[0])}
-async function openViewer(id){const data=await getFile(id);if(!data)return toast("PDF 없음");state.viewer={id};state.mode="read";state.page=1;state.keyOffset=0;state.pdf=null;render();state.pdf=await pdfjsLib.getDocument(data).promise;state.total=state.pdf.numPages;await drawAll()}
-function closeViewer(){save();state.viewer=null;state.pdf=null;render()}
-function currentSong(){return state.songs.find(s=>s.id===state.viewer.id)}
 
-// 듀얼 페이지 전용 뷰어 마크업 구성
+// 오리지널 안정적인 캐시 파이프라인 연동 복구
+async function openViewer(id){const pdf=await getPdf(id);if(!pdf)return toast("PDF 없음");state.viewer={id};state.mode="read";state.page=1;state.keyOffset=0;state.pdf=pdf;state.total=pdf.numPages;renderViewer();await drawAll()}
+function closeViewer(){save();state.viewer=null;state.pdf=null;render()}
+
 function renderViewer(){
   const s=currentSong(), svc=currentSvc(), idx=svc.songs.indexOf(s.id);
   const leftPage = state.page;
@@ -181,305 +185,7 @@ function renderViewer(){
       <button class="${state.mode==='chord'?'primary':'gray'}" onclick="setViewerMode('chord')">➕ 코드심기</button>
       <div class="transpose-ctrl">
         <button onclick="changeKey(-1)" style="padding:4px 8px;">♭</button>
-        <b id="keyDisplay" style="min-width:50px;text-align:center;">Key +0</b>
+        <b id="keyDisplay" style="min-width:50px;text-align:center;">Key ${state.keyOffset>=0?'+'+state.keyOffset:state.keyOffset}</b>
         <button onclick="changeKey(1)" style="padding:4px 8px;">♯</button>
       </div>
       <button class="red" onclick="clearInk()">Clear</button>
-    </div>
-    
-    <div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)">
-      <div class="sheet" id="sheet_left">
-        <canvas id="pdfCanvas_left" class="pdfCanvas"></canvas>
-        <div class="write-lock" id="writeLock_left"></div>
-        <canvas id="inkCanvas_left" class="inkCanvas" data-side="left"></canvas>
-        <div class="chordOverlay" id="chordOverlay_left"></div>
-      </div>
-      
-      <div class="sheet" id="sheet_right">
-        <canvas id="pdfCanvas_right" class="pdfCanvas"></canvas>
-        <div class="write-lock" id="writeLock_right"></div>
-        <canvas id="inkCanvas_right" class="inkCanvas" data-side="right"></canvas>
-        <div class="chordOverlay" id="chordOverlay_right"></div>
-      </div>
-      
-      <div class="hint">${state.mode==='write'?'Write Mode: 자유로운 필기 및 메모 가능':state.mode==='chord'?'코드 등록 Mode: 터치하여 새 코드 추가':'Read Mode: 스와이프하여 한 페이지씩 이동 가능'}</div>
-    </div>
-    
-    <div class="vbottom">
-      <button onclick="prev()">◀ PREV (이전 쪽)</button>
-      <button onclick="setViewerMode('write')" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button>
-      <button onclick="setViewerMode('chord')" class="${state.mode==='chord'?'primary':'gray'}">${state.mode==='chord'?'코드 ON':'코드 등록'}</button>
-      <button onclick="next()" class="primary">NEXT (다음 쪽) ▶</button>
-    </div>
-  </div>`;
-  setTimeout(()=>drawAll(),0);
-}
-
-// 듀얼 파이프라인 렌더링 코어 엔진 
-async function drawAll(){
-  if(!state.pdf || !state.viewer) return;
-  
-  // 1. 왼쪽 페이지 그리기 (현재 state.page)
-  await drawPageSlot(state.page, 'left');
-  
-  // 2. 오른쪽 페이지 그리기 (state.page + 1)
-  if(state.page + 1 <= state.total) {
-    $("#sheet_right").style.display = "block";
-    await drawPageSlot(state.page + 1, 'right');
-  } else {
-    $("#sheet_right").style.display = "none";
-  }
-  
-  setupInk('left');
-  setupInk('right');
-  loadInk('left');
-  loadInk('right');
-  setupWriteLock('left');
-  setupWriteLock('right');
-  renderChordsOverlay('left');
-  renderChordsOverlay('right');
-}
-
-async function drawPageSlot(pageNum, side){
-  const page = await state.pdf.getPage(pageNum);
-  const stage = $("#stage");
-  const pdf = $(`#pdfCanvas_${side}`);
-  const ink = $(`#inkCanvas_${side}`);
-  const sheet = $(`#sheet_${side}`);
-  const lock = $(`#writeLock_${side}`);
-  if(!stage || !pdf || !ink || !sheet) return;
-
-  const base = page.getViewport({scale:1});
-  // 가로 모드 화면 구조상 가로 가용 너비를 절반으로 계산하여 듀얼 스케일링 보정
-  const fit = Math.min((stage.clientWidth / 2 - 20) / base.width, stage.clientHeight / base.height) * (currentSong().zoom||1);
-  const vp = page.getViewport({scale:fit});
-  const dpr = window.devicePixelRatio || 1;
-
-  sheet.style.width = Math.round(vp.width) + "px";
-  sheet.style.height = Math.round(vp.height) + "px";
-
-  [pdf, ink].forEach(c => {
-    c.width = Math.round(vp.width * dpr);
-    c.height = Math.round(vp.height * dpr);
-    c.style.width = Math.round(vp.width) + "px";
-    c.style.height = Math.round(vp.height) + "px";
-  });
-  if(lock){
-    lock.style.width = Math.round(vp.width) + "px";
-    lock.style.height = Math.round(vp.height) + "px";
-  }
-  
-  const ctx = pdf.getContext("2d", {alpha:false});
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, pdf.width, pdf.height);
-  await page.render({canvasContext:ctx, viewport:vp}).promise;
-}
-
-function blockEvent(e){if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{};try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch{};return false}}
-function setupWriteLock(side){const lock=$(`#writeLock_${side}`);if(!lock)return;["touchstart","touchmove","touchend","click","contextmenu","gesturestart","gesturechange","gestureend"].forEach(type=>lock.addEventListener(type,blockEvent,{passive:false,capture:true}))}
-
-function setupInk(side){
-  const c=$(`#inkCanvas_${side}`);
-  if(!c)return;
-  c.onpointerdown=penDown;
-  c.onpointermove=penMove;
-  c.onpointerup=penUp;
-  c.onpointercancel=penUp;
-  c.onpointerleave=null;
-  ["touchstart","touchmove","touchend","gesturestart","contextmenu","click"].forEach(type=>c.addEventListener(type,e=>{if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}))
-}
-
-function pageKey(pageNum){return "p"+pageNum}
-function pos(e, side){
-  const r=$(`#inkCanvas_${side}`).getBoundingClientRect(),dpr=window.devicePixelRatio||1;
-  return{x:(e.clientX-r.left)*dpr,y:(e.clientY-r.top)*dpr,p:e.pressure||0.5};
-}
-function mid(a,b){return{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
-
-// 고해상도 터치 펜 이벤트 핸들러 분기
-function penDown(e){
- const side = e.currentTarget.dataset.side;
- const targetPage = side === 'left' ? state.page : state.page + 1;
- 
- if(state.mode==="chord"){
-   e.preventDefault(); e.stopPropagation();
-   const canvas=e.currentTarget;
-   const r=canvas.getBoundingClientRect();
-   const xRatio=(e.clientX-r.left)/r.width;
-   const yRatio=(e.clientY-r.top)/r.height;
-   const input=prompt("이 위치에 새로 심을 코드를 입력하세요 (예: C, Am, G7):");
-   if(input){
-     const s=currentSong();
-     s.chords=s.chords||[];
-     s.chords.push({id:`c_${Date.now()}`,page:targetPage,xRatio,yRatio,originalChord:input});
-     save();
-     renderChordsOverlay(side);
-   }
-   return;
- }
- if(state.mode!=="write")return;
- e.preventDefault();e.stopPropagation();
- try{e.currentTarget.setPointerCapture(e.pointerId)}catch{}
- state.draw=true;
- state.activeSide = side; 
- state.pts=[pos(e, side)];
-}
-
-function penMove(e){
- if(state.mode!=="write"||!state.draw)return;
- e.preventDefault();e.stopPropagation();
- const side = state.activeSide;
- const p=pos(e, side);
- state.pts.push(p);
- const n=state.pts.length;
- const canvas=$(`#inkCanvas_${side}`);
- if(n<3){dot(p, side);return}
- const p0=state.pts[n-3],p1=state.pts[n-2],p2=state.pts[n-1],m1=mid(p0,p1),m2=mid(p1,p2);
- const ctx=canvas.getContext("2d",{desynchronized:true});
- ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=state.color;ctx.lineWidth=(state.width+Math.max(.2,p1.p)*2)*(window.devicePixelRatio||1);
- ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke();
-}
-
-function penUp(e){
- if(!state.draw)return;
- e.preventDefault();e.stopPropagation();
- try{e.currentTarget.releasePointerCapture(e.pointerId)}catch{}
- state.draw=false;
- const side = state.activeSide;
- const targetPage = side === 'left' ? state.page : state.page + 1;
- saveStroke(targetPage, state.pts);
- state.pts=[];
-}
-
-function dot(p, side){
- const ctx=$(`#inkCanvas_${side}`).getContext("2d");
- ctx.fillStyle=state.color;ctx.beginPath();ctx.arc(p.x,p.y,1.8*(window.devicePixelRatio||1),0,Math.PI*2);ctx.fill();
-}
-
-function saveStroke(targetPage, pts){
- const s=currentSong();
- s.ink=s.ink||{};
- s.ink[pageKey(targetPage)]=s.ink[pageKey(targetPage)]||[];
- s.ink[pageKey(targetPage)].push({color:state.color,width:state.width,pts});
- save();
-}
-
-function loadInk(side){
- const targetPage = side === 'left' ? state.page : state.page + 1;
- const canvas=$(`#inkCanvas_${side}`);
- if(!canvas) return;
- const s=currentSong(),strokes=(s.ink&&s.ink[pageKey(targetPage)])||[],ctx=canvas.getContext("2d");
- ctx.clearRect(0,0,canvas.width,canvas.height);
- strokes.forEach(st=>{
-   ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=st.color||"#ef4444";ctx.lineWidth=(st.width||3)*(window.devicePixelRatio||1);
-   const pts=st.pts||[];
-   for(let i=2;i<pts.length;i++){
-     const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);
-     ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke();
-   }
- });
-}
-
-function clearInk(){
- if(!confirm("현재 펼쳐진 페이지들의 필기를 모두 삭제할까요?"))return;
- const s=currentSong();
- if(s.ink){
-   s.ink[pageKey(state.page)]=[];
-   s.ink[pageKey(state.page+1)]=[];
- }
- save();
- loadInk('left');
- loadInk('right');
-}
-
-// 개별 슬롯 오버레이 랜더 엔진
-function renderChordsOverlay(side){
- const container=$(`#chordOverlay_${side}`);
- if(!container)return;
- container.innerHTML='';
- const s=currentSong();
- if(!s||!s.chords)return;
- const targetPage = side === 'left' ? state.page : state.page + 1;
- 
- s.chords.filter(c=>c.page===targetPage).forEach(chord=>{
-   const el=document.createElement('div');
-   el.className='chord-badge';
-   el.style.left=`${chord.xRatio*100}%`;
-   el.style.top=`${chord.yRatio*100}%`;
-   el.textContent=getTransposedChord(chord.originalChord, state.keyOffset);
-   
-   el.onpointerdown=(e)=>{e.stopPropagation();};
-   el.onclick=(e)=>{
-     e.stopPropagation();
-     if(confirm(`"${chord.originalChord}" 코드를 지우시겠습니까?`)){
-       s.chords=s.chords.filter(c=>c.id!==chord.id);
-       save();
-       renderChordsOverlay(side);
-     }
-   };
-   container.appendChild(el);
- });
-}
-
-function getTransposedChord(orig, offset){
- if(offset===0)return orig;
- const match=orig.match(/^([A-G]#?|b?)(.*)$/);
- if(!match)return orig;
- let root=match[1], ext=match[2];
- if(root==="Db")root="C#"; if(root==="Eb")root="D#";
- if(root==="Gb")root="F#"; if(root==="Ab")root="G#";
- if(root==="Bb")root="A#";
- const idx=SEMITONE_SCALE.indexOf(root);
- if(idx===-1)return orig;
- let newIdx=(idx+offset)%12;
- if(newIdx<0)newIdx+=12;
- return SEMITONE_SCALE[newIdx]+ext;
-}
-
-function changeKey(amount){
- state.keyOffset+=amount;
- const display=$("#keyDisplay");
- if(display)display.textContent=`Key ${state.keyOffset>=0?'+'+state.keyOffset:state.keyOffset}`;
- renderChordsOverlay('left');
- renderChordsOverlay('right');
-}
-
-function setViewerMode(m){
- state.mode=state.mode===m?"read":m;
- renderViewer();
-}
-
-// 한 페이지씩 슬라이드 이동하는 페이징 알고리즘
-function prev(){
- if(state.mode==="write"||state.mode==="chord")return toast("편집 Mode에서는 이동 잠김");
- if(state.page > 1){
-   state.page--; // 2쪽 단위가 아닌 단일 페이지 단위 디크리먼트
-   renderViewer();
-   return;
- }
- const arr=currentSvc().songs,i=arr.indexOf(state.viewer.id);
- if(i>0) openViewer(arr[i-1]); else toast("첫 곡입니다");
-}
-
-function next(){
- if(state.mode==="write"||state.mode==="chord")return toast("편집 Mode에서는 이동 잠김");
- // 오른쪽 슬롯에 다음 장이 노출되고 있는 상태를 고려하여 마지막 단일 페이지만 남았을 때 조건 제어
- if(state.page < state.total){
-   state.page++; // 단일 페이지 단위 인크리먼트로 한 칸씩 쉬프트 처리
-   renderViewer();
-   return;
- }
- const arr=currentSvc().songs,i=arr.indexOf(state.viewer.id);
- if(i>=0 && i<arr.length-1) openViewer(arr[i+1]); else toast("마지막입니다");
-}
-
-function swipeStart(e){if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};return}state.startX=e.changedTouches[0].clientX;state.startY=e.changedTouches[0].clientY}
-function swipeEnd(e){if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};return}const dx=e.changedTouches[0].clientX-state.startX,dy=e.changedTouches[0].clientY-state.startY;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.3){dx<0?next():prev()}}
-function zoomToggle(){const s=currentSong();s.zoom=s.zoom===1?1.25:1;save();renderViewer()}
-function share(){const svc=currentSvc();const payload={v:1,name:svc.name,date:svc.date,songs:svc.songs.map(id=>{const s=state.songs.find(x=>x.id===id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};const url="https://terrysf-web.github.io/tvpcainos/index.html#share="+btoa(unescape(encodeURIComponent(JSON.stringify(payload))));navigator.clipboard?.writeText(url);toast("Share copied")}
-["contextmenu","dragstart","gesturestart","gesturechange","gestureend"].forEach(type=>document.addEventListener(type,e=>{if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}));
-window.addEventListener("resize",()=>{if(state.viewer)renderViewer()});
-render();
-</script>
-</body>
-</html>
