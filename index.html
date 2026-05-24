@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>TVPC Ainos Integrated Stable v1</title>
+<title>TVPC Ainos Service Open Fix</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#050608">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -103,15 +103,6 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .viewer.write .write-lock{pointer-events:auto}
 @media(max-width:900px){.grid{grid-template-columns:1fr}.page{padding:12px}.vbottom{grid-template-columns:1fr 1fr}.vbottom button{font-size:13px}}
 </style>
-
-<style id="startfix-dual-css">
-.dualWrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:16px}
-.vtop{background:#050608!important}
-.stage{background:#1f2937!important;padding:10px 14px!important}
-#pdfBox2{position:relative;overflow:hidden;background:#fff;box-shadow:0 18px 50px rgba(0,0,0,.25)}
-#pdfCanvas2{display:block;background:#fff}
-</style>
-
 </head>
 <body>
 <div id="app"></div>
@@ -138,7 +129,7 @@ function esc(s){return(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">"
 function toast(m){const old=$(".toast");if(old)old.remove();const t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),1700)}
 function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
 function currentSvc(){return state.services.find(s=>s.id===state.currentService)||state.services[0]}
-function render(){if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Integrated Stable v1</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><button class="primary" onclick="share()">Share</button></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
+function render(){if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Service Open Fix</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><button class="primary" onclick="share()">Share</button></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
 function servicesHTML(){return `<div class="field"><label>Service Name</label><input value="${esc(currentSvc().name)}" onchange="currentSvc().name=this.value;save();render()"></div><div class="field"><label>Date</label><input type="date" value="${esc(currentSvc().date||"")}" onchange="currentSvc().date=this.value;save();render()"></div><div class="list">${state.services.map(s=>`<div class="row"><div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date||"")} · ${s.songs.length} songs</div></div><div class="actions"><button class="${s.id===state.currentService?'primary':'gray'} small" onclick="state.currentService='${s.id}';save();render()">Open</button><button class="red small" onclick="deleteService('${s.id}')">Delete</button></div></div>`).join("")}</div>`}
 function serviceHTML(){const svc=currentSvc();return `<div class="service-title">${esc(svc.name)}</div><div class="meta">${esc(svc.date||"")}</div><div class="list">${svc.songs.map((id,i)=>{const s=state.songs.find(x=>x.id===id);return s?rowSong(s,true,i):""}).join("")||'<div class="empty">Library에서 곡을 추가하세요.</div>'}</div><button class="primary" onclick="startService()">Start Service</button>`}
 function libraryHTML(){return `<div class="field"><label>Title</label><input id="title" placeholder="곡 제목"></div><div class="field"><label>Key</label><select id="key">${["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"].map(k=>`<option>${k}</option>`).join("")}</select></div><div class="field"><label>PDF</label><input id="pdf" type="file" accept="application/pdf"></div><button class="blue" onclick="addSong()">Add Song</button><div class="list">${state.songs.map(s=>rowSong(s,false)).join("")||'<div class="empty">곡을 추가하세요.</div>'}</div>`}
@@ -154,48 +145,8 @@ function startService(){const svc=currentSvc();if(!svc.songs.length)return toast
 async function openViewer(id){const data=await getFile(id);if(!data)return toast("PDF 없음");state.viewer={id};state.mode="read";state.page=1;state.pdf=null;render();state.pdf=await pdfjsLib.getDocument(data).promise;state.total=state.pdf.numPages;await drawAll()}
 function closeViewer(){save();state.viewer=null;state.pdf=null;render()}
 function currentSong(){return state.songs.find(s=>s.id===state.viewer.id)}
-function renderViewer(){
-  const s=state.songs.find(x=>x.id===state.viewer.id), idx=state.set.indexOf(s.id);
-  if(state.viewMode!=="dual"){
-    app.innerHTML=`<div class="viewer ${state.write?'write':'read'}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx+1}/${state.set.length} · Page ${state.page}/${state.total} · Key ${esc(s.key||'-')}</span></div><button class="mode ${state.write?'on':''}" onclick="toggleWrite()">${state.write?'WRITE ON':'READ'}</button><button class="gray" onclick="toggleDual()">1 PAGE</button><button class="red" onclick="clearInk()">Clear Ink</button></div><div id="stage" class="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div id="pdfBox" class="pdfBox"><canvas id="pdfCanvas"></canvas><canvas id="inkCanvas"></canvas></div><div class="hint">${state.write?'Write Mode: 필기만 가능':'Read Mode: swipe 가능'}</div></div><div class="vbottom"><button onclick="go(-1)">◀ PREV</button><button class="${state.write?'mode on':'mode'}" onclick="toggleWrite()">${state.write?'쓰기 켜짐':'쓰기 모드'}</button><button class="gray" onclick="toggleDual()">2 Page</button><button class="primary" onclick="go(1)">NEXT ▶</button></div></div>`;
-    setTimeout(()=>{if(state.pdf){drawPdf().then(loadInk)}},0);
-    return;
-  }
-  app.innerHTML=`<div class="viewer read"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx+1}/${state.set.length} · Dual View · Key ${esc(s.key||'-')}</span></div><button class="gray" onclick="toggleDual()">2 PAGE</button><button class="red" onclick="toast('Dual read-only test')">Read Only</button></div><div id="stage" class="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div id="dualWrap" class="dualWrap"><div id="pdfBox" class="pdfBox"><canvas id="pdfCanvas"></canvas><canvas id="inkCanvas"></canvas></div><div id="pdfBox2"><canvas id="pdfCanvas2"></canvas></div></div><div class="hint">Dual Read Mode</div></div><div class="vbottom"><button onclick="go(-1)">◀ PREV</button><button class="gray" onclick="toggleDual()">1 Page</button><button class="primary" onclick="go(1)">NEXT ▶</button></div></div>`;
-  setTimeout(()=>{if(state.pdf){drawDualPages()}},0);
-}
-async function drawDualPages(){
-  await drawPdf();
-  const i=state.set.indexOf(state.viewer.id);
-  const nextId=state.set[i+1];
-  const canvas2=document.getElementById("pdfCanvas2");
-  const box2=document.getElementById("pdfBox2");
-  const stage=document.getElementById("stage");
-  if(!canvas2||!box2||!nextId)return;
-  const data=await getFile(nextId);
-  if(!data)return;
-  const nextPdf=await pdfjsLib.getDocument(data).promise;
-  const page=await nextPdf.getPage(1);
-  const base=page.getViewport({scale:1});
-  const fit=Math.min((stage.clientWidth/2-30)/base.width,(stage.clientHeight-20)/base.height);
-  const vp=page.getViewport({scale:fit});
-  const dpr=window.devicePixelRatio||1;
-  box2.style.width=Math.round(vp.width)+"px";
-  box2.style.height=Math.round(vp.height)+"px";
-  canvas2.width=Math.round(vp.width*dpr);
-  canvas2.height=Math.round(vp.height*dpr);
-  canvas2.style.width=Math.round(vp.width)+"px";
-  canvas2.style.height=Math.round(vp.height)+"px";
-  const ctx=canvas2.getContext("2d",{alpha:false});
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  await page.render({canvasContext:ctx,viewport:vp}).promise;
-}
-function toggleDual(){
-  if(state.write)return toast("Write Mode에서는 2 Page 변경 잠김");
-  state.viewMode=state.viewMode==="dual"?"single":"dual";
-  localStorage.setItem("tvpc_ainos_dual_mode",state.viewMode);
-  renderViewer();
-}
+function renderViewer(){const s=currentSong(), svc=currentSvc(), idx=svc.songs.indexOf(s.id);app.innerHTML=`<div class="viewer ${state.mode}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}Page ${state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><button class="${state.mode==='write'?'primary':'gold'}" onclick="toggleMode()">${state.mode==='write'?'WRITE ON':'READ'}</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="sheet" id="sheet"><canvas id="pdfCanvas"></canvas><div class="write-lock" id="writeLock"></div><canvas id="inkCanvas"></canvas></div><div class="hint">${state.mode==='write'?'Write Mode: 필기만 가능 / 이동 잠김':'Read Mode: Swipe 가능'}</div></div><div class="vbottom"><button onclick="prev()">◀ PREV</button><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="next()" class="primary">NEXT ▶</button><button onclick="zoomToggle()" class="gray">Zoom</button></div></div>`;setTimeout(()=>drawAll(),0)}
+async function drawAll(){if(!state.pdf||!state.viewer)return;await drawPdf();setupInk();loadInk();setupWriteLock()}
 async function drawPdf(){const page=await state.pdf.getPage(state.page),stage=$("#stage"),pdf=$("#pdfCanvas"),ink=$("#inkCanvas"),sheet=$("#sheet"),lock=$("#writeLock");if(!stage||!pdf||!ink)return;const base=page.getViewport({scale:1});const fit=Math.min(stage.clientWidth/base.width,stage.clientHeight/base.height)*(currentSong().zoom||1);const vp=page.getViewport({scale:fit});const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});if(lock){lock.style.width=Math.round(vp.width)+"px";lock.style.height=Math.round(vp.height)+"px"}const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await page.render({canvasContext:ctx,viewport:vp}).promise}
 function blockEvent(e){if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{};try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch{};return false}}
 function setupWriteLock(){const lock=$("#writeLock");if(!lock)return;["touchstart","touchmove","touchend","click","contextmenu","gesturestart","gesturechange","gestureend"].forEach(type=>lock.addEventListener(type,blockEvent,{passive:false,capture:true}))}

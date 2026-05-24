@@ -1,7 +1,7 @@
 {
-  "name": "TVPC Ainos StartFix Dual Test",
-  "short_name": "AinosStartFix",
-  "start_url": "./index.html?v=startfix-dual-test",
+  "name": "TVPC Ainos Service Open Fix",
+  "short_name": "AinosFix",
+  "start_url": "./index.html?v=service-open-fix",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#050608",
