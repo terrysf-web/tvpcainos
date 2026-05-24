@@ -28,8 +28,8 @@ button.red{background:#ef4444;color:white}
   <div class="top">
     <button onclick="location.href='index.html'">Back</button>
     <div style="text-align:center;font-weight:900">
-      TVPC Dual Setlist v1
-      <div id="subtitle" style="font-size:12px;color:#cbd5e1;margin-top:3px">현재곡 + 다음곡</div>
+      TVPC Dual Setlist v2 StorageFix
+      <div id="subtitle" style="font-size:12px;color:#cbd5e1;margin-top:3px">현재곡 + 다음곡 / StorageFix</div>
     </div>
     <button onclick="reloadData()">Reload</button>
     <button class="primary" onclick="fitMode = fitMode==='height'?'width':'height'; render()">Fit</button>
@@ -64,44 +64,135 @@ let currentIndex=0;
 let songs=[];
 let set=[];
 let pdfCache={};
-let dbp=null;
+let dbCache={};
+
+const DB_CANDIDATES = [
+  "tvpc_ainos_pdfs_stable",
+  "tvpc_ainos_integrated_stable_v1",
+  "tvpc_ainos_stable_v1",
+  "tvpc_ainos_stable_viewer_v2",
+  "tvpc_ainos_stable_viewer_v3",
+  "tvpc_ainos_integrated_stable_v2_dual",
+  "tvpc_ainos_dual_safe_v6",
+  "tvpc_ainos",
+  "tvpc_pdf_store",
+  "pdfs"
+];
+
+const STORE_CANDIDATES = ["pdfs", "files", "songs", "store"];
 
 function status(msg){document.getElementById('status').textContent=msg;}
-function getSongs(){
-  try{
-    return JSON.parse(localStorage.getItem("tvpc_ainos_songs_stable")||localStorage.getItem("stable_songs")||localStorage.getItem("ais2_songs")||"[]");
-  }catch(e){return []}
-}
-function getSet(){
-  try{
-    return JSON.parse(localStorage.getItem("tvpc_ainos_set_stable")||localStorage.getItem("stable_set")||"[]");
-  }catch(e){return []}
+
+function parseJSONSafe(v, fallback){
+  try { return JSON.parse(v || ""); } catch(e) { return fallback; }
 }
 
-function openDB(){
-  if(dbp)return dbp;
-  dbp=new Promise((resolve,reject)=>{
-    const req=indexedDB.open("tvpc_ainos_pdfs_stable",1);
-    req.onupgradeneeded=()=>{ if(!req.result.objectStoreNames.contains("pdfs")) req.result.createObjectStore("pdfs"); };
-    req.onsuccess=()=>resolve(req.result);
-    req.onerror=()=>reject(req.error);
-  });
-  return dbp;
+function getSongs(){
+  const keys = [
+    "tvpc_ainos_songs_stable",
+    "stable_songs",
+    "ais2_songs",
+    "ais_songs",
+    "songs",
+    "tvpc_songs"
+  ];
+  for(const k of keys){
+    const v = localStorage.getItem(k);
+    const arr = parseJSONSafe(v, null);
+    if(Array.isArray(arr) && arr.length) return arr;
+  }
+  return [];
 }
+
+function getSet(){
+  const keys = [
+    "tvpc_ainos_set_stable",
+    "stable_set",
+    "ais2_set",
+    "set",
+    "tvpc_set"
+  ];
+  for(const k of keys){
+    const v = localStorage.getItem(k);
+    const arr = parseJSONSafe(v, null);
+    if(Array.isArray(arr) && arr.length) return arr;
+  }
+
+  // Service-based storage fallback
+  const svcKeys = ["tvpc_ainos_services_stable", "ais2_services", "ais_services", "services"];
+  for(const k of svcKeys){
+    const svcs = parseJSONSafe(localStorage.getItem(k), null);
+    if(Array.isArray(svcs) && svcs.length){
+      const current = localStorage.getItem("tvpc_ainos_current_service_stable") || localStorage.getItem("ais2_current_service") || localStorage.getItem("ais_current_service");
+      const svc = svcs.find(s => s.id === current) || svcs[0];
+      if(svc && Array.isArray(svc.songs) && svc.songs.length) return svc.songs;
+    }
+  }
+  return [];
+}
+
+function openDBByName(name){
+  if(dbCache[name]) return dbCache[name];
+  dbCache[name] = new Promise((resolve)=>{
+    const req = indexedDB.open(name);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+    req.onblocked = () => resolve(null);
+  });
+  return dbCache[name];
+}
+
+async function readFromDB(dbName, storeName, id){
+  const db = await openDBByName(dbName);
+  if(!db || !db.objectStoreNames || !db.objectStoreNames.contains(storeName)) return null;
+  return new Promise((resolve)=>{
+    try{
+      const tx = db.transaction(storeName, "readonly");
+      const r = tx.objectStore(storeName).get(id);
+      r.onsuccess = () => resolve(r.result || null);
+      r.onerror = () => resolve(null);
+    }catch(e){
+      resolve(null);
+    }
+  });
+}
+
 async function getFile(id){
-  const db=await openDB();
-  return new Promise((resolve,reject)=>{
-    const tx=db.transaction("pdfs","readonly");
-    const r=tx.objectStore("pdfs").get(id);
-    r.onsuccess=()=>resolve(r.result);
-    r.onerror=()=>reject(r.error);
-  });
+  // Some builds store a data URL directly in song object
+  const song = songById(id);
+  if(song){
+    const direct = song.pdf || song.pdfData || song.data || song.file || song.url;
+    if(direct && typeof direct === "string" && direct.length > 50) return direct;
+  }
+
+  for(const dbName of DB_CANDIDATES){
+    for(const storeName of STORE_CANDIDATES){
+      const data = await readFromDB(dbName, storeName, id);
+      if(data){
+        console.log("PDF found in", dbName, storeName, id);
+        return data;
+      }
+    }
+  }
+  return null;
 }
+
 async function getPdf(id){
   if(pdfCache[id])return pdfCache[id];
   const data=await getFile(id);
   if(!data)return null;
-  const pdf=await pdfjsLib.getDocument(data).promise;
+
+  let source = data;
+  // IndexedDB may return ArrayBuffer, Blob, Uint8Array, or data URL.
+  if(data instanceof Blob){
+    source = {data: new Uint8Array(await data.arrayBuffer())};
+  }else if(data instanceof ArrayBuffer){
+    source = {data: new Uint8Array(data)};
+  }else if(data instanceof Uint8Array){
+    source = {data};
+  }
+
+  const pdf=await pdfjsLib.getDocument(source).promise;
   pdfCache[id]=pdf;
   return pdf;
 }
@@ -158,7 +249,7 @@ async function render(){
   const leftId=set[currentIndex];
   const rightId=set[currentIndex+1];
 
-  document.getElementById('subtitle').textContent=(currentIndex+1)+'/'+set.length+' 현재곡 + 다음곡';
+  document.getElementById('subtitle').textContent=(currentIndex+1)+'/'+set.length+' 현재곡 + 다음곡 / StorageFix';
   status('Rendering...');
   try{
     await drawSong(leftId, document.getElementById('left'), document.getElementById('leftLabel'));
