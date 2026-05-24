@@ -1,7 +1,7 @@
 {
-  "name": "TVPC Ainos Dual Song/Page v5",
-  "short_name": "AinosDualV5",
-  "start_url": "./index.html?v=dual-song-page-v5",
+  "name": "TVPC Ainos Service Open Fix",
+  "short_name": "AinosFix",
+  "start_url": "./index.html?v=service-open-fix",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#050608",
