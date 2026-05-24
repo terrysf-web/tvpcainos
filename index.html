@@ -133,7 +133,7 @@ button.small{font-size:12px;padding:6px 10px;border-radius:10px}
 <div id="app"></div>
 
 <script>
-// --- 사용자 제공 마스터 클라우드 설정 정보 완벽 결합 및 주입 공정 ---
+// --- 전역 설정 정보 주입 공정 ---
 const firebaseConfig = {
   apiKey: "AIzaSyB2iVlROco_aB4jL4cV35xXmVVaDU9fgEM",
   authDomain: "worship-operations-cue-sheet.firebaseapp.com",
@@ -143,7 +143,6 @@ const firebaseConfig = {
   appId: "1:1052866950674:web:bfd42600114ce0feea4acb"
 };
 
-// 클라우드 인프라 파이프라인 가동
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
@@ -152,7 +151,6 @@ const storage = firebase.storage();
 const appEngineRoot = document.getElementById("app");
 const SEMITONE_CIRCULAR_MAP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-// --- 격리 설계형 완벽 상태 전계 변수 객체 (State Map) ---
 const coreState = {
   currentUser: null,     
   currentTab: "service",
@@ -160,11 +158,9 @@ const coreState = {
   serviceSetlist: [],    
   selectedServiceId: null,
   
-  // 개인 로그인 계정(UID) 필터 연동 기반 앰플리튜드 레이어
   privateUserInk: {},    
   privateUserChords: [], 
 
-  // 뷰어 타겟 제어 지표
   activeViewer: null,
   currentPdfBinary: null,
   leftGlobalPage: 1, rightGlobalPage: 2, maxTotalPages: 1,
@@ -174,7 +170,6 @@ const coreState = {
   touchStartX: 0, touchStartY: 0, penColorHex: "#ef4444", penThickness: 3
 };
 
-// --- 클라우드 인증 세션 모니터링 옵저버 ---
 auth.onAuthStateChanged(async (user) => {
   coreState.currentUser = user;
   if (user) {
@@ -192,7 +187,6 @@ auth.onAuthStateChanged(async (user) => {
   executeRenderRouter();
 });
 
-// --- Firestore 마스터 클라우드 동기화 파이프라인 ---
 async function synchronizeCloudCoreDatabase() {
   if (!coreState.currentUser) return;
   const songSnap = await db.collection("worship_songs").get();
@@ -206,7 +200,6 @@ async function synchronizeCloudCoreDatabase() {
   }
 }
 
-// --- 멤버 격리 정보 레이어 피치 패치 기술 수렴 ---
 async function fetchPrivateUserLayerData() {
   if (!coreState.currentUser || !coreState.activeViewer) return;
   const uid = coreState.currentUser.uid;
@@ -239,7 +232,6 @@ async function savePrivateInkToCloud(pageScope, strokes) {
   });
 }
 
-// --- 사용자 메인 쉘 엔진 화면전환 라우터 ---
 function executeRenderRouter() {
   if (coreState.activeViewer) return displayDualSheetViewer();
   
@@ -262,4 +254,53 @@ function executeRenderRouter() {
   appEngineRoot.innerHTML = `
     <div class="app">
       <div class="auth-bar">
-        <span>접속자
+        <span>접속자 계정권한: <b>${coreState.currentUser.email}</b></span>
+        <button class="gray small" style="padding: 4px 8px;" onclick="auth.signOut()">로그아웃</button>
+      </div>
+      <div class="top">
+        <div class="logo">A</div>
+        <div class="top-title"><b>TVPC Ainos <span>Perfect Cloud v1</span></b><span>${esc(svc.name)} · ${esc(svc.date)}</span></div>
+        <div>
+          <button class="gold small" onclick="sendSetlistNotificationEmail()">📢 밴드 멤버들에게 이메일 알림쏘기</button>
+        </div>
+      </div>
+      <div class="page">
+        <div class="grid">
+          <section class="card">
+            <div class="card-head"><h2>예배 일정 관리 (공용)</h2><button class="gray small" onclick="createNewServiceScheduleOnCloud()">추가</button></div>
+            <div class="card-body">${buildServiceSchedulesHTML(svc)}</div>
+          </section>
+          <section class="card">
+            <div class="card-head">
+              <h2>${coreState.currentTab === 'service' ? '현재 예배 콘티' : 'Song Library'}</h2>
+              <div class="tabs">
+                <button class="${coreState.currentTab === 'service' ? 'active' : ''} small" onclick="coreState.currentTab='service';executeRenderRouter()">현재 세트</button>
+                <button class="${coreState.currentTab === 'library' ? 'active' : ''} small" onclick="coreState.currentTab='library';executeRenderRouter()">Song Library</button>
+              </div>
+            </div>
+            <div class="card-body">${coreState.currentTab === 'service' ? buildActiveSetlistHTML(svc) : buildLibraryPoolHTML()}</div>
+          </section>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function buildServiceSchedulesHTML(svc){
+  if(!coreState.serviceSetlist.length) return `<div class="empty">생성된 일정이 없습니다. [추가]를 눌러주세요.</div>`;
+  return `
+    <div class="field"><label>예배칭호 수정 (실시간 공유)</label><input value="${esc(svc.name)}" onchange="updateServiceFieldsOnCloud('${svc.id}', 'name', this.value)"></div>
+    <div class="field"><label>예배 일자 변경</label><input type="date" value="${esc(svc.date)}" onchange="updateServiceFieldsOnCloud('${svc.id}', 'date', this.value)"></div>
+    <div class="list">${coreState.serviceSetlist.map(s => `
+      <div class="row">
+        <div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date)} · 총 ${s.songs ? s.songs.length : 0}곡</div></div>
+        <div class="actions">
+          <button class="${s.id === coreState.selectedServiceId ? 'primary' : 'gray'} small" onclick="coreState.selectedServiceId='${s.id}';executeRenderRouter()">선택</button>
+        </div>
+      </div>
+    `).join("")}</div>
+  `;
+}
+
+function buildActiveSetlistHTML(svc){
+  if(!svc.songs || !svc.songs.length) return '<div class="empty">Song Library 탭에서 곡을 집어넣으세요.</div>';
