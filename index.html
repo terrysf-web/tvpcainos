@@ -3,538 +3,867 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>TVPC Ainos Piascore Dual Cloud Engine</title>
+<title>WorshipCharts</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#020617">
+<meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Ainos Cloud">
-
+<meta name="apple-mobile-web-app-title" content="WorshipCharts">
+<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-
 <style>
-/* 글로벌 레이아웃 및 밴드 테마 격리 */
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body,#app{
-  margin:0;width:100%;height:100%;overflow:hidden;
-  background:#0f172a;color:#f8fafc;
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
-  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
-}
-button,input,select,textarea{font:inherit}
-button{border:0;border-radius:12px;padding:12px 16px;font-weight:900;background:#1e293b;color:#fff;cursor:pointer}
-button:active{background:#334155}
-button.primary{background:#06b6d4;color:#020617}
-button.primary:active{background:#0891b2}
-button.gold{background:#eab308;color:#020617}
-button.red{background:#ef4444;color:#fff}
-button.gray{background:#475569;color:#fff}
-button.small{font-size:12px;padding:6px 10px;border-radius:10px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none;background:#f2f2f7;
+  font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR','Segoe UI',sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#app{height:100%;height:100dvh;display:flex;flex-direction:column;
+  padding-top:env(safe-area-inset-top)}
+button{cursor:pointer;border:none;font:inherit;border-radius:10px;padding:9px 14px;font-weight:700;transition:opacity .15s}
+button:active{opacity:.7}
+input,select{font:inherit;border:1.5px solid #d1d5db;border-radius:10px;padding:10px 12px;width:100%;background:#fff;outline:none}
+input:focus,select:focus{border-color:#2563eb}
+.bp{background:#2563eb;color:#fff}
+.bg{background:#e5e7eb;color:#374151}
+.br{background:#ef4444;color:#fff}
+.bs{padding:6px 10px;font-size:13px;border-radius:8px}
+.bxs{padding:4px 8px;font-size:12px;border-radius:7px}
 
-.app{height:100%;display:grid;grid-template-rows:auto auto 1fr}
-.auth-bar{background:#0f172a;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e293b;font-size:13px;color:#94a3b8}
-.top{
-  height:64px;padding:0 16px;padding-top:env(safe-area-inset-top);
-  display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;
-  background:#020617;border-bottom:1px solid #1e293b;
-}
-.logo{width:36px;height:36px;border-radius:10px;background:#06b6d4;color:#020617;display:grid;place-items:center;font-weight:1000;font-size:18px}
-.top-title{line-height:1.2;text-align:center}.top-title b{display:block;font-size:18px;color:#f8fafc}.top-title span{display:block;color:#94a3b8;font-size:12px;margin-top:2px}
-.page{height:100%;overflow:auto;padding:20px}
-.grid{display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start}
-.card{background:#1e293b;border:1px solid #334155;border-radius:20px;box-shadow:0 12px 36px rgba(0,0,0,.3);overflow:hidden}
-.card-head{padding:16px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;gap:10px}
-.card-head h2{margin:0;font-size:18px;color:#f1f5f9}
-.card-body{padding:16px;display:grid;gap:14px}
-.field{display:grid;gap:6px}.field label{font-size:12px;color:#94a3b8;font-weight:900}
-.field input,.field select,.field textarea{border:1px solid #475569;border-radius:12px;padding:12px;background:#0f172a;color:#fff}
-.row{
-  display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;
-  background:#334155;border:1px solid #475569;border-radius:16px;padding:14px;
-}
-.title{font-weight:950;font-size:16px;color:#f8fafc}.meta{font-size:12px;color:#cbd5e1;margin-top:4px}
-.actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
-.list{display:grid;gap:10px}.empty{padding:32px 10px;text-align:center;color:#94a3b8;font-weight:bold}
+/* TOPBAR */
+.topbar{display:grid;align-items:center;gap:8px;background:#fff;border-bottom:1px solid #e5e7eb;
+  padding:0 14px;height:54px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.topbar.t1{grid-template-columns:1fr auto auto}
+.topbar.t2{grid-template-columns:auto 1fr auto}
+.ttitle{font-size:16px;font-weight:800;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tsub{font-size:11px;color:#6b7280;text-align:center}
+.back-btn{display:flex;align-items:center;gap:2px;background:none;color:#2563eb;font-size:15px;font-weight:600;padding:6px 2px}
 
-.viewer{
-  position:fixed;inset:0;z-index:100;background:#090d16;
-  display:grid;grid-template-rows:auto 1fr auto;overscroll-behavior:none;
-}
-.vtop{
-  height:64px;padding:0 12px;padding-top:env(safe-area-inset-top);
-  background:#020617;border-bottom:1px solid #1e293b;
-  display:grid;grid-template-columns:auto 1fr auto auto auto auto;gap:12px;align-items:center;
-}
-.vtitle{text-align:center;min-width:0;line-height:1.2}
-.vtitle b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:16px;color:#f8fafc}
-.vtitle span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:#94a3b8;margin-top:2px}
+/* CONTENT */
+.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px;display:grid;gap:10px;align-content:start;padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+.card{background:#fff;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,.07);overflow:hidden}
+.card-head{padding:12px 16px;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center}
+.card-head h2{font-size:14px;font-weight:800}
+.crow{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #f3f4f6;cursor:pointer}
+.crow:last-child{border-bottom:none}
+.crow:active{background:#f9fafb}
+.cm{flex:1;min-width:0}
+.ct{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cx{font-size:12px;color:#6b7280;margin-top:2px}
+.ca{display:flex;gap:6px;flex-shrink:0}
+.empty{padding:36px 20px;text-align:center;color:#9ca3af;font-size:14px}
+.bottom-bar{padding:10px 14px;background:#fff;border-top:1px solid #e5e7eb;display:flex;gap:8px;flex-shrink:0;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom))}
 
-.stage{
-  position:relative;overflow:hidden;background:#0f172a;
-  display:flex;flex-direction:row;justify-content:center;align-items:center;gap:24px;
-  touch-action:none;width:100%;height:100%;padding:10px;
-}
-.sheet-container{
-  position:relative;background:#fff;overflow:hidden;
-  border-radius:8px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.7);
-}
-.pdf-render-canvas{
-  position:absolute;left:0;top:0;z-index:1;background:#fff;
-  pointer-events:none!important;touch-action:none;
-}
-.ink-drawing-canvas{
-  position:absolute;left:0;top:0;z-index:30;
-  touch-action:none!important;
-}
-.chord-interactive-overlay {
-  position: absolute; inset: 0; z-index: 35; pointer-events: none;
-}
-.chord-sticker{
-  position:absolute;background:#ffffff;color:#2563eb;font-weight:1000;
-  border:2px solid #2563eb;padding:3px 8px;border-radius:6px;font-size:15px;
-  transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;
-  box-shadow:0 4px 12px rgba(0,0,0,0.35);
-}
-.write-protection-shield{
-  position:absolute;inset:0;z-index:20;background:transparent;
-  pointer-events:none;touch-action:none;
-}
+/* LOGIN */
+.login{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:40px}
+.login-logo{font-size:34px;font-weight:900;color:#2563eb}
+.login-sub{color:#6b7280;font-size:15px;text-align:center;line-height:1.6}
+.gbtn{display:flex;align-items:center;gap:10px;background:#fff;color:#374151;border:1.5px solid #d1d5db;
+  border-radius:12px;padding:12px 22px;font-size:16px;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,.08)}
 
-.viewer.read .ink-drawing-canvas{pointer-events:none}
-.viewer.write .ink-drawing-canvas, .viewer.chord .ink-drawing-canvas{pointer-events:auto!important}
-.viewer.write .write-protection-shield, .viewer.chord .write-protection-shield{pointer-events:auto}
+/* VIEWER */
+.viewer{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;background:#111827}
+.vbar{height:54px;padding:0 10px;padding-top:env(safe-area-inset-top);flex-shrink:0;
+  background:#050608;color:#fff;display:flex;align-items:center;gap:8px}
+.vbar-title{flex:1;min-width:0;text-align:center}
+.vbar-title b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vbar-title small{display:block;font-size:11px;color:#9ca3af;margin-top:1px}
+.vb{background:#1f2937;color:#fff;padding:7px 10px;font-size:13px;border-radius:9px;white-space:nowrap}
+.vb.on{background:#2563eb}
+.krow{display:flex;align-items:center;gap:3px}
+.kdisplay{background:#1f2937;color:#e5e7eb;border-radius:8px;padding:5px 9px;font-size:13px;font-weight:800;min-width:42px;text-align:center}
 
-.vbottom{
-  height:76px;padding:8px 16px calc(8px + env(safe-area-inset-bottom));
-  background:#020617;border-top:1px solid #1e2937;
-  display:grid;grid-template-columns:1fr 1.2fr 1.2fr 1fr;gap:16px;
-}
-.vbottom button{border-radius:14px;font-weight:900;font-size:15px;height:100%}
-.hint{
-  position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
-  background:rgba(2,6,23,0.85);color:#06b6d4;border:1px solid #0891b2;
-  border-radius:999px;padding:8px 18px;font-size:13px;font-weight:bold;z-index:60;pointer-events:none;
-}
-.toast{
-  position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);
-  background:#06b6d4;color:#020617;border-radius:999px;padding:12px 20px;font-size:14px;font-weight:1000;z-index:200;
-}
-.transpose-ctrl{display:flex;gap:6px;align-items:center;background:#1e293b;padding:6px 12px;border-radius:12px;color:#fff;border:1px solid #334155}
+/* CHORD VIEW */
+.cstage{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#f9fafb;padding:14px;
+  padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+.csong-hdr{background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.csong-title{font-size:22px;font-weight:900;color:#111}
+.csong-meta{font-size:13px;color:#6b7280;margin-top:3px}
+.csec{background:#fff;border-radius:14px;padding:12px 15px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.csec-lbl{font-size:11px;font-weight:800;color:#2563eb;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.cline{display:flex;flex-wrap:wrap;align-items:flex-end;margin-bottom:4px}
+.ctok{display:inline-flex;flex-direction:column;align-items:flex-start}
+.cn{font-size:14px;font-weight:800;color:#2563eb;min-height:17px;padding-right:3px;white-space:pre;line-height:1.3}
+.cl{font-size:18px;color:#111;white-space:pre;line-height:1.5}
+.cl-only{font-size:18px;color:#374151;line-height:1.6;margin-bottom:3px}
+.nav-row{display:flex;gap:8px;margin-top:8px;padding-bottom:20px}
+
+/* PDF VIEW */
+.pstage{flex:1;overflow:hidden;background:#374151;display:flex;align-items:center;
+  justify-content:center;gap:8px;position:relative;touch-action:none}
+.sheet{position:relative;background:#fff;flex-shrink:0;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.sheet canvas{position:absolute;left:0;top:0;touch-action:none}
+.pcan{z-index:1;pointer-events:none}
+.ican{z-index:10}
+.viewer.rm .ican{pointer-events:none}
+.viewer.wm .ican{pointer-events:auto;cursor:crosshair}
+.wlock{position:absolute;inset:0;z-index:5;touch-action:none;background:transparent;pointer-events:none}
+.viewer.wm .wlock{pointer-events:auto}
+.vbot{height:64px;padding:6px 10px;padding-bottom:calc(6px + env(safe-area-inset-bottom));
+  background:#050608;display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px;flex-shrink:0}
+.vbtn{background:#1f2937;color:#fff;border-radius:11px;font-size:12px;padding:6px 3px;font-weight:700}
+.vbtn.on{background:#2563eb}
+
+/* MODAL */
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end}
+.mod{background:#fff;border-radius:20px 20px 0 0;width:100%;padding:20px;
+  padding-bottom:calc(20px + env(safe-area-inset-bottom));display:grid;gap:12px;max-height:85vh;overflow-y:auto}
+.mod h3{font-size:18px;font-weight:800}
+.fld{display:grid;gap:5px}
+.fld label{font-size:12px;font-weight:700;color:#6b7280}
+.mact{display:flex;gap:8px;justify-content:flex-end}
+
+/* TOAST */
+.toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+  background:rgba(17,24,39,.95);color:#fff;border-radius:999px;padding:9px 16px;
+  font-size:13px;font-weight:700;z-index:999;pointer-events:none;white-space:nowrap}
+
+@media(max-width:600px){.cl{font-size:16px}.cn{font-size:13px}}
+
+/* ── PIASCORE FEATURES ── */
+.ink-bar{display:flex;align-items:center;gap:8px;padding:5px 10px;background:#0d1117;
+  flex-shrink:0;border-bottom:1px solid #1f2937;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.ink-bar .sep{width:1px;height:22px;background:#374151;flex-shrink:0}
+.cdot{width:26px;height:26px;border-radius:50%;border:2.5px solid transparent;cursor:pointer;flex-shrink:0}
+.cdot.active{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.4)}
+.wbtn{background:#1f2937;color:#9ca3af;border-radius:7px;padding:4px 9px;font-size:12px;font-weight:700;flex-shrink:0}
+.wbtn.active{background:#2563eb;color:#fff}
+.tbtn{background:#1f2937;color:#fff;border-radius:7px;padding:4px 10px;font-size:12px;font-weight:700;flex-shrink:0}
+.tbtn.active{background:#f59e0b;color:#000}
+.thumb-strip{height:76px;background:#0d1117;display:flex;align-items:center;gap:5px;
+  padding:5px 10px;overflow-x:auto;overflow-y:hidden;flex-shrink:0;-webkit-overflow-scrolling:touch}
+.thumb-item{flex-shrink:0;cursor:pointer;border-radius:4px;overflow:hidden;
+  border:2px solid #374151;position:relative;transition:border-color .12s}
+.thumb-item.active{border-color:#2563eb}
+.thumb-item canvas{display:block}
+.thumb-num{position:absolute;bottom:1px;right:3px;font-size:9px;font-weight:800;
+  color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.9);pointer-events:none}
+.pjump{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(5,6,8,.93);border-radius:16px;padding:18px 22px;z-index:50;
+  display:flex;flex-direction:column;align-items:center;gap:10px;min-width:170px}
+.pjump label{color:#9ca3af;font-size:12px;font-weight:700}
+.pjump input{width:80px;text-align:center;font-size:22px;font-weight:800;
+  border:1.5px solid #374151;border-radius:10px;background:#111827;color:#fff;padding:7px 4px}
+.pjump input::-webkit-outer-spin-button,.pjump input::-webkit-inner-spin-button{-webkit-appearance:none}
+@keyframes slideR{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideL{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:translateX(0)}}
+.anim-r{animation:slideR .16s ease-out}
+.anim-l{animation:slideL .16s ease-out}
 </style>
 </head>
-<body>
-<div id="app"></div>
-
+<body><div id="app"></div>
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyB2iVlROco_aB4jL4cV35xXmVVaDU9fgEM",
-  authDomain: "worship-operations-cue-sheet.firebaseapp.com",
-  projectId: "worship-operations-cue-sheet",
-  storageBucket: "worship-operations-cue-sheet.firebasestorage.app",
-  messagingSenderId: "1052866950674",
-  appId: "1:1052866950674:web:bfd42600114ce0feea4acb"
-};
-
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-const storage = firebase.storage();
-
-const $=s=>document.querySelector(s);
-const appEngineRoot = document.getElementById("app");
-const SEMITONE_CIRCULAR_MAP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-
-const state = {
-  currentUser: null,     
-  currentTab: "service",
-  songLibrary: [],       
-  serviceSetlist: [],    
-  selectedServiceId: null,
-  
-  privateUserInk: {},    
-  privateUserChords: [], 
-
-  activeViewer: null,
-  currentPdfBinary: null,
-  leftGlobalPage: 1, rightGlobalPage: 2, maxTotalPages: 1,
-  globalKeyOffset: 0, currentMode: "read",
-  
-  isPointerDrawing: false, activePointerSide: null, accumulatedPoints: [],
-  touchStartX: 0, touchStartY: 0, penColorHex: "#ef4444", penThickness: 3
-};
-
-auth.onAuthStateChanged(async (user) => {
-  state.currentUser = user;
-  if (user) {
-    toast(`${user.email} 계정 동기화 가동`);
-    await synchronizeCloudCoreDatabase();
-    if(state.activeViewer) {
-      await fetchPrivateUserLayerData();
-    }
-  } else {
-    state.songLibrary = [];
-    state.serviceSetlist = [];
-    state.privateUserInk = {};
-    state.privateUserChords = [];
-  }
-  executeRenderRouter();
+/* ── FIREBASE ── */
+firebase.initializeApp({
+  apiKey:"AIzaSyAzXyQA-BbL_0KsTnukODBfMBkIZINxiNM",
+  authDomain:"tvpcainos.firebaseapp.com",
+  projectId:"tvpcainos",
+  storageBucket:"tvpcainos.firebasestorage.app",
+  messagingSenderId:"721441022829",
+  appId:"1:721441022829:web:45a0ee8fc152090b09f064"
 });
+const auth=firebase.auth(), db=firebase.firestore();
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-async function synchronizeCloudCoreDatabase() {
-  if (!state.currentUser) return;
-  const songSnap = await db.collection("worship_songs").get();
-  state.songLibrary = songSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+/* ── SONGS DATA ── */
+const BUILTIN=[{id:1,title:"Amazing Grace",artist:"John Newton",key:"G",ki:7,bpm:72,ts:"3/4",sections:[{name:"Verse 1",lines:["[G]Amazing [G7]grace, how [C]sweet the [G]sound","That [G]saved a wretch like [D]me","I [G]once was [G7]lost, but [C]now am [G]found","Was [Em]blind, but [D]now I [G]see"]},{name:"Verse 2",lines:["'Twas [G]grace that [G7]taught my [C]heart to [G]fear","And [G]grace my fears re[D]lieved","How [G]precious [G7]did that [C]grace ap[G]pear","The [Em]hour I first be[D]lieved [G]"]}]},{id:2,title:"10,000 Reasons",artist:"Matt Redman",key:"G",ki:7,bpm:73,ts:"4/4",sections:[{name:"Chorus",lines:["[G]Bless the [D]Lord, O my [Em]soul, O my [C]soul","[G]Worship His [D]holy [C]name [G]","[G]Sing like never [D]before, O my [Em]soul","I'll [C]worship Your [G/B]holy [D]name"]},{name:"Verse 1",lines:["The [Em]sun comes [Bm]up, it's a new [C]day [G]dawning","It's [Em]time to [Bm]sing Your [C]song a[D]gain","What[Em]ever may [Bm]pass and what[C]ever lies be[G]fore me","Let [C]me be [G/B]singing when the [D]evening [G]comes"]}]},{id:3,title:"How Great Is Our God",artist:"Chris Tomlin",key:"G",ki:7,bpm:76,ts:"4/4",sections:[{name:"Verse 1",lines:["[G]The splendor of the [Em]King, clothed in ma[C]jesty","Let all the [D]earth rejoice, all the [G]earth rejoice","[G]He wraps Himself in [Em]light, and darkness [C]tries to hide"]},{name:"Chorus",lines:["How [G]great is our [D]God, sing with me","How [Em]great is our [C]God, and all will see","How [G]great, how [D]great [C]is our [G]God"]},{name:"Bridge",lines:["[G]Name above all names, [Em]worthy of all praise","[C]My heart will sing how [D]great is our [G]God"]}]},{id:4,title:"Blessed Be Your Name",artist:"Matt Redman",key:"A",ki:9,bpm:138,ts:"4/4",sections:[{name:"Verse 1",lines:["[A]Blessed be Your [E]name","In the [F#m]land that is [D]plentiful","Where Your [A]streams of abun[E]dance flow","[D]Blessed be Your [A]name"]},{name:"Chorus",lines:["[A]Blessed be the [E]name of the [F#m]Lord [D]","[A]Blessed be Your [E]glorious [D]name [A]","[A]Blessed be the [E]name of the [F#m]Lord [D]","[A]Blessed be Your [E]glorious [D]name"]}]},{id:5,title:"위대하신 주",artist:"워십팀",key:"G",ki:7,bpm:76,ts:"4/4",sections:[{name:"Verse 1",lines:["[G]주의 위대하심을 [Em]찬양해","[C]온 세상 그의 [D]것이요","[G]영원히 다스리시는 [Em]왕이시라","[C]주님만 [D]높이리"]},{name:"Chorus",lines:["[G]위대하신 주 [C]위대하신 주","[Em]노래해 [D]위대하신 주","[G]위대하신 주 [C]위대하신 주","[Em]영원히 [D]찬양받으실 [G]주"]}]},{id:6,title:"주를 찬양해",artist:"교회 워십",key:"D",ki:2,bpm:80,ts:"4/4",sections:[{name:"Verse 1",lines:["[D]거룩하신 주 [A]앞에 나아와","[Bm]두 손을 높이 [G]들어","[D]주의 이름을 [A]높여 드리며","[G]경배하리라 [A]"]},{name:"Chorus",lines:["[G]주를 [D/F#]찬양해 [Em]주를 [A]찬양해","[G]온 맘 다해 [D/F#]찬양해 [A]","[G]주를 [D/F#]찬양해 [Em]주를 [A]찬양해","[G]영원히 [A]찬양하리 [D]"]}]},{id:7,title:"주님 한 분만으로",artist:"예수전도단",key:"Bb",ki:10,bpm:68,ts:"4/4",sections:[{name:"Verse 1",lines:["[Bb]주님 한 분만으로 [F]난 만족해","[Gm]주님 한 분만으로 [Eb]족하네","[Bb]이 세상 그 무엇과도 [F]비교 못해"]},{name:"Chorus",lines:["[Eb]주님 [Bb/D]이름 [Cm]높이며 [F]찬양해","[Eb]주님 [Bb/D]앞에 [Cm]나아가 [F]경배해","[Bb]주님 [F]한 분만 [Eb]경배하리 [Bb]"]}]},{id:8,title:"Good Good Father",artist:"Chris Tomlin",key:"C",ki:0,bpm:68,ts:"4/4",sections:[{name:"Verse 1",lines:["[C]I've heard a thousand stories of what they [Am]think You're like","You're a [F]good good Father, it's [G]who You [C]are"]},{name:"Chorus",lines:["You're a [C]good good Father","It's [Am]who You are, it's [F]who You [C]are, it's [G]who You are","And I'm [C]loved by You","It's [Am]who I am, it's [F]who I [C]am, it's [G]who I am"]}]}];
 
-  const svcSnap = await db.collection("worship_services").orderBy("date", "desc").get();
-  state.serviceSetlist = svcSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+const KEYS=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const SHARP=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const FMAP={'C#':'Db','D#':'Eb','F#':'Gb','G#':'Ab','A#':'Bb'};
+const FPREF=new Set(['F','Bb','Eb','Ab','Db','Gb']);
 
-  if (state.serviceSetlist.length && !state.selectedServiceId) {
-    state.selectedServiceId = state.serviceSetlist[0].id;
+/* ── STATE ── */
+const S={
+  user:null, view:'login',
+  services:[], custom:[], pdfMeta:{}, pdfData:{}, annots:{},
+  svcId:null, songId:null,
+  pdfPage:1, pdfTotal:1, pdfDoc:null,
+  vmode:'chord',  // chord | pdf
+  dual:false, wm:false, transpose:0, zoom:1,
+  draw:false, pts:[], inkC:'#ef4444', inkW:3, activeC:null,
+  inkTool:'pen', showThumbs:false, thumbs:{}, thumbsReady:false,
+  undoData:null, undoPage:null, undoCanvas:null, pageAnim:'',
+  showJump:false, pinchDist:null,
+  unsubs:[], modal:null
+};
+
+/* ── UTILS ── */
+const app=document.getElementById('app');
+function esc(s){return(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function toast(m){const o=document.querySelector('.toast');if(o)o.remove();const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
+function allSongs(){return[...BUILTIN,...S.custom]}
+function songBy(id){return allSongs().find(s=>String(s.id)===String(id))}
+function curSvc(){return S.services.find(s=>s.id===S.svcId)}
+function svcTranspose(svcId,songId){const v=S.services.find(s=>s.id===svcId);return v?.songSettings?.[String(songId)]?.transpose||0}
+function fdate(d){if(!d)return'';try{return new Date(d).toLocaleDateString('ko-KR',{month:'long',day:'numeric'})}catch{return d}}
+function today(){return new Date().toISOString().slice(0,10)}
+
+/* ── TRANSPOSE ── */
+function nidx(n){let i=SHARP.indexOf(n);if(i>=0)return i;i=KEYS.indexOf(n);if(i>=0)return i;for(const[s,f]of Object.entries(FMAP))if(f===n)return SHARP.indexOf(s);return-1}
+function i2n(i,flat){const n=SHARP[(i+1200)%12];return flat&&FMAP[n]?FMAP[n]:n}
+function tNote(n,st){const i=nidx(n);if(i<0)return n;return i2n(i+st,FPREF.has(n)||n.includes('b'))}
+function tChord(c,st){if(!st)return c;return c.split('/').map(p=>{const m=p.match(/^([A-G][#b]?)(.*)$/);return m?tNote(m[1],st)+m[2]:p}).join('/')}
+function tKey(song,st){return KEYS[((song.ki+st)%12+12)%12]}
+function parseLine(line,st){
+  const tok=[];const re=/\[([^\]]+)\]([^\[]*)/g;let m;
+  const fi=line.indexOf('[');if(fi>0)tok.push({c:'',l:line.slice(0,fi)});
+  while((m=re.exec(line))!==null)tok.push({c:tChord(m[1],st),l:m[2]});
+  if(!tok.length)tok.push({c:'',l:line});
+  return tok;
+}
+
+/* ── FIREBASE ── */
+function unsubAll(){S.unsubs.forEach(u=>u());S.unsubs=[];}
+function subscribe(){
+  if(!S.user)return;
+  unsubAll();
+  S.unsubs.push(db.collection('services').orderBy('date','desc').onSnapshot(snap=>{
+    S.services=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(S.view==='home'||S.view==='service')render();
+  }));
+  S.unsubs.push(db.collection('customSongs').onSnapshot(snap=>{
+    S.custom=snap.docs.map(d=>({...d.data(),id:d.id,custom:true}));
+    if(S.view!=='viewer')render();
+  }));
+  S.unsubs.push(db.collection('pdfFiles').onSnapshot(snap=>{
+    snap.docs.forEach(d=>{S.pdfMeta[d.id]={...d.data()}});
+  }));
+  db.collection(`userAnnotations/${S.user.uid}/pages`).get().then(snap=>{
+    snap.docs.forEach(d=>{S.annots[d.id]=d.data().dataUrl});
+  }).catch(()=>{});
+}
+
+async function createService(name,date){
+  await db.collection('services').add({name,date,songIds:[],createdBy:S.user.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+  toast('서비스 생성됨');
+}
+async function deleteSvc(id){
+  if(!confirm('서비스를 삭제할까요?'))return;
+  await db.collection('services').doc(id).delete();
+  if(S.svcId===id){S.svcId=null;goTo('home');}else toast('삭제됨');
+}
+async function addSongToSvc(svcId,songId){
+  const svc=S.services.find(s=>s.id===svcId);
+  const ids=[...(svc?.songIds||[])];
+  if(!ids.includes(String(songId)))ids.push(String(songId));
+  await db.collection('services').doc(svcId).update({songIds:ids});
+}
+async function removeSong(svcId,songId){
+  if(!confirm('셋리스트에서 제거할까요?'))return;
+  const svc=S.services.find(s=>s.id===svcId);
+  await db.collection('services').doc(svcId).update({songIds:(svc?.songIds||[]).filter(id=>String(id)!==String(songId))});
+  toast('제거됨');
+}
+async function moveSong(svcId,idx,dir){
+  const svc=S.services.find(s=>s.id===svcId);
+  const ids=[...(svc?.songIds||[])];
+  const j=idx+dir;if(j<0||j>=ids.length)return;
+  [ids[idx],ids[j]]=[ids[j],ids[idx]];
+  await db.collection('services').doc(svcId).update({songIds:ids});
+}
+async function saveSongTranspose(svcId,songId,st){
+  const svc=S.services.find(s=>s.id===svcId)||{};
+  const settings={...(svc.songSettings||{}),[String(songId)]:{...(svc.songSettings?.[String(songId)]||{}),transpose:st}};
+  await db.collection('services').doc(svcId).update({songSettings:settings});
+}
+async function addCustomSong(d){await db.collection('customSongs').add({...d,createdBy:S.user.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});toast('곡 추가됨');}
+async function delCustomSong(id){if(!confirm('곡을 삭제할까요?'))return;await db.collection('customSongs').doc(id).delete();toast('삭제됨');}
+async function loadPdf(songId){
+  const sid=String(songId);
+  if(S.pdfData[sid])return S.pdfData[sid];
+  const meta=S.pdfMeta[sid];
+  if(!meta?.chunkCount)return null;
+  const chunks=[];
+  for(let i=0;i<meta.chunkCount;i++){
+    const d=await db.doc(`pdfFiles/${sid}/chunks/${i}`).get();
+    if(d.exists)chunks.push(d.data().data);
+  }
+  S.pdfData[sid]=chunks.join('');
+  return S.pdfData[sid];
+}
+async function saveAnnot(songId,page,dataUrl){
+  if(!S.user)return;
+  const key=`${songId}_${page}`;
+  S.annots[key]=dataUrl;
+  try{await db.doc(`userAnnotations/${S.user.uid}/pages/${key}`).set({dataUrl});}catch(e){console.warn(e);}
+}
+
+/* ── NAVIGATION (pure state machine – swipe-back bug eliminated) ── */
+function goTo(view,extra={}){Object.assign(S,extra);S.view=view;render();}
+function openViewer(songId,svcId){
+  S.songId=String(songId);
+  S.svcId=svcId||S.svcId||null;
+  S.transpose=svcId?svcTranspose(svcId,songId):0;
+  S.pdfPage=1;S.pdfDoc=null;S.wm=false;S.dual=false;S.zoom=1;
+  S.vmode=S.pdfMeta[String(songId)]?'pdf':'chord';
+  S.view='viewer';render();
+  if(S.vmode==='pdf')initPdf(songId);
+}
+function closeViewer(){S.svcId?goTo('service'):goTo('home');}
+
+/* ── RENDER ── */
+function render(){
+  if(S.modal)return;
+  switch(S.view){
+    case'login':return rLogin();
+    case'home': return rHome();
+    case'service':return rService();
+    case'viewer':return rViewer();
   }
 }
 
-async function fetchPrivateUserLayerData() {
-  if (!state.currentUser || !state.activeViewer) return;
-  const uid = state.currentUser.uid;
-  const songId = state.activeViewer.songId;
-
-  const chordSnap = await db.collection("user_private_chords")
-    .where("uid", "==", uid)
-    .where("songId", "==", songId).get();
-  state.privateUserChords = chordSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-  const inkSnap = await db.collection("user_private_ink")
-    .where("uid", "==", uid)
-    .where("songId", "==", songId).get();
-  
-  state.privateUserInk = {};
-  inkSnap.docs.forEach(doc => {
-    const data = doc.data();
-    state.privateUserInk[`p${data.page}`] = data.strokes || [];
-  });
+/* LOGIN */
+function rLogin(){
+  app.innerHTML=`
+  <div class="login">
+    <div class="login-logo">WorshipCharts</div>
+    <div class="login-sub">교회 워십팀을 위한<br>악보 · 코드 차트 앱</div>
+    <button class="gbtn" onclick="signIn()">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Google로 로그인
+    </button>
+  </div>`;
 }
+function signIn(){auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>toast('로그인 실패: '+e.message));}
 
-async function savePrivateInkToCloud(pageScope, strokes) {
-  if (!state.currentUser || !state.activeViewer) return;
-  const uid = state.currentUser.uid;
-  const songId = state.activeViewer.songId;
-  const docId = `${uid}_${songId}_p${pageScope}`;
-
-  // 순수 직렬화 가능한 좌표 객체 배열로 정제하여 파이어베이스 전송 충돌 차단
-  const cleanStrokes = strokes.map(s => ({
-    color: s.color,
-    width: s.width,
-    pts: s.pts.map(p => ({ x: p.x, y: p.y, p: p.p }))
-  }));
-
-  await db.collection("user_private_ink").doc(docId).set({
-    uid: uid, songId: songId, page: pageScope, strokes: cleanStrokes, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-}
-
-function executeRenderRouter() {
-  if (state.activeViewer) return displayDualSheetViewer();
-  
-  if (!state.currentUser) {
-    appEngineRoot.innerHTML = `
-      <div style="max-width: 400px; margin: 120px auto; padding: 24px;" class="card">
-        <h2 style="text-align:center; color:#06b6d4; margin-top: 0;">Ainos 찬양팀 클라우드</h2>
-        <div class="card-body">
-          <div class="field"><label>이메일 계정</label><input id="loginEmail" type="email" placeholder="name@domain.com"></div>
-          <div class="field"><label>비밀번호</label><input id="loginPw" type="password" placeholder="••••••••"></div>
-          <button class="primary" onclick="triggerEmailAuthSignIn()">로그인</button>
-          <button class="gray small" onclick="triggerEmailAuthSignUp()">새 찬양팀원 등록</button>
+/* HOME */
+function rHome(){
+  const td=today();
+  const upcoming=S.services.filter(s=>s.date>=td);
+  const past=S.services.filter(s=>s.date<td);
+  app.innerHTML=`
+  <div class="topbar t1">
+    <div style="font-size:19px;font-weight:900;color:#2563eb">WorshipCharts</div>
+    <div></div>
+    <button class="bp bs" onclick="showModal('new-svc')">+ 새 서비스</button>
+  </div>
+  <div class="content">
+    ${upcoming.length?`<div class="card"><div class="card-head"><h2>📅 예정된 예배</h2></div>${upcoming.map(sRow).join('')}</div>`:''}
+    ${past.length?`<div class="card"><div class="card-head"><h2>지난 예배</h2></div>${past.map(sRow).join('')}</div>`:''}
+    ${!S.services.length?`<div class="card"><div class="empty">예배 서비스가 없습니다.<br>위에서 새 서비스를 만들어보세요.</div></div>`:''}
+    <div class="card">
+      <div class="card-head"><h2>🎵 곡 라이브러리 (${allSongs().length}곡)</h2></div>
+      ${allSongs().map(s=>`
+      <div class="crow" onclick="openViewer('${s.id}',null)">
+        <div class="cm">
+          <div class="ct">${esc(s.title)}</div>
+          <div class="cx">${esc(s.artist)} · Key ${esc(s.key)}${S.pdfMeta[String(s.id)]?' · 📄':''}</div>
         </div>
+        ${s.custom?`<button class="br bxs" onclick="event.stopPropagation();delCustomSong('${s.id}')">삭제</button>`:''}
+      </div>`).join('')}
+    </div>
+    <button class="bg" style="width:100%;margin-top:4px" onclick="showModal('add-custom')">+ 새 곡 추가</button>
+    <button class="bg bxs" style="width:100%;margin-top:4px" onclick="auth.signOut()">로그아웃</button>
+  </div>`;
+}
+function sRow(s){return`<div class="crow" onclick="goTo('service',{svcId:'${s.id}'})">
+  <div class="cm"><div class="ct">${esc(s.name)}</div><div class="cx">${fdate(s.date)} · ${(s.songIds||[]).length}곡</div></div>
+  <div class="ca"><button class="br bxs" onclick="event.stopPropagation();deleteSvc('${s.id}')">삭제</button></div>
+</div>`}
+
+/* SERVICE */
+function rService(){
+  const svc=curSvc();if(!svc)return goTo('home');
+  const songs=(svc.songIds||[]).map(id=>songBy(id)).filter(Boolean);
+  app.innerHTML=`
+  <div class="topbar t2">
+    <button class="back-btn" onclick="goTo('home')">‹ 홈</button>
+    <div><div class="ttitle">${esc(svc.name)}</div><div class="tsub">${fdate(svc.date)}</div></div>
+    <button class="bp bxs" onclick="showModal('add-song')">+ 추가</button>
+  </div>
+  <div class="content">
+    ${songs.length?`
+    <div class="card">
+      <div class="card-head"><h2>셋리스트</h2><span style="font-size:12px;color:#6b7280">${songs.length}곡</span></div>
+      ${songs.map((s,i)=>`
+      <div class="crow" onclick="openViewer('${s.id}','${svc.id}')">
+        <span style="color:#9ca3af;font-weight:700;font-size:13px;width:20px;flex-shrink:0">${i+1}</span>
+        <div class="cm">
+          <div class="ct">${esc(s.title)}</div>
+          <div class="cx">${esc(s.artist)} · Key ${esc(s.key)}${S.pdfMeta[String(s.id)]?' · 📄':''}</div>
+        </div>
+        <div class="ca">
+          ${i>0?`<button class="bg bxs" onclick="event.stopPropagation();moveSong('${svc.id}',${i},-1)">↑</button>`:''}
+          ${i<songs.length-1?`<button class="bg bxs" onclick="event.stopPropagation();moveSong('${svc.id}',${i},1)">↓</button>`:''}
+          <button class="br bxs" onclick="event.stopPropagation();removeSong('${svc.id}','${s.id}')">✕</button>
+        </div>
+      </div>`).join('')}
+    </div>`:`<div class="card"><div class="empty">곡을 추가해보세요.</div></div>`}
+  </div>
+  ${songs.length?`<div class="bottom-bar"><button class="bp" style="flex:1" onclick="openViewer('${songs[0].id}','${svc.id}')">▶ 서비스 시작</button></div>`:''}`;
+}
+
+/* VIEWER */
+function rViewer(){
+  const song=songBy(S.songId);if(!song){closeViewer();return;}
+  const svc=curSvc();
+  const sids=(svc?.songIds||[]);
+  const si=sids.findIndex(id=>String(id)===String(S.songId));
+  const hasPdf=!!S.pdfMeta[String(S.songId)];
+  const tk=tKey(song,S.transpose);
+  S.vmode==='pdf'&&hasPdf?rPdfView(song,svc,si,sids.length,tk,hasPdf):rChordView(song,svc,si,sids.length,tk,hasPdf);
+}
+
+/* CHORD VIEW */
+function rChordView(song,svc,si,sl,tk,hasPdf){
+  app.innerHTML=`
+  <div class="viewer rm" id="viewer">
+    <div class="vbar" style="gap:6px">
+      <button class="vb" onclick="closeViewer()">‹ ${svc?'서비스':'홈'}</button>
+      <div class="vbar-title">
+        <b>${esc(song.title)}</b>
+        <small>${si>=0?(si+1)+'/'+sl+' · ':''} ${esc(song.artist)}</small>
       </div>
-    `;
+      ${hasPdf?`<button class="vb" onclick="toPdf()">📄악보</button>`:''}
+      <div class="krow">
+        <button class="vb" onclick="chT(-1)">♭</button>
+        <div class="kdisplay">${esc(tk)}</div>
+        <button class="vb" onclick="chT(1)">♯</button>
+        <button class="vb" style="font-size:11px" onclick="chT(0)">↺</button>
+      </div>
+    </div>
+    <div class="cstage">
+      <div class="csong-hdr">
+        <div class="csong-title">${esc(song.title)}</div>
+        <div class="csong-meta">${esc(song.artist)} · Key <b>${esc(tk)}</b> · ${song.bpm||'-'} BPM · ${song.ts||'4/4'}${S.transpose?' (원키: '+esc(song.key)+')':''}</div>
+      </div>
+      ${(song.sections||[]).map(sec=>rSection(sec,S.transpose)).join('')}
+      ${svc&&sl>1?`<div class="nav-row">
+        ${si>0?`<button class="bg" style="flex:1" onclick="navSong(-1)">‹ 이전</button>`:''}
+        ${si<sl-1?`<button class="bp" style="flex:1" onclick="navSong(1)">다음 ›</button>`:''}
+      </div>`:''}
+    </div>
+  </div>`;
+}
+function rSection(sec,st){return`<div class="csec"><div class="csec-lbl">${esc(sec.name)}</div>${sec.lines.map(l=>rCLine(l,st)).join('')}</div>`}
+function rCLine(line,st){
+  const tok=parseLine(line,st);
+  if(tok.every(t=>!t.c))return`<div class="cl-only">${esc(line)}</div>`;
+  return`<div class="cline">${tok.map(t=>`<span class="ctok"><span class="cn">${t.c?esc(t.c):' '}</span><span class="cl">${t.l?esc(t.l):' '}</span></span>`).join('')}</div>`;
+}
+function chT(delta){
+  S.transpose=delta===0?0:S.transpose+delta;
+  if(S.svcId&&S.songId)saveSongTranspose(S.svcId,S.songId,S.transpose);
+  render();
+}
+function navSong(dir){
+  const svc=curSvc();if(!svc)return;
+  const ids=svc.songIds||[];
+  const i=ids.findIndex(id=>String(id)===String(S.songId));
+  const ni=i+dir;if(ni<0||ni>=ids.length)return;
+  openViewer(ids[ni],S.svcId);
+}
+function toPdf(){S.vmode='pdf';initPdf(S.songId);}
+
+/* PDF VIEW */
+const INK_COLORS=[
+  {c:'#ef4444',label:'빨강'},{c:'#3b82f6',label:'파랑'},{c:'#111827',label:'검정'},
+  {c:'#22c55e',label:'초록'},{c:'rgba(250,204,21,0.55)',label:'형광'},
+  {c:'#a855f7',label:'보라'}
+];
+const INK_WIDTHS=[{w:2,label:'얇게'},{w:4,label:'보통'},{w:7,label:'굵게'}];
+
+function rPdfView(song,svc,si,sl,tk,hasPdf){
+  const pl=S.dual?`${S.pdfPage}${S.pdfPage+1<=S.pdfTotal?'-'+(S.pdfPage+1):''}/${S.pdfTotal}`:`${S.pdfPage}/${S.pdfTotal}`;
+  const inkBarHTML=S.wm?`
+  <div class="ink-bar">
+    ${INK_COLORS.map(ic=>`<button class="cdot${S.inkC===ic.c?' active':''}" style="background:${ic.c}" onclick="setInkColor('${ic.c}')" title="${ic.label}"></button>`).join('')}
+    <div class="sep"></div>
+    ${INK_WIDTHS.map(iw=>`<button class="wbtn${S.inkW===iw.w?' active':''}" onclick="setInkWidth(${iw.w})">${iw.label}</button>`).join('')}
+    <div class="sep"></div>
+    <button class="tbtn${S.inkTool==='eraser'?' active':''}" onclick="toggleEraser()">🧹지우개</button>
+    <button class="tbtn" onclick="doUndo()" title="실행취소">↩</button>
+    <button class="tbtn" onclick="clrInk()">🗑페이지</button>
+  </div>`:''
+  app.innerHTML=`
+  <div class="viewer ${S.wm?'wm':'rm'}" id="viewer">
+    <div class="vbar">
+      <button class="vb" onclick="closeViewer()">‹ ${svc?'서비스':'홈'}</button>
+      <div class="vbar-title" onclick="toggleJump()" style="cursor:pointer">
+        <b>${esc(song.title)}</b>
+        <small>${pl}${si>=0?' · '+(si+1)+'/'+sl:''} ${S.showThumbs?'▴':'▾'}</small>
+      </div>
+      <button class="vb" onclick="toChord()">♬</button>
+      <button class="vb ${S.wm?'on':''}" onclick="toggleWM()">${S.wm?'✏️ON':'✏️'}</button>
+      <button class="vb ${S.showThumbs?'on':''}" onclick="toggleThumbs()">⊞</button>
+    </div>
+    ${inkBarHTML}
+    ${S.showThumbs?`<div class="thumb-strip" id="thumbStrip"></div>`:''}
+    <div class="pstage" id="pstage">
+      <div class="sheet ${S.pageAnim}" id="shL">
+        <canvas class="pcan" id="pdfL"></canvas>
+        <div class="wlock"></div>
+        <canvas class="ican" id="inkL"></canvas>
+      </div>
+      ${S.dual&&S.pdfPage+1<=S.pdfTotal?`<div class="sheet" id="shR">
+        <canvas class="pcan" id="pdfR"></canvas>
+        <div class="wlock"></div>
+        <canvas class="ican" id="inkR"></canvas>
+      </div>`:``}
+      ${S.showJump?`<div class="pjump" id="pjump">
+        <label>페이지 이동</label>
+        <input type="number" id="jumpInput" min="1" max="${S.pdfTotal}" value="${S.pdfPage}" onkeydown="if(event.key==='Enter')doJump()">
+        <div style="display:flex;gap:8px">
+          <button class="vb" onclick="toggleJump()">취소</button>
+          <button class="vb on" onclick="doJump()">이동</button>
+        </div>
+      </div>`:''}
+    </div>
+    <div class="vbot">
+      <button class="vbtn" onclick="pPrev()">◀ 이전</button>
+      <button class="vbtn ${S.wm?'on':''}" onclick="toggleWM()">${S.wm?'쓰기ON':'쓰기'}</button>
+      <button class="vbtn" onclick="pNext()">다음 ▶</button>
+      <button class="vbtn" onclick="toggleZ()">Zoom${S.zoom>1?' ×'+S.zoom.toFixed(1):''}</button>
+      <button class="vbtn ${S.dual?'on':''}" onclick="toggleDual()">듀얼</button>
+    </div>
+  </div>`;
+  S.pageAnim='';
+  setTimeout(()=>{
+    drawAll();
+    setupPinchZoom();
+    if(S.showThumbs)renderThumbs();
+    if(S.showJump)document.getElementById('jumpInput')?.focus();
+  },0);
+}
+function toChord(){S.vmode='chord';render();}
+function toggleWM(){S.wm=!S.wm;render();}
+function toggleZ(){S.zoom=S.zoom===1?1.3:1;render();}
+function toggleDual(){S.dual=!S.dual;if(S.dual&&S.pdfPage%2===0)S.pdfPage=Math.max(1,S.pdfPage-1);render();}
+
+async function initPdf(songId){
+  if(S.pdfDoc&&String(S.songId)===String(songId))return;
+  toast('악보 불러오는 중...');
+  try{
+    const data=await loadPdf(songId);
+    if(!data){toast('PDF 없음');S.vmode='chord';render();return;}
+    const bin=atob(data),bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    S.pdfDoc=await pdfjsLib.getDocument({data:bytes}).promise;
+    S.pdfTotal=S.pdfDoc.numPages;S.pdfPage=1;
+    render();
+  }catch(e){console.error(e);toast('PDF 로드 실패');S.vmode='chord';render();}
+}
+
+async function drawAll(){
+  if(!S.pdfDoc)return;
+  await drawPg('L',S.pdfPage);
+  setupInk('inkL',S.pdfPage);
+  if(S.dual&&S.pdfPage+1<=S.pdfTotal){
+    await drawPg('R',S.pdfPage+1);
+    setupInk('inkR',S.pdfPage+1);
+  }
+}
+async function drawPg(side,pn){
+  const stage=document.getElementById('pstage');
+  const pdf=document.getElementById('pdf'+side);
+  const ink=document.getElementById('ink'+side);
+  const sheet=document.getElementById('sh'+side);
+  if(!stage||!pdf||!ink||!sheet||!S.pdfDoc)return;
+  const page=await S.pdfDoc.getPage(pn);
+  const base=page.getViewport({scale:1});
+  const gap=S.dual?16:0;
+  const aw=Math.max(1,(stage.clientWidth-gap)/(S.dual?2:1)-4);
+  const ah=Math.max(1,stage.clientHeight-8);
+  const fit=Math.min(aw/base.width,ah/base.height)*(S.zoom||1);
+  const vp=page.getViewport({scale:fit});
+  const dpr=window.devicePixelRatio||1;
+  const w=Math.round(vp.width),h=Math.round(vp.height);
+  sheet.style.width=w+'px';sheet.style.height=h+'px';
+  [pdf,ink].forEach(c=>{c.width=w*dpr;c.height=h*dpr;c.style.width=w+'px';c.style.height=h+'px';});
+  const ctx=pdf.getContext('2d',{alpha:false});
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  await page.render({canvasContext:ctx,viewport:vp}).promise;
+  loadAnnot('ink'+side,String(S.songId),pn);
+}
+
+/* ── INK (완전히 수정된 버전) ── */
+function setupInk(cid,pageNum){
+  // 새 canvas 로 교체해서 이전 이벤트 완전 제거
+  const old=document.getElementById(cid);if(!old)return;
+  const nc=old.cloneNode(true);
+  nc.width=old.width;nc.height=old.height;
+  nc.style.width=old.style.width;nc.style.height=old.style.height;
+  old.parentNode.replaceChild(nc,old);
+  nc.id=cid;nc.dataset.page=pageNum;
+  // Pointer events (애플 펜슬 포함 모든 포인터 지원)
+  nc.addEventListener('pointerdown',onPD,{passive:false});
+  nc.addEventListener('pointermove',onPM,{passive:false});
+  nc.addEventListener('pointerup',onPU,{passive:false});
+  nc.addEventListener('pointercancel',onPU,{passive:false});
+  // 쓰기 모드에서 스크롤 방지
+  nc.addEventListener('touchstart',e=>{if(S.wm)e.preventDefault();},{passive:false});
+  nc.addEventListener('touchmove', e=>{if(S.wm)e.preventDefault();},{passive:false});
+  // 기존 annotation 로드
+  loadAnnot(cid,String(S.songId),pageNum);
+}
+function cpos(e,c){
+  const r=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  return{x:(e.clientX-r.left)*dpr,y:(e.clientY-r.top)*dpr,p:e.pressure||0.5};
+}
+function cmid(a,b){return{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
+function onPD(e){
+  if(!S.wm)return;
+  e.preventDefault();e.stopPropagation();
+  try{e.currentTarget.setPointerCapture(e.pointerId)}catch{}
+  // Save for undo before drawing
+  S.undoCanvas=e.currentTarget;
+  S.undoPage=parseInt(e.currentTarget.dataset.page)||S.pdfPage;
+  S.undoData=e.currentTarget.toDataURL('image/png',0.85);
+  S.draw=true;S.pts=[cpos(e,e.currentTarget)];S.activeC=e.currentTarget;
+}
+function onPM(e){
+  if(!S.wm||!S.draw)return;
+  e.preventDefault();e.stopPropagation();
+  const c=S.activeC;if(!c)return;
+  const p=cpos(e,c);S.pts.push(p);
+  const ctx=c.getContext('2d',{desynchronized:true});
+  const dpr=window.devicePixelRatio||1;
+  if(S.inkTool==='eraser'){
+    // Eraser: clear circular area
+    ctx.save();
+    ctx.globalCompositeOperation='destination-out';
+    ctx.beginPath();ctx.arc(p.x,p.y,(S.inkW*5+8)*dpr,0,Math.PI*2);ctx.fill();
+    ctx.restore();
     return;
   }
-
-  const svc = state.serviceSetlist.find(s => s.id === state.selectedServiceId) || state.serviceSetlist[0] || { name: "등록된 예배 일정이 없습니다.", date: "" };
-  appEngineRoot.innerHTML = `
-    <div class="app">
-      <div class="auth-bar">
-        <span>접속자 계정권한: <b>${state.currentUser.email}</b></span>
-        <button class="gray small" style="padding: 4px 8px;" onclick="auth.signOut()">로그아웃</button>
-      </div>
-      <div class="top">
-        <div class="logo">A</div>
-        <div class="top-title"><b>TVPC Ainos <span>Perfect Cloud v1</span></b><span>${esc(svc.name)} · ${esc(svc.date)}</span></div>
-        <div>
-          <button class="gold small" onclick="sendSetlistNotificationEmail()">📢 밴드 멤버들에게 이메일 알림쏘기</button>
-        </div>
-      </div>
-      <div class="page">
-        <div class="grid">
-          <section class="card">
-            <div class="card-head"><h2>예배 일정 관리 (공용)</h2><button class="gray small" onclick="createNewServiceScheduleOnCloud()">추가</button></div>
-            <div class="card-body">${buildServiceSchedulesHTML(svc)}</div>
-          </section>
-          <section class="card">
-            <div class="card-head">
-              <h2>${state.currentTab === 'service' ? '현재 예배 콘티' : 'Song Library'}</h2>
-              <div class="tabs">
-                <button class="${state.currentTab === 'service' ? 'active' : ''} small" onclick="state.currentTab='service';executeRenderRouter()">현재 세트</button>
-                <button class="${state.currentTab === 'library' ? 'active' : ''} small" onclick="state.currentTab='library';executeRenderRouter()">Song Library</button>
-              </div>
-            </div>
-            <div class="card-body">${state.currentTab === 'service' ? buildActiveSetlistHTML(svc) : buildLibraryPoolHTML()}</div>
-          </section>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function buildServiceSchedulesHTML(svc){
-  if(!state.serviceSetlist.length) return `<div class="empty">생성된 일정이 없습니다. [추가]를 눌러주세요.</div>`;
-  return `
-    <div class="field"><label>예배칭호 수정 (실시간 공유)</label><input value="${esc(svc.name)}" onchange="updateServiceFieldsOnCloud('${svc.id}', 'name', this.value)"></div>
-    <div class="field"><label>예배 일자 변경</label><input type="date" value="${esc(svc.date)}" onchange="updateServiceFieldsOnCloud('${svc.id}', 'date', this.value)"></div>
-    <div class="list">${state.serviceSetlist.map(s => `
-      <div class="row">
-        <div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date)} · 총 ${s.songs ? s.songs.length : 0}곡</div></div>
-        <div class="actions">
-          <button class="${s.id === state.selectedServiceId ? 'primary' : 'gray'} small" onclick="state.selectedServiceId='${s.id}';executeRenderRouter()">선택</button>
-        </div>
-      </div>
-    `).join("")}</div>
-  `;
-}
-
-function buildActiveSetlistHTML(svc){
-  if(!svc.songs || !svc.songs.length) return '<div class="empty">Song Library 탭에서 곡을 집어넣으세요.</div>';
-  return `
-    <div class="list">${svc.songs.map((id, index) => {
-      const s = state.songLibrary.find(x=>x.id===id);
-      if(!s) return "";
-      return `
-        <div class="row">
-          <div><div class="title">${esc(s.title)}</div><div class="meta">기본 Key: ${esc(s.key)}</div></div>
-          <div class="actions">
-            <button class="primary small" onclick="activateFullViewer('${s.id}')">악보 진입</button>
-            <button class="red small" onclick="dropSongFromSetlistCloud(${index})">제외</button>
-          </div>
-        </div>
-      `;
-    }).join("")}</div>
-  `;
-}
-
-function buildLibraryPoolHTML(){
-  return `
-    <div class="field"><label>곡 제목 입력</label><input id="regTitle" placeholder="예: 시선"></div>
-    <div class="field"><label>기본조성 Key</label><select id="regKey">${SEMITONE_CIRCULAR_MAP.map(k=>`<option>${k}</option>`).join("")}</select></div>
-    <div class="field"><label>PDF 악보 파일 업로드</label><input id="regFile" type="file" accept="application/pdf"></div>
-    <button class="blue" onclick="registerNewSongItemToCloud()">리더 전용: 클라우드 악보 등록</button>
-    <div class="list">${state.songLibrary.map(s => `
-      <div class="row">
-        <div><div class="title">${esc(s.title)}</div><div class="meta">Key: ${esc(s.key)}</div></div>
-        <div class="actions">
-          <button class="primary small" onclick="injectSongToActiveSetCloud('${s.id}')">예배 추가</button>
-        </div>
-      </div>
-    `).join("") || '<div class="empty">Song Library가 비어있습니다. PDF를 업로드해 주세요.</div>'}</div>
-  `;
-}
-
-function triggerEmailAuthSignIn(){
-  const e = document.getElementById("loginEmail").value.trim(), p = document.getElementById("loginPw").value;
-  auth.signInWithEmailAndPassword(e,p).catch(err => alert("로그인 인증 실패: " + err.message));
-}
-function triggerEmailAuthSignUp(){
-  const e = document.getElementById("loginEmail").value.trim(), p = document.getElementById("loginPw").value;
-  if(confirm(`${e} 주소로 찬양 밴드 신규 멤버 계정을 생성할까요?`)){
-    auth.createUserWithEmailAndPassword(e,p).catch(err => alert("회원가입 오류: " + err.message));
-  }
-}
-
-function sendSetlistNotificationEmail() {
-  const svc = getActiveServiceStruct();
-  if(!svc.songs || !svc.songs.length) return toast("세트리스트에 등록된 곡이 없습니다.");
-  
-  const titleList = svc.songs.map((id, idx) => {
-    const s = state.songLibrary.find(x => x.id === id);
-    return `${idx + 1}. ${s ? s.title : "지정되지 않은 찬양"}`;
-  }).join("%0A");
-
-  const appUrl = window.location.origin + window.location.pathname;
-  const emailBody = `찬양팀원 여러분, ${svc.name}(${svc.date}) 최종 예배 콘티 악보가 공유되었습니다.%0A%0A[예배 콘티 목록]%0A${titleList}%0A%0A지금 아래 링크 앱에 로그인하셔서 각자 연주 및 싱어를 위한 개인 메모 및 업데이트를 진행해 주세요!%0A👉 ${appUrl}`;
-  
-  window.location.href = `mailto:?subject=[Ainos 밴드 알림] ${encodeURIComponent(svc.name)} 예배 세트리스트 확정&body=${emailBody}`;
-  toast("이메일 클라이언트 오토매틱 링크 실행 완료");
-}
-
-async function createNewServiceScheduleOnCloud(){
-  const id = "svc_" + Date.now();
-  await db.collection("worship_services").doc(id).set({
-    name: "새 일요 대예배 콘티", date: new Date().toISOString().slice(0,10), songs: []
-  });
-  state.selectedServiceId = id; await synchronizeCloudCoreDatabase(); executeRenderRouter();
-}
-async function updateServiceFieldsOnCloud(id, field, value){
-  await db.collection("worship_services").doc(id).update({ [field]: value });
-  await synchronizeCloudCoreDatabase();
-}
-async function injectSongToActiveSetCloud(songId){
-  if(!state.selectedServiceId) return toast("먼저 일정을 선택하세요.");
-  const svc = state.serviceSetlist.find(s=>s.id===state.selectedServiceId);
-  const updatedSongs = [...(svc.songs || []), songId];
-  await db.collection("worship_services").doc(svc.id).update({ songs: updatedSongs });
-  await synchronizeCloudCoreDatabase(); state.currentTab = "service"; executeRenderRouter();
-}
-async function dropSongFromSetlistCloud(index){
-  const svc = state.serviceSetlist.find(s=>s.id===state.selectedServiceId);
-  const updatedSongs = [...svc.songs]; updatedSongs.splice(index, 1);
-  await db.collection("worship_services").doc(svc.id).update({ songs: updatedSongs });
-  await synchronizeCloudCoreDatabase(); executeRenderRouter();
-}
-async function registerNewSongItemToCloud(){
-  const t = document.getElementById("regTitle").value.trim(), k = document.getElementById("regKey").value, f = document.getElementById("regFile").files[0];
-  if(!t || !f) return toast("곡 제목과 PDF 스캔본 업로드가 필요합니다.");
-  
-  toast("마스터 악보 클라우드 업로드 진행 중...");
-  const songId = "song_" + Date.now();
-  const storageRef = storage.ref(`sheets/${songId}.pdf`);
-  const snapshot = await storageRef.put(f);
-  const downloadUrl = await snapshot.ref.getDownloadURL();
-
-  await db.collection("worship_songs").doc(songId).set({
-    title: t, key: k, pdfUrl: downloadUrl, zoom: 1
-  });
-  await synchronizeCloudCoreDatabase(); executeRenderRouter(); toast("클라우드 악보 등록 완료");
-}
-
-async function activateFullViewer(songId){
-  const s = state.songLibrary.find(x => x.id === songId);
-  if(!s || !s.pdfUrl) return toast("악보 PDF 클라우드 주소를 탐색하지 못했습니다.");
-  
-  toast("클라우드 악보 동기화 로드 중...");
-  state.activeViewer = { songId: songId };
-  state.currentPdfBinary = await pdfjsLib.getDocument(s.pdfUrl).promise;
-  state.leftGlobalPage = 1;
-  state.rightGlobalPage = 2;
-  state.maxTotalPages = state.currentPdfBinary.numPages;
-  state.globalKeyOffset = 0;
-  state.currentMode = "read";
-
-  await fetchPrivateUserLayerData();
-  displayDualSheetViewer();
-}
-
-function displayDualSheetViewer(){
-  const s = currentSong(), svc = getActiveServiceStruct(), idx = svc.songs.indexOf(s.id);
-  const leftNum = state.leftGlobalPage;
-  const rightNum = state.rightGlobalPage;
-  const rightPageLabel = rightNum <= state.maxTotalPages ? `, ${rightNum}` : "";
-
-  appEngineRoot.innerHTML = `
-    <div class="viewer ${state.currentMode}">
-      <div class="vtop">
-        <button class="gray" onclick="exitFullSheetViewer()">Back</button>
-        <div class="vtitle">
-          <b>${esc(s.title)}</b>
-          <span>${idx >= 0 ? (idx + 1) + "/" + svc.songs.length + " · " : ""}쪽: ${leftNum}${rightPageLabel} / ${state.maxTotalPages}</span>
-        </div>
-        <button class="${state.currentMode === 'write' ? 'primary' : 'gold'}" onclick="toggleViewerModuleMode('write')">${state.currentMode === 'write' ? '필기 작동중' : '메모하기'}</button>
-        <button class="${state.currentMode === 'chord' ? 'primary' : 'gray'}" onclick="toggleViewerModuleMode('chord')">➕ 코드심기</button>
-        
-        <div class="transpose-ctrl">
-          <button onclick="applyScaleTransposeOffset(-1)">♭</button>
-          <b id="keyDisplay">Key ${state.globalKeyOffset >= 0 ? '+' + state.globalKeyOffset : state.globalKeyOffset}</b>
-          <button onclick="applyScaleTransposeOffset(1)">♯</button>
-        </div>
-        
-        <button class="red" onclick="wipeOutCurrentActiveInk()">메모 지우기</button>
-      </div>
-
-      <div class="stage" id="stage" ontouchstart="captureSwipeStart(event)" ontouchend="captureSwipeEnd(event)">
-        <div class="sheet-container" id="sheetContainer_left" data-side="left">
-          <canvas id="pdfCanvas_left" class="pdf-render-canvas"></canvas>
-          <div class="write-protection-shield" id="shield_left"></div>
-          <canvas id="inkCanvas_left" class="ink-drawing-canvas" data-side="left"></canvas>
-          <div class="chord-interactive-overlay" id="overlay_left"></div>
-        </div>
-
-        <div class="sheet-container" id="sheetContainer_right" data-side="right">
-          <canvas id="pdfCanvas_right" class="pdf-render-canvas"></canvas>
-          <div class="write-protection-shield" id="shield_right"></div>
-          <canvas id="inkCanvas_right" class="ink-drawing-canvas" data-side="right"></canvas>
-          <div class="chord-interactive-overlay" id="overlay_right"></div>
-        </div>
-
-        <div class="hint">
-          ${state.currentMode === 'write' ? '✏️ 내 계정 메모레이어 활성화: 애플펜슬 및 정밀 터치 필기가 전개됩니다.' : 
-            state.currentMode === 'chord' ? '🎼 내 계정 코드레이어 활성화: 터치 지점에 나만의 변환용 코드를 얹습니다.' : 
-            '🖐️ 뷰어 모드: 가로 화면 스와이프 시 Piascore 스타일의 1쪽 단위 슬라이딩 이동이 적용됩니다.'}
-        </div>
-      </div>
-
-      <div class="vbottom">
-        <button onclick="executeShiftPiascorePage(-1)">◀ PREV (이전 페이지 1장 밀기)</button>
-        <button onclick="toggleViewerModuleMode('write')" class="${state.currentMode === 'write' ? 'primary' : 'gold'}">✎ 필기모드 스위치</button>
-        <button onclick="toggleViewerModuleMode('chord')" class="${state.currentMode === 'chord' ? 'primary' : 'gray'}">🎼 코드등록 스위치</button>
-        <button onclick="executeShiftPiascorePage(1)" class="primary">NEXT (다음 페이지 1장 밀기) ▶</button>
-      </div>
-    </div>
-  `;
-
-  setTimeout(() => renderDualPageGraphicsPipeline(), 0);
-}
-
-function exitFullSheetViewer(){ state.activeViewer = null; state.currentPdfBinary = null; executeRenderRouter(); }
-function toggleViewerModuleMode(targetMode){ state.currentMode = state.currentMode === targetMode ? "read" : targetMode; displayDualSheetViewer(); }
-
-// 타이밍 에러 차단을 위해 동적 DOM 바인딩 파이프라인 정합화 완성
-async function renderDualPageGraphicsPipeline(){
-  if(!state.currentPdfBinary || !state.activeViewer) return;
-  await renderIsolatedPageSlot(state.leftGlobalPage, 'left');
-  if(state.rightGlobalPage <= state.maxTotalPages) {
-    const rSheet = document.getElementById("sheetContainer_right");
-    if(rSheet) rSheet.style.display = "block";
-    await renderIsolatedPageSlot(state.rightGlobalPage, 'right');
+  const n=S.pts.length;
+  ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.strokeStyle=S.inkC;
+  ctx.lineWidth=(S.inkW+Math.max(0.2,p.p)*2)*dpr;
+  if(n<3){
+    if(n>=2){ctx.beginPath();ctx.moveTo(S.pts[0].x,S.pts[0].y);ctx.lineTo(p.x,p.y);ctx.stroke();}
   } else {
-    const rSheet = document.getElementById("sheetContainer_right");
-    if(rSheet) rSheet.style.display = "none";
+    const p0=S.pts[n-3],p1=S.pts[n-2],p2=p,m1=cmid(p0,p1),m2=cmid(p1,p2);
+    ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke();
   }
-
-  ['left', 'right'].forEach(side => {
-    bindPointerDrawingDeviceEvents(side);
-    loadInkStrokeOverlayData(side);
-    bindShieldBlocker(side);
-    injectChordOverlayStickers(side);
+}
+function onPU(e){
+  if(!S.draw)return;
+  e.preventDefault();e.stopPropagation();
+  try{e.currentTarget.releasePointerCapture(e.pointerId)}catch{}
+  const c=S.activeC;
+  if(c&&S.songId){
+    const pg=parseInt(c.dataset.page)||S.pdfPage;
+    saveAnnot(S.songId,pg,c.toDataURL('image/png',0.85));
+  }
+  S.draw=false;S.pts=[];S.activeC=null;
+}
+function loadAnnot(cid,songId,page){
+  const c=document.getElementById(cid);if(!c)return;
+  const key=`${songId}_${page}`;
+  const du=S.annots[key];if(!du)return;
+  const img=new Image();
+  img.onload=()=>c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+  img.src=du;
+}
+function clrInk(){
+  if(!confirm('이 페이지 필기를 지울까요?'))return;
+  ['inkL','inkR'].forEach(cid=>{
+    const c=document.getElementById(cid);if(!c)return;
+    c.getContext('2d').clearRect(0,0,c.width,c.height);
+    const pg=parseInt(c.dataset.page)||S.pdfPage;
+    const key=`${S.songId}_${pg}`;
+    delete S.annots[key];
+    if(S.user)db.doc(`userAnnotations/${S.user.uid}/pages/${key}`).delete().catch(()=>{});
   });
 }
 
-async function renderIsolatedPageSlot(pageNum, side){
-  const page = await state.currentPdfBinary.getPage(pageNum);
-  const stage = document.getElementById("stage");
-  const pdfCanvas = document.getElementById(`pdfCanvas_${side}`);
-  const inkCanvas = document.getElementById(`inkCanvas_${side}`);
-  const container = document.getElementById(`sheetContainer_${side}`);
-  const shield = document.getElementById(`shield_${side}`);
-  if(!stage || !pdfCanvas || !inkCanvas || !container) return;
+/* ── PDF NAVIGATION ── */
+function pPrev(){
+  if(S.wm){toast('쓰기 모드에서는 이동 불가');return;}
+  const step=S.dual?2:1;
+  if(S.pdfPage>1){S.pdfPage=Math.max(1,S.pdfPage-step);S.pageAnim='anim-l';render();return;}
+  const svc=curSvc();if(!svc)return;
+  const ids=svc.songIds||[];const i=ids.findIndex(id=>String(id)===String(S.songId));
+  if(i>0)openViewer(ids[i-1],S.svcId);else toast('첫 번째 곡입니다');
+}
+function pNext(){
+  if(S.wm){toast('쓰기 모드에서는 이동 불가');return;}
+  const step=S.dual?2:1;
+  const ok=S.dual?(S.pdfPage+2<=S.pdfTotal):(S.pdfPage<S.pdfTotal);
+  if(ok){S.pdfPage+=step;S.pageAnim='anim-r';render();return;}
+  const svc=curSvc();if(!svc)return;
+  const ids=svc.songIds||[];const i=ids.findIndex(id=>String(id)===String(S.songId));
+  if(i>=0&&i<ids.length-1)openViewer(ids[i+1],S.svcId);else toast('마지막 곡입니다');
+}
+let swx=0,swy=0;
+function sws(e){if(S.wm)return;if(e.touches.length===1){swx=e.changedTouches[0].clientX;swy=e.changedTouches[0].clientY;}}
+function swe(e){
+  if(S.wm)return;if(S.pinchDist!=null){S.pinchDist=null;return;}
+  const dx=e.changedTouches[0].clientX-swx,dy=e.changedTouches[0].clientY-swy;
+  if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.3){dx<0?pNext():pPrev();}
+}
+window.addEventListener('resize',()=>{if(S.view==='viewer'&&S.vmode==='pdf')render();});
 
-  const baseViewport = page.getViewport({scale: 1});
-  const finalFitScale = Math.min((stage.clientWidth / 2 - 24) / baseViewport.width, (stage.clientHeight - 32) / baseViewport.height) * (currentSong().zoom || 1);
-  const targetViewport = page.getViewport({scale: finalFitScale});
-  const devicePixelScaleRatio = window.devicePixelRatio || 1;
+/* ── PIASCORE FUNCTIONS ── */
 
-  container.style.width = Math.round(targetViewport.width) + "px";
-  container.style.height = Math.round(targetViewport.height) + "px";
+// Ink color / width / tool
+function setInkColor(c){S.inkC=c;S.inkTool='pen';render();}
+function setInkWidth(w){S.inkW=w;render();}
+function toggleEraser(){S.inkTool=S.inkTool==='eraser'?'pen':'eraser';render();}
 
-  [pdfCanvas, inkCanvas].forEach(canvasElement => {
-    canvasElement.width = Math.round(targetViewport.width * devicePixelScaleRatio);
-    canvasElement.height = Math.round(targetViewport.height * devicePixelScaleRatio);
-    canvasElement.style.width = Math.round(targetViewport.width) + "px";
-    canvasElement.style.height = Math.round(targetViewport.height) + "px";
-  });
-  if(shield) {
-    shield.style.width = Math.round(targetViewport.width) + "px";
-    shield.style.height = Math.round(targetViewport.height) + "px";
+// Undo (single step)
+function doUndo(){
+  if(!S.undoData||!S.undoCanvas)return;
+  const c=S.undoCanvas,ctx=c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  const img=new Image();
+  img.onload=()=>ctx.drawImage(img,0,0);
+  img.src=S.undoData;
+  const key=`${S.songId}_${S.undoPage}`;
+  S.annots[key]=S.undoData;
+  saveAnnot(S.songId,S.undoPage,S.undoData);
+  S.undoData=null;toast('↩ 실행취소');
+}
+
+// Page jump
+function toggleJump(){S.showJump=!S.showJump;render();}
+function doJump(){
+  const v=parseInt(document.getElementById('jumpInput')?.value)||1;
+  S.pdfPage=Math.max(1,Math.min(S.pdfTotal,v));
+  S.showJump=false;render();
+}
+
+// Thumbnail strip
+function toggleThumbs(){S.showThumbs=!S.showThumbs;render();}
+async function renderThumbs(){
+  const strip=document.getElementById('thumbStrip');if(!strip||!S.pdfDoc)return;
+  strip.innerHTML='';
+  for(let i=1;i<=S.pdfTotal;i++){
+    const item=document.createElement('div');
+    item.className='thumb-item'+(i===S.pdfPage?' active':'');
+    const pg=i;
+    item.onclick=()=>{S.pdfPage=pg;render();};
+    // Use cached canvas or render new
+    if(S.thumbs[i]){
+      item.appendChild(S.thumbs[i].cloneNode());
+    } else {
+      const tc=document.createElement('canvas');
+      tc.style.cssText='width:46px;height:60px;display:block';
+      item.appendChild(tc);
+      const num=document.createElement('div');num.className='thumb-num';num.textContent=i;
+      item.appendChild(num);
+      strip.appendChild(item);
+      // Render async
+      (async()=>{
+        try{
+          const page=await S.pdfDoc.getPage(i);
+          const base=page.getViewport({scale:1});
+          const scale=60/base.height;
+          const vp=page.getViewport({scale});
+          tc.width=Math.round(vp.width);tc.height=Math.round(vp.height);
+          tc.style.width=Math.round(vp.width)+'px';tc.style.height='60px';
+          await page.render({canvasContext:tc.getContext('2d'),viewport:vp}).promise;
+          S.thumbs[i]=tc.cloneNode(true);
+        }catch{}
+      })();
+      continue;
+    }
+    const num=document.createElement('div');num.className='thumb-num';num.textContent=i;
+    item.appendChild(num);
+    strip.appendChild(item);
   }
-  const ctx = pdfCanvas.getContext("2d", {alpha: false});
-  ctx.setTransform(devicePixelScaleRatio, 0, 0, device
+  // Scroll active into view
+  const active=strip.querySelector('.thumb-item.active');
+  if(active)active.scrollIntoView({inline:'center',behavior:'smooth'});
+}
+
+// Pinch zoom
+function setupPinchZoom(){
+  const stage=document.getElementById('pstage');if(!stage)return;
+  stage.addEventListener('touchstart',e=>{
+    if(e.touches.length===2){S.pinchDist=pinchD(e);e.preventDefault();}
+  },{passive:false});
+  stage.addEventListener('touchmove',e=>{
+    if(e.touches.length===2&&S.pinchDist!==null){
+      const d=pinchD(e);
+      if(d&&S.pinchDist){
+        S.zoom=Math.max(0.5,Math.min(4,S.zoom*(d/S.pinchDist)));
+        S.pinchDist=d;drawAll();}
+      e.preventDefault();
+    }
+  },{passive:false});
+  stage.addEventListener('touchend',e=>{if(e.touches.length<2)S.pinchDist=null;});
+  // Swipe
+  stage.addEventListener('touchstart',sws,{passive:false});
+  stage.addEventListener('touchend',swe,{passive:false});
+}
+function pinchD(e){
+  const t=e.touches;if(t.length<2)return null;
+  return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+}
+
+/* ── MODALS ── */
+function showModal(type){
+  S.modal=type;
+  const old=document.querySelector('.mbg');if(old)old.remove();
+  const bg=document.createElement('div');bg.className='mbg';
+  bg.innerHTML=mHTML(type);
+  bg.addEventListener('click',e=>{if(e.target===bg)closeModal();});
+  document.body.appendChild(bg);
+}
+function closeModal(){S.modal=null;const o=document.querySelector('.mbg');if(o)o.remove();}
+function mHTML(type){
+  if(type==='new-svc')return`<div class="mod">
+    <h3>새 예배 서비스</h3>
+    <div class="fld"><label>이름</label><input id="mn" placeholder="주일예배, 금요예배 ..."></div>
+    <div class="fld"><label>날짜</label><input id="md" type="date" value="${today()}"></div>
+    <div class="mact"><button class="bg" onclick="closeModal()">취소</button><button class="bp" onclick="doNewSvc()">생성</button></div>
+  </div>`;
+  if(type==='add-song')return`<div class="mod">
+    <h3>곡 추가</h3>
+    <input id="ms" placeholder="검색..." oninput="filterSongs()" style="margin-bottom:4px">
+    <div id="mslist" style="max-height:55vh;overflow-y:auto;display:grid;gap:1px;border-radius:10px;overflow:hidden">
+      ${allSongs().map(s=>`<div class="crow" style="background:#fff" onclick="doAddSong('${s.id}')">
+        <div class="cm"><div class="ct">${esc(s.title)}</div><div class="cx">${esc(s.artist)} · Key ${esc(s.key)}</div></div>
+      </div>`).join('')}
+    </div>
+    <button class="bg" onclick="closeModal()">닫기</button>
+  </div>`;
+  if(type==='add-custom')return`<div class="mod">
+    <h3>새 곡 추가</h3>
+    <div class="fld"><label>제목</label><input id="mtt" placeholder="곡 제목"></div>
+    <div class="fld"><label>아티스트</label><input id="mar" placeholder="아티스트 이름"></div>
+    <div class="fld"><label>원키</label><select id="mky">${KEYS.map(k=>`<option>${k}</option>`).join('')}</select></div>
+    <div class="fld"><label>BPM</label><input id="mbp" type="number" placeholder="120" value="120"></div>
+    <div class="mact"><button class="bg" onclick="closeModal()">취소</button><button class="bp" onclick="doAddCustom()">추가</button></div>
+  </div>`;
+  return'';
+}
+function filterSongs(){
+  const q=(document.getElementById('ms')?.value||'').toLowerCase();
+  const list=document.getElementById('mslist');if(!list)return;
+  list.innerHTML=allSongs().filter(s=>!q||s.title.toLowerCase().includes(q)||s.artist.toLowerCase().includes(q))
+    .map(s=>`<div class="crow" style="background:#fff" onclick="doAddSong('${s.id}')">
+      <div class="cm"><div class="ct">${esc(s.title)}</div><div class="cx">${esc(s.artist)} · Key ${esc(s.key)}</div></div>
+    </div>`).join('');
+}
+async function doNewSvc(){
+  const n=document.getElementById('mn')?.value?.trim();
+  const d=document.getElementById('md')?.value;
+  if(!n||!d){toast('이름과 날짜를 입력하세요');return;}
+  closeModal();await createService(n,d);
+}
+async function doAddSong(id){
+  if(!S.svcId){toast('서비스가 없습니다');return;}
+  closeModal();await addSongToSvc(S.svcId,id);toast('추가됨');
+}
+async function doAddCustom(){
+  const t=document.getElementById('mtt')?.value?.trim();
+  if(!t){toast('제목을 입력하세요');return;}
+  const ar=document.getElementById('mar')?.value?.trim()||'';
+  const ky=document.getElementById('mky')?.value||'C';
+  const bp=parseInt(document.getElementById('mbp')?.value)||120;
+  closeModal();
+  await addCustomSong({title:t,artist:ar,key:ky,ki:KEYS.indexOf(ky),bpm:bp,ts:'4/4',sections:[]});
+}
+
+/* ── AUTH ── */
+auth.onAuthStateChanged(user=>{
+  if(user){S.user=user;subscribe();goTo('home');}
+  else{S.user=null;unsubAll();goTo('login');}
+});
+</script>
+</body>
+</html>
