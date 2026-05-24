@@ -1,0 +1,1 @@
+dual-setlist.html = 현재곡 + 다음곡 자동 듀얼 보기 테스트\nindex.html = 기존 안정 앱 유지\n\nOpen:\nhttps://terrysf-web.github.io/tvpcainos/dual-setlist.html?v=dual-setlist-v1\n

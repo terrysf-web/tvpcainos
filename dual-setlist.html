@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TVPC Ainos Dual Setlist v1</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050608;color:white;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr auto}
+.top{height:62px;padding:0 12px;padding-top:env(safe-area-inset-top);display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;background:#050608;border-bottom:1px solid #1f2937}
+button{border:0;border-radius:12px;padding:10px 14px;font-weight:900;background:#374151;color:white}
+button.primary{background:#22c7d8;color:#031217}
+button.red{background:#ef4444;color:white}
+.stage{background:#1f2937;display:flex;align-items:center;justify-content:center;gap:16px;padding:12px;overflow:hidden}
+.slot{display:grid;grid-template-rows:1fr auto;gap:7px;align-items:center;justify-items:center;min-width:0;max-width:50%}
+.pageBox{position:relative;background:white;box-shadow:0 10px 32px rgba(0,0,0,.45);overflow:hidden}
+.pageBox canvas{display:block}
+.label{text-align:center;font-size:13px;color:#cbd5e1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bottom{height:76px;padding:8px 12px calc(8px + env(safe-area-inset-bottom));display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;background:#050608;border-top:1px solid #1f2937}
+.status{font-size:13px;color:#cbd5e1;display:flex;align-items:center;justify-content:center;text-align:center}
+.empty{color:#cbd5e1;text-align:center;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <button onclick="location.href='index.html'">Back</button>
+    <div style="text-align:center;font-weight:900">
+      TVPC Dual Setlist v1
+      <div id="subtitle" style="font-size:12px;color:#cbd5e1;margin-top:3px">현재곡 + 다음곡</div>
+    </div>
+    <button onclick="reloadData()">Reload</button>
+    <button class="primary" onclick="fitMode = fitMode==='height'?'width':'height'; render()">Fit</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="slot">
+      <div class="pageBox"><canvas id="left"></canvas></div>
+      <div class="label" id="leftLabel">Left</div>
+    </div>
+    <div class="slot">
+      <div class="pageBox"><canvas id="right"></canvas></div>
+      <div class="label" id="rightLabel">Right</div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <button onclick="prev()">◀ Prev</button>
+    <button class="primary" onclick="next()">Next ▶</button>
+    <button onclick="jumpStart()">Start</button>
+    <button onclick="toggleStep()">Step: <span id="stepText">1</span></button>
+    <div class="status" id="status">Loading...</div>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+let fitMode='height';
+let stepSize=1;
+let currentIndex=0;
+let songs=[];
+let set=[];
+let pdfCache={};
+let dbp=null;
+
+function status(msg){document.getElementById('status').textContent=msg;}
+function getSongs(){
+  try{
+    return JSON.parse(localStorage.getItem("tvpc_ainos_songs_stable")||localStorage.getItem("stable_songs")||localStorage.getItem("ais2_songs")||"[]");
+  }catch(e){return []}
+}
+function getSet(){
+  try{
+    return JSON.parse(localStorage.getItem("tvpc_ainos_set_stable")||localStorage.getItem("stable_set")||"[]");
+  }catch(e){return []}
+}
+
+function openDB(){
+  if(dbp)return dbp;
+  dbp=new Promise((resolve,reject)=>{
+    const req=indexedDB.open("tvpc_ainos_pdfs_stable",1);
+    req.onupgradeneeded=()=>{ if(!req.result.objectStoreNames.contains("pdfs")) req.result.createObjectStore("pdfs"); };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+  return dbp;
+}
+async function getFile(id){
+  const db=await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction("pdfs","readonly");
+    const r=tx.objectStore("pdfs").get(id);
+    r.onsuccess=()=>resolve(r.result);
+    r.onerror=()=>reject(r.error);
+  });
+}
+async function getPdf(id){
+  if(pdfCache[id])return pdfCache[id];
+  const data=await getFile(id);
+  if(!data)return null;
+  const pdf=await pdfjsLib.getDocument(data).promise;
+  pdfCache[id]=pdf;
+  return pdf;
+}
+function songById(id){return songs.find(s=>s.id===id)}
+function clearCanvas(canvas){
+  const ctx=canvas.getContext('2d');
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  canvas.width=1; canvas.height=1; canvas.style.width='1px'; canvas.style.height='1px';
+}
+async function drawSong(songId, canvas, labelEl){
+  clearCanvas(canvas);
+  const song=songById(songId);
+  if(!song){
+    labelEl.textContent='';
+    return;
+  }
+  labelEl.textContent=song.title || 'Untitled';
+  const pdf=await getPdf(songId);
+  if(!pdf){
+    labelEl.textContent=(song.title||'Untitled')+' — PDF 없음';
+    return;
+  }
+  const page=await pdf.getPage(1);
+  const stage=document.getElementById('stage');
+  const base=page.getViewport({scale:1});
+  const perW=(stage.clientWidth-56)/2;
+  const maxH=stage.clientHeight-44;
+  let fit = fitMode==='height' ? maxH/base.height : perW/base.width;
+  fit = Math.min(fit, perW/base.width, maxH/base.height);
+  const vp=page.getViewport({scale:fit});
+  const dpr=window.devicePixelRatio||1;
+  const box=canvas.parentElement;
+  box.style.width=Math.round(vp.width)+'px';
+  box.style.height=Math.round(vp.height)+'px';
+  canvas.width=Math.round(vp.width*dpr);
+  canvas.height=Math.round(vp.height*dpr);
+  canvas.style.width=Math.round(vp.width)+'px';
+  canvas.style.height=Math.round(vp.height)+'px';
+  const ctx=canvas.getContext('2d',{alpha:false});
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  await page.render({canvasContext:ctx,viewport:vp}).promise;
+}
+
+async function render(){
+  if(!set.length){
+    document.getElementById('stage').innerHTML='<div class="empty">Setlist가 없습니다.<br>Back으로 돌아가서 Service에 곡을 추가하세요.</div>';
+    status('No setlist');
+    return;
+  }
+  if(currentIndex<0)currentIndex=0;
+  if(currentIndex>=set.length)currentIndex=set.length-1;
+
+  const leftId=set[currentIndex];
+  const rightId=set[currentIndex+1];
+
+  document.getElementById('subtitle').textContent=(currentIndex+1)+'/'+set.length+' 현재곡 + 다음곡';
+  status('Rendering...');
+  try{
+    await drawSong(leftId, document.getElementById('left'), document.getElementById('leftLabel'));
+    await drawSong(rightId, document.getElementById('right'), document.getElementById('rightLabel'));
+    status('Ready');
+  }catch(e){
+    console.error(e);
+    status('PDF error');
+    alert('PDF 표시 오류: '+(e.message||e));
+  }
+}
+
+function reloadData(){
+  songs=getSongs();
+  set=getSet();
+  if(!set.length && songs.length){
+    set=songs.map(s=>s.id);
+  }
+  render();
+}
+function next(){
+  if(currentIndex < set.length-1){
+    currentIndex += stepSize;
+    if(currentIndex>=set.length) currentIndex=set.length-1;
+    render();
+  }
+}
+function prev(){
+  if(currentIndex>0){
+    currentIndex -= stepSize;
+    if(currentIndex<0) currentIndex=0;
+    render();
+  }
+}
+function jumpStart(){currentIndex=0;render();}
+function toggleStep(){
+  stepSize=stepSize===1?2:1;
+  document.getElementById('stepText').textContent=stepSize;
+}
+window.addEventListener('resize',()=>render());
+reloadData();
+</script>
+</body>
+</html>
