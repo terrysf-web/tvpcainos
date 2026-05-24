@@ -1,1 +1,1 @@
-TVPC Ainos Integrated Stable v1. Upload to tvpcainos repo root. Open /index.html?v=integrated-stable-v1
+TVPC Ainos Dual Song/Page v5. Dual mode shows page 1+2 if available; otherwise current song + next song. Open /index.html?v=dual-song-page-v5
