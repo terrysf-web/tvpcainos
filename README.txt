@@ -1,10 +1,7 @@
-TVPC Ainos Service Open Fix
+Immediate restore for tvpc-worship.
 
-기준:
-- 가장 안정적으로 동작했던 Integrated Stable v1 원본 기반
-- 서비스 클릭/오픈 정상 동작 복구
-- 필기 안정 엔진 유지
-- 듀얼 페이지 기능은 제거/보류
+This restores the existing working UI/app.
+No stable viewer, no writing patch, no toolbar patch.
 
-Open:
-https://terrysf-web.github.io/tvpcainos/index.html?v=service-open-fix
+Only change:
+- Share URL fixed to https://terrysf-web.github.io/tvpc-worship/index.html#share=...
