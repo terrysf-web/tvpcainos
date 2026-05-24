@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>TVPC Ainos Piascore Dual v1</title>
+<title>TVPC Ainos Piascore Dual Final</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#050608">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Ainos Dual">
+<meta name="apple-mobile-web-app-title" content="Ainos Stable">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -152,4 +152,307 @@ function currentIndex(){return currentSvc().songs.indexOf(state.viewer?.id)}
 function render(){if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Piascore Dual v1</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><button class="primary" onclick="share()">Share</button></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
 function servicesHTML(){return `<div class="field"><label>Service Name</label><input value="${esc(currentSvc().name)}" onchange="currentSvc().name=this.value;save();render()"></div><div class="field"><label>Date</label><input type="date" value="${esc(currentSvc().date||"")}" onchange="currentSvc().date=this.value;save();render()"></div><div class="list">${state.services.map(s=>`<div class="row"><div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date||"")} · ${s.songs.length} songs</div></div><div class="actions"><button class="${s.id===state.currentService?'primary':'gray'} small" onclick="state.currentService='${s.id}';save();render()">Open</button><button class="red small" onclick="deleteService('${s.id}')">Delete</button></div></div>`).join("")}</div>`}
 function serviceHTML(){const svc=currentSvc();return `<div class="service-title">${esc(svc.name)}</div><div class="meta">${esc(svc.date||"")}</div><div class="list">${svc.songs.map((id,i)=>{const s=state.songs.find(x=>x.id===id);return s?rowSong(s,true,i):""}).join("")||'<div class="empty">Library에서 곡을 추가하세요.</div>'}</div><button class="primary" onclick="startService()">Start Service</button>`}
-function libraryHTML(){return `<div class="field"><label>Title</label><input id="title"
+function libraryHTML(){return `<div class="field"><label>Title</label><input id="title" placeholder="곡 제목"></div><div class="field"><label>Key</label><select id="key">${["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"].map(k=>`<option>${k}</option>`).join("")}</select></div><div class="field"><label>PDF</label><input id="pdf" type="file" accept="application/pdf"></div><button class="blue" onclick="addSong()">Add Song</button><div class="list">${state.songs.map(s=>rowSong(s,false)).join("")||'<div class="empty">곡을 추가하세요.</div>'}</div>`}
+function rowSong(s,inSet,i=0){return `<div class="row"><div><div class="title">${esc(s.title)}</div><div class="meta">Key ${esc(s.key||"-")}</div></div><div class="actions">${inSet?`<button class="blue small" onclick="openViewer('${s.id}')">Open</button><button class="gray small" onclick="moveSong(${i},-1)">↑</button><button class="gray small" onclick="moveSong(${i},1)">↓</button><button class="red small" onclick="removeSong(${i})">Remove</button>`:`<button class="primary small" onclick="addToService('${s.id}')">Add</button><button class="gray small" onclick="openViewer('${s.id}')">Test</button><button class="red small" onclick="deleteSong('${s.id}')">Delete</button>`}</div></div>`}
+function newService(){const id=uid();state.services.push({id,name:"New Service",date:new Date().toISOString().slice(0,10),songs:[]});state.currentService=id;save();render()}
+function deleteService(id){if(state.services.length<=1)return toast("최소 1개 필요");if(!confirm("Service 삭제?"))return;state.services=state.services.filter(s=>s.id!==id);if(state.currentService===id)state.currentService=state.services[0].id;save();render()}
+async function addSong(){const title=$("#title").value.trim(),key=$("#key").value,f=$("#pdf").files[0];if(!title||!f)return toast("Title/PDF 필요");const id=uid();await putFile(id,await fileData(f));state.songs.push({id,title,key,ink:{},chords:[],zoom:1});save();render();toast("곡 추가됨")}
+function deleteSong(id){if(!confirm("곡 삭제?"))return;state.songs=state.songs.filter(s=>s.id!==id);state.services.forEach(s=>s.songs=s.songs.filter(x=>x!==id));save();render()}
+function addToService(id){currentSvc().songs.push(id);save();state.tab="service";render();toast("Service에 추가됨")}
+function removeSong(i){currentSvc().songs.splice(i,1);save();render()}
+function moveSong(i,d){const arr=currentSvc().songs,j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];save();render()}
+function startService(){const svc=currentSvc();if(!svc.songs.length)return toast("Setlist 없음");openViewer(svc.songs[0])}
+
+// 순정 캐시 파이프라인 무조건 탑재
+async function openViewer(id){const pdf=await getPdf(id);if(!pdf)return toast("PDF 없음");state.viewer={id};state.mode="read";state.page=1;state.keyOffset=0;state.pdf=pdf;state.total=pdf.numPages;renderViewer();await drawAll()}
+function closeViewer(){save();state.viewer=null;state.pdf=null;render()}
+
+// 가로 양옆을 정밀 분할하는 복합 마크업 렌더링
+function renderViewer(){
+  const s=currentSong(), svc=currentSvc(), idx=svc.songs.indexOf(s.id);
+  const leftPage = state.page;
+  const rightPage = state.page + 1;
+  const rightPageStr = rightPage <= state.total ? `, ${rightPage}` : "";
+  
+  app.innerHTML=`<div class="viewer ${state.mode}">
+    <div class="vtop">
+      <button class="gray" onclick="closeViewer()">Back</button>
+      <div class="vtitle">
+        <b>${esc(s.title)}</b>
+        <span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}Page ${leftPage}${rightPageStr} / ${state.total} · Key ${esc(s.key||"-")}</span>
+      </div>
+      <button class="${state.mode==='write'?'primary':'gold'}" onclick="setViewerMode('write')">${state.mode==='write'?'WRITE ON':'READ'}</button>
+      <button class="${state.mode==='chord'?'primary':'gray'}" onclick="setViewerMode('chord')">➕ 코드심기</button>
+      <div class="transpose-ctrl">
+        <button onclick="changeKey(-1)" style="padding:4px 8px;">♭</button>
+        <b id="keyDisplay" style="min-width:50px;text-align:center;">Key ${state.keyOffset>=0?'+'+state.keyOffset:state.keyOffset}</b>
+        <button onclick="changeKey(1)" style="padding:4px 8px;">♯</button>
+      </div>
+      <button class="red" onclick="clearInk()">Clear</button>
+    </div>
+    
+    <div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)">
+      <div class="sheet" id="sheet_left" data-side="left">
+        <canvas id="pdfCanvas_left" class="pdfCanvas"></canvas>
+        <div class="write-lock" id="writeLock_left"></div>
+        <canvas id="inkCanvas_left" class="inkCanvas" data-side="left"></canvas>
+        <div class="chordOverlay" id="chordOverlay_left"></div>
+      </div>
+      
+      <div class="sheet" id="sheet_right" data-side="right">
+        <canvas id="pdfCanvas_right" class="pdfCanvas"></canvas>
+        <div class="write-lock" id="writeLock_right"></div>
+        <canvas id="inkCanvas_right" class="inkCanvas" data-side="right"></canvas>
+        <div class="chordOverlay" id="chordOverlay_right"></div>
+      </div>
+      
+      <div class="hint">${state.mode==='write'?'Write Mode: 자유로운 필기 메모 가능':state.mode==='chord'?'코드 등록 Mode: 터치하여 새 코드 추가':'Read Mode: 스와이프하여 한 페이지씩 스무스하게 이동'}</div>
+    </div>
+    
+    <div class="vbottom">
+      <button onclick="prev()">◀ PREV (이전 쪽)</button>
+      <button onclick="setViewerMode('write')" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button>
+      <button onclick="setViewerMode('chord')" class="${state.mode==='chord'?'primary':'gray'}">${state.mode==='chord'?'코드 ON':'코드 등록'}</button>
+      <button onclick="next()" class="primary">NEXT (다음 쪽) ▶</button>
+    </div>
+  </div>`;
+  setTimeout(()=>drawAll(),0);
+}
+
+// 듀얼 파이프라인 안전 연동 빌더
+async function drawAll(){
+  if(!state.pdf || !state.viewer) return;
+  
+  await drawPageSlot(state.page, 'left');
+  if(state.page + 1 <= state.total) {
+    document.getElementById("sheet_right").style.display = "block";
+    await drawPageSlot(state.page + 1, 'right');
+  } else {
+    document.getElementById("sheet_right").style.display = "none";
+  }
+  
+  ['left', 'right'].forEach(side => {
+    setupInk(side);
+    loadInk(side);
+    setupWriteLock(side);
+    renderChordsOverlay(side);
+  });
+}
+
+async function drawPageSlot(pageNum, side){
+  const page = await state.pdf.getPage(pageNum);
+  const stage = document.getElementById("stage");
+  const pdf = document.getElementById(`pdfCanvas_${side}`);
+  const ink = document.getElementById(`inkCanvas_${side}`);
+  const sheet = document.getElementById(`sheet_${side}`);
+  const lock = document.getElementById(`writeLock_${side}`);
+  if(!stage || !pdf || !ink || !sheet) return;
+
+  const base = page.getViewport({scale:1});
+  // 가로 너비를 절반으로 정교하게 유도하여 두장 나열 배치 비율 수렴
+  const fit = Math.min((stage.clientWidth / 2 - 20) / base.width, stage.clientHeight / base.height) * (currentSong().zoom||1);
+  const vp = page.getViewport({scale:fit});
+  const dpr = window.devicePixelRatio || 1;
+
+  sheet.style.width = Math.round(vp.width) + "px";
+  sheet.style.height = Math.round(vp.height) + "px";
+
+  [pdf, ink].forEach(c => {
+    c.width = Math.round(vp.width * dpr);
+    c.height = Math.round(vp.height * dpr);
+    c.style.width = Math.round(vp.width) + "px";
+    c.style.height = Math.round(vp.height) + "px";
+  });
+  if(lock){
+    lock.style.width = Math.round(vp.width) + "px";
+    lock.style.height = Math.round(vp.height) + "px";
+  }
+  
+  const ctx = pdf.getContext("2d", {alpha:false});
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, pdf.width, pdf.height);
+  await page.render({canvasContext:ctx, viewport:vp}).promise;
+}
+
+function blockEvent(e){if(state.mode==="write" || state.mode==="chord"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{};try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch{};return false}}
+function setupWriteLock(side){const lock=document.getElementById(`writeLock_${side}`);if(!lock)return;["touchstart","touchmove","touchend","click","contextmenu","gesturestart","gesturechange","gestureend"].forEach(type=>lock.addEventListener(type,blockEvent,{passive:false,capture:true}))}
+
+function setupInk(side){
+  const c=document.getElementById(`inkCanvas_${side}`);
+  if(!c)return;
+  c.onpointerdown=penDown;
+  c.onpointermove=penMove;
+  c.onpointerup=penUp;
+  c.onpointercancel=penUp;
+  c.onpointerleave=null;
+  ["touchstart","touchmove","touchend","gesturestart","contextmenu","click"].forEach(type=>c.addEventListener(type,e=>{if(state.mode==="write"||state.mode==="chord"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}))
+}
+
+function pageKey(pageNum){return "p"+pageNum}
+function pos(e, side){
+  const r=document.getElementById(`inkCanvas_${side}`).getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  return{x:(e.clientX-r.left)*dpr,y:(e.clientY-r.top)*dpr,p:e.pressure||0.5};
+}
+function mid(a,b){return{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
+
+function penDown(e){
+  const side = e.currentTarget.dataset.side;
+  const targetPage = side === 'left' ? state.page : state.page + 1;
+  
+  if(state.mode==="chord"){
+    e.preventDefault(); e.stopPropagation();
+    const canvas=e.currentTarget;
+    const r=canvas.getBoundingClientRect();
+    const xRatio=(e.clientX-r.left)/r.width;
+    const yRatio=(e.clientY-r.top)/r.height;
+    const input=prompt("이 위치에 새로 심을 코드를 입력하세요 (예: C, Am, G7):");
+    if(input){
+      const s=currentSong();
+      s.chords=s.chords||[];
+      s.chords.push({id:`c_${Date.now()}`,page:targetPage,xRatio,yRatio,originalChord:input});
+      save();
+      renderChordsOverlay(side);
+    }
+    return;
+  }
+  if(state.mode!=="write")return;
+  e.preventDefault();e.stopPropagation();
+  try{e.currentTarget.setPointerCapture(e.pointerId)}catch{}
+  state.draw=true;
+  state.activeSide = side; 
+  state.pts=[pos(e, side)];
+}
+
+function penMove(e){
+  if(state.mode!=="write"||!state.draw)return;
+  e.preventDefault();e.stopPropagation();
+  const side = state.activeSide;
+  const p=pos(e, side);
+  state.pts.push(p);
+  const n=state.pts.length;
+  const canvas=document.getElementById(`inkCanvas_${side}`);
+  if(n<3){dot(p, side);return}
+  const p0=state.pts[n-3],p1=state.pts[n-2],p2=state.pts[n-1],m1=mid(p0,p1),m2=mid(p1,p2);
+  const ctx=canvas.getContext("2d",{desynchronized:true});
+  ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=state.color;ctx.lineWidth=(state.width+Math.max(.2,p1.p)*2)*(window.devicePixelRatio||1);
+  ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke();
+}
+
+function penUp(e){
+  if(!state.draw)return;
+  e.preventDefault();e.stopPropagation();
+  try{e.currentTarget.releasePointerCapture(e.pointerId)}catch{}
+  state.draw=false;
+  const side = state.activeSide;
+  const targetPage = side === 'left' ? state.page : state.page + 1;
+  saveStroke(targetPage, state.pts);
+  state.pts=[];
+}
+
+function dot(p, side){
+  const ctx=document.getElementById(`inkCanvas_${side}`).getContext("2d");
+  ctx.fillStyle=state.color;ctx.beginPath();ctx.arc(p.x,p.y,1.8*(window.devicePixelRatio||1),0,Math.PI*2);ctx.fill();
+}
+
+function saveStroke(targetPage, pts){
+  const s=currentSong();
+  s.ink=s.ink||{};
+  s.ink[pageKey(targetPage)]=s.ink[pageKey(targetPage)]||[];
+  s.ink[pageKey(targetPage)].push({color:state.color,width:state.width,pts});
+  save();
+}
+
+function loadInk(side){
+  const targetPage = side === 'left' ? state.page : state.page + 1;
+  const canvas=document.getElementById(`inkCanvas_${side}`);
+  if(!canvas) return;
+  const s=currentSong(),strokes=(s.ink&&s.ink[pageKey(targetPage)])||[],ctx=canvas.getContext("2d");
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  strokes.forEach(st=>{
+    ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=st.color||"#ef4444";ctx.lineWidth=(st.width||3)*(window.devicePixelRatio||1);
+    const pts=st.pts||[];
+    for(let i=2;i<pts.length;i++){
+      const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);
+      ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke();
+    }
+  });
+}
+
+function clearInk(){
+  if(!confirm("현재 열려있는 페이지들의 필기를 모두 삭제하시겠습니까?"))return;
+  const s=currentSong();
+  if(s.ink){
+    s.ink[pageKey(state.page)]=[];
+    s.ink[pageKey(state.page+1)]=[];
+  }
+  save();
+  loadInk('left');
+  loadInk('right');
+}
+
+function renderChordsOverlay(side){
+  const container=document.getElementById(`chordOverlay_${side}`);
+  if(!container)return;
+  container.innerHTML='';
+  const s=currentSong();
+  if(!s||!s.chords)return;
+  const targetPage = side === 'left' ? state.page : state.page + 1;
+  
+  s.chords.filter(c=>c.page===targetPage).forEach(chord=>{
+    const el=document.createElement('div');
+    el.className='chord-badge';
+    el.style.left=`${chord.xRatio*100}%`;
+    el.style.top=`${chord.yRatio*100}%`;
+    el.textContent=getTransposedChord(chord.originalChord, state.keyOffset);
+    
+    el.onpointerdown=(e)=>{e.stopPropagation();};
+    el.onclick=(e)=>{
+      e.stopPropagation();
+      if(confirm(`"${chord.originalChord}" 코드를 삭제하시겠습니까?`)){
+        s.chords=s.chords.filter(c=>c.id!==chord.id);
+        save();
+        renderChordsOverlay(side);
+      }
+    };
+    container.appendChild(el);
+  });
+}
+
+function getTransposedChord(orig, offset){
+  if(offset===0)return orig;
+  const match=orig.match(/^([A-G]#?|b?)(.*)$/);
+  if(!match)return orig;
+  let root=match[1], ext=match[2];
+  if(root==="Db")root="C#"; if(root==="Eb")root="D#";
+  if(root==="Gb")root="F#"; if(root==="Ab")root="G#";
+  if(root==="Bb")root="A#";
+  const idx=SEMITONE_SCALE.indexOf(root);
+  if(idx===-1)return orig;
+  let newIdx=(idx+offset)%12;
+  if(newIdx<0)newIdx+=12;
+  return SEMITONE_SCALE[newIdx]+ext;
+}
+
+function changeKey(amount){
+  state.keyOffset+=amount;
+  const display=document.getElementById("keyDisplay");
+  if(display)display.textContent=`Key ${state.keyOffset>=0?'+'+state.keyOffset:state.keyOffset}`;
+  renderChordsOverlay('left');
+  renderChordsOverlay('right');
+}
+
+function setViewerMode(m){
+  state.mode=state.mode===m?"read":m;
+  renderViewer();
+}
+
+// 1페이지 단위 Piascore 스타일 쉬프트 슬라이딩 배정 알고리즘
+function prev(){
+  if(state.mode==="write"||state.mode==="chord")return toast("편집 Mode에서는 이동 잠김");
+  if(state.page > 1){
+    state.page--;
+    renderViewer();
+    return;
+  }
+  const arr=currentSvc().songs,i=arr.indexOf(state.viewer.id);
+  if(i
