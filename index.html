@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>TVPC Ainos Dual v5 (Piascore Patch)</title>
+<title>TVPC Ainos Dual v5</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#050608">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -51,7 +51,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .pdfCanvas{position:absolute;left:0;top:0;z-index:1;background:#fff;pointer-events:none!important;touch-action:none}
 .inkCanvas{position:absolute;left:0;top:0;z-index:30;touch-action:none!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important}
 
-/* 코드 스티커 레이어 스타일 */
+/* 코드 오버레이 배치용 스타일 레이아웃 */
 .chordOverlay{position:absolute;inset:0;z-index:35;pointer-events:none}
 .chord-badge{position:absolute;background:#ffffff;color:#2563eb;font-weight:bold;border:2px solid #2563eb;padding:2px 6px;border-radius:5px;font-size:14px;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.25)}
 
@@ -79,6 +79,7 @@ async function getFile(id){const db=await openDB();return new Promise((res,rej)=
 async function getPdf(songId){if(pdfCache[songId])return pdfCache[songId];const data=await getFile(songId);if(!data)return null;const pdf=await pdfjsLib.getDocument(data).promise;pdfCache[songId]=pdf;return pdf}
 const $=s=>document.querySelector(s), app=$("#app");
 
+// 12음계 조바꿈 계산 배열 정의
 const SEMITONE_SCALE = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 const state={
@@ -86,13 +87,9 @@ const state={
  songs:JSON.parse(localStorage.getItem("tvpc_ainos_songs_stable")||localStorage.getItem("ais2_songs")||localStorage.getItem("ais_songs")||"[]"),
  services:JSON.parse(localStorage.getItem("tvpc_ainos_services_stable")||localStorage.getItem("ais2_services")||localStorage.getItem("ais_services")||"[]"),
  currentService:localStorage.getItem("tvpc_ainos_current_service_stable")||localStorage.getItem("ais2_current_service")||localStorage.getItem("ais_current_service")||null,
- viewer:null,
- mode:"read", 
- viewMode:localStorage.getItem("tvpc_ainos_view_mode_stable")||localStorage.getItem("ais2_view_mode")||"single",
- page:1,total:1,draw:false,pts:[],activeSlot:null,startX:0,startY:0,color:"#ef4444",width:3,
- keyOffset: 0 
+ viewer:null,mode:"read",viewMode:localStorage.getItem("tvpc_ainos_view_mode_stable")||localStorage.getItem("ais2_view_mode")||"single",page:1,total:1,draw:false,pts:[],activeSlot:null,startX:0,startY:0,color:"#ef4444",width:3,
+ keyOffset: 0 // 실시간 변환 오프셋 추가
 };
-
 if(!state.services.length){const id="svc_"+Date.now();state.services=[{id,name:"Sunday Service",date:new Date().toISOString().slice(0,10),songs:[]}];state.currentService=id;save();}
 function save(){localStorage.setItem("tvpc_ainos_songs_stable",JSON.stringify(state.songs));localStorage.setItem("tvpc_ainos_services_stable",JSON.stringify(state.services));localStorage.setItem("tvpc_ainos_view_mode_stable",state.viewMode);if(state.currentService)localStorage.setItem("tvpc_ainos_current_service_stable",state.currentService);localStorage.setItem("ais2_songs",JSON.stringify(state.songs));localStorage.setItem("ais2_services",JSON.stringify(state.services));}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
@@ -102,7 +99,7 @@ function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();r.o
 function currentSvc(){return state.services.find(s=>s.id===state.currentService)||state.services[0]}
 function currentSong(){return state.songs.find(s=>s.id===state.viewer?.id)}
 function songById(id){return state.songs.find(s=>s.id===id)}
-function currentIndex(){return currentSvc().songs.indexOf(state.viewer?.id)}
+function currentIndex(){return currentSvc().songs.indexOf(state.viewer.id)}
 function render(){if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Dual Song/Page v5</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><button class="primary" onclick="share()">Share</button></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
 function servicesHTML(){return `<div class="field"><label>Service Name</label><input value="${esc(currentSvc().name)}" onchange="currentSvc().name=this.value;save();render()"></div><div class="field"><label>Date</label><input type="date" value="${esc(currentSvc().date||"")}" onchange="currentSvc().date=this.value;save();render()"></div><div class="list">${state.services.map(s=>`<div class="row"><div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date||"")} · ${s.songs.length} songs</div></div><div class="actions"><button class="${s.id===state.currentService?'primary':'gray'} small" onclick="state.currentService='${s.id}';save();render()">Open</button><button class="red small" onclick="deleteService('${s.id}')">Delete</button></div></div>`).join("")}</div>`}
 function serviceHTML(){const svc=currentSvc();return `<div class="service-title">${esc(svc.name)}</div><div class="meta">${esc(svc.date||"")}</div><div class="list">${svc.songs.map((id,i)=>{const s=songById(id);return s?rowSong(s,true,i):""}).join("")||'<div class="empty">Library에서 곡을 추가하세요.</div>'}</div><button class="primary" onclick="startService()">Start Service</button>`}
@@ -117,38 +114,4 @@ function removeSong(i){currentSvc().songs.splice(i,1);save();render()}
 function moveSong(i,d){const arr=currentSvc().songs,j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];save();render()}
 function startService(){const svc=currentSvc();if(!svc.songs.length)return toast("Setlist 없음");openViewer(svc.songs[0])}
 
-// 순정 엔진 구조 100% 보존 매핑 진입점
-async function openViewer(id){
- const pdf=await getPdf(id);
- if(!pdf)return toast("PDF 없음");
- state.viewer={id}; // 원본 순정 구조 복원
- state.mode="read";
- state.page=1;
- state.keyOffset=0;
- state.total=pdf.numPages;
- renderViewer();
-}
-function closeViewer(){save();state.viewer=null;render()}
-
-// 오리지널 순정 슬롯 파이프라인 정합성 완전 매칭 복원
-async function getSlots(){
- const curr=currentSong();
- if(!curr)return[];
- const pdf=await getPdf(curr.id);
- if(!pdf)return[];
- state.total=pdf.numPages;
- let slots=[{slot:0,songId:curr.id,page:state.page,pdf}];
- if(state.viewMode==="dual"){
-   if(state.page+1<=pdf.numPages){
-     slots.push({slot:1,songId:curr.id,page:state.page+1,pdf})
-   }else{
-     const i=currentIndex(),nextId=currentSvc().songs[i+1];
-     if(nextId){const npdf=await getPdf(nextId);if(npdf)slots.push({slot:1,songId:nextId,page:1,pdf:npdf})}
-   }
- }
- return slots;
-}
-function slotTitle(){if(state.viewMode!=="dual")return `Page ${state.page}/${state.total}`;return `Dual View`}
-
-// 상단 헤더 툴바에 코드 기능 및 조바꿈 통합
-function renderViewer(){const s=currentSong(), idx=currentIndex();app.innerHTML=`<div class="viewer ${state.mode}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+currentSvc().songs.length+" · ":""}${slotTitle()} · Key ${esc(s.key||"-")}</span></div><button class="${state.mode==='write'?'primary':'gold'}" onclick="setViewerMode('write')">${state.mode==='write'?'WRITE ON':'READ'}</button><button class="${state.mode==='chord'?'primary':'gray'}" onclick="setViewerMode('chord')">➕ 코드심기</button><div class="transpose-ctrl"><button onclick="changeKey(-1)" style="padding:6px 10px;border-radius:6px">♭</button><b style="min-width:55px;text-align:center;font-size:13px">Key ${state.keyOffset>=0?'+'+state.keyOffset:state.keyOffset}</b><button onclick="changeKey(1)" style="padding:6px 10px;border-radius:6px">♯</button></div><button class="${state.viewMode==='dual'?'primary':'gray'}" onclick="toggleViewMode()">${state.viewMode==='dual'?'2 PAGE':'1 PAGE'}</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd
+// 오리지널 100% 렌
