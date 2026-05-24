@@ -52,7 +52,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 .service-title{font-size:18px;font-weight:950}
 .tabs{display:flex;gap:8px}.tabs button{background:#1b1f26}.tabs button.active{background:#22c7d8;color:#031217}
 
-/* 가로 듀얼 스테이지 대칭구조 레이아웃 설계 */
+/* 아이패드 가로 전용 양옆 분할 뷰어 레이아웃 */
 .viewer{
   position:fixed;inset:0;z-index:50;background:#111827;
   display:grid;grid-template-rows:auto 1fr auto;
@@ -68,7 +68,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 
 .stage{
   position:relative;overflow:hidden;background:#1e2530;
-  display:flex;flex-direction:row;justify-content:center;align-items:center;gap:20px;
+  display:flex;flex-direction:row;justify-content:center;align-items:center;gap:16px;
   touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
   width:100%;height:100%;padding:10px;
 }
@@ -111,8 +111,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 }
 .toast{
   position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);
-  background:rgba(15,23,42,.94);color:white;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:900;z-index:200;
-}
+  background:rgba(15,23,42,.94);color:white;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:900;z-index:200}
 .transpose-ctrl{display:flex;gap:4px;align-items:center;background:#1f2937;padding:4px 8px;border-radius:10px;color:#fff}
 </style>
 </head>
@@ -153,39 +152,4 @@ function currentIndex(){return currentSvc().songs.indexOf(state.viewer?.id)}
 function render(){if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Piascore Dual v1</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><button class="primary" onclick="share()">Share</button></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
 function servicesHTML(){return `<div class="field"><label>Service Name</label><input value="${esc(currentSvc().name)}" onchange="currentSvc().name=this.value;save();render()"></div><div class="field"><label>Date</label><input type="date" value="${esc(currentSvc().date||"")}" onchange="currentSvc().date=this.value;save();render()"></div><div class="list">${state.services.map(s=>`<div class="row"><div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date||"")} · ${s.songs.length} songs</div></div><div class="actions"><button class="${s.id===state.currentService?'primary':'gray'} small" onclick="state.currentService='${s.id}';save();render()">Open</button><button class="red small" onclick="deleteService('${s.id}')">Delete</button></div></div>`).join("")}</div>`}
 function serviceHTML(){const svc=currentSvc();return `<div class="service-title">${esc(svc.name)}</div><div class="meta">${esc(svc.date||"")}</div><div class="list">${svc.songs.map((id,i)=>{const s=state.songs.find(x=>x.id===id);return s?rowSong(s,true,i):""}).join("")||'<div class="empty">Library에서 곡을 추가하세요.</div>'}</div><button class="primary" onclick="startService()">Start Service</button>`}
-function libraryHTML(){return `<div class="field"><label>Title</label><input id="title" placeholder="곡 제목"></div><div class="field"><label>Key</label><select id="key">${["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"].map(k=>`<option>${k}</option>`).join("")}</select></div><div class="field"><label>PDF</label><input id="pdf" type="file" accept="application/pdf"></div><button class="blue" onclick="addSong()">Add Song</button><div class="list">${state.songs.map(s=>rowSong(s,false)).join("")||'<div class="empty">곡을 추가하세요.</div>'}</div>`}
-function rowSong(s,inSet,i=0){return `<div class="row"><div><div class="title">${esc(s.title)}</div><div class="meta">Key ${esc(s.key||"-")}</div></div><div class="actions">${inSet?`<button class="blue small" onclick="openViewer('${s.id}')">Open</button><button class="gray small" onclick="moveSong(${i},-1)">↑</button><button class="gray small" onclick="moveSong(${i},1)">↓</button><button class="red small" onclick="removeSong(${i})">Remove</button>`:`<button class="primary small" onclick="addToService('${s.id}')">Add</button><button class="gray small" onclick="openViewer('${s.id}')">Test</button><button class="red small" onclick="deleteSong('${s.id}')">Delete</button>`}</div></div>`}
-function newService(){const id=uid();state.services.push({id,name:"New Service",date:new Date().toISOString().slice(0,10),songs:[]});state.currentService=id;save();render()}
-function deleteService(id){if(state.services.length<=1)return toast("최소 1개 필요");if(!confirm("Service 삭제?"))return;state.services=state.services.filter(s=>s.id!==id);if(state.currentService===id)state.currentService=state.services[0].id;save();render()}
-async function addSong(){const title=$("#title").value.trim(),key=$("#key").value,f=$("#pdf").files[0];if(!title||!f)return toast("Title/PDF 필요");const id=uid();await putFile(id,await fileData(f));state.songs.push({id,title,key,ink:{},chords:[],zoom:1});save();render();toast("곡 추가됨")}
-function deleteSong(id){if(!confirm("곡 삭제?"))return;state.songs=state.songs.filter(s=>s.id!==id);state.services.forEach(s=>s.songs=s.songs.filter(x=>x!==id));save();render()}
-function addToService(id){currentSvc().songs.push(id);save();state.tab="service";render();toast("Service에 추가됨")}
-function removeSong(i){currentSvc().songs.splice(i,1);save();render()}
-function moveSong(i,d){const arr=currentSvc().songs,j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];save();render()}
-function startService(){const svc=currentSvc();if(!svc.songs.length)return toast("Setlist 없음");openViewer(svc.songs[0])}
-
-// 오리지널 안정적인 캐시 파이프라인 연동 복구
-async function openViewer(id){const pdf=await getPdf(id);if(!pdf)return toast("PDF 없음");state.viewer={id};state.mode="read";state.page=1;state.keyOffset=0;state.pdf=pdf;state.total=pdf.numPages;renderViewer();await drawAll()}
-function closeViewer(){save();state.viewer=null;state.pdf=null;render()}
-
-function renderViewer(){
-  const s=currentSong(), svc=currentSvc(), idx=svc.songs.indexOf(s.id);
-  const leftPage = state.page;
-  const rightPage = state.page + 1;
-  const rightPageStr = rightPage <= state.total ? `, ${rightPage}` : "";
-  
-  app.innerHTML=`<div class="viewer ${state.mode}">
-    <div class="vtop">
-      <button class="gray" onclick="closeViewer()">Back</button>
-      <div class="vtitle">
-        <b>${esc(s.title)}</b>
-        <span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}Page ${leftPage}${rightPageStr} / ${state.total} · Key ${esc(s.key||"-")}</span>
-      </div>
-      <button class="${state.mode==='write'?'primary':'gold'}" onclick="setViewerMode('write')">${state.mode==='write'?'WRITE ON':'READ'}</button>
-      <button class="${state.mode==='chord'?'primary':'gray'}" onclick="setViewerMode('chord')">➕ 코드심기</button>
-      <div class="transpose-ctrl">
-        <button onclick="changeKey(-1)" style="padding:4px 8px;">♭</button>
-        <b id="keyDisplay" style="min-width:50px;text-align:center;">Key ${state.keyOffset>=0?'+'+state.keyOffset:state.keyOffset}</b>
-        <button onclick="changeKey(1)" style="padding:4px 8px;">♯</button>
-      </div>
-      <button class="red" onclick="clearInk()">Clear</button>
+function libraryHTML(){return `<div class="field"><label>Title</label><input id="title"
