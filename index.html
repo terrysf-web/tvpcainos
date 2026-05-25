@@ -269,7 +269,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_NO_LOGIN_DUAL_LAST_ONLY_FIX_CLEAN";
+const BUILD="AINOS_DUAL_LAYOUT_LAST_FIX_ONLY";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -445,9 +445,8 @@ async function prepareDual(){
 
   const nextSong=getNextSongForDual(state.viewer.id);
 
-  // Last song rule:
-  // Do not show the same current song on the right side.
-  // Right side appears only when there is a real next song with a different id.
+  // Dual mode: right side is ONLY the next different song.
+  // Last song: no right panel.
   if(!nextSong || String(nextSong.id)===String(state.viewer.id)){
     return;
   }
@@ -531,7 +530,11 @@ async function toggleDual(){
 }
 
 async function drawAll(){if(!state.pdf||!state.viewer)return;await drawPdf();setupInk();loadInk();setupWriteLock();await drawDualPdf()}
-async function drawPdf(){const page=await state.pdf.getPage(state.page),stage=$("#stage"),pdf=$("#pdfCanvas"),ink=$("#inkCanvas"),sheet=$("#sheet"),lock=$("#writeLock");if(!stage||!pdf||!ink)return;const base=page.getViewport({scale:1});const fit=Math.min(stage.clientWidth/base.width,stage.clientHeight/base.height)*(currentSong().zoom||1);const vp=page.getViewport({scale:fit});const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});if(lock){lock.style.width=Math.round(vp.width)+"px";lock.style.height=Math.round(vp.height)+"px"}const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await page.render({canvasContext:ctx,viewport:vp}).promise}
+async function drawPdf(){const page=await state.pdf.getPage(state.page),stage=$("#stage"),pdf=$("#pdfCanvas"),ink=$("#inkCanvas"),sheet=$("#sheet"),lock=$("#writeLock");if(!stage||!pdf||!ink)return;const base=page.getViewport({scale:1});
+const targetW=hasDualRightPanel()?Math.max(200,(stage.clientWidth-24)/2):stage.clientWidth;
+const targetH=hasDualRightPanel()?Math.max(200,stage.clientHeight-16):stage.clientHeight;
+const fit=Math.min(targetW/base.width,targetH/base.height)*(currentSong().zoom||1);
+const vp=page.getViewport({scale:fit});const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});if(lock){lock.style.width=Math.round(vp.width)+"px";lock.style.height=Math.round(vp.height)+"px"}const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await page.render({canvasContext:ctx,viewport:vp}).promise}
 function blockEvent(e){if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{};try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch{};return false}}
 function setupWriteLock(){const lock=$("#writeLock");if(!lock)return;["touchstart","touchmove","touchend","click","contextmenu","gesturestart","gesturechange","gestureend"].forEach(type=>lock.addEventListener(type,blockEvent,{passive:false,capture:true}))}
 function setupInk(){const c=$("#inkCanvas");if(!c)return;c.onpointerdown=penDown;c.onpointermove=penMove;c.onpointerup=penUp;c.onpointercancel=penUp;c.onpointerleave=null;["touchstart","touchmove","touchend","gesturestart","contextmenu","click"].forEach(type=>c.addEventListener(type,e=>{if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}))}
