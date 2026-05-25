@@ -377,7 +377,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_LOGIN_UX_CLEAN_V1";
+const BUILD="AINOS_INK_POSITION_FIXED_V1";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -680,7 +680,7 @@ function drawDualInk(dualPage=1){
     ctx.lineJoin="round";
     ctx.strokeStyle=st.color||"#ef4444";
     ctx.lineWidth=(st.width||3)*dpr;
-    const pts=st.pts||[];
+    const pts=denormalizeStrokePts(st.pts||[],ink);
     for(let i=2;i<pts.length;i++){
       const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);
       ctx.beginPath();
@@ -710,16 +710,47 @@ function penDown(e){if(state.mode!=="write")return;e.preventDefault();e.stopProp
 function penMove(e){if(state.mode!=="write"||!state.draw)return;e.preventDefault();e.stopPropagation();const p=pos(e);state.pts.push(p);const n=state.pts.length;if(n<3){dot(p);return}const p0=state.pts[n-3],p1=state.pts[n-2],p2=state.pts[n-1],m1=mid(p0,p1),m2=mid(p1,p2);const ctx=$("#inkCanvas").getContext("2d",{desynchronized:true});ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=state.color;ctx.lineWidth=(state.width+Math.max(.2,p1.p)*2)*(window.devicePixelRatio||1);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}
 function penUp(e){if(!state.draw)return;e.preventDefault();e.stopPropagation();try{e.currentTarget.releasePointerCapture(e.pointerId)}catch{}state.draw=false;saveStroke(state.pts);state.pts=[];if(state.dual&&state.dualSong&&state.dualSong.id===state.viewer.id){drawDualInk(state.page)}}
 function dot(p){const ctx=$("#inkCanvas").getContext("2d");ctx.fillStyle=state.color;ctx.beginPath();ctx.arc(p.x,p.y,1.8*(window.devicePixelRatio||1),0,Math.PI*2);ctx.fill()}
+function normalizeStrokePts(pts){
+  const c=$("#inkCanvas");
+  if(!c || !c.width || !c.height) return pts || [];
+  return (pts||[]).map(p=>({x:p.x/c.width,y:p.y/c.height,p:p.p||0.5}));
+}
+function denormalizeStrokePts(pts, canvas){
+  const c=canvas || $("#inkCanvas");
+  if(!pts || !c || !c.width || !c.height) return pts || [];
+  return pts.map(p=>{
+    const isNorm = p && p.x <= 1.5 && p.y <= 1.5;
+    return isNorm ? {x:p.x*c.width,y:p.y*c.height,p:p.p||0.5} : p;
+  });
+}
 function saveStroke(pts){
 const s=currentSong();
 if(!s)return;
 s.ink=s.ink||{};
 s.ink[pageKey()]=s.ink[pageKey()]||[];
-s.ink[pageKey()].push({color:state.color,width:state.width,pts});
+s.ink[pageKey()].push({color:state.color,width:state.width,pts:normalizeStrokePts(pts),normalized:true});
 persistSongInk(s);
 save();
 }
-function loadInk(){const s=currentSong(),strokes=(s.ink&&s.ink[pageKey()])||[],ctx=$("#inkCanvas").getContext("2d");ctx.clearRect(0,0,$("#inkCanvas").width,$("#inkCanvas").height);strokes.forEach(st=>{ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=st.color||"#ef4444";ctx.lineWidth=(st.width||3)*(window.devicePixelRatio||1);const pts=st.pts||[];for(let i=2;i<pts.length;i++){const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}})}
+function loadInk(){
+const canvas=$("#inkCanvas");
+const s=currentSong(),strokes=(s&&s.ink&&s.ink[pageKey()])||[],ctx=canvas.getContext("2d");
+ctx.clearRect(0,0,canvas.width,canvas.height);
+strokes.forEach(st=>{
+  ctx.lineCap="round";
+  ctx.lineJoin="round";
+  ctx.strokeStyle=st.color||"#ef4444";
+  ctx.lineWidth=(st.width||3)*(window.devicePixelRatio||1);
+  const pts=denormalizeStrokePts(st.pts||[],canvas);
+  for(let i=2;i<pts.length;i++){
+    const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);
+    ctx.beginPath();
+    ctx.moveTo(m1.x,m1.y);
+    ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);
+    ctx.stroke();
+  }
+});
+}
 function clearInk(){
 if(!confirm("현재 페이지 필기 삭제?"))return;
 const s=currentSong();
@@ -745,7 +776,16 @@ function swipeEnd(e){if(state.mode==="write"){try{e.preventDefault()}catch{};ret
 function zoomToggle(){const s=currentSong();s.zoom=s.zoom===1?1.25:1;save();renderViewer()}
 function share(){const svc=currentSvc();const payload={v:1,name:svc.name,date:svc.date,songs:svc.songs.map(id=>{const s=state.songs.find(x=>x.id===id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};const url="https://terrysf-web.github.io/tvpcainos/index.html#share="+btoa(unescape(encodeURIComponent(JSON.stringify(payload))));navigator.clipboard?.writeText(url);toast("Share copied")}
 ["contextmenu","dragstart","gesturestart","gesturechange","gestureend"].forEach(type=>document.addEventListener(type,e=>{if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}));
-window.addEventListener("resize",()=>{if(state.viewer)renderViewer()});
+let resizeTimer=null;
+window.addEventListener("resize",()=>{
+  if(!state.viewer)return;
+  clearTimeout(resizeTimer);
+  resizeTimer=setTimeout(()=>renderViewer(),180);
+});
+window.addEventListener("orientationchange",()=>{
+  if(!state.viewer)return;
+  setTimeout(()=>renderViewer(),350);
+});
 async function waitForFirebaseApi(){
   for(let i=0;i<30;i++){
     if(window.TVPC_FB_READY) return await window.TVPC_FB_READY;
