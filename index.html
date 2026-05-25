@@ -266,11 +266,13 @@ const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence).catch(e=>console.warn("Auth persistence failed", e));
 
 async function ensureAuth(){
-  if(auth.currentUser) return auth.currentUser;
-  try { await signInAnonymously(auth); } catch(e) { console.warn("Anonymous auth failed", e); }
+  if(auth.currentUser && !auth.currentUser.isAnonymous) return auth.currentUser;
   return await new Promise(resolve=>{
-    const unsub = onAuthStateChanged(auth, u=>{ unsub(); resolve(u); });
-    setTimeout(()=>{ try{unsub()}catch{}; resolve(auth.currentUser); }, 2000);
+    const unsub = onAuthStateChanged(auth, u=>{
+      unsub();
+      resolve(u && !u.isAnonymous ? u : null);
+    });
+    setTimeout(()=>{ try{unsub()}catch{}; resolve(auth.currentUser && !auth.currentUser.isAnonymous ? auth.currentUser : null); }, 2000);
   });
 }
 
@@ -480,7 +482,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_LOGIN_POPUP_DESIGN_FIX_V4";
+const BUILD="AINOS_LOGIN_AUTH_READY_FIX_V5";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -572,13 +574,42 @@ function attachSavedInkToSongs(){
 }
 
 async function initAuthUI(){
-  const api = await waitForFirebaseApi().catch(()=>null);
-  if(!api || !api.onUser){state.authReady=true;render();return;}
-  api.onUser(user=>{
-    state.user = (user && !user.isAnonymous) ? {uid:user.uid,email:user.email,displayName:user.displayName} : null;
-state.authReady=true;
-if(state.user){
-  loadSharedSongs().catch(console.warn); loadSharedServicesSafe().catch(console.warn);
+  try{
+    const api = await waitForFirebaseApi().catch(()=>null);
+    if(!api || !api.onUser){
+      state.authReady=true;
+      render();
+      return;
+    }
+
+    let first=true;
+    api.onUser(user=>{
+      state.user = (user && !user.isAnonymous) ? {uid:user.uid,email:user.email,displayName:user.displayName} : null;
+      state.authReady=true;
+
+      if(state.user){
+        loadSharedSongs().catch(console.warn);
+        if(typeof loadSharedServicesSafe==="function") loadSharedServicesSafe().catch(console.warn);
+      }else{
+        render();
+      }
+      first=false;
+    });
+
+    setTimeout(()=>{
+      if(!state.authReady){
+        state.authReady=true;
+        state.user=null;
+        render();
+      }
+    },2500);
+  }catch(e){
+    console.error("initAuthUI failed", e);
+    window.__TVPC_LOGIN_ERROR = e.message || String(e);
+    state.authReady=true;
+    state.user=null;
+    render();
+  }
 }else{
   render();
 }
@@ -596,16 +627,27 @@ async function loginToggle(){
   try{
     if(api.getUser && api.getUser() && !api.getUser().isAnonymous){
       await api.logout();
+      state.user=null;
+      state.authReady=true;
       toast("로그아웃됨");
       render();
     }else{
       window.__TVPC_LOGIN_ERROR = "";
-      await api.login();
+      const result = await api.login();
+      const user = result && result.user ? result.user : (api.getUser ? api.getUser() : null);
+      if(user && !user.isAnonymous){
+        state.user={uid:user.uid,email:user.email,displayName:user.displayName};
+        state.authReady=true;
+        await loadSharedSongs().catch(console.warn);
+        if(typeof loadSharedServicesSafe==="function") await loadSharedServicesSafe().catch(console.warn);
+      }
       toast("로그인됨");
     }
   }catch(e){
     console.error(e);
     window.__TVPC_LOGIN_ERROR = e.message || String(e);
+    state.authReady=true;
+    state.user=null;
     renderLoginGate();
   }
 }
