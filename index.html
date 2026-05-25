@@ -268,30 +268,32 @@ async function getAllSongs(){
   const custom = customSnap.docs.map(d=>({id:String(d.id), ...d.data(), custom:true}));
 
   const pdfSnap = await getDocs(collection(db, "pdfFiles"));
-  const pdfDocs = pdfSnap.docs.map(d=>({id:String(d.id), ...(d.data()||{})}));
+  const pdfMap = {};
+  pdfSnap.docs.forEach(d=>{ pdfMap[String(d.id)] = d.data() || {}; });
 
-  const customById = new Map(custom.map(s=>[String(s.id),s]));
-  const defaultById = new Map(DEFAULT_SONGS.map(s=>[String(s.id),s]));
+  const all = [...DEFAULT_SONGS, ...custom];
 
-  const rows = pdfDocs
-    .filter(p=>p && p.chunkCount)
-    .map(p=>{
-      const meta = customById.get(String(p.id)) || defaultById.get(String(p.id)) || {};
-      const titleFromPdf = String(p.name||"").replace(/\.pdf$/i,"");
-      return {
-        id:String(p.id),
-        title:meta.title || meta.name || titleFromPdf || "Untitled",
-        key:meta.key || "",
-        pdf:p.name || meta.pdf || "",
-        firebasePdfId:String(p.id),
-        custom:!!meta.custom
-      };
-    });
+  const rows = all
+    .filter(s => pdfMap[String(s.id)] && pdfMap[String(s.id)].chunkCount)
+    .map(s => ({
+      id:String(s.id),
+      title:s.title || s.name || String(pdfMap[String(s.id)]?.name || "").replace(/\.pdf$/i,"") || "Untitled",
+      key:s.key || "",
+      pdf:s.pdf || pdfMap[String(s.id)]?.name || "",
+      firebasePdfId:String(s.id),
+      custom:!!s.custom
+    }));
 
   const seen = new Map();
   rows.forEach(song=>{
-    const key = norm(song.title) || norm(song.pdf) || String(song.firebasePdfId);
-    if(!seen.has(key)) seen.set(key, song);
+    const key = norm(song.title) || String(song.id);
+    if(!seen.has(key)){
+      seen.set(key, song);
+    }else{
+      const existing = seen.get(key);
+      // prefer the one that is custom, but only if it has a matching pdf
+      if(song.custom && !existing.custom) seen.set(key, song);
+    }
   });
 
   return Array.from(seen.values())
@@ -436,7 +438,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_LIBRARY_PDF_SOURCE_FIX_V2";
+const BUILD="AINOS_SERVICE_SYNC_RESCUE_V3";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -918,10 +920,15 @@ async function loadSharedSongs(){
   try{
     const api = await waitForFirebaseApi();
     if(api){
-      state.songs = await api.getSongs();
+      const songs = await api.getSongs();
+      state.songs = Array.isArray(songs) ? songs : [];
       attachSavedInkToSongs();
       render();
-      api.watchSongs((songs)=>{ state.songs=songs; attachSavedInkToSongs(); render(); });
+      api.watchSongs((songs)=>{ 
+        state.songs = Array.isArray(songs) ? songs : state.songs;
+        attachSavedInkToSongs(); 
+        render(); 
+      });
       return;
     }
 
@@ -939,6 +946,7 @@ async function loadSharedSongs(){
   }catch(e){
     console.error(e);
     toast("Song library 로드 실패");
+    state.songs = Array.isArray(state.songs) ? state.songs : [];
     render();
   }
 }
