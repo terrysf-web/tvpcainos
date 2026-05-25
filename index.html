@@ -271,33 +271,15 @@ async function getAllSongs(){
   const pdfMap = {};
   pdfSnap.docs.forEach(d=>{ pdfMap[String(d.id)] = d.data() || {}; });
 
-  const rows = all
+  return all
     .filter(s => pdfMap[String(s.id)])
     .map(s => ({
       id:String(s.id),
       title:s.title || s.name || "Untitled",
       key:s.key || "",
       pdf:s.pdf || pdfMap[String(s.id)]?.name || "",
-      firebasePdfId:String(s.id),
-      custom:!!s.custom
-    }));
-
-  const seen = new Map();
-  rows.forEach(song=>{
-    const titleKey = norm(song.title);
-    const pdfKey = norm(song.pdf);
-    const key = titleKey || pdfKey || String(song.id);
-
-    // If duplicated, prefer custom song over default song, otherwise keep first.
-    if(!seen.has(key)){
-      seen.set(key, song);
-    }else{
-      const existing = seen.get(key);
-      if(song.custom && !existing.custom) seen.set(key, song);
-    }
-  });
-
-  return Array.from(seen.values())
+      firebasePdfId:String(s.id)
+    }))
     .sort((a,b)=>(a.title||"").localeCompare(b.title||"", "ko"));
 }
 
@@ -360,49 +342,6 @@ window.TVPC_FB_READY = Promise.resolve({
     });
   },
 
-  async saveService(service){
-    await ensureAuth();
-    const id = service.id || ("svc_" + Date.now());
-    await setDoc(doc(db, "services", String(id)), {
-      id:String(id),
-      name:service.name || "Service",
-      date:service.date || "",
-      songs:service.songs || [],
-      updatedAt:Date.now()
-    }, {merge:true});
-    return id;
-  },
-
-  async deleteService(id){
-    await ensureAuth();
-    await setDoc(doc(db, "services", String(id)), {
-      deleted:true,
-      updatedAt:Date.now()
-    }, {merge:true});
-  },
-
-  async getServices(){
-    await ensureAuth();
-    const snap = await getDocs(collection(db, "services"));
-    return snap.docs
-      .map(d=>({id:d.id,...d.data()}))
-      .filter(s=>!s.deleted)
-      .sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-  },
-
-  watchServices(callback){
-    const refresh = async()=>{
-      try{ callback(await this.getServices()); }
-      catch(e){ console.warn("watchServices refresh failed", e); }
-    };
-    let unsub=null;
-    ensureAuth().then(()=>{
-      unsub = onSnapshot(collection(db, "services"), refresh, e=>console.warn(e));
-      refresh();
-    });
-    return ()=>{ if(unsub)unsub(); };
-  },
-
   async getPdfDataForSong(song){
     await ensureAuth();
     const candidates = [
@@ -438,7 +377,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_LIBRARY_DEDUPE_FIX_V1";
+const BUILD="AINOS_INK_POSITION_DUAL_FIXED_V2";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -536,7 +475,7 @@ async function initAuthUI(){
     state.user = user ? {uid:user.uid,email:user.email,displayName:user.displayName} : null;
 state.authReady=true;
 if(state.user){
-  Promise.all([loadSharedSongs(),loadSharedServices()]).catch(console.warn);
+  loadSharedSongs().catch(console.warn);
 }else{
   render();
 }
@@ -601,70 +540,17 @@ const $=s=>document.querySelector(s), app=$("#app");
 const state={
  tab:"service",
  songs:[],
- services:[],
- currentService:null,
+ services:JSON.parse(localStorage.getItem("ais_services")||"[]"),
+ currentService:localStorage.getItem("ais_current_service")||null,
  viewer:null,pdf:null,dual:false,dualPdf:null,dualSong:null,dualTotal:1,user:null,authReady:false,mode:"read",page:1,total:1,draw:false,pts:[],startX:0,startY:0,color:"#ef4444",width:3
 };
-/* services load from Firebase after login */
-function save(){if(state.currentService)localStorage.setItem("ais_current_service",state.currentService)}
+if(!state.services.length){const id="svc_"+Date.now();state.services=[{id,name:"Sunday Service",date:new Date().toISOString().slice(0,10),songs:[]}];state.currentService=id;save();}
+function save(){localStorage.setItem("ais_services",JSON.stringify(state.services));if(state.currentService)localStorage.setItem("ais_current_service",state.currentService)}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
 function esc(s){return(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 function toast(m){const old=$(".toast");if(old)old.remove();const t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),1700)}
 function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
-function currentSvc(){return state.services.find(s=>s.id===state.currentService)||state.services[0]||{id:"",name:"Service",date:"",songs:[]}}
-async function loadSharedServices(){
-  const api = await waitForFirebaseApi().catch(()=>null);
-  if(!api || !api.getServices){
-    if(!state.services.length){
-      const id="svc_"+Date.now();
-      state.services=[{id,name:"Sunday Service",date:new Date().toISOString().slice(0,10),songs:[]}];
-      state.currentService=id;
-    }
-    render();
-    return;
-  }
-
-  const services = await api.getServices();
-  state.services = services && services.length ? services : [];
-  if(!state.services.length){
-    const id="svc_"+Date.now();
-    const svc={id,name:"Sunday Service",date:new Date().toISOString().slice(0,10),songs:[]};
-    state.services=[svc];
-    state.currentService=id;
-    await api.saveService(svc).catch(console.warn);
-  }else{
-    const saved=localStorage.getItem("ais_current_service");
-    state.currentService = (saved && state.services.some(s=>s.id===saved)) ? saved : state.services[0].id;
-  }
-
-  if(!window.__tvpcServiceWatchStarted && api.watchServices){
-    window.__tvpcServiceWatchStarted=true;
-    api.watchServices((services)=>{
-      state.services = services && services.length ? services : state.services;
-      if(!state.currentService || !state.services.some(s=>s.id===state.currentService)){
-        state.currentService = state.services[0]?.id || null;
-      }
-      render();
-    });
-  }
-
-  render();
-}
-
-async function saveServiceToCloud(service){
-  const api = await waitForFirebaseApi().catch(()=>null);
-  if(api && api.saveService && service){
-    await api.saveService(service).catch(e=>console.warn("save service failed",e));
-  }
-}
-
-async function deleteServiceFromCloud(id){
-  const api = await waitForFirebaseApi().catch(()=>null);
-  if(api && api.deleteService && id){
-    await api.deleteService(id).catch(e=>console.warn("delete service failed",e));
-  }
-}
-
+function currentSvc(){return state.services.find(s=>s.id===state.currentService)||state.services[0]}
 function renderLoginGate(){
   app.innerHTML=`<div class="loginGate">
     <div class="loginCard">
@@ -688,17 +574,17 @@ if(!state.songs || !Array.isArray(state.songs)){
   return;
 }
 if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Service Open Fix</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><div style="display:flex;gap:8px;align-items:center"><button class="gray small" onclick="loginToggle()">${state.user?'👤':'Login'}</button><button class="primary" onclick="share()">Share</button></div></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
-function servicesHTML(){return `<div class="field"><label>Service Name</label><input value="${esc(currentSvc().name)}" onchange="currentSvc().name=this.value;save();saveServiceToCloud(currentSvc());render()"></div><div class="field"><label>Date</label><input type="date" value="${esc(currentSvc().date||"")}" onchange="currentSvc().date=this.value;save();saveServiceToCloud(currentSvc());render()"></div><div class="list">${state.services.map(s=>`<div class="row"><div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date||"")} · ${s.songs.length} songs</div></div><div class="actions"><button class="${s.id===state.currentService?'primary':'gray'} small" onclick="state.currentService='${s.id}';save();render()">Open</button><button class="red small" onclick="deleteService('${s.id}')">Delete</button></div></div>`).join("")}</div>`}
+function servicesHTML(){return `<div class="field"><label>Service Name</label><input value="${esc(currentSvc().name)}" onchange="currentSvc().name=this.value;save();render()"></div><div class="field"><label>Date</label><input type="date" value="${esc(currentSvc().date||"")}" onchange="currentSvc().date=this.value;save();render()"></div><div class="list">${state.services.map(s=>`<div class="row"><div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date||"")} · ${s.songs.length} songs</div></div><div class="actions"><button class="${s.id===state.currentService?'primary':'gray'} small" onclick="state.currentService='${s.id}';save();render()">Open</button><button class="red small" onclick="deleteService('${s.id}')">Delete</button></div></div>`).join("")}</div>`}
 function serviceHTML(){const svc=currentSvc();return `<div class="service-title">${esc(svc.name)}</div><div class="meta">${esc(svc.date||"")}</div><div class="list">${svc.songs.map((id,i)=>{const s=findSongByRef(id);return s?rowSong(s,true,i):`<div class="row"><div><div class="title">곡 연결 오류</div><div class="meta">${esc(id)}</div></div></div>`}).join("")||'<div class="empty">Library에서 곡을 추가하세요.</div>'}</div><button class="primary" onclick="startService()">Start Service</button>`}
 function libraryHTML(){return `<div class="field"><label>Title</label><input id="title" placeholder="곡 제목"></div><div class="field"><label>Key</label><select id="key">${["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"].map(k=>`<option>${k}</option>`).join("")}</select></div><div class="field"><label>PDF</label><input id="pdf" type="file" accept="application/pdf"></div><button class="blue" onclick="addSong()">Add Song</button><div class="list">${state.songs.map(s=>rowSong(s,false)).join("")||'<div class="empty">곡을 추가하세요.</div>'}</div>`}
 function rowSong(s,inSet,i=0){return `<div class="row"><div><div class="title">${esc(s.title)}</div><div class="meta">Key ${esc(s.key||"-")}</div></div><div class="actions">${inSet?`<button class="blue small" onclick="openViewer('${s.id}')">Open</button><button class="gray small" onclick="moveSong(${i},-1)">↑</button><button class="gray small" onclick="moveSong(${i},1)">↓</button><button class="red small" onclick="removeSong(${i})">Remove</button>`:`<button class="primary small" onclick="addToService('${s.id}')">Add</button><button class="gray small" onclick="openViewer('${s.id}')">Test</button><button class="red small" onclick="deleteSong('${s.id}')">Delete</button>`}</div></div>`}
-function newService(){const id=uid();const svc={id,name:"New Service",date:new Date().toISOString().slice(0,10),songs:[]};state.services.push(svc);state.currentService=id;save();saveServiceToCloud(svc);render()}
-function deleteService(id){if(state.services.length<=1)return toast("최소 1개 필요");if(!confirm("Service 삭제?"))return;state.services=state.services.filter(s=>s.id!==id);deleteServiceFromCloud(id);if(state.currentService===id)state.currentService=state.services[0].id;save();render()}
+function newService(){const id=uid();state.services.push({id,name:"New Service",date:new Date().toISOString().slice(0,10),songs:[]});state.currentService=id;save();render()}
+function deleteService(id){if(state.services.length<=1)return toast("최소 1개 필요");if(!confirm("Service 삭제?"))return;state.services=state.services.filter(s=>s.id!==id);if(state.currentService===id)state.currentService=state.services[0].id;save();render()}
 async function addSong(){const title=$("#title").value.trim(),key=$("#key").value,f=$("#pdf").files[0];if(!title||!f)return toast("Title/PDF 필요");const id=uid();await putFile(id,await fileData(f));state.songs.push({id,title,key,ink:{},zoom:1});save();render();toast("곡 추가됨")}
 function deleteSong(id){if(!confirm("곡 삭제?"))return;state.songs=state.songs.filter(s=>s.id!==id);state.services.forEach(s=>s.songs=s.songs.filter(x=>x!==id));save();render()}
-function addToService(id){currentSvc().songs.push(id);save();saveServiceToCloud(currentSvc());state.tab="service";render();toast("Service에 추가됨")}
-function removeSong(i){currentSvc().songs.splice(i,1);save();saveServiceToCloud(currentSvc());render()}
-function moveSong(i,d){const arr=currentSvc().songs,j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];save();saveServiceToCloud(currentSvc());render()}
+function addToService(id){currentSvc().songs.push(id);save();state.tab="service";render();toast("Service에 추가됨")}
+function removeSong(i){currentSvc().songs.splice(i,1);save();render()}
+function moveSong(i,d){const arr=currentSvc().songs,j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];save();render()}
 function startService(){if(!state.user)return renderLoginGate();
 const svc=currentSvc();
 if(!svc.songs.length)return toast("Setlist 없음");
