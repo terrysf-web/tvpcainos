@@ -342,6 +342,56 @@ window.TVPC_FB_READY = Promise.resolve({
     });
   },
 
+  async saveSongWithPdf({title,key,pdfFile}){
+    await ensureAuth();
+    if(!title || !pdfFile) throw new Error("Title/PDF 필요");
+
+    const cleanTitle = String(title).trim();
+    const id = "song_" + Date.now() + "_" + Math.random().toString(36).slice(2,8);
+
+    const dataUrl = await new Promise((resolve,reject)=>{
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error || new Error("PDF 읽기 실패"));
+      reader.readAsDataURL(pdfFile);
+    });
+
+    const chunkSize = 700 * 1024;
+    const chunks = [];
+    for(let i=0;i<dataUrl.length;i+=chunkSize){
+      chunks.push(dataUrl.slice(i,i+chunkSize));
+    }
+
+    await setDoc(doc(db,"customSongs",id),{
+      title:cleanTitle,
+      key:key || "",
+      custom:true,
+      createdAt:Date.now(),
+      updatedAt:Date.now()
+    });
+
+    await setDoc(doc(db,"pdfFiles",id),{
+      name:pdfFile.name || (cleanTitle + ".pdf"),
+      chunkCount:chunks.length,
+      type:"pdf",
+      title:cleanTitle,
+      uploadedAt:Date.now()
+    });
+
+    for(let i=0;i<chunks.length;i++){
+      await setDoc(doc(db,"pdfFiles",id,"chunks",String(i)),{data:chunks[i]});
+    }
+
+    return {
+      id,
+      title:cleanTitle,
+      key:key || "",
+      pdf:pdfFile.name || (cleanTitle + ".pdf"),
+      firebasePdfId:id,
+      custom:true
+    };
+  },
+
   async getPdfDataForSong(song){
     await ensureAuth();
     const candidates = [
@@ -377,7 +427,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_INK_POSITION_DUAL_FIXED_V2";
+const BUILD="AINOS_ADD_SONG_FIREBASE_UPLOAD_V1";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -580,7 +630,31 @@ function libraryHTML(){return `<div class="field"><label>Title</label><input id=
 function rowSong(s,inSet,i=0){return `<div class="row"><div><div class="title">${esc(s.title)}</div><div class="meta">Key ${esc(s.key||"-")}</div></div><div class="actions">${inSet?`<button class="blue small" onclick="openViewer('${s.id}')">Open</button><button class="gray small" onclick="moveSong(${i},-1)">↑</button><button class="gray small" onclick="moveSong(${i},1)">↓</button><button class="red small" onclick="removeSong(${i})">Remove</button>`:`<button class="primary small" onclick="addToService('${s.id}')">Add</button><button class="gray small" onclick="openViewer('${s.id}')">Test</button><button class="red small" onclick="deleteSong('${s.id}')">Delete</button>`}</div></div>`}
 function newService(){const id=uid();state.services.push({id,name:"New Service",date:new Date().toISOString().slice(0,10),songs:[]});state.currentService=id;save();render()}
 function deleteService(id){if(state.services.length<=1)return toast("최소 1개 필요");if(!confirm("Service 삭제?"))return;state.services=state.services.filter(s=>s.id!==id);if(state.currentService===id)state.currentService=state.services[0].id;save();render()}
-async function addSong(){const title=$("#title").value.trim(),key=$("#key").value,f=$("#pdf").files[0];if(!title||!f)return toast("Title/PDF 필요");const id=uid();await putFile(id,await fileData(f));state.songs.push({id,title,key,ink:{},zoom:1});save();render();toast("곡 추가됨")}
+async function addSong(){
+const title=$("#title").value.trim(),key=$("#key").value,f=$("#pdf").files[0];
+if(!title||!f)return toast("Title/PDF 필요");
+try{
+  toast("Firebase에 업로드 중...");
+  const api = await waitForFirebaseApi().catch(()=>null);
+  if(api && api.saveSongWithPdf){
+    const song = await api.saveSongWithPdf({title,key,pdfFile:f});
+    state.songs.push({...song,ink:{},zoom:1});
+    save();
+    render();
+    toast("곡/PDF Firebase 저장 완료");
+    return;
+  }
+  throw new Error("Firebase API 없음");
+}catch(e){
+  console.error(e);
+  toast("Firebase 저장 실패 - 로컬 저장");
+  const id=uid();
+  await putFile(id,await fileData(f));
+  state.songs.push({id,title,key,ink:{},zoom:1});
+  save();
+  render();
+}
+}
 function deleteSong(id){if(!confirm("곡 삭제?"))return;state.songs=state.songs.filter(s=>s.id!==id);state.services.forEach(s=>s.songs=s.songs.filter(x=>x!==id));save();render()}
 function addToService(id){currentSvc().songs.push(id);save();state.tab="service";render();toast("Service에 추가됨")}
 function removeSong(i){currentSvc().songs.splice(i,1);save();render()}
