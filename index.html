@@ -347,7 +347,9 @@ window.TVPC_FB_READY = Promise.resolve({
     if(!title || !pdfFile) throw new Error("Title/PDF 필요");
 
     const cleanTitle = String(title).trim();
+    const cleanKey = key || "";
     const id = "song_" + Date.now() + "_" + Math.random().toString(36).slice(2,8);
+    const user = auth.currentUser;
 
     const dataUrl = await new Promise((resolve,reject)=>{
       const reader = new FileReader();
@@ -362,21 +364,34 @@ window.TVPC_FB_READY = Promise.resolve({
       chunks.push(dataUrl.slice(i,i+chunkSize));
     }
 
+    // TVPC-worship compatible custom song document.
+    // It expects song metadata, even when the PDF is the main source.
     await setDoc(doc(db,"customSongs",id),{
       title:cleanTitle,
-      key:key || "",
+      name:cleanTitle,
+      artist:"",
+      key:cleanKey,
+      ki:0,
+      bpm:"",
+      ts:"4/4",
+      sections:[],
       custom:true,
+      createdBy:user ? user.uid : "",
       createdAt:Date.now(),
       updatedAt:Date.now()
-    });
+    }, {merge:true});
 
+    // TVPC-worship compatible pdfFiles document.
+    // Existing TVPC-worship stores PDF chunks under pdfFiles/{songId}/chunks/{index}.
     await setDoc(doc(db,"pdfFiles",id),{
       name:pdfFile.name || (cleanTitle + ".pdf"),
       chunkCount:chunks.length,
       type:"pdf",
       title:cleanTitle,
-      uploadedAt:Date.now()
-    });
+      uploadedBy:user ? user.uid : "",
+      uploadedAt:Date.now(),
+      updatedAt:Date.now()
+    }, {merge:true});
 
     for(let i=0;i<chunks.length;i++){
       await setDoc(doc(db,"pdfFiles",id,"chunks",String(i)),{data:chunks[i]});
@@ -385,13 +400,17 @@ window.TVPC_FB_READY = Promise.resolve({
     return {
       id,
       title:cleanTitle,
-      key:key || "",
+      name:cleanTitle,
+      key:cleanKey,
+      artist:"",
+      sections:[],
       pdf:pdfFile.name || (cleanTitle + ".pdf"),
       firebasePdfId:id,
-      custom:true
+      custom:true,
+      ink:{},
+      zoom:1
     };
   },
-
   async getPdfDataForSong(song){
     await ensureAuth();
     const candidates = [
@@ -427,7 +446,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_ADD_SONG_FIREBASE_UPLOAD_V1";
+const BUILD="AINOS_DUAL_LAST_PAGE_FIX_V1";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -684,10 +703,10 @@ preloadNextPdf(id);
 }
 function closeViewer(){save();state.viewer=null;state.pdf=null;state.dualPdf=null;state.dualSong=null;render()}
 function currentSong(){return state.viewer?findSongByRef(state.viewer.id):null}
-function renderViewer(){const s=currentSong(), svc=currentSvc(), svcIds=svc.songs.map(x=>{const ss=findSongByRef(x);return ss?ss.id:x}), idx=svcIds.indexOf(s.id);app.innerHTML=`<div class="viewer ${state.mode} ${state.dual?'dual':''}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}Page ${state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><div style="display:flex;align-items:center;gap:8px">
+function renderViewer(){const s=currentSong(), svc=currentSvc(), svcIds=svc.songs.map(x=>{const ss=findSongByRef(x);return ss?ss.id:x}), idx=svcIds.indexOf(s.id);app.innerHTML=`<div class="viewer ${state.mode} ${(state.dual&&state.dualPdf)?'dual':''}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}Page ${state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><div style="display:flex;align-items:center;gap:8px">
 <button class="${state.mode==='write'?'primary':'gold'}" onclick="toggleMode()">${state.mode==='write'?'WRITE ON':'READ'}</button>
 <span style="color:white;font-size:12px;font-weight:700;opacity:.85;white-space:nowrap;">${state.mode==='write'?'필기만 가능 / 이동 잠김':'Swipe 가능'}</span>
-</div><button class="${state.dual?'primary':'gray'}" onclick="toggleDual()">DUAL</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="sheet" id="sheet"><canvas id="pdfCanvas"></canvas><div class="write-lock" id="writeLock"></div><canvas id="inkCanvas"></canvas></div>${state.dual?`<div class="dualSheet" id="dualSheet"><canvas id="dualPdfCanvas"></canvas><canvas id="dualInkCanvas"></canvas><div class="dualLabel">${state.dualSong?esc(state.dualSong.title):'악보 없음'}</div></div>`:''}</div><div class="vbottom"><button onclick="prev()">◀ PREV</button><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="next()" class="primary">NEXT ▶</button><button onclick="toggleDual()" class="${state.dual?'primary':'gray'}">${state.dual?'Dual ON':'Dual'}</button></div></div>`;setTimeout(()=>drawAll(),0)}
+</div><button class="${state.dual?'primary':'gray'}" onclick="toggleDual()">DUAL</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="sheet" id="sheet"><canvas id="pdfCanvas"></canvas><div class="write-lock" id="writeLock"></div><canvas id="inkCanvas"></canvas></div>${(state.dual&&state.dualPdf)?`<div class="dualSheet" id="dualSheet"><canvas id="dualPdfCanvas"></canvas><canvas id="dualInkCanvas"></canvas><div class="dualLabel">${state.dualSong?esc(state.dualSong.title):'악보 없음'}</div></div>`:''}</div><div class="vbottom"><button onclick="prev()">◀ PREV</button><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="next()" class="primary">NEXT ▶</button><button onclick="toggleDual()" class="${state.dual?'primary':'gray'}">${state.dual?'Dual ON':'Dual'}</button></div></div>`;setTimeout(()=>drawAll(),0)}
 async function prepareDual(){
   state.dualPdf=null;
   state.dualSong=null;
@@ -695,16 +714,14 @@ async function prepareDual(){
   if(!state.dual || !state.viewer) return;
 
   // Dual rule:
-  // 1) If there is a next song in the service, show next song on the right.
-  // 2) If there is no next song, show the same current song on the right.
+  // Right side shows ONLY the next song.
+  // If this is the last song, stay single-page on the left.
   const nextSong=getNextSongForDual(state.viewer.id);
-  const current=findSongByRef(state.viewer.id);
-  const targetSong=nextSong || current;
-  if(!targetSong) return;
+  if(!nextSong) return;
 
   try{
-    state.dualSong=targetSong;
-    state.dualPdf=await loadPdfDocForSong(targetSong);
+    state.dualSong=nextSong;
+    state.dualPdf=await loadPdfDocForSong(nextSong);
     state.dualTotal=state.dualPdf.numPages;
   }catch(e){
     console.warn("Dual PDF load failed", e);
@@ -779,8 +796,9 @@ async function toggleDual(){
 
 async function drawAll(){if(!state.pdf||!state.viewer)return;await drawPdf();setupInk();loadInk();setupWriteLock();await drawDualPdf()}
 async function drawPdf(){const page=await state.pdf.getPage(state.page),stage=$("#stage"),pdf=$("#pdfCanvas"),ink=$("#inkCanvas"),sheet=$("#sheet"),lock=$("#writeLock");if(!stage||!pdf||!ink)return;const base=page.getViewport({scale:1});
-const targetW=state.dual?Math.max(200,(stage.clientWidth-24)/2):stage.clientWidth;
-const targetH=state.dual?Math.max(200,stage.clientHeight-16):stage.clientHeight;
+const hasRightPanel=state.dual&&state.dualPdf;
+const targetW=hasRightPanel?Math.max(200,(stage.clientWidth-24)/2):stage.clientWidth;
+const targetH=hasRightPanel?Math.max(200,stage.clientHeight-16):stage.clientHeight;
 const fit=Math.min(targetW/base.width,targetH/base.height)*(currentSong().zoom||1);
 const vp=page.getViewport({scale:fit});const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});if(lock){lock.style.width=Math.round(vp.width)+"px";lock.style.height=Math.round(vp.height)+"px"}const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await page.render({canvasContext:ctx,viewport:vp}).promise}
 function blockEvent(e){if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{};try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch{};return false}}
