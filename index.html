@@ -446,7 +446,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_DUAL_LAST_PAGE_FIX_V1";
+const BUILD="AINOS_DUAL_LAST_SONG_HARD_FIX_V2";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -484,6 +484,15 @@ async function loadPdfDocForSong(song){
 
   if(cacheKey) PDF_DOC_CACHE.set(cacheKey, pdfDoc);
   return pdfDoc;
+}
+
+function hasRealNextSong(currentId){
+  const next = getNextSongForDual(currentId);
+  return !!(next && String(next.id) !== String(currentId));
+}
+
+function dualIsActive(){
+  return !!(state.dual && state.viewer && state.dualPdf && state.dualSong && hasRealNextSong(state.viewer.id));
 }
 
 function getNextSongForDual(currentId){
@@ -703,33 +712,38 @@ preloadNextPdf(id);
 }
 function closeViewer(){save();state.viewer=null;state.pdf=null;state.dualPdf=null;state.dualSong=null;render()}
 function currentSong(){return state.viewer?findSongByRef(state.viewer.id):null}
-function renderViewer(){const s=currentSong(), svc=currentSvc(), svcIds=svc.songs.map(x=>{const ss=findSongByRef(x);return ss?ss.id:x}), idx=svcIds.indexOf(s.id);app.innerHTML=`<div class="viewer ${state.mode} ${(state.dual&&state.dualPdf)?'dual':''}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}Page ${state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><div style="display:flex;align-items:center;gap:8px">
+function renderViewer(){const s=currentSong(), svc=currentSvc(), svcIds=svc.songs.map(x=>{const ss=findSongByRef(x);return ss?ss.id:x}), idx=svcIds.indexOf(s.id);app.innerHTML=`<div class="viewer ${state.mode} ${dualIsActive()?\'dual\':\'\'}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}Page ${state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><div style="display:flex;align-items:center;gap:8px">
 <button class="${state.mode==='write'?'primary':'gold'}" onclick="toggleMode()">${state.mode==='write'?'WRITE ON':'READ'}</button>
 <span style="color:white;font-size:12px;font-weight:700;opacity:.85;white-space:nowrap;">${state.mode==='write'?'필기만 가능 / 이동 잠김':'Swipe 가능'}</span>
-</div><button class="${state.dual?'primary':'gray'}" onclick="toggleDual()">DUAL</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="sheet" id="sheet"><canvas id="pdfCanvas"></canvas><div class="write-lock" id="writeLock"></div><canvas id="inkCanvas"></canvas></div>${(state.dual&&state.dualPdf)?`<div class="dualSheet" id="dualSheet"><canvas id="dualPdfCanvas"></canvas><canvas id="dualInkCanvas"></canvas><div class="dualLabel">${state.dualSong?esc(state.dualSong.title):'악보 없음'}</div></div>`:''}</div><div class="vbottom"><button onclick="prev()">◀ PREV</button><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="next()" class="primary">NEXT ▶</button><button onclick="toggleDual()" class="${state.dual?'primary':'gray'}">${state.dual?'Dual ON':'Dual'}</button></div></div>`;setTimeout(()=>drawAll(),0)}
+</div><button class="${state.dual?'primary':'gray'}" onclick="toggleDual()">DUAL</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="sheet" id="sheet"><canvas id="pdfCanvas"></canvas><div class="write-lock" id="writeLock"></div><canvas id="inkCanvas"></canvas></div>${dualIsActive()?`<div class="dualSheet" id="dualSheet"><canvas id="dualPdfCanvas"></canvas><canvas id="dualInkCanvas"></canvas><div class="dualLabel">${state.dualSong?esc(state.dualSong.title):'악보 없음'}</div></div>`:''}</div><div class="vbottom"><button onclick="prev()">◀ PREV</button><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="next()" class="primary">NEXT ▶</button><button onclick="toggleDual()" class="${state.dual?'primary':'gray'}">${state.dual?'Dual ON':'Dual'}</button></div></div>`;setTimeout(()=>drawAll(),0)}
 async function prepareDual(){
   state.dualPdf=null;
   state.dualSong=null;
   state.dualTotal=1;
   if(!state.dual || !state.viewer) return;
 
-  // Dual rule:
-  // Right side shows ONLY the next song.
-  // If this is the last song, stay single-page on the left.
   const nextSong=getNextSongForDual(state.viewer.id);
-  if(!nextSong) return;
+
+  // HARD RULE:
+  // Dual right panel must show ONLY a different next song.
+  // If current song is the last song, right panel stays hidden.
+  if(!nextSong || String(nextSong.id)===String(state.viewer.id)){
+    return;
+  }
 
   try{
     state.dualSong=nextSong;
     state.dualPdf=await loadPdfDocForSong(nextSong);
     state.dualTotal=state.dualPdf.numPages;
   }catch(e){
+    state.dualPdf=null;
+    state.dualSong=null;
     console.warn("Dual PDF load failed", e);
   }
 }
 
 async function drawDualPdf(){
-  if(!state.dual || !state.dualPdf) return;
+  if(!dualIsActive()) return;
   const dualPage = (state.dualSong && state.dualSong.id===state.viewer.id) ? state.page : 1;
   const page=await state.dualPdf.getPage(Math.min(dualPage,state.dualTotal||1));
   const stage=$("#stage"),canvas=$("#dualPdfCanvas"),ink=$("#dualInkCanvas"),sheet=$("#dualSheet");
@@ -791,12 +805,13 @@ async function toggleDual(){
   if(state.mode==="write") return toast("Write Mode에서는 Dual 변경 잠김");
   state.dual=!state.dual;
   await prepareDual();
+  if(state.dual && state.viewer && !dualIsActive()) toast("마지막 곡입니다 - 오른쪽 악보 없음");
   renderViewer();
 }
 
 async function drawAll(){if(!state.pdf||!state.viewer)return;await drawPdf();setupInk();loadInk();setupWriteLock();await drawDualPdf()}
 async function drawPdf(){const page=await state.pdf.getPage(state.page),stage=$("#stage"),pdf=$("#pdfCanvas"),ink=$("#inkCanvas"),sheet=$("#sheet"),lock=$("#writeLock");if(!stage||!pdf||!ink)return;const base=page.getViewport({scale:1});
-const hasRightPanel=state.dual&&state.dualPdf;
+const hasRightPanel=dualIsActive();
 const targetW=hasRightPanel?Math.max(200,(stage.clientWidth-24)/2):stage.clientWidth;
 const targetH=hasRightPanel?Math.max(200,stage.clientHeight-16):stage.clientHeight;
 const fit=Math.min(targetW/base.width,targetH/base.height)*(currentSong().zoom||1);
