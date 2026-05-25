@@ -168,6 +168,72 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
   padding:14px 16px;
 }
 
+
+.loginGate{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  background:linear-gradient(180deg,#f8fafc 0%,#eef2f7 100%);
+  color:#0f172a;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+}
+.loginCard{
+  width:min(460px,92vw);
+  background:transparent;
+  border:none;
+  box-shadow:none;
+  text-align:center;
+  padding:28px;
+}
+.loginLogo{
+  width:96px;
+  height:96px;
+  margin:0 auto 24px;
+  border-radius:26px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:linear-gradient(135deg,#20d6c8,#0f9f8e);
+  color:white;
+  font-size:48px;
+  box-shadow:0 18px 40px rgba(15,159,142,.28);
+}
+.loginCard h1{margin:0 0 12px;font-size:40px;font-weight:900;letter-spacing:-1px;color:#111827}
+.loginCard p{margin:0 0 26px;color:#94a3b8;font-size:21px;font-weight:600}
+.loginCard button{
+  width:100%;
+  max-width:430px;
+  border-radius:18px;
+  background:white;
+  color:#111827;
+  border:1px solid rgba(15,23,42,.06);
+  box-shadow:0 12px 30px rgba(15,23,42,.10);
+  font-weight:800;
+  padding:17px 18px;
+  font-size:20px;
+}
+.loginSub{
+  margin-top:24px!important;
+  color:#cbd5e1!important;
+  font-size:18px!important;
+  font-weight:600!important;
+}
+.loginError{
+  margin:18px auto 0!important;
+  max-width:430px;
+  color:#b91c1c!important;
+  background:#fee2e2;
+  border:1px solid #fecaca;
+  border-radius:14px;
+  padding:12px;
+  font-size:13px!important;
+  line-height:1.4;
+}
+
 </style>
 </head>
 <body>
@@ -183,7 +249,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, setPersistence, browserLocalPersistence, signInAnonymously, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, setPersistence, browserLocalPersistence, signInAnonymously, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAzXyQA-BbL_0KsTnukODBfMBkIZINxiNM",
@@ -198,12 +264,6 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence).catch(e=>console.warn("Auth persistence failed", e));
-getRedirectResult(auth).then(result=>{
-  if(result && result.user) console.log("Google redirect login success", result.user.email);
-}).catch(e=>{
-  console.error("Google redirect result error", e);
-  window.__TVPC_LOGIN_ERROR = e.message || String(e);
-});
 
 async function ensureAuth(){
   if(auth.currentUser) return auth.currentUser;
@@ -311,7 +371,7 @@ window.TVPC_FB_READY = Promise.resolve({
   async login(){
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
-    return await signInWithRedirect(auth, provider);
+    return await signInWithPopup(auth, provider);
   },
 
   async logout(){
@@ -420,7 +480,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_LOGIN_REDIRECT_FIX_V3";
+const BUILD="AINOS_LOGIN_POPUP_DESIGN_FIX_V4";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -539,8 +599,9 @@ async function loginToggle(){
       toast("로그아웃됨");
       render();
     }else{
-      toast("Google 로그인으로 이동합니다");
+      window.__TVPC_LOGIN_ERROR = "";
       await api.login();
+      toast("로그인됨");
     }
   }catch(e){
     console.error(e);
@@ -663,12 +724,14 @@ async function saveServiceToCloud(service){
 }
 
 function renderLoginGate(){
-  const err = window.__TVPC_LOGIN_ERROR ? `<p style="color:#fecaca;margin-top:10px;font-size:12px">${esc(window.__TVPC_LOGIN_ERROR)}</p>` : "";
+  const err = window.__TVPC_LOGIN_ERROR ? `<p class="loginError">${esc(window.__TVPC_LOGIN_ERROR)}</p>` : "";
   app.innerHTML=`<div class="loginGate">
     <div class="loginCard">
-      <h1>TVPC Ainos</h1>
-      <p>서비스와 악보를 보려면 Google 로그인이 필요합니다.</p>
-      <button onclick="loginToggle()">Google로 로그인</button>
+      <div class="loginLogo">♫</div>
+      <h1>WorshipCharts</h1>
+      <p>TVPC Worship Team</p>
+      <button onclick="loginToggle()">G&nbsp;&nbsp; Google로 로그인</button>
+      <p class="loginSub">TVPC 워십팀 멤버만 접속 가능합니다</p>
       ${err}
     </div>
   </div>`;
