@@ -183,7 +183,7 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, setPersistence, browserLocalPersistence, signInAnonymously, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAzXyQA-BbL_0KsTnukODBfMBkIZINxiNM",
@@ -197,6 +197,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+setPersistence(auth, browserLocalPersistence).catch(e=>console.warn("Auth persistence failed", e));
+getRedirectResult(auth).then(result=>{
+  if(result && result.user) console.log("Google redirect login success", result.user.email);
+}).catch(e=>{
+  console.error("Google redirect result error", e);
+  window.__TVPC_LOGIN_ERROR = e.message || String(e);
+});
 
 async function ensureAuth(){
   if(auth.currentUser) return auth.currentUser;
@@ -303,7 +310,8 @@ window.TVPC_FB_READY = Promise.resolve({
 
   async login(){
     const provider = new GoogleAuthProvider();
-    return await signInWithPopup(auth, provider);
+    provider.setCustomParameters({ prompt: "select_account" });
+    return await signInWithRedirect(auth, provider);
   },
 
   async logout(){
@@ -412,7 +420,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_SERVICE_SYNC_SAFE_V2";
+const BUILD="AINOS_LOGIN_REDIRECT_FIX_V3";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -507,7 +515,7 @@ async function initAuthUI(){
   const api = await waitForFirebaseApi().catch(()=>null);
   if(!api || !api.onUser){state.authReady=true;render();return;}
   api.onUser(user=>{
-    state.user = user ? {uid:user.uid,email:user.email,displayName:user.displayName} : null;
+    state.user = (user && !user.isAnonymous) ? {uid:user.uid,email:user.email,displayName:user.displayName} : null;
 state.authReady=true;
 if(state.user){
   loadSharedSongs().catch(console.warn); loadSharedServicesSafe().catch(console.warn);
@@ -525,12 +533,19 @@ if(state.user){
 async function loginToggle(){
   const api = await waitForFirebaseApi().catch(()=>null);
   if(!api) return toast("Firebase 준비 안됨");
-  if(api.getUser && api.getUser()){
-    await api.logout();
-    toast("로그아웃됨");
-  }else{
-    await api.login();
-    toast("로그인됨");
+  try{
+    if(api.getUser && api.getUser() && !api.getUser().isAnonymous){
+      await api.logout();
+      toast("로그아웃됨");
+      render();
+    }else{
+      toast("Google 로그인으로 이동합니다");
+      await api.login();
+    }
+  }catch(e){
+    console.error(e);
+    window.__TVPC_LOGIN_ERROR = e.message || String(e);
+    renderLoginGate();
   }
 }
 
@@ -648,11 +663,13 @@ async function saveServiceToCloud(service){
 }
 
 function renderLoginGate(){
+  const err = window.__TVPC_LOGIN_ERROR ? `<p style="color:#fecaca;margin-top:10px;font-size:12px">${esc(window.__TVPC_LOGIN_ERROR)}</p>` : "";
   app.innerHTML=`<div class="loginGate">
     <div class="loginCard">
       <h1>TVPC Ainos</h1>
-      <p>서비스와 악보를 보려면 로그인하세요.</p>
+      <p>서비스와 악보를 보려면 Google 로그인이 필요합니다.</p>
       <button onclick="loginToggle()">Google로 로그인</button>
+      ${err}
     </div>
   </div>`;
 }
