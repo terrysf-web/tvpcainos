@@ -171,7 +171,14 @@ button.small{font-size:12px;padding:8px 10px;border-radius:10px}
 </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app">
+  <div class="loginGate">
+    <div class="loginCard">
+      <h1>TVPC Ainos</h1>
+      <p>로그인 확인 중...</p>
+    </div>
+  </div>
+</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -370,7 +377,7 @@ window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebas
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-const BUILD="AINOS_LOGIN_REQUIRED_V2_LIBRARY_FIX";
+const BUILD="AINOS_LOGIN_UX_CLEAN_V1";
 const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
 const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
 function pdfUrlFor(song){
@@ -467,7 +474,11 @@ async function initAuthUI(){
   api.onUser(user=>{
     state.user = user ? {uid:user.uid,email:user.email,displayName:user.displayName} : null;
 state.authReady=true;
-loadSharedSongs().catch(console.warn);
+if(state.user){
+  loadSharedSongs().catch(console.warn);
+}else{
+  render();
+}
     if(state.viewer){
       loadCloudInkForCurrentSong().then(()=>renderViewer()).catch(()=>renderViewer());
     }else{
@@ -544,7 +555,7 @@ function renderLoginGate(){
   app.innerHTML=`<div class="loginGate">
     <div class="loginCard">
       <h1>TVPC Ainos</h1>
-      <p>서비스와 악보를 보려면 Google 로그인이 필요합니다.</p>
+      <p>서비스와 악보를 보려면 로그인하세요.</p>
       <button onclick="loginToggle()">Google로 로그인</button>
     </div>
   </div>`;
@@ -771,7 +782,6 @@ async function loadSharedSongs(){
   }
 }
 
-loadSharedSongs();
 initAuthUI();
 </script>
 
