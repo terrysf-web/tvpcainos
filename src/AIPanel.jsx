@@ -14,7 +14,7 @@ const KEY_CLR = {
 };
 const keyColor = (k) => KEY_CLR[k ? k[0].toUpperCase() : "C"] || C.acc;
 
-const MODEL = "gemini-1.5-flash";
+const MODEL = "gemini-2.0-flash";
 
 function parseYtId(url) {
   const s = (url || "").trim();
