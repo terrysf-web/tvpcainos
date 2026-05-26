@@ -1211,8 +1211,19 @@ function AddMemberModal({ onClose }) {
 /* ══════════════════════════════════════════════════════════════════
    PROFILE SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function ProfileScreen({ user, onLogout }) {
-  const [showAdd, setShowAdd] = useState(false);
+function ProfileScreen({ user, onLogout, onRoleUpdate }) {
+  const [showAdd,    setShowAdd]    = useState(false);
+  const [claiming,   setClaiming]   = useState(false);
+
+  const claimLeader = async () => {
+    setClaiming(true);
+    try {
+      await updateDoc(doc(db, "users", user.uid), { role: "leader" });
+      onRoleUpdate();
+    } catch {
+      setClaiming(false);
+    }
+  };
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, padding:20, paddingBottom:90 }}>
@@ -1239,6 +1250,21 @@ function ProfileScreen({ user, onLogout }) {
           </div>
         </div>
       </div>
+
+      {/* 리더 권한 설정 (멤버에게만 표시) */}
+      {user.role !== "leader" && (
+        <div style={{
+          background:`${C.acc}11`, border:`1px solid ${C.acc}44`,
+          borderRadius:14, padding:16, marginBottom:12,
+        }}>
+          <div style={{ fontWeight:700, fontSize:14, marginBottom:6 }}>리더 권한 설정</div>
+          <div style={{ fontSize:13, color:C.dim, marginBottom:12 }}>
+            예배 일정 생성·관리, 악보 업로드, 팀원 관리 기능이 활성화됩니다.
+          </div>
+          <Btn label={claiming ? "설정 중..." : "이 계정을 리더로 설정"} icon="plus"
+            onClick={claimLeader} disabled={claiming} full />
+        </div>
+      )}
 
       {/* 팀 관리 (리더만) */}
       {user.role === "leader" && (
@@ -1568,7 +1594,8 @@ export default function App() {
         />
       )}
       {view === "profile" && (
-        <ProfileScreen user={user} onLogout={() => signOut(auth)} />
+        <ProfileScreen user={user} onLogout={() => signOut(auth)}
+          onRoleUpdate={() => setUser(u => ({ ...u, role: "leader" }))} />
       )}
 
       {view !== "pdfViewer" && (
