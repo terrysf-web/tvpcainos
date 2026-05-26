@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { auth, db, storage, FIREBASE_API_KEY } from "./firebase.js";
+import { useState, useEffect } from "react";
+import { auth, db, FIREBASE_API_KEY } from "./firebase.js";
 import AIPanel from "./AIPanel.jsx";
 import {
   signInWithEmailAndPassword,
@@ -14,7 +14,6 @@ import {
   collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc,
   query, orderBy, where, getDoc, getDocs, setDoc, serverTimestamp, arrayUnion, limit,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 /* ══════════════════════════════════════════════════════════════════
    THEME
@@ -37,6 +36,15 @@ const KEY_CLR = {
   G:"#60e0a0", A:"#e8a93e", B:"#7b6af5",
 };
 const keyColor = (k) => KEY_CLR[k ? k[0].toUpperCase() : "C"] || C.acc;
+
+function parseDriveUrl(input) {
+  const s = (input || "").trim();
+  const m = s.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+            s.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  const id = m ? m[1] : (/^[a-zA-Z0-9_-]{25,}$/.test(s) ? s : null);
+  if (!id) return null;
+  return `https://drive.google.com/file/d/${id}/preview`;
+}
 
 const fmtTime = (ts) => {
   if (!ts?.toDate) return "방금";
@@ -364,32 +372,29 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
    ADD SONG MODAL
 ══════════════════════════════════════════════════════════════════ */
 function AddSongModal({ onClose, onAdd }) {
-  const [title,   setTitle]   = useState("");
-  const [artist,  setArtist]  = useState("");
-  const [key,     setKey]     = useState("C");
-  const [bpm,     setBpm]     = useState("80");
-  const [pdfFile, setPdfFile] = useState(null);
-  const [saving,  setSaving]  = useState(false);
-  const fileRef = useRef(null);
+  const [title,    setTitle]    = useState("");
+  const [artist,   setArtist]   = useState("");
+  const [key,      setKey]      = useState("C");
+  const [bpm,      setBpm]      = useState("80");
+  const [driveUrl, setDriveUrl] = useState("");
+  const [urlErr,   setUrlErr]   = useState("");
+  const [saving,   setSaving]   = useState(false);
   const KEYS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
   const handleAdd = async () => {
     if (!title) return;
     setSaving(true);
     try {
-      const songData = { title, artist, key, bpm: Number(bpm) || 80 };
-      // PDF 파일이 있으면 먼저 곡을 만들고 업로드
-      if (pdfFile) {
-        const docRef = await onAdd(songData);
-        if (docRef?.id) {
-          const storageRef = ref(storage, `pdfs/${docRef.id}.pdf`);
-          await uploadBytes(storageRef, pdfFile);
-          const url = await getDownloadURL(storageRef);
-          await updateDoc(doc(db, "songs", docRef.id), { pdfUrl: url });
+      let pdfUrl = null;
+      if (driveUrl.trim()) {
+        pdfUrl = parseDriveUrl(driveUrl);
+        if (!pdfUrl) {
+          setUrlErr("올바른 Google Drive URL을 입력하세요.");
+          setSaving(false);
+          return;
         }
-      } else {
-        await onAdd(songData);
       }
+      await onAdd({ title, artist, key, bpm: Number(bpm) || 80, pdfUrl });
       onClose();
     } catch(e) {
       console.error(e);
@@ -422,39 +427,28 @@ function AddSongModal({ onClose, onAdd }) {
 
       <Input label="BPM" value={bpm} onChange={setBpm} type="number" placeholder="80" />
 
-      {/* PDF 업로드 */}
+      {/* Google Drive 링크 */}
       <div style={{ marginBottom:16 }}>
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
-          textTransform:"uppercase", marginBottom:8 }}>악보 PDF (선택)</div>
-        <input ref={fileRef} type="file" accept="application/pdf"
-          style={{ display:"none" }}
-          onChange={e => setPdfFile(e.target.files[0] || null)} />
-        <button onClick={() => fileRef.current.click()} style={{
-          width:"100%", padding:"14px", borderRadius:12, cursor:"pointer",
-          border:`2px dashed ${pdfFile ? C.grn : C.bdr}`,
-          background: pdfFile ? `${C.grn}10` : C.card,
-          fontFamily:"inherit", fontSize:14, fontWeight:600,
-          color: pdfFile ? C.grn : C.dim,
-          display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-        }}>
-          <Icon n="upload" size={18} color={pdfFile ? C.grn : C.dim} />
-          {pdfFile ? `📄 ${pdfFile.name}` : "PDF 파일 선택하기"}
-        </button>
-        {pdfFile && (
-          <button onClick={() => setPdfFile(null)} style={{
-            background:"none", border:"none", cursor:"pointer",
-            fontSize:12, color:C.dim, marginTop:4, padding:0,
-          }}>✕ 파일 제거</button>
-        )}
+          textTransform:"uppercase", marginBottom:8 }}>악보 PDF — Google Drive 링크 (선택)</div>
+        <input
+          value={driveUrl}
+          onChange={e => { setDriveUrl(e.target.value); setUrlErr(""); }}
+          placeholder="https://drive.google.com/file/d/..."
+          style={{
+            width:"100%", background:C.card,
+            border:`1.5px solid ${urlErr ? C.red : C.bdr}`,
+            color:C.txt, padding:"10px 14px", borderRadius:10,
+            fontSize:13, outline:"none", fontFamily:"inherit",
+          }}
+        />
+        {urlErr && <div style={{ fontSize:11, color:C.red, marginTop:4 }}>{urlErr}</div>}
+        <div style={{ fontSize:11, color:C.dim, marginTop:6, lineHeight:1.6 }}>
+          Drive에서 PDF 공유 → "링크가 있는 모든 사용자" 설정 후 링크 붙여넣기
+        </div>
       </div>
 
-      {saving && (
-        <div style={{ fontSize:12, color:C.dim, marginBottom:12, textAlign:"center" }}>
-          {pdfFile ? "📤 PDF 업로드 중..." : "저장 중..."}
-        </div>
-      )}
-
-      <Btn label={saving ? "처리 중..." : "추가하기"}
+      <Btn label={saving ? "추가 중..." : "추가하기"}
         icon="plus" onClick={handleAdd} full disabled={saving || !title} />
     </Modal>
   );
@@ -811,28 +805,22 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
    SONG LIBRARY SCREEN
 ══════════════════════════════════════════════════════════════════ */
 function SongLibraryScreen({ user, songs, addSong, nav }) {
-  const [query,     setQuery]     = useState("");
-  const [showAdd,   setShowAdd]   = useState(false);
-  const [uploading, setUploading] = useState(null);
+  const [query,       setQuery]       = useState("");
+  const [showAdd,     setShowAdd]     = useState(false);
+  const [editDriveId, setEditDriveId] = useState(null);
+  const [driveInput,  setDriveInput]  = useState("");
+  const [driveErr,    setDriveErr]    = useState("");
 
   const filtered = songs.filter(s =>
     s.title.toLowerCase().includes(query.toLowerCase()) ||
     (s.artist || "").toLowerCase().includes(query.toLowerCase())
   );
 
-  const handlePdfUpload = async (file, songId) => {
-    if (!file || file.type !== "application/pdf") return;
-    setUploading(songId);
-    try {
-      const storageRef = ref(storage, `pdfs/${songId}.pdf`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      await updateDoc(doc(db, "songs", songId), { pdfUrl: url });
-    } catch (e) {
-      console.error("PDF upload failed:", e);
-    } finally {
-      setUploading(null);
-    }
+  const saveDriveUrl = async () => {
+    const url = driveInput.trim() ? parseDriveUrl(driveInput) : null;
+    if (driveInput.trim() && !url) { setDriveErr("올바른 Google Drive URL을 입력하세요."); return; }
+    await updateDoc(doc(db, "songs", editDriveId), { pdfUrl: url });
+    setEditDriveId(null);
   };
 
   return (
@@ -895,30 +883,17 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
             </div>
 
             {user.role === "leader" && (
-              <div style={{ flexShrink:0 }}>
-                {uploading === song.id ? (
-                  <div style={{ fontSize:11, color:C.acc, padding:"0 6px" }}>업로드 중...</div>
-                ) : (
-                  <>
-                    <input type="file" accept=".pdf" style={{ display:"none" }}
-                      id={`up-${song.id}`}
-                      onChange={e => {
-                        handlePdfUpload(e.target.files[0], song.id);
-                        e.target.value = "";
-                      }} />
-                    <label htmlFor={`up-${song.id}`}
-                      title={song.pdfUrl ? "PDF 다시 업로드" : "PDF 업로드"}
-                      style={{
-                        display:"flex", alignItems:"center", justifyContent:"center",
-                        width:36, height:36, borderRadius:9, cursor:"pointer",
-                        background: song.pdfUrl ? `${C.grn}22` : C.surf,
-                        border:`1px solid ${song.pdfUrl ? C.grn : C.bdr}`,
-                      }}>
-                      <Icon n="upload" size={15} color={song.pdfUrl ? C.grn : C.dim} />
-                    </label>
-                  </>
-                )}
-              </div>
+              <button
+                onClick={() => { setEditDriveId(song.id); setDriveInput(song.pdfUrl || ""); setDriveErr(""); }}
+                title={song.pdfUrl ? "Drive 링크 변경" : "Drive 링크 추가"}
+                style={{
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  width:36, height:36, borderRadius:9, cursor:"pointer", flexShrink:0,
+                  background: song.pdfUrl ? `${C.grn}22` : C.surf,
+                  border:`1px solid ${song.pdfUrl ? C.grn : C.bdr}`,
+                }}>
+                <Icon n="note" size={15} color={song.pdfUrl ? C.grn : C.dim} />
+              </button>
             )}
           </div>
         ))}
@@ -927,6 +902,36 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
       {showAdd && (
         <AddSongModal onClose={() => setShowAdd(false)} onAdd={addSong} />
       )}
+
+      {editDriveId && (
+        <Modal title="Google Drive 악보 링크" onClose={() => setEditDriveId(null)}>
+          <div style={{ fontSize:12, color:C.dim, marginBottom:12, lineHeight:1.7 }}>
+            구글 드라이브에서 PDF를 공유(링크가 있는 모든 사용자)하고 링크를 붙여넣으세요.
+          </div>
+          <input
+            value={driveInput}
+            onChange={e => { setDriveInput(e.target.value); setDriveErr(""); }}
+            placeholder="https://drive.google.com/file/d/..."
+            autoFocus
+            style={{
+              width:"100%", background:C.card,
+              border:`1.5px solid ${driveErr ? C.red : C.bdr}`,
+              color:C.txt, padding:"10px 14px", borderRadius:10,
+              fontSize:13, outline:"none", fontFamily:"inherit", marginBottom:6,
+            }}
+          />
+          {driveErr && <div style={{ fontSize:11, color:C.red, marginBottom:8 }}>{driveErr}</div>}
+          <div style={{ display:"flex", gap:8, marginTop:4 }}>
+            <Btn label="저장" full onClick={saveDriveUrl} />
+            {songs.find(s => s.id === editDriveId)?.pdfUrl && (
+              <Btn label="삭제" variant="danger" onClick={async () => {
+                await updateDoc(doc(db, "songs", editDriveId), { pdfUrl: null });
+                setEditDriveId(null);
+              }} />
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -934,97 +939,29 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
 /* ══════════════════════════════════════════════════════════════════
    PDF VIEWER SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, backTo, pdfjsReady }) {
+function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, backTo }) {
   const song = songs.find(s => s.id === selectedSongId);
-
-  const canvas1Ref = useRef(null);
-  const pdfDocRef  = useRef(null);
-
-  const [numPages, setNumPages] = useState(0);
-  const [pageNum,  setPageNum]  = useState(1);
-  const [scale,    setScale]    = useState(1.3);
-  const [dual,     setDual]     = useState(false);
-  const [addMode,  setAddMode]  = useState(false);
+  const [dual,          setDual]          = useState(false);
   const [showNotePanel, setShowNotePanel] = useState(false);
   const [noteInput,     setNoteInput]     = useState(false);
   const [noteTxt,       setNoteTxt]       = useState("");
-  const [notePos,       setNotePos]       = useState(null);
   const [saving,        setSaving]        = useState(false);
 
   const myNotes = annotations[selectedSongId] || [];
 
-  useEffect(() => {
-    if (!song?.pdfUrl || !pdfjsReady || !window.pdfjsLib) return;
-    pdfDocRef.current = null;
-    setPageNum(1);
-    setNumPages(0);
-    window.pdfjsLib.getDocument({ url: song.pdfUrl }).promise
-      .then(pdf => {
-        pdfDocRef.current = pdf;
-        setNumPages(pdf.numPages);
-      })
-      .catch(err => console.error("PDF load:", err));
-  }, [song?.pdfUrl, pdfjsReady]);
-
-  const renderPage = useCallback(async (pNum, canvasEl, sc) => {
-    if (!pdfDocRef.current || !canvasEl) return;
-    if (pNum < 1 || pNum > pdfDocRef.current.numPages) return;
-    try {
-      const page = await pdfDocRef.current.getPage(pNum);
-      const vp = page.getViewport({ scale: sc });
-      canvasEl.width  = vp.width;
-      canvasEl.height = vp.height;
-      await page.render({ canvasContext: canvasEl.getContext("2d"), viewport: vp }).promise;
-    } catch(e) { console.error("Render:", e); }
-  }, []);
-
-  useEffect(() => {
-    if (!pdfDocRef.current) return;
-    renderPage(pageNum, canvas1Ref.current, scale);
-  }, [pageNum, scale, numPages, renderPage]);
-
-  const handleCanvasClick = e => {
-    if (!addMode) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    setNotePos({
-      x: +((e.clientX - rect.left) / rect.width  * 100).toFixed(1),
-      y: +((e.clientY - rect.top)  / rect.height * 100).toFixed(1),
-    });
-    setNoteInput(true);
-  };
-
   const saveNote = async () => {
-    if (!noteTxt.trim() || !notePos || saving) return;
+    if (!noteTxt.trim() || saving) return;
     setSaving(true);
-    await onAddAnnotation(selectedSongId, {
-      page: pageNum, x: notePos.x, y: notePos.y, text: noteTxt,
-    });
+    await onAddAnnotation(selectedSongId, { text: noteTxt, page: 0, x: 0, y: 0 });
     setNoteTxt("");
-    setNotePos(null);
     setNoteInput(false);
-    setAddMode(false);
     setSaving(false);
   };
 
   const deleteNote = id => onDeleteAnnotation(selectedSongId, id);
-  const pageNotes  = myNotes.filter(n => n.page === pageNum);
 
-  if (!song) return null;
-
-  const navBtn = (disabled, onClick, icon) => (
-    <button onClick={onClick} disabled={disabled}
-      style={{
-        background:C.card, border:`1px solid ${C.bdr}`, borderRadius:10,
-        padding:"8px 20px", cursor: disabled ? "not-allowed" : "pointer",
-        display:"flex", alignItems:"center", justifyContent:"center",
-        opacity: disabled ? 0.3 : 1,
-      }}>
-      <Icon n={icon} size={18} color={C.txt} />
-    </button>
-  );
-
-  const toolBtn = (name, active, onClick, title) => (
-    <button onClick={onClick} title={title}
+  const toolBtn = (name, active, onClick, ttl) => (
+    <button onClick={onClick} title={ttl}
       style={{
         background: active ? `${C.acc}33` : "transparent",
         border:`1px solid ${active ? C.acc : C.bdr}`,
@@ -1035,11 +972,13 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
     </button>
   );
 
+  if (!song) return null;
+
   return (
     <div style={{ height:"100vh", background:C.bg, display:"flex",
       flexDirection:"column", overflow:"hidden" }}>
 
-      {/* Piascore 스타일 상단 툴바 */}
+      {/* 상단 툴바 */}
       <div style={{
         background:C.surf, height:52,
         borderBottom:`1px solid ${C.bdr}`,
@@ -1047,7 +986,6 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
         padding:"0 12px", flexShrink:0,
         boxShadow:"0 1px 0 rgba(0,0,0,.06)",
       }}>
-        {/* 왼쪽: 뒤로 + 제목 */}
         <button onClick={() => nav(backTo || "library")}
           style={{ background:"none", border:"none", color:C.acc, cursor:"pointer",
             padding:"4px 8px 4px 0", display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
@@ -1061,28 +999,13 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
             {song.title}
           </div>
           <div style={{ fontSize:11, color:C.dim }}>
-            Key {song.key}{song.bpm ? ` · ♩${song.bpm}` : ""}{numPages > 0 ? ` · ${pageNum}/${numPages}p` : ""}
+            Key {song.key}{song.bpm ? ` · ♩${song.bpm}` : ""}
           </div>
         </div>
 
-        {/* 오른쪽: 툴 버튼들 */}
         <div style={{ display:"flex", gap:4, alignItems:"center", flexShrink:0 }}>
-          <button onClick={() => setScale(s => Math.max(.6, s - .15))}
-            style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
-            <Icon n="zoomOut" size={18} color={C.dim} />
-          </button>
-          <span style={{ fontSize:12, color:C.dim, minWidth:36, textAlign:"center", fontWeight:600 }}>
-            {Math.round(scale * 100)}%
-          </span>
-          <button onClick={() => setScale(s => Math.min(2.5, s + .15))}
-            style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
-            <Icon n="zoomIn" size={18} color={C.dim} />
-          </button>
-
-          <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
-
-          {toolBtn("pen",  addMode,       () => setAddMode(p => !p),       "메모")}
-          {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모목록")}
+          {toolBtn("pen",  noteInput,     () => setNoteInput(p => !p),      "메모 추가")}
+          {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p),  "메모 목록")}
 
           <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
 
@@ -1101,44 +1024,18 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
         </div>
       </div>
 
-      {addMode && (
-        <div style={{ background:`${C.acc}22`, padding:"5px 14px",
-          fontSize:12, color:C.acc, textAlign:"center", flexShrink:0 }}>
-          ✎ 메모 추가 모드 — 악보를 탭하여 메모를 남기세요
-        </div>
-      )}
-
       <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"row" }}>
-        {/* PDF 악보 영역 */}
-        <div style={{ flex:1, overflow:"auto", display:"flex",
-          alignItems:"flex-start", justifyContent:"center",
-          padding:"16px", flexDirection:"column" }}>
+        {/* PDF iframe 영역 */}
+        <div style={{ flex:1, overflow:"hidden", position:"relative" }}>
           {song.pdfUrl ? (
-            <div style={{ position:"relative", display:"inline-block" }}>
-              <canvas ref={canvas1Ref} onClick={handleCanvasClick}
-                style={{
-                  display:"block", maxWidth:"100%",
-                  borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)",
-                  cursor: addMode ? "crosshair" : "default",
-                }} />
-              {pageNotes.map(n => (
-                <div key={n.id} title={n.text}
-                  onClick={() => setShowNotePanel(true)}
-                  style={{
-                    position:"absolute", left:`${n.x}%`, top:`${n.y}%`,
-                    transform:"translate(-50%,-50%)",
-                    width:22, height:22, borderRadius:"50%",
-                    background:C.acc, border:"2px solid #111",
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    fontSize:11, fontWeight:700, color:"#111",
-                    cursor:"pointer", zIndex:10,
-                    boxShadow:"0 2px 8px rgba(0,0,0,.5)",
-                  }}>✎</div>
-              ))}
-            </div>
+            <iframe
+              src={song.pdfUrl}
+              style={{ width:"100%", height:"100%", border:"none", display:"block" }}
+              allow="autoplay"
+            />
           ) : (
             <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
-              justifyContent:"center", flex:1, color:C.dim, textAlign:"center", padding:40 }}>
+              justifyContent:"center", height:"100%", color:C.dim, textAlign:"center", padding:40 }}>
               <div style={{
                 width:84, height:84, borderRadius:18,
                 background:`linear-gradient(135deg, ${C.acc}22, ${C.pur}22)`,
@@ -1148,12 +1045,12 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
               }}>🎼</div>
               <div style={{ fontWeight:700, fontSize:16, marginBottom:6 }}>{song.title}</div>
               <div style={{ fontSize:13, marginBottom:16 }}>PDF 악보가 없습니다</div>
-              <div style={{ fontSize:12 }}>라이브러리 탭에서 PDF를 업로드해주세요</div>
+              <div style={{ fontSize:12 }}>라이브러리에서 Google Drive 링크를 추가해주세요</div>
             </div>
           )}
         </div>
 
-        {/* AI 도움 패널 (DUAL 모드) */}
+        {/* AI 패널 (DUAL) */}
         {dual && (
           <div style={{ width:320, flexShrink:0, overflow:"hidden",
             borderLeft:`1px solid ${C.bdr}`, background:C.surf }}>
@@ -1162,24 +1059,7 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
         )}
       </div>
 
-      <div style={{ background:C.surf, borderTop:`1px solid ${C.bdr}`,
-        padding:"10px 20px", display:"flex", alignItems:"center",
-        justifyContent:"space-between", flexShrink:0 }}>
-        {navBtn(pageNum <= 1, () => setPageNum(p => Math.max(1, p - (dual ? 2 : 1))), "prev")}
-        <div style={{ fontSize:13, color:C.dim, letterSpacing:"-0.01em" }}>
-          <span style={{ color:C.txt, fontWeight:700 }}>{pageNum}</span>
-          {dual && pageNum + 1 <= numPages && (
-            <span> – <span style={{ color:C.txt, fontWeight:700 }}>{pageNum + 1}</span></span>
-          )}
-          <span> / {numPages || "—"}</span>
-        </div>
-        {navBtn(
-          numPages > 0 && pageNum >= numPages,
-          () => setPageNum(p => Math.min(numPages || 9999, p + (dual ? 2 : 1))),
-          "next"
-        )}
-      </div>
-
+      {/* 메모 입력 */}
       {noteInput && (
         <div style={{
           position:"fixed", inset:0, background:"rgba(0,0,0,.7)",
@@ -1190,7 +1070,7 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
             width:"100%", maxWidth:400, border:`1px solid ${C.bdr}` }}>
             <div style={{ fontWeight:700, marginBottom:12 }}>메모 추가</div>
             <textarea value={noteTxt} onChange={e => setNoteTxt(e.target.value)}
-              placeholder="예) 여기서 건반 솔로 — 리더 신호 기다릴 것"
+              placeholder="예) 2절 — 건반 솔로, 리더 신호 기다릴 것"
               autoFocus
               style={{
                 width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
@@ -1200,7 +1080,7 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
               }} />
             <div style={{ display:"flex", gap:8, marginTop:12 }}>
               <Btn label="취소" variant="ghost"
-                onClick={() => { setNoteInput(false); setAddMode(false); }} full />
+                onClick={() => { setNoteInput(false); setNoteTxt(""); }} full />
               <Btn label={saving ? "저장 중..." : "저장"} variant="primary"
                 onClick={saveNote} full disabled={saving} />
             </div>
@@ -1208,6 +1088,7 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
         </div>
       )}
 
+      {/* 메모 목록 패널 */}
       {showNotePanel && (
         <div style={{
           position:"absolute", right:0, top:0, bottom:0,
@@ -1233,7 +1114,6 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
               }}>
                 <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
                   <div style={{ flex:1 }}>
-                    <span style={{ fontSize:10, color:C.acc, fontWeight:700 }}>p.{n.page} </span>
                     <span style={{ fontSize:13, lineHeight:1.5 }}>{n.text}</span>
                   </div>
                   <button onClick={() => deleteNote(n.id)}
@@ -1537,7 +1417,6 @@ export default function App() {
   const [selSvcId,    setSelSvcId]    = useState(null);
   const [selSongId,   setSelSongId]   = useState(null);
   const [backTo,      setBackTo]      = useState("library");
-  const [pdfjsReady,  setPdfjsReady]  = useState(false);
 
   // ── Handle Google redirect result
   useEffect(() => {
@@ -1654,20 +1533,6 @@ export default function App() {
     );
   }, [user?.uid]);
 
-  // ── PDF.js loader
-  useEffect(() => {
-    if (window.pdfjsLib) { setPdfjsReady(true); return; }
-    const script = document.createElement("script");
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-    script.onload = () => {
-      if (window.pdfjsLib) {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-        setPdfjsReady(true);
-      }
-    };
-    document.head.appendChild(script);
-  }, []);
 
   // ── Global styles
   useEffect(() => {
@@ -1691,13 +1556,11 @@ export default function App() {
 
   // ── CRUD helpers
   const addSong = async (data) => {
-    const docRef = await addDoc(collection(db, "songs"), {
+    await addDoc(collection(db, "songs"), {
       ...data,
-      pdfUrl: null,
       createdAt: serverTimestamp(),
       createdBy: user.uid,
     });
-    return docRef;
   };
 
   const createService = async (data) => {
@@ -1766,7 +1629,7 @@ export default function App() {
     onAddAnnotation: addAnnotation,
     onDeleteAnnotation: deleteAnnotation,
     markNotifRead, markAllNotifRead,
-    nav, pdfjsReady,
+    nav,
   };
 
   return (
