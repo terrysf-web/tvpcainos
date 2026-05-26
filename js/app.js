@@ -70,14 +70,15 @@ function setPane(pane, song) {
       <div class="empty" style="height:100%;padding:24px;">
         <div>
           <h3>${escapeHtml(song.title || 'Untitled')}</h3>
-          <p>PDF URL이 없습니다. 라이브러리에서 PDF 파일로 업로드하세요.</p>
+          <p>PDF URL이 없습니다. PDF 파일로 다시 업로드하세요.</p>
         </div>
       </div>
     `;
     return;
   }
 
-  pane.innerHTML = `<iframe src="${song.pdfUrl}"></iframe>`;
+  const viewerUrl = `./viewer.html?file=${encodeURIComponent(song.pdfUrl)}`;
+  pane.innerHTML = `<iframe src="${viewerUrl}" title="${escapeHtml(song.title || 'PDF')}"></iframe>`;
 }
 
 document.getElementById('clearLeft').onclick = () => {

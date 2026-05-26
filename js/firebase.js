@@ -40,7 +40,7 @@ export async function saveSong(song) {
   }
   const songs = await loadSongs();
   const saved = { id: crypto.randomUUID(), ...song, createdAt: new Date().toISOString() };
-  songs.push(saved);
+  songs.unshift(saved);
   localStorage.setItem(LOCAL_KEY, JSON.stringify(songs));
   return saved;
 }
