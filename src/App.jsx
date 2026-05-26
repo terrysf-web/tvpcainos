@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { auth, db, FIREBASE_API_KEY } from "./firebase.js";
-import { uploadPdf, deletePdf } from "./supabase.js";
+import { uploadPdf } from "./supabase.js";
 import AIPanel from "./AIPanel.jsx";
 import {
   signInWithEmailAndPassword,

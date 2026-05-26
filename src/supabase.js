@@ -15,6 +15,3 @@ export async function uploadPdf(file, songId) {
   return data.publicUrl;
 }
 
-export async function deletePdf(songId) {
-  await supabase.storage.from("pdfs").remove([`${songId}.pdf`]);
-}
