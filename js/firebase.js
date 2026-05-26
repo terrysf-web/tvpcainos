@@ -4,6 +4,11 @@ let firebaseReady = false;
 let db = null;
 let fb = null;
 
+import { getStorage } from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+export const storage = getStorage(app);
+
 export async function initFirebase() {
   const hasConfig = firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId;
   if (!hasConfig) return { ready: false, message: "Local mode" };
