@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { auth, db, FIREBASE_API_KEY } from "./firebase.js";
 import AIPanel from "./AIPanel.jsx";
 import {
@@ -56,6 +56,27 @@ async function getDriveToken() {
     console.error("Drive token:", e);
   }
   return _driveToken;
+}
+
+async function uploadToDrive(file) {
+  const token = await getDriveToken();
+  if (!token) throw new Error("Google 인증이 필요합니다");
+  const meta = { name: file.name, mimeType: "application/pdf" };
+  const form = new FormData();
+  form.append("metadata", new Blob([JSON.stringify(meta)], { type: "application/json" }));
+  form.append("file", file);
+  const res = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id",
+    { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form }
+  );
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  await fetch(`https://www.googleapis.com/drive/v3/files/${data.id}/permissions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ role: "reader", type: "anyone" }),
+  });
+  return `https://drive.google.com/file/d/${data.id}/preview`;
 }
 
 async function openDrivePicker(onSelect) {
@@ -250,6 +271,7 @@ function Modal({ title, onClose, children }) {
    LOGIN SCREEN
 ══════════════════════════════════════════════════════════════════ */
 const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope("https://www.googleapis.com/auth/drive.file");
 googleProvider.addScope("https://www.googleapis.com/auth/drive.readonly");
 
 function LoginScreen() {
@@ -425,15 +447,32 @@ function AddSongModal({ onClose, onAdd }) {
   const [artist,   setArtist]  = useState("");
   const [key,      setKey]     = useState("C");
   const [bpm,      setBpm]     = useState("80");
-  const [pdfUrl,   setPdfUrl]  = useState(null);
-  const [picking,  setPicking] = useState(false);
-  const [saving,   setSaving]  = useState(false);
+  const [pdfUrl,    setPdfUrl]    = useState(null);
+  const [picking,   setPicking]   = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [saving,    setSaving]    = useState(false);
+  const fileRef = useRef(null);
   const KEYS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
   const pickPdf = async () => {
     setPicking(true);
     await openDrivePicker(url => setPdfUrl(url));
     setPicking(false);
+  };
+
+  const handleLocalFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    setUploading(true);
+    try {
+      const url = await uploadToDrive(file);
+      setPdfUrl(url);
+    } catch (err) {
+      alert("업로드 실패: " + err.message);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleAdd = async () => {
@@ -473,34 +512,51 @@ function AddSongModal({ onClose, onAdd }) {
 
       <Input label="BPM" value={bpm} onChange={setBpm} type="number" placeholder="80" />
 
-      {/* Google Drive Picker */}
+      {/* PDF 선택 */}
       <div style={{ marginBottom:16 }}>
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
           textTransform:"uppercase", marginBottom:8 }}>악보 PDF (선택)</div>
         {pdfUrl ? (
           <div style={{
             display:"flex", alignItems:"center", gap:10, padding:"12px 14px",
-            background:`${C.grn}12`, border:`1.5px solid ${C.grn}55`,
-            borderRadius:10,
+            background:`${C.grn}12`, border:`1.5px solid ${C.grn}55`, borderRadius:10,
           }}>
             <span style={{ fontSize:20 }}>📄</span>
-            <span style={{ fontSize:13, color:C.grn, fontWeight:600, flex:1 }}>Drive 파일 선택됨</span>
+            <span style={{ fontSize:13, color:C.grn, fontWeight:600, flex:1 }}>PDF 선택됨</span>
             <button onClick={() => setPdfUrl(null)}
               style={{ background:"none", border:"none", cursor:"pointer", padding:2, display:"flex" }}>
               <Icon n="xmark" size={16} color={C.dim} />
             </button>
           </div>
+        ) : uploading ? (
+          <div style={{ textAlign:"center", padding:"18px 0", color:C.dim, fontSize:13,
+            background:C.card, borderRadius:12, border:`1.5px solid ${C.bdr}` }}>
+            ⏳ Drive에 업로드 중...
+          </div>
         ) : (
-          <button onClick={pickPdf} disabled={picking} style={{
-            width:"100%", padding:"16px", borderRadius:12, cursor:"pointer",
-            border:`2px dashed ${C.bdr}`, background:C.card,
-            fontFamily:"inherit", fontSize:14, fontWeight:600, color:C.dim,
-            display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-            opacity: picking ? 0.6 : 1,
-          }}>
-            <span style={{ fontSize:20 }}>📁</span>
-            {picking ? "Drive 연결 중..." : "Google Drive에서 PDF 선택"}
-          </button>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={pickPdf} disabled={picking} style={{
+              flex:1, padding:"14px 8px", borderRadius:12, cursor:"pointer",
+              border:`2px dashed ${C.bdr}`, background:C.card,
+              fontFamily:"inherit", fontSize:13, fontWeight:600, color:C.dim,
+              display:"flex", flexDirection:"column", alignItems:"center", gap:5,
+              opacity: picking ? 0.6 : 1,
+            }}>
+              <span style={{ fontSize:22 }}>📁</span>
+              {picking ? "연결 중..." : "Drive에서\n선택"}
+            </button>
+            <input ref={fileRef} type="file" accept=".pdf,application/pdf"
+              style={{ display:"none" }} onChange={handleLocalFile} />
+            <button onClick={() => fileRef.current.click()} style={{
+              flex:1, padding:"14px 8px", borderRadius:12, cursor:"pointer",
+              border:`2px dashed ${C.bdr}`, background:C.card,
+              fontFamily:"inherit", fontSize:13, fontWeight:600, color:C.dim,
+              display:"flex", flexDirection:"column", alignItems:"center", gap:5,
+            }}>
+              <span style={{ fontSize:22 }}>📱</span>
+              기기에서{"\n"}업로드
+            </button>
+          </div>
         )}
       </div>
 
@@ -865,6 +921,8 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
   const [showAdd,     setShowAdd]     = useState(false);
   const [editDriveId, setEditDriveId] = useState(null);
   const [picking,     setPicking]     = useState(false);
+  const [uploading,   setUploading]   = useState(false);
+  const libFileRef = useRef(null);
 
   const filtered = songs.filter(s =>
     s.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -878,6 +936,22 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
       setEditDriveId(null);
     });
     setPicking(false);
+  };
+
+  const uploadAndSave = async (e, songId) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    setUploading(true);
+    try {
+      const url = await uploadToDrive(file);
+      await updateDoc(doc(db, "songs", songId), { pdfUrl: url });
+      setEditDriveId(null);
+    } catch (err) {
+      alert("업로드 실패: " + err.message);
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -962,17 +1036,37 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
 
       {editDriveId && (
         <Modal title="악보 PDF" onClose={() => setEditDriveId(null)}>
-          <button onClick={() => pickAndSave(editDriveId)} disabled={picking} style={{
-            width:"100%", padding:"18px", borderRadius:12, cursor:"pointer",
-            border:`2px dashed ${C.pur}88`, background:`${C.pur}08`,
-            fontFamily:"inherit", fontSize:15, fontWeight:700, color:C.pur,
-            display:"flex", alignItems:"center", justifyContent:"center", gap:10,
-            opacity: picking ? 0.6 : 1, marginBottom:12,
-          }}>
-            <span style={{ fontSize:22 }}>📁</span>
-            {picking ? "Drive 연결 중..." : "Google Drive에서 PDF 선택"}
-          </button>
-          {songs.find(s => s.id === editDriveId)?.pdfUrl && (
+          {uploading ? (
+            <div style={{ textAlign:"center", padding:"20px 0", color:C.dim, fontSize:13 }}>
+              ⏳ Drive에 업로드 중...
+            </div>
+          ) : (
+            <div style={{ display:"flex", gap:10, marginBottom:12 }}>
+              <button onClick={() => pickAndSave(editDriveId)} disabled={picking} style={{
+                flex:1, padding:"18px 8px", borderRadius:12, cursor:"pointer",
+                border:`2px dashed ${C.pur}66`, background:`${C.pur}08`,
+                fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.pur,
+                display:"flex", flexDirection:"column", alignItems:"center", gap:6,
+                opacity: picking ? 0.6 : 1,
+              }}>
+                <span style={{ fontSize:26 }}>📁</span>
+                {picking ? "연결 중..." : "Drive에서 선택"}
+              </button>
+              <input ref={libFileRef} type="file" accept=".pdf,application/pdf"
+                style={{ display:"none" }}
+                onChange={e => uploadAndSave(e, editDriveId)} />
+              <button onClick={() => libFileRef.current.click()} style={{
+                flex:1, padding:"18px 8px", borderRadius:12, cursor:"pointer",
+                border:`2px dashed ${C.acc}66`, background:`${C.acc}08`,
+                fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.acc,
+                display:"flex", flexDirection:"column", alignItems:"center", gap:6,
+              }}>
+                <span style={{ fontSize:26 }}>📱</span>
+                기기에서 업로드
+              </button>
+            </div>
+          )}
+          {songs.find(s => s.id === editDriveId)?.pdfUrl && !uploading && (
             <Btn label="현재 PDF 삭제" variant="danger" full onClick={async () => {
               await updateDoc(doc(db, "songs", editDriveId), { pdfUrl: null });
               setEditDriveId(null);
