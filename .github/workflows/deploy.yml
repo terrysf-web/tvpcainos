@@ -33,18 +33,9 @@ jobs:
           channelId: live
           projectId: tvpcainos
 
-      - name: Firestore & Storage 규칙 배포
+      - name: Firestore 규칙 배포
         env:
           SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
           echo "$SERVICE_ACCOUNT_JSON" > /tmp/sa.json
-          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json npx firebase-tools deploy --only firestore:rules,storage --project tvpcainos --non-interactive
-
-      - name: Storage CORS 설정
-        env:
-          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: |
-          echo "$SERVICE_ACCOUNT_JSON" > /tmp/sa.json
-          printf '[{"origin":["https://tvpcainos.web.app","https://tvpcainos.firebaseapp.com"],"method":["GET","PUT","POST","DELETE","HEAD"],"responseHeader":["Content-Type","Authorization","Content-Length","User-Agent"],"maxAgeSeconds":3600}]' > /tmp/cors.json
-          gcloud auth activate-service-account --key-file=/tmp/sa.json
-          gsutil cors set /tmp/cors.json gs://tvpcainos.firebasestorage.app
+          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json npx firebase-tools deploy --only firestore:rules --project tvpcainos --non-interactive
