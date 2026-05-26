@@ -1,5 +1,5 @@
 *{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f3f5f9;color:#142033}
+html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f3f5f9;color:#142033}
 .topbar{background:#123761;color:white;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;gap:16px;box-shadow:0 2px 12px rgba(0,0,0,.18)}
 .topbar h1{margin:0;font-size:22px}.topbar small{opacity:.82}
 nav{display:flex;gap:10px}.tab,.dual-actions button,.form-grid button,.song-actions button{border:1px solid #d8e0ed;background:white;color:#0a66d8;border-radius:12px;padding:11px 16px;font-size:16px}
@@ -15,8 +15,8 @@ h2{margin:0 0 12px;font-size:30px}.hint{color:#66758b;margin-top:0}
 .song-item{display:flex;justify-content:space-between;gap:12px;align-items:center;border:1px solid #dce3ef;border-radius:14px;padding:14px;background:#fbfcff}
 .song-title{font-weight:700}.song-meta{color:#66758b;font-size:14px;margin-top:4px}.song-actions{display:flex;gap:8px;flex-wrap:wrap}.song-actions .delete{color:#d71920}
 .dual-actions{display:flex;gap:10px;margin-bottom:14px}.dual-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.pdf-pane{height:72vh;border:1px dashed #cbd6e6;border-radius:16px;overflow:hidden;background:#fff}
+.pdf-pane{height:72vh;border:1px dashed #cbd6e6;border-radius:16px;overflow:hidden;background:#f8fafc}
 .pdf-pane.empty{display:flex;align-items:center;justify-content:center;color:#66758b}
-.pdf-pane iframe{width:100%;height:100%;border:0}
+.pdf-pane iframe{width:100%;height:100%;border:0;display:block;background:#f8fafc}
 #notesCanvas{width:100%;height:70vh;border:1px dashed #cbd6e6;border-radius:14px}
-@media(max-width:900px){.topbar{align-items:flex-start;flex-direction:column}.form-grid{grid-template-columns:1fr}.dual-grid{grid-template-columns:1fr}.pdf-pane{height:60vh}}
+@media(max-width:900px){.topbar{align-items:flex-start;flex-direction:column}.form-grid{grid-template-columns:1fr}.dual-grid{grid-template-columns:1fr}.pdf-pane{height:62vh}}
