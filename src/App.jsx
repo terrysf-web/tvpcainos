@@ -5,6 +5,8 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
 } from "firebase/auth";
 import {
   collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc,
@@ -189,11 +191,14 @@ function Modal({ title, onClose, children }) {
 /* ══════════════════════════════════════════════════════════════════
    LOGIN SCREEN
 ══════════════════════════════════════════════════════════════════ */
+const googleProvider = new GoogleAuthProvider();
+
 function LoginScreen() {
-  const [email,   setEmail]   = useState("");
-  const [pw,      setPw]      = useState("");
-  const [err,     setErr]     = useState("");
-  const [loading, setLoading] = useState(false);
+  const [email,      setEmail]      = useState("");
+  const [pw,         setPw]         = useState("");
+  const [err,        setErr]        = useState("");
+  const [loading,    setLoading]    = useState(false);
+  const [gLoading,   setGLoading]   = useState(false);
 
   const login = async () => {
     if (!email || !pw) return;
@@ -204,6 +209,17 @@ function LoginScreen() {
     } catch {
       setErr("이메일 또는 비밀번호를 확인하세요.");
       setLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async () => {
+    setGLoading(true);
+    setErr("");
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (e) {
+      setErr("Google 로그인에 실패했습니다.");
+      setGLoading(false);
     }
   };
 
@@ -231,11 +247,34 @@ function LoginScreen() {
         background:C.surf, borderRadius:20, padding:"28px 24px",
         width:"100%", maxWidth:380, border:`1px solid ${C.bdr}`,
       }}>
+        {/* Google 로그인 */}
+        <button onClick={loginWithGoogle} disabled={gLoading} style={{
+          width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
+          gap:10, padding:"11px 0", borderRadius:12, marginBottom:16,
+          background:"#fff", border:"1.5px solid #dadce0", cursor:"pointer",
+          fontFamily:"inherit", fontSize:14, fontWeight:600, color:"#3c4043",
+          opacity: gLoading ? 0.7 : 1,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 48 48">
+            <path fill="#4285F4" d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/>
+            <path fill="#34A853" d="M6.3 14.7l7 5.1C15 16.1 19.1 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.7 7.4 6.3 14.7z"/>
+            <path fill="#FBBC05" d="M24 46c5.5 0 10.5-1.9 14.3-5l-6.6-5.4C29.6 37.3 27 38 24 38c-6 0-11.1-4-12.9-9.5l-7 5.4C7.5 41.8 15.2 46 24 46z"/>
+            <path fill="#EA4335" d="M44.5 20H24v8.5h11.8c-.8 2.7-2.5 4.9-4.8 6.4l6.6 5.4C41.4 37.3 44.5 31.3 44.5 24c0-1.3-.2-2.7-.5-4z"/>
+          </svg>
+          {gLoading ? "로그인 중..." : "Google로 로그인"}
+        </button>
+
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+          <div style={{ flex:1, height:1, background:C.bdr }} />
+          <span style={{ fontSize:11, color:C.dim }}>또는</span>
+          <div style={{ flex:1, height:1, background:C.bdr }} />
+        </div>
+
         <Input label="이메일" value={email} onChange={setEmail} type="email"
           placeholder="your@email.com" autoFocus />
         <Input label="비밀번호" value={pw} onChange={setPw} type="password" placeholder="••••••••" />
         {err && <div style={{ color:C.red, fontSize:13, marginBottom:12, textAlign:"center" }}>{err}</div>}
-        <Btn label={loading ? "로그인 중..." : "로그인"}
+        <Btn label={loading ? "로그인 중..." : "이메일로 로그인"}
           onClick={login} full disabled={loading || !email || !pw} />
         <Divider />
         <div style={{ fontSize:12, color:C.dim, textAlign:"center", lineHeight:1.8 }}>
@@ -1245,12 +1284,21 @@ export default function App() {
   useEffect(() => {
     return onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+        const uRef = doc(db, "users", firebaseUser.uid);
+        const snap = await getDoc(uRef);
         const profile = snap.exists() ? snap.data() : {};
+        if (!snap.exists()) {
+          await setDoc(uRef, {
+            name:  firebaseUser.displayName || firebaseUser.email,
+            email: firebaseUser.email,
+            role:  "member",
+            part:  "",
+          });
+        }
         setUser({
           uid:   firebaseUser.uid,
           email: firebaseUser.email,
-          name:  profile.name  || firebaseUser.email,
+          name:  profile.name  || firebaseUser.displayName || firebaseUser.email,
           role:  profile.role  || "member",
           part:  profile.part  || "",
         });
