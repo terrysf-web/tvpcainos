@@ -6,6 +6,7 @@ import {
   signOut,
   onAuthStateChanged,
   GoogleAuthProvider,
+  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
 } from "firebase/auth";
@@ -213,9 +214,19 @@ function LoginScreen() {
     }
   };
 
-  const loginWithGoogle = () => {
+  const loginWithGoogle = async () => {
     setGLoading(true);
-    signInWithRedirect(auth, googleProvider);
+    setErr("");
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (e) {
+      if (e.code === "auth/popup-blocked" || e.code === "auth/cancelled-popup-request") {
+        signInWithRedirect(auth, googleProvider);
+      } else {
+        setErr("Google 로그인 실패: " + e.message);
+        setGLoading(false);
+      }
+    }
   };
 
   return (
@@ -1277,7 +1288,7 @@ export default function App() {
 
   // ── Handle Google redirect result
   useEffect(() => {
-    getRedirectResult(auth).catch(() => {});
+    getRedirectResult(auth).catch(e => console.error("redirect result error:", e));
   }, []);
 
   // ── Firebase Auth listener
