@@ -1024,16 +1024,18 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
       .catch(() => setLoadErr("PDF를 불러올 수 없습니다"));
   }, [song?.pdfUrl, pdfjsReady, selectedSongId, dual]);
 
-  // PDF 로드 (듀얼 모드)
+  // PDF 로드 (듀얼 모드) — URL 문자열을 deps로 써서 무한 루프 방지
+  const dualLeftUrl  = svcSongs[dualIdx]?.pdfUrl  || null;
+  const dualRightUrl = svcSongs[dualIdx + 1]?.pdfUrl || null;
   useEffect(() => {
     if (!dual || !pdfjsReady || !window.pdfjsLib) return;
     setPdf1(null); setPdf2(null);
     const load = (url) => url
       ? window.pdfjsLib.getDocument({ url }).promise.catch(() => null)
       : Promise.resolve(null);
-    load(svcSongs[dualIdx]?.pdfUrl).then(p => setPdf1(p));
-    load(svcSongs[dualIdx + 1]?.pdfUrl).then(p => setPdf2(p));
-  }, [dual, dualIdx, svcSongs, pdfjsReady]);
+    load(dualLeftUrl).then(p => setPdf1(p));
+    load(dualRightUrl).then(p => setPdf2(p));
+  }, [dual, dualIdx, dualLeftUrl, dualRightUrl, pdfjsReady]);
 
   // 페이지 렌더링 — 컨테이너에 꼭 맞게
   const renderPage = useCallback(async () => {
