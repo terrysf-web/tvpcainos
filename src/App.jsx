@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { auth, db, storage } from "./firebase.js";
+import { auth, db, storage, FIREBASE_API_KEY } from "./firebase.js";
 import AIPanel from "./AIPanel.jsx";
 import {
   signInWithEmailAndPassword,
@@ -8,7 +8,7 @@ import {
 } from "firebase/auth";
 import {
   collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc,
-  query, orderBy, where, getDoc, serverTimestamp, arrayUnion,
+  query, orderBy, where, getDoc, setDoc, serverTimestamp, arrayUnion,
 } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
@@ -1020,13 +1020,95 @@ function NotificationsScreen({ notifs, markNotifRead, markAllNotifRead }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   ADD MEMBER MODAL
+══════════════════════════════════════════════════════════════════ */
+function AddMemberModal({ onClose }) {
+  const [name,     setName]     = useState("");
+  const [email,    setEmail]    = useState("");
+  const [password, setPassword] = useState("");
+  const [part,     setPart]     = useState("");
+  const [role,     setRole]     = useState("member");
+  const [saving,   setSaving]   = useState(false);
+  const [err,      setErr]      = useState("");
+
+  const handleAdd = async () => {
+    if (!name || !email || !password) return;
+    setSaving(true);
+    setErr("");
+    try {
+      // Firebase Auth REST API로 사용자 생성 (현재 세션 유지)
+      const res = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password, returnSecureToken: false }),
+        }
+      );
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+
+      // Firestore 프로필 저장
+      await setDoc(doc(db, "users", data.localId), {
+        name, email, role, part,
+        createdAt: serverTimestamp(),
+      });
+      onClose();
+    } catch (e) {
+      setErr(e.message);
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="팀원 추가" onClose={onClose}>
+      <Input label="이름"     value={name}     onChange={setName}
+        placeholder="예) 김지훈" autoFocus />
+      <Input label="이메일"   value={email}    onChange={setEmail}
+        type="email" placeholder="worship@tvpc.kr" />
+      <Input label="초기 비밀번호" value={password} onChange={setPassword}
+        type="password" placeholder="6자 이상" />
+      <Input label="파트"     value={part}     onChange={setPart}
+        placeholder="예) 건반, 기타, 드럼" />
+
+      <div style={{ marginBottom:16 }}>
+        <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+          textTransform:"uppercase", marginBottom:8 }}>역할</div>
+        <div style={{ display:"flex", gap:8 }}>
+          {[["member","멤버"], ["leader","리더"]].map(([r, label]) => (
+            <button key={r} onClick={() => setRole(r)} style={{
+              flex:1, padding:"9px 0", borderRadius:9, border:"none", cursor:"pointer",
+              fontFamily:"inherit", fontWeight:600, fontSize:13,
+              background: role === r ? C.acc : C.card,
+              color:       role === r ? "#111" : C.dim,
+            }}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      {err && (
+        <div style={{ color:C.red, fontSize:12, marginBottom:10,
+          background:`${C.red}11`, padding:"8px 10px", borderRadius:8 }}>
+          {err}
+        </div>
+      )}
+      <Btn label={saving ? "추가 중..." : "팀원 추가"} icon="plus"
+        onClick={handleAdd} full disabled={saving || !name || !email || !password} />
+    </Modal>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
    PROFILE SCREEN
 ══════════════════════════════════════════════════════════════════ */
 function ProfileScreen({ user, onLogout }) {
+  const [showAdd, setShowAdd] = useState(false);
+
   return (
     <div style={{ minHeight:"100vh", background:C.bg, padding:20, paddingBottom:90 }}>
       <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em", marginBottom:20 }}>내 정보</div>
 
+      {/* 내 프로필 카드 */}
       <div style={{ background:C.surf, borderRadius:16, padding:20,
         marginBottom:12, border:`1px solid ${C.bdr}` }}>
         <div style={{ display:"flex", alignItems:"center", gap:14 }}>
@@ -1048,6 +1130,16 @@ function ProfileScreen({ user, onLogout }) {
         </div>
       </div>
 
+      {/* 팀 관리 (리더만) */}
+      {user.role === "leader" && (
+        <div style={{ marginBottom:12 }}>
+          <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+            textTransform:"uppercase", marginBottom:10 }}>팀 관리</div>
+          <Btn label="팀원 추가" icon="plus" onClick={() => setShowAdd(true)}
+            full variant="outline" />
+        </div>
+      )}
+
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {["앱 정보 (v3.0)", "도움말", "문의하기"].map((item, i) => (
@@ -1064,6 +1156,8 @@ function ProfileScreen({ user, onLogout }) {
       </div>
 
       <Btn label="로그아웃" icon="logout" onClick={onLogout} variant="ghost" full />
+
+      {showAdd && <AddMemberModal onClose={() => setShowAdd(false)} />}
     </div>
   );
 }
