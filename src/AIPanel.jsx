@@ -14,7 +14,7 @@ const KEY_CLR = {
 };
 const keyColor = (k) => KEY_CLR[k ? k[0].toUpperCase() : "C"] || C.acc;
 
-const MODEL = "claude-opus-4-7";
+const MODEL = "gemini-1.5-flash";
 
 function parseYtId(url) {
   const s = (url || "").trim();
@@ -72,29 +72,15 @@ export default function AIPanel({ song, user }) {
   };
 
   const analyze = async () => {
-    const key = import.meta.env.VITE_ANTHROPIC_API_KEY;
+    const key = import.meta.env.VITE_GEMINI_API_KEY;
     if (!key) {
-      setAiErr("⚠️ .env 파일에 VITE_ANTHROPIC_API_KEY를 설정하세요.");
+      setAiErr("⚠️ .env 파일에 VITE_GEMINI_API_KEY를 설정하세요.");
       return;
     }
     setLoading(true);
     setAnalysis("");
     setAiErr("");
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key":                       key,
-          "anthropic-version":               "2023-06-01",
-          "content-type":                    "application/json",
-          "anthropic-dangerous-allow-browser": "true",
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          max_tokens: 1500,
-          messages: [{
-            role: "user",
-            content: `찬양 악보를 분석해주세요:
+    const prompt = `찬양 악보를 분석해주세요:
 제목: ${song.title}
 아티스트: ${song.artist || "미상"}
 Key: ${song.key}
@@ -104,13 +90,19 @@ BPM: ${song.bpm || "미상"}
 1. **코드 진행** — 이 Key에서 주요 코드 패턴과 특징
 2. **섹션별 포인트** — Verse / Pre-Chorus / Chorus 연습 팁
 3. **파트별 조언** — 기타, 건반, 드럼, 베이스 각각
-4. **예배 흐름** — 곡 분위기와 예배에서의 역할`,
-          }],
-        }),
-      });
+4. **예배 흐름** — 곡 분위기와 예배에서의 역할`;
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        }
+      );
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
-      setAnalysis(data.content[0].text);
+      setAnalysis(data.candidates[0].content.parts[0].text);
     } catch (e) {
       setAiErr(`오류: ${e.message}`);
     } finally {
