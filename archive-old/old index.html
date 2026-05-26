@@ -1,1 +1,623 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TVPC Ainos Service Open Fix</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#050608">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ainos Stable">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body,#app{
+  margin:0;width:100%;height:100%;overflow:hidden;
+  background:#f3f4f6;color:#111827;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+button,input,select,textarea{font:inherit}
+button{border:0;border-radius:12px;padding:10px 14px;font-weight:900;background:#1f2937;color:#fff}
+button.primary{background:#22c7d8;color:#031217}
+button.blue{background:#2563eb}
+button.gray{background:#e5e7eb;color:#111827}
+button.red{background:#ef4444}
+button.gold{background:#f59e0b;color:#111827}
+button.small{font-size:12px;padding:8px 10px;border-radius:10px}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr}
+.top{
+  height:62px;padding:0 14px;padding-top:env(safe-area-inset-top);
+  display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
+  background:#050608;color:#fff;border-bottom:1px solid #222;
+}
+.logo{width:36px;height:36px;border-radius:10px;background:#22c7d8;color:#031217;display:grid;place-items:center;font-weight:1000}
+.top-title{line-height:1.1;text-align:center}.top-title b{display:block;font-size:17px}.top-title span{display:block;color:#cbd5e1;font-size:12px;margin-top:4px}
+.page{height:100%;overflow:auto;padding:16px}
+.grid{display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 10px 28px rgba(15,23,42,.08);overflow:hidden}
+.card-head{padding:14px 16px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.card-head h2{margin:0;font-size:17px}
+.card-body{padding:14px;display:grid;gap:12px}
+.field{display:grid;gap:6px}
+.field label{font-size:12px;color:#64748b;font-weight:900}
+.field input,.field select,.field textarea{border:1px solid #cbd5e1;border-radius:12px;padding:11px;background:#fff}
+.row{
+  display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+  background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:12px;
+}
+.title{font-weight:950;font-size:15px}.meta{font-size:12px;color:#64748b;margin-top:4px}
+.actions{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}
+.list{display:grid;gap:10px}
+.empty{padding:28px 10px;text-align:center;color:#64748b}
+.badge{display:inline-block;background:#22c7d8;color:#031217;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:900;margin-left:6px}
+.service-title{font-size:18px;font-weight:950}
+.tabs{display:flex;gap:8px}
+.tabs button{background:#1b1f26}
+.tabs button.active{background:#22c7d8;color:#031217}
+.viewer{
+  position:fixed;inset:0;z-index:50;background:#111827;
+  display:grid;grid-template-rows:auto 1fr auto;
+  overscroll-behavior:none;
+}
+.vtop{
+  height:60px;padding:0 12px;padding-top:env(safe-area-inset-top);
+  background:#050608;color:#fff;display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;
+}
+.vtitle{text-align:center;min-width:0;line-height:1.1}
+.vtitle b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px}
+.vtitle span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:#cbd5e1;margin-top:3px}
+.stage{
+  position:relative;overflow:hidden;background:#e5e7eb;display:grid;place-items:center;
+  touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+.sheet{
+  position:relative;background:#fff;overflow:hidden;
+  box-shadow:0 18px 60px rgba(0,0,0,.28);
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+#pdfCanvas{
+  position:absolute;left:0;top:0;z-index:1;background:#fff;
+  pointer-events:none!important;touch-action:none;
+}
+#inkCanvas{
+  position:absolute;left:0;top:0;z-index:30;
+  touch-action:none!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;
+}
+.viewer.read #inkCanvas{pointer-events:none}
+.viewer.write #inkCanvas{pointer-events:auto!important}
+.vbottom{
+  height:70px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+  background:#050608;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;
+}
+.vbottom button{border-radius:14px}
+.hint{
+  position:absolute;bottom:calc(84px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,.68);color:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:900;z-index:60;
+}
+.toast{
+  position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  background:rgba(15,23,42,.94);color:white;border-radius:999px;padding:10px 14px;font-size:13px;font-weight:900;z-index:200;
+}
+.write-lock{position:absolute;inset:0;z-index:20;background:transparent;pointer-events:none;touch-action:none}
+.viewer.write .write-lock{pointer-events:auto}
+.viewer.dual .stage{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px;align-items:center;justify-items:center}
+.viewer.dual .sheet{max-width:100%;max-height:100%}
+.dualSheet{position:relative;background:#fff;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.28)}
+#dualPdfCanvas{position:absolute;left:0;top:0;z-index:1;background:#fff;pointer-events:none!important;touch-action:none}
+#dualInkCanvas{position:absolute;left:0;top:0;z-index:5;pointer-events:none!important;touch-action:none}
+.dualLabel{position:absolute;top:8px;left:8px;z-index:10;background:rgba(0,0,0,.62);color:white;font-size:12px;font-weight:900;border-radius:999px;padding:5px 9px;pointer-events:none}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.page{padding:12px}.vbottom{grid-template-columns:1fr 1fr}.vbottom button{font-size:13px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
 
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getFirestore, collection, doc, getDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAzXyQA-BbL_0KsTnukODBfMBkIZINxiNM",
+  authDomain: "tvpcainos.firebaseapp.com",
+  projectId: "tvpcainos",
+  storageBucket: "tvpcainos.firebasestorage.app",
+  messagingSenderId: "721441022829",
+  appId: "1:721441022829:web:45a0ee8fc152090b09f064"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+async function ensureAuth(){
+  if(auth.currentUser) return auth.currentUser;
+  try { await signInAnonymously(auth); } catch(e) { console.warn("Anonymous auth failed", e); }
+  return await new Promise(resolve=>{
+    const unsub = onAuthStateChanged(auth, u=>{ unsub(); resolve(u); });
+    setTimeout(()=>{ try{unsub()}catch{}; resolve(auth.currentUser); }, 2000);
+  });
+}
+
+const DEFAULT_SONGS = [
+  {id:"1",title:"Amazing Grace",artist:"John Newton",key:"G"},
+  {id:"2",title:"10,000 Reasons",artist:"Matt Redman",key:"G"},
+  {id:"3",title:"How Great Is Our God",artist:"Chris Tomlin",key:"G"},
+  {id:"4",title:"Blessed Be Your Name",artist:"Matt Redman",key:"A"},
+  {id:"5",title:"위대하신 주",artist:"워십팀",key:"G"},
+  {id:"6",title:"주를 찬양해",artist:"교회 워십",key:"D"},
+  {id:"7",title:"주님 한 분만으로",artist:"예수전도단",key:"Bb"},
+  {id:"8",title:"Good Good Father",artist:"Chris Tomlin",key:"C"}
+];
+
+function norm(v){
+  return String(v || "")
+    .normalize("NFC")
+    .replace(/\.pdf$/i,"")
+    .replace(/\s+/g,"")
+    .trim()
+    .toLowerCase();
+}
+
+function dataStringToBytes(str){
+  if(!str) return null;
+  let body = String(str);
+  const comma = body.indexOf(",");
+  if(body.startsWith("data:") && comma >= 0) body = body.slice(comma + 1);
+  body = body.replace(/\s/g,"");
+  const bin = atob(body);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+async function loadChunks(id){
+  await ensureAuth();
+  const metaRef = doc(db, "pdfFiles", String(id));
+  const metaSnap = await getDoc(metaRef);
+  if(!metaSnap.exists()) return null;
+
+  const meta = metaSnap.data();
+  if(!meta || !meta.chunkCount) return null;
+
+  const parts = [];
+  for(let i=0;i<meta.chunkCount;i++){
+    const chunkSnap = await getDoc(doc(db, "pdfFiles", String(id), "chunks", String(i)));
+    if(chunkSnap.exists()) parts.push(chunkSnap.data().data || "");
+  }
+
+  const joined = parts.join("");
+  const bytes = dataStringToBytes(joined);
+  if(!bytes) return null;
+
+  return { id:String(id), name:meta.name || "", data:bytes };
+}
+
+async function getAllSongs(){
+  await ensureAuth();
+  const customSnap = await getDocs(collection(db, "customSongs"));
+  const custom = customSnap.docs.map(d=>({id:d.id, ...d.data(), custom:true}));
+  const all = [...DEFAULT_SONGS, ...custom];
+
+  const pdfSnap = await getDocs(collection(db, "pdfFiles"));
+  const pdfMap = {};
+  pdfSnap.docs.forEach(d=>{ pdfMap[String(d.id)] = d.data() || {}; });
+
+  return all
+    .filter(s => pdfMap[String(s.id)])
+    .map(s => ({
+      id:String(s.id),
+      title:s.title || s.name || "Untitled",
+      key:s.key || "",
+      pdf:s.pdf || pdfMap[String(s.id)]?.name || "",
+      firebasePdfId:String(s.id)
+    }))
+    .sort((a,b)=>(a.title||"").localeCompare(b.title||"", "ko"));
+}
+
+window.TVPC_FB_READY = Promise.resolve({
+  async getSongs(){
+    return await getAllSongs();
+  },
+
+  watchSongs(callback){
+    const refresh = async()=>{
+      try { callback(await getAllSongs()); } catch(e) { console.warn("watchSongs refresh failed", e); }
+    };
+    let unsubCustom=null, unsubPdf=null;
+    ensureAuth().then(()=>{
+      unsubCustom = onSnapshot(collection(db, "customSongs"), refresh, e=>console.warn(e));
+      unsubPdf = onSnapshot(collection(db, "pdfFiles"), refresh, e=>console.warn(e));
+      refresh();
+    });
+    return ()=>{ if(unsubCustom)unsubCustom(); if(unsubPdf)unsubPdf(); };
+  },
+
+  async getPdfDataForSong(song){
+    await ensureAuth();
+    const candidates = [
+      song.firebasePdfId,
+      song.id,
+      song.title,
+      song.pdf,
+      song.file,
+      song.filename
+    ].filter(Boolean);
+
+    for(const id of candidates){
+      const direct = await loadChunks(id).catch(e=>{console.warn("direct PDF load failed", id, e); return null;});
+      if(direct) return direct;
+    }
+
+    const targetNames = new Set(candidates.map(norm).filter(Boolean));
+    const all = await getDocs(collection(db, "pdfFiles"));
+    for(const d of all.docs){
+      const m = d.data() || {};
+      const possible = [d.id, m.name].map(norm);
+      if(possible.some(x => targetNames.has(x))){
+        const found = await loadChunks(d.id).catch(e=>{console.warn("matched PDF load failed", d.id, e); return null;});
+        if(found) return found;
+      }
+    }
+    return null;
+  }
+});
+
+window.TVPC_FB_READY.then(api=>{ window.TVPC_FB = api; console.log("TVPC Firebase library/PDF sync ready"); });
+</script>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const BUILD="AINOS_DUAL_LAYOUT_LAST_FIX_ONLY";
+const SHARED_BASE="https://terrysf-web.github.io/tvpc-worship";
+const SHARED_SONGS_URL=SHARED_BASE+"/data/songs.json?v="+Date.now();
+function pdfUrlFor(song){
+  const p = song.pdf || song.file || song.filename || "";
+  if(!p) return "";
+  if(p.startsWith("http")) return p;
+  if(p.startsWith("pdfs/")){
+    return SHARED_BASE + "/" + p.split("/").map(part=>encodeURIComponent(part)).join("/");
+  }
+  return SHARED_BASE + "/pdfs/" + encodeURIComponent(p);
+}
+const PDF_DOC_CACHE = new Map();
+
+async function loadPdfDocForSong(song){
+  const cacheKey = String(song.id || song.title || song.pdf || "");
+  if(cacheKey && PDF_DOC_CACHE.has(cacheKey)) return PDF_DOC_CACHE.get(cacheKey);
+
+  let pdfDoc = null;
+
+  if(window.TVPC_FB&&window.TVPC_FB.getPdfDataForSong){
+    const fbPdf = await window.TVPC_FB.getPdfDataForSong(song).catch(e=>{
+      console.warn("Firebase PDF load failed", e);
+      return null;
+    });
+    if(fbPdf&&fbPdf.data){
+      pdfDoc = await pdfjsLib.getDocument({data:fbPdf.data}).promise;
+    }
+  }
+
+  if(!pdfDoc){
+    const url = pdfUrlFor(song);
+    if(!url) throw new Error("PDF 경로 없음");
+    pdfDoc = await pdfjsLib.getDocument(url).promise;
+  }
+
+  if(cacheKey) PDF_DOC_CACHE.set(cacheKey, pdfDoc);
+  return pdfDoc;
+}
+
+function hasDualRightPanel(){
+  return !!(state.dual && state.dualPdf && state.dualSong && state.viewer && String(state.dualSong.id)!==String(state.viewer.id));
+}
+
+function getNextSongForDual(currentId){
+  const svc=currentSvc();
+  const ids=(svc.songs||[]).map(x=>{const s=findSongByRef(x);return s?s.id:x});
+  const idx=ids.indexOf(currentId);
+  if(idx<0 || idx>=ids.length-1) return null;
+  return findSongByRef(ids[idx+1]);
+}
+
+async function preloadNextPdf(currentId){
+  try{
+    const svc=currentSvc();
+    const ids=(svc.songs||[]).map(x=>{const s=findSongByRef(x);return s?s.id:x});
+    const idx=ids.indexOf(currentId);
+    if(idx<0 || idx>=ids.length-1) return;
+    const nextSong=findSongByRef(ids[idx+1]);
+    if(!nextSong) return;
+    const key=String(nextSong.id || nextSong.title || nextSong.pdf || "");
+    if(key && PDF_DOC_CACHE.has(key)) return;
+    await loadPdfDocForSong(nextSong);
+  }catch(e){
+    console.warn("Next PDF preload failed", e);
+  }
+}
+
+const INK_STORAGE_KEY="tvpcainos_ink_v3";
+
+function loadAllInk(){
+  try{
+    return JSON.parse(localStorage.getItem(INK_STORAGE_KEY)||"{}");
+  }catch(e){
+    console.warn("Ink load failed",e);
+    return {};
+  }
+}
+
+function saveAllInk(map){
+  try{
+    localStorage.setItem(INK_STORAGE_KEY,JSON.stringify(map||{}));
+  }catch(e){
+    console.warn("Ink save failed",e);
+  }
+}
+
+function attachSavedInkToSongs(){
+  const inkMap=loadAllInk();
+  state.songs=(state.songs||[]).map(s=>({
+    ...s,
+    ink: inkMap[String(s.id)] || s.ink || {}
+  }));
+}
+
+function persistSongInk(song){
+  if(!song||!song.id) return;
+  const inkMap=loadAllInk();
+  inkMap[String(song.id)] = song.ink || {};
+  saveAllInk(inkMap);
+}
+
+function findSongByRef(ref){
+  return state.songs.find(s=>s.id===ref)
+    || state.songs.find(s=>s.title===ref)
+    || state.songs.find(s=>String(s.id).toLowerCase()===String(ref).toLowerCase())
+    || state.songs.find(s=>String(s.title).trim().toLowerCase()===String(ref).trim().toLowerCase());
+}
+const DB="tvpc_ainos_integrated_stable_v1", STORE="pdfs";
+let dbp=null;
+function openDB(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});return dbp}
+async function putFile(id,data){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(data,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
+async function getFile(id){const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,"readonly");const r=tx.objectStore(STORE).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+const $=s=>document.querySelector(s), app=$("#app");
+const state={
+ tab:"service",
+ songs:[],
+ services:JSON.parse(localStorage.getItem("ais_services")||"[]"),
+ currentService:localStorage.getItem("ais_current_service")||null,
+ viewer:null,pdf:null,dual:false,dualPdf:null,dualSong:null,dualTotal:1,mode:"read",page:1,total:1,draw:false,pts:[],startX:0,startY:0,color:"#ef4444",width:3
+};
+if(!state.services.length){const id="svc_"+Date.now();state.services=[{id,name:"Sunday Service",date:new Date().toISOString().slice(0,10),songs:[]}];state.currentService=id;save();}
+function save(){localStorage.setItem("ais_services",JSON.stringify(state.services));if(state.currentService)localStorage.setItem("ais_current_service",state.currentService)}
+function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
+function esc(s){return(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function toast(m){const old=$(".toast");if(old)old.remove();const t=document.createElement("div");t.className="toast";t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),1700)}
+function fileData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
+function currentSvc(){return state.services.find(s=>s.id===state.currentService)||state.services[0]}
+function render(){if(state.viewer)return renderViewer();const svc=currentSvc();app.innerHTML=`<div class="app"><div class="top"><div class="logo">A</div><div class="top-title"><b>TVPC Ainos <span class="badge">Service Open Fix</span></b><span>${esc(svc.name)} · ${esc(svc.date||"")}</span></div><button class="primary" onclick="share()">Share</button></div><div class="page"><div class="grid"><section class="card"><div class="card-head"><h2>Services</h2><button class="gray small" onclick="newService()">New</button></div><div class="card-body">${servicesHTML()}</div></section><section class="card"><div class="card-head"><h2>${state.tab==='service'?'Service Setlist':'Song Library'}</h2><div class="tabs"><button class="${state.tab==='service'?'active':''} small" onclick="state.tab='service';render()">Service</button><button class="${state.tab==='library'?'active':''} small" onclick="state.tab='library';render()">Library</button></div></div><div class="card-body">${state.tab==='service'?serviceHTML():libraryHTML()}</div></section></div></div></div>`}
+function servicesHTML(){return `<div class="field"><label>Service Name</label><input value="${esc(currentSvc().name)}" onchange="currentSvc().name=this.value;save();render()"></div><div class="field"><label>Date</label><input type="date" value="${esc(currentSvc().date||"")}" onchange="currentSvc().date=this.value;save();render()"></div><div class="list">${state.services.map(s=>`<div class="row"><div><div class="title">${esc(s.name)}</div><div class="meta">${esc(s.date||"")} · ${s.songs.length} songs</div></div><div class="actions"><button class="${s.id===state.currentService?'primary':'gray'} small" onclick="state.currentService='${s.id}';save();render()">Open</button><button class="red small" onclick="deleteService('${s.id}')">Delete</button></div></div>`).join("")}</div>`}
+function serviceHTML(){const svc=currentSvc();return `<div class="service-title">${esc(svc.name)}</div><div class="meta">${esc(svc.date||"")}</div><div class="list">${svc.songs.map((id,i)=>{const s=findSongByRef(id);return s?rowSong(s,true,i):`<div class="row"><div><div class="title">곡 연결 오류</div><div class="meta">${esc(id)}</div></div></div>`}).join("")||'<div class="empty">Library에서 곡을 추가하세요.</div>'}</div><button class="primary" onclick="startService()">Start Service</button>`}
+function libraryHTML(){return `<div class="field"><label>Title</label><input id="title" placeholder="곡 제목"></div><div class="field"><label>Key</label><select id="key">${["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"].map(k=>`<option>${k}</option>`).join("")}</select></div><div class="field"><label>PDF</label><input id="pdf" type="file" accept="application/pdf"></div><button class="blue" onclick="addSong()">Add Song</button><div class="list">${state.songs.map(s=>rowSong(s,false)).join("")||'<div class="empty">곡을 추가하세요.</div>'}</div>`}
+function rowSong(s,inSet,i=0){return `<div class="row"><div><div class="title">${esc(s.title)}</div><div class="meta">Key ${esc(s.key||"-")}</div></div><div class="actions">${inSet?`<button class="blue small" onclick="openViewer('${s.id}')">Open</button><button class="gray small" onclick="moveSong(${i},-1)">↑</button><button class="gray small" onclick="moveSong(${i},1)">↓</button><button class="red small" onclick="removeSong(${i})">Remove</button>`:`<button class="primary small" onclick="addToService('${s.id}')">Add</button><button class="gray small" onclick="openViewer('${s.id}')">Test</button><button class="red small" onclick="deleteSong('${s.id}')">Delete</button>`}</div></div>`}
+function newService(){const id=uid();state.services.push({id,name:"New Service",date:new Date().toISOString().slice(0,10),songs:[]});state.currentService=id;save();render()}
+function deleteService(id){if(state.services.length<=1)return toast("최소 1개 필요");if(!confirm("Service 삭제?"))return;state.services=state.services.filter(s=>s.id!==id);if(state.currentService===id)state.currentService=state.services[0].id;save();render()}
+async function addSong(){const title=$("#title").value.trim(),key=$("#key").value,f=$("#pdf").files[0];if(!title||!f)return toast("Title/PDF 필요");const id=uid();await putFile(id,await fileData(f));state.songs.push({id,title,key,ink:{},zoom:1});save();render();toast("곡 추가됨")}
+function deleteSong(id){if(!confirm("곡 삭제?"))return;state.songs=state.songs.filter(s=>s.id!==id);state.services.forEach(s=>s.songs=s.songs.filter(x=>x!==id));save();render()}
+function addToService(id){currentSvc().songs.push(id);save();state.tab="service";render();toast("Service에 추가됨")}
+function removeSong(i){currentSvc().songs.splice(i,1);save();render()}
+function moveSong(i,d){const arr=currentSvc().songs,j=i+d;if(j<0||j>=arr.length)return;[arr[i],arr[j]]=[arr[j],arr[i]];save();render()}
+function startService(){
+const svc=currentSvc();
+if(!svc.songs.length)return toast("Setlist 없음");
+const first=findSongByRef(svc.songs[0]);
+if(!first)return toast("Setlist 곡 연결 오류");
+openViewer(first.id);
+}
+async function openViewer(id){
+const song=findSongByRef(id);
+if(!song)return toast("곡을 못 찾았습니다");
+id=song.id;
+try{
+state.viewer={id};state.mode="read";state.page=1;state.pdf=null;render();
+
+state.pdf=await loadPdfDocForSong(song);
+
+state.total=state.pdf.numPages;
+await prepareDual();
+await drawAll();
+preloadNextPdf(id);
+}catch(e){console.error(e);toast("PDF 열기 실패 - Firebase/파일 확인")}
+}
+function closeViewer(){save();state.viewer=null;state.pdf=null;state.dualPdf=null;state.dualSong=null;render()}
+function currentSong(){return state.viewer?findSongByRef(state.viewer.id):null}
+function renderViewer(){const s=currentSong(), svc=currentSvc(), svcIds=svc.songs.map(x=>{const ss=findSongByRef(x);return ss?ss.id:x}), idx=svcIds.indexOf(s.id);app.innerHTML=`<div class="viewer ${state.mode} ${hasDualRightPanel()?'dual':''}"><div class="vtop"><button class="gray" onclick="closeViewer()">Back</button><div class="vtitle"><b>${esc(s.title)}</b><span>${idx>=0?idx+1+"/"+svc.songs.length+" · ":""}Page ${state.page}/${state.total} · Key ${esc(s.key||"-")}</span></div><div style="display:flex;align-items:center;gap:8px">
+<button class="${state.mode==='write'?'primary':'gold'}" onclick="toggleMode()">${state.mode==='write'?'WRITE ON':'READ'}</button>
+<span style="color:white;font-size:12px;font-weight:700;opacity:.85;white-space:nowrap;">${state.mode==='write'?'필기만 가능 / 이동 잠김':'Swipe 가능'}</span>
+</div><button class="${state.dual?'primary':'gray'}" onclick="toggleDual()">DUAL</button><button class="red" onclick="clearInk()">Clear</button></div><div class="stage" id="stage" ontouchstart="swipeStart(event)" ontouchend="swipeEnd(event)"><div class="sheet" id="sheet"><canvas id="pdfCanvas"></canvas><div class="write-lock" id="writeLock"></div><canvas id="inkCanvas"></canvas></div>${hasDualRightPanel()?`<div class="dualSheet" id="dualSheet"><canvas id="dualPdfCanvas"></canvas><canvas id="dualInkCanvas"></canvas><div class="dualLabel">${state.dualSong?esc(state.dualSong.title):'악보 없음'}</div></div>`:''}</div><div class="vbottom"><button onclick="prev()">◀ PREV</button><button onclick="toggleMode()" class="${state.mode==='write'?'primary':'gold'}">${state.mode==='write'?'쓰기 ON':'쓰기 모드'}</button><button onclick="next()" class="primary">NEXT ▶</button><button onclick="toggleDual()" class="${state.dual?'primary':'gray'}">${state.dual?'Dual ON':'Dual'}</button></div></div>`;setTimeout(()=>drawAll(),0)}
+async function prepareDual(){
+  state.dualPdf=null;
+  state.dualSong=null;
+  state.dualTotal=1;
+  if(!state.dual || !state.viewer) return;
+
+  const nextSong=getNextSongForDual(state.viewer.id);
+
+  // Dual mode: right side is ONLY the next different song.
+  // Last song: no right panel.
+  if(!nextSong || String(nextSong.id)===String(state.viewer.id)){
+    return;
+  }
+
+  try{
+    state.dualSong=nextSong;
+    state.dualPdf=await loadPdfDocForSong(nextSong);
+    state.dualTotal=state.dualPdf.numPages;
+  }catch(e){
+    state.dualPdf=null;
+    state.dualSong=null;
+    console.warn("Dual PDF load failed", e);
+  }
+}
+
+async function drawDualPdf(){
+  if(!hasDualRightPanel()) return;
+  const dualPage = (state.dualSong && state.dualSong.id===state.viewer.id) ? state.page : 1;
+  const page=await state.dualPdf.getPage(Math.min(dualPage,state.dualTotal||1));
+  const stage=$("#stage"),canvas=$("#dualPdfCanvas"),ink=$("#dualInkCanvas"),sheet=$("#dualSheet");
+  if(!stage||!canvas||!sheet) return;
+
+  const base=page.getViewport({scale:1});
+  const targetW=Math.max(200, (stage.clientWidth-24)/2);
+  const targetH=Math.max(200, stage.clientHeight-16);
+  const fit=Math.min(targetW/base.width,targetH/base.height);
+  const vp=page.getViewport({scale:fit});
+  const dpr=window.devicePixelRatio||1;
+
+  sheet.style.width=Math.round(vp.width)+"px";
+  sheet.style.height=Math.round(vp.height)+"px";
+
+  [canvas,ink].filter(Boolean).forEach(c=>{
+    c.width=Math.round(vp.width*dpr);
+    c.height=Math.round(vp.height*dpr);
+    c.style.width=Math.round(vp.width)+"px";
+    c.style.height=Math.round(vp.height)+"px";
+  });
+
+  const ctx=canvas.getContext("2d",{alpha:false});
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  await page.render({canvasContext:ctx,viewport:vp}).promise;
+  drawDualInk(dualPage);
+}
+
+function drawDualInk(dualPage=1){
+  const ink=$("#dualInkCanvas");
+  if(!ink || !state.dualSong) return;
+  const ctx=ink.getContext("2d");
+  ctx.clearRect(0,0,ink.width,ink.height);
+
+  const song=state.songs.find(s=>s.id===state.dualSong.id);
+  if(!song) return;
+
+  const strokes=(song.ink&&song.ink["p"+dualPage])||[];
+  const dpr=window.devicePixelRatio||1;
+
+  strokes.forEach(st=>{
+    ctx.lineCap="round";
+    ctx.lineJoin="round";
+    ctx.strokeStyle=st.color||"#ef4444";
+    ctx.lineWidth=(st.width||3)*dpr;
+    const pts=st.pts||[];
+    for(let i=2;i<pts.length;i++){
+      const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);
+      ctx.beginPath();
+      ctx.moveTo(m1.x,m1.y);
+      ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);
+      ctx.stroke();
+    }
+  });
+}
+
+async function toggleDual(){
+  if(state.mode==="write") return toast("Write Mode에서는 Dual 변경 잠김");
+  state.dual=!state.dual;
+  await prepareDual();
+  if(state.dual && state.viewer && !hasDualRightPanel()) toast("마지막 곡입니다 - 오른쪽 악보 없음");
+  renderViewer();
+}
+
+async function drawAll(){if(!state.pdf||!state.viewer)return;await drawPdf();setupInk();loadInk();setupWriteLock();await drawDualPdf()}
+async function drawPdf(){const page=await state.pdf.getPage(state.page),stage=$("#stage"),pdf=$("#pdfCanvas"),ink=$("#inkCanvas"),sheet=$("#sheet"),lock=$("#writeLock");if(!stage||!pdf||!ink)return;const base=page.getViewport({scale:1});
+const targetW=hasDualRightPanel()?Math.max(200,(stage.clientWidth-24)/2):stage.clientWidth;
+const targetH=hasDualRightPanel()?Math.max(200,stage.clientHeight-16):stage.clientHeight;
+const fit=Math.min(targetW/base.width,targetH/base.height)*(currentSong().zoom||1);
+const vp=page.getViewport({scale:fit});const dpr=window.devicePixelRatio||1;sheet.style.width=Math.round(vp.width)+"px";sheet.style.height=Math.round(vp.height)+"px";[pdf,ink].forEach(c=>{c.width=Math.round(vp.width*dpr);c.height=Math.round(vp.height*dpr);c.style.width=Math.round(vp.width)+"px";c.style.height=Math.round(vp.height)+"px"});if(lock){lock.style.width=Math.round(vp.width)+"px";lock.style.height=Math.round(vp.height)+"px"}const ctx=pdf.getContext("2d",{alpha:false});ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,pdf.width,pdf.height);await page.render({canvasContext:ctx,viewport:vp}).promise}
+function blockEvent(e){if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{};try{e.stopImmediatePropagation&&e.stopImmediatePropagation()}catch{};return false}}
+function setupWriteLock(){const lock=$("#writeLock");if(!lock)return;["touchstart","touchmove","touchend","click","contextmenu","gesturestart","gesturechange","gestureend"].forEach(type=>lock.addEventListener(type,blockEvent,{passive:false,capture:true}))}
+function setupInk(){const c=$("#inkCanvas");if(!c)return;c.onpointerdown=penDown;c.onpointermove=penMove;c.onpointerup=penUp;c.onpointercancel=penUp;c.onpointerleave=null;["touchstart","touchmove","touchend","gesturestart","contextmenu","click"].forEach(type=>c.addEventListener(type,e=>{if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}))}
+function pageKey(){return "p"+state.page}
+function pos(e){const r=$("#inkCanvas").getBoundingClientRect(),dpr=window.devicePixelRatio||1;return{x:(e.clientX-r.left)*dpr,y:(e.clientY-r.top)*dpr,p:e.pressure||0.5}}
+function mid(a,b){return{x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
+function penDown(e){if(state.mode!=="write")return;e.preventDefault();e.stopPropagation();try{e.currentTarget.setPointerCapture(e.pointerId)}catch{}state.draw=true;state.pts=[pos(e)]}
+function penMove(e){if(state.mode!=="write"||!state.draw)return;e.preventDefault();e.stopPropagation();const p=pos(e);state.pts.push(p);const n=state.pts.length;if(n<3){dot(p);return}const p0=state.pts[n-3],p1=state.pts[n-2],p2=state.pts[n-1],m1=mid(p0,p1),m2=mid(p1,p2);const ctx=$("#inkCanvas").getContext("2d",{desynchronized:true});ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=state.color;ctx.lineWidth=(state.width+Math.max(.2,p1.p)*2)*(window.devicePixelRatio||1);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}
+function penUp(e){if(!state.draw)return;e.preventDefault();e.stopPropagation();try{e.currentTarget.releasePointerCapture(e.pointerId)}catch{}state.draw=false;saveStroke(state.pts);state.pts=[];if(state.dual&&state.dualSong&&state.dualSong.id===state.viewer.id){drawDualInk(state.page)}}
+function dot(p){const ctx=$("#inkCanvas").getContext("2d");ctx.fillStyle=state.color;ctx.beginPath();ctx.arc(p.x,p.y,1.8*(window.devicePixelRatio||1),0,Math.PI*2);ctx.fill()}
+function saveStroke(pts){
+const s=currentSong();
+if(!s)return;
+s.ink=s.ink||{};
+s.ink[pageKey()]=s.ink[pageKey()]||[];
+s.ink[pageKey()].push({color:state.color,width:state.width,pts});
+persistSongInk(s);
+save();
+}
+function loadInk(){const s=currentSong(),strokes=(s.ink&&s.ink[pageKey()])||[],ctx=$("#inkCanvas").getContext("2d");ctx.clearRect(0,0,$("#inkCanvas").width,$("#inkCanvas").height);strokes.forEach(st=>{ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=st.color||"#ef4444";ctx.lineWidth=(st.width||3)*(window.devicePixelRatio||1);const pts=st.pts||[];for(let i=2;i<pts.length;i++){const p0=pts[i-2],p1=pts[i-1],p2=pts[i],m1=mid(p0,p1),m2=mid(p1,p2);ctx.beginPath();ctx.moveTo(m1.x,m1.y);ctx.quadraticCurveTo(p1.x,p1.y,m2.x,m2.y);ctx.stroke()}})}
+function clearInk(){
+if(!confirm("현재 페이지 필기 삭제?"))return;
+const s=currentSong();
+if(s){
+  s.ink=s.ink||{};
+  s.ink[pageKey()]=[];
+  persistSongInk(s);
+}
+save();
+loadInk();
+if(state.dual&&state.dualSong&&state.dualSong.id===state.viewer.id){drawDualInk(state.page)}
+}
+function toggleMode(){state.mode=state.mode==="write"?"read":"write";renderViewer()}
+function prev(){if(state.mode==="write")return toast("Write Mode에서는 이동 잠김");if(state.page>1){state.page--;renderViewer();return}const arr=currentSvc().songs.map(x=>{const s=findSongByRef(x);return s?s.id:x}),i=arr.indexOf(state.viewer.id);if(i>0)openViewer(arr[i-1]);else toast("첫 곡입니다")}
+function next(){if(state.mode==="write")return toast("Write Mode에서는 이동 잠김");if(state.page<state.total){state.page++;renderViewer();return}const arr=currentSvc().songs.map(x=>{const s=findSongByRef(x);return s?s.id:x}),i=arr.indexOf(state.viewer.id);if(i>=0&&i<arr.length-1)openViewer(arr[i+1]);else toast("마지막입니다")}
+function swipeStart(e){if(state.mode==="write"){try{e.preventDefault()}catch{};return}state.startX=e.changedTouches[0].clientX;state.startY=e.changedTouches[0].clientY}
+function swipeEnd(e){if(state.mode==="write"){try{e.preventDefault()}catch{};return}const dx=e.changedTouches[0].clientX-state.startX,dy=e.changedTouches[0].clientY-state.startY;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.3){dx<0?next():prev()}}
+function zoomToggle(){const s=currentSong();s.zoom=s.zoom===1?1.25:1;save();renderViewer()}
+function share(){const svc=currentSvc();const payload={v:1,name:svc.name,date:svc.date,songs:svc.songs.map(id=>{const s=state.songs.find(x=>x.id===id);return s?{id:s.id,title:s.title,key:s.key}:null}).filter(Boolean)};const url="https://terrysf-web.github.io/tvpcainos/index.html#share="+btoa(unescape(encodeURIComponent(JSON.stringify(payload))));navigator.clipboard?.writeText(url);toast("Share copied")}
+["contextmenu","dragstart","gesturestart","gesturechange","gestureend"].forEach(type=>document.addEventListener(type,e=>{if(state.mode==="write"){try{e.preventDefault()}catch{};try{e.stopPropagation()}catch{}}},{passive:false,capture:true}));
+window.addEventListener("resize",()=>{if(state.viewer)renderViewer()});
+async function waitForFirebaseApi(){
+  for(let i=0;i<30;i++){
+    if(window.TVPC_FB_READY) return await window.TVPC_FB_READY;
+    await new Promise(r=>setTimeout(r,100));
+  }
+  return null;
+}
+async function loadSharedSongs(){
+  try{
+    const api = await waitForFirebaseApi();
+    if(api){
+      state.songs = await api.getSongs();
+      attachSavedInkToSongs();
+      render();
+      api.watchSongs((songs)=>{ state.songs=songs; attachSavedInkToSongs(); render(); });
+      return;
+    }
+
+    const res = await fetch(SHARED_SONGS_URL,{cache:"no-store"});
+    if(!res.ok) throw new Error("songs.json load failed " + res.status);
+    const data = await res.json();
+    state.songs = Array.isArray(data) ? data.map((s,i)=>({
+      id: s.id || ("song_"+i),
+      title: s.title || s.name || "Untitled",
+      key: s.key || "",
+      pdf: s.pdf || s.file || s.filename || ""
+    })) : [];
+    attachSavedInkToSongs();
+    render();
+  }catch(e){
+    console.error(e);
+    toast("Song library 로드 실패");
+    render();
+  }
+}
+
+loadSharedSongs();
+</script>
+
+
+
+
+
+</body>
+</html>
