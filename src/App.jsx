@@ -986,6 +986,12 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   const [zoomMul,  setZoomMul]  = useState(1.0);
   const [loadErr,  setLoadErr]  = useState("");
   const [cSize,    setCSize]    = useState({ w: 0, h: 0 });
+  const [dualIdx,  setDualIdx]  = useState(Math.max(0, songIdx));
+  const [pdf1,     setPdf1]     = useState(null);
+  const [pdf2,     setPdf2]     = useState(null);
+  const [dualToast, setDualToast] = useState("");
+  const touchStartX = useRef(null);
+  const toastTimer  = useRef(null);
 
   // ── UI
   const [dual,          setDual]          = useState(false);
@@ -1007,31 +1013,41 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
     return () => ro.disconnect();
   }, []);
 
-  // PDF 로드
+  // PDF 로드 (싱글 모드)
   useEffect(() => {
+    if (dual) return;
     pdfDocRef.current = null;
     setPageNum(1); setNumPages(0); setLoadErr("");
     if (!song?.pdfUrl || !pdfjsReady || !window.pdfjsLib) return;
     window.pdfjsLib.getDocument({ url: song.pdfUrl }).promise
       .then(pdf => { pdfDocRef.current = pdf; setNumPages(pdf.numPages); })
       .catch(() => setLoadErr("PDF를 불러올 수 없습니다"));
-  }, [song?.pdfUrl, pdfjsReady, selectedSongId]);
+  }, [song?.pdfUrl, pdfjsReady, selectedSongId, dual]);
+
+  // PDF 로드 (듀얼 모드)
+  useEffect(() => {
+    if (!dual || !pdfjsReady || !window.pdfjsLib) return;
+    setPdf1(null); setPdf2(null);
+    const load = (url) => url
+      ? window.pdfjsLib.getDocument({ url }).promise.catch(() => null)
+      : Promise.resolve(null);
+    load(svcSongs[dualIdx]?.pdfUrl).then(p => setPdf1(p));
+    load(svcSongs[dualIdx + 1]?.pdfUrl).then(p => setPdf2(p));
+  }, [dual, dualIdx, svcSongs, pdfjsReady]);
 
   // 페이지 렌더링 — 컨테이너에 꼭 맞게
   const renderPage = useCallback(async () => {
-    if (!pdfDocRef.current || !cSize.w || !cSize.h) return;
+    if (!cSize.w || !cSize.h) return;
     const pad = 8;
     try {
       if (dual) {
-        // 듀얼: 좌우 두 페이지
-        const halfW = cSize.w / 2 - pad * 2;
+        // 듀얼: 좌우 두 곡 (각자의 PDF 첫 페이지)
+        const halfW  = Math.floor(cSize.w / 2) - pad * 2;
         const availH = cSize.h - pad * 2;
-        const render = async (ref, pNum) => {
-          if (!ref.current || pNum < 1 || pNum > pdfDocRef.current.numPages) {
-            if (ref.current) { ref.current.width = 0; ref.current.height = 0; }
-            return;
-          }
-          const page = await pdfDocRef.current.getPage(pNum);
+        const renderTo = async (ref, pdfDoc) => {
+          if (!ref.current) return;
+          if (!pdfDoc) { ref.current.width = 0; ref.current.height = 0; return; }
+          const page = await pdfDoc.getPage(1);
           const base = page.getViewport({ scale: 1 });
           const sc   = Math.min(halfW / base.width, availH / base.height) * zoomMul;
           const vp   = page.getViewport({ scale: sc });
@@ -1039,11 +1055,11 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
           ref.current.height = vp.height;
           await page.render({ canvasContext: ref.current.getContext("2d"), viewport: vp }).promise;
         };
-        await render(canvas1Ref, pageNum);
-        await render(canvas2Ref, pageNum + 1);
+        await renderTo(canvas1Ref, pdf1);
+        await renderTo(canvas2Ref, pdf2);
       } else {
         // 싱글: 한 페이지 꽉 맞춤
-        if (!canvas1Ref.current) return;
+        if (!pdfDocRef.current || !canvas1Ref.current) return;
         const page = await pdfDocRef.current.getPage(pageNum);
         const base = page.getViewport({ scale: 1 });
         const sc   = Math.min((cSize.w - pad * 2) / base.width, (cSize.h - pad * 2) / base.height) * zoomMul;
@@ -1053,9 +1069,38 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
         await page.render({ canvasContext: canvas1Ref.current.getContext("2d"), viewport: vp }).promise;
       }
     } catch(e) { console.error(e); }
-  }, [pageNum, zoomMul, dual, numPages, cSize]);
+  }, [pageNum, zoomMul, dual, numPages, cSize, pdf1, pdf2]);
 
   useEffect(() => { renderPage(); }, [renderPage, numPages]);
+
+  const showToast = useCallback((msg) => {
+    setDualToast(msg);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setDualToast(""), 2000);
+  }, []);
+
+  const dualPrev = useCallback(() => {
+    if (dualIdx <= 0) { showToast("첫번째 곡입니다"); return; }
+    setDualIdx(i => i - 1);
+  }, [dualIdx, showToast]);
+
+  const dualNext = useCallback(() => {
+    if (dualIdx >= svcSongs.length - 1) { showToast("마지막 곡입니다"); return; }
+    setDualIdx(i => i + 1);
+  }, [dualIdx, svcSongs.length, showToast]);
+
+  const handleTouchStart = useCallback((e) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback((e) => {
+    if (touchStartX.current === null) return;
+    const delta = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(delta) < 50) return;
+    if (delta < 0) dualNext();
+    else dualPrev();
+  }, [dualNext, dualPrev]);
 
   const saveNote = async () => {
     if (!noteTxt.trim() || saving) return;
@@ -1166,38 +1211,106 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
       <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
         {/* PDF 캔버스 영역 */}
         <div ref={containerRef} style={{ flex:1, overflow:"hidden", display:"flex",
-          alignItems:"center", justifyContent:"center", background:C.bg, gap:8, padding:8 }}>
-          {song.pdfUrl ? (
-            loadErr
-              ? <div style={{ color:C.red, fontSize:13 }}>{loadErr}</div>
-              : (
-                <>
-                  <canvas ref={canvas1Ref} style={{ display:"block",
-                    borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)", flexShrink:0 }} />
-                  {dual && (
-                    <canvas ref={canvas2Ref} style={{ display:"block",
-                      borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)", flexShrink:0 }} />
-                  )}
-                </>
-              )
+          position:"relative", background:C.bg }}
+          onTouchStart={dual ? handleTouchStart : undefined}
+          onTouchEnd={dual ? handleTouchEnd : undefined}>
+
+          {dual ? (
+            // ── 듀얼 모드: 두 곡 나란히 (정확히 50/50)
+            <>
+              {/* 왼쪽 곡 */}
+              <div style={{ width:"50%", height:"100%", display:"flex",
+                alignItems:"center", justifyContent:"center",
+                borderRight:`1px solid ${C.bdr}`, overflow:"hidden", padding:8 }}>
+                {svcSongs[dualIdx]?.pdfUrl
+                  ? <canvas ref={canvas1Ref} style={{ display:"block",
+                      borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
+                  : <div style={{ textAlign:"center", color:C.dim }}>
+                      <div style={{ fontSize:32, marginBottom:8 }}>🎼</div>
+                      <div style={{ fontWeight:600, fontSize:13 }}>{svcSongs[dualIdx]?.title || ""}</div>
+                      <div style={{ fontSize:11, marginTop:4 }}>PDF 없음</div>
+                    </div>
+                }
+              </div>
+              {/* 오른쪽 곡 */}
+              <div style={{ width:"50%", height:"100%", display:"flex",
+                alignItems:"center", justifyContent:"center",
+                overflow:"hidden", padding:8 }}>
+                {svcSongs[dualIdx + 1]
+                  ? svcSongs[dualIdx + 1].pdfUrl
+                    ? <canvas ref={canvas2Ref} style={{ display:"block",
+                        borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
+                    : <div style={{ textAlign:"center", color:C.dim }}>
+                        <div style={{ fontSize:32, marginBottom:8 }}>🎼</div>
+                        <div style={{ fontWeight:600, fontSize:13 }}>{svcSongs[dualIdx + 1].title}</div>
+                        <div style={{ fontSize:11, marginTop:4 }}>PDF 없음</div>
+                      </div>
+                  : <div style={{ textAlign:"center", color:C.dim }}>
+                      <div style={{ fontSize:36, marginBottom:8 }}>🏁</div>
+                      <div style={{ fontSize:13 }}>마지막 곡</div>
+                    </div>
+                }
+              </div>
+              {/* 곡 제목 레이블 */}
+              <div style={{ position:"absolute", bottom:10, left:0, width:"50%",
+                display:"flex", justifyContent:"center", pointerEvents:"none" }}>
+                <div style={{ background:"rgba(0,0,0,.6)", color:"#fff",
+                  padding:"4px 14px", borderRadius:20, fontSize:11, fontWeight:700,
+                  maxWidth:"80%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {svcSongs[dualIdx]?.title}
+                </div>
+              </div>
+              {svcSongs[dualIdx + 1] && (
+                <div style={{ position:"absolute", bottom:10, right:0, width:"50%",
+                  display:"flex", justifyContent:"center", pointerEvents:"none" }}>
+                  <div style={{ background:"rgba(0,0,0,.6)", color:"#fff",
+                    padding:"4px 14px", borderRadius:20, fontSize:11, fontWeight:700,
+                    maxWidth:"80%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {svcSongs[dualIdx + 1].title}
+                  </div>
+                </div>
+              )}
+              {/* 토스트 메시지 */}
+              {dualToast && (
+                <div style={{ position:"absolute", top:"50%", left:"50%",
+                  transform:"translate(-50%,-50%)",
+                  background:"rgba(0,0,0,.78)", color:"#fff",
+                  padding:"14px 30px", borderRadius:14, fontSize:15,
+                  fontWeight:700, zIndex:50, pointerEvents:"none", textAlign:"center",
+                  boxShadow:"0 4px 20px rgba(0,0,0,.3)" }}>
+                  {dualToast}
+                </div>
+              )}
+            </>
           ) : (
-            <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
-              justifyContent:"center", height:"100%", color:C.dim, textAlign:"center", padding:40 }}>
-              <div style={{
-                width:84, height:84, borderRadius:18,
-                background:`linear-gradient(135deg, ${C.acc}22, ${C.pur}22)`,
-                border:`1px solid ${C.bdr}`,
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:38, marginBottom:16,
-              }}>🎼</div>
-              <div style={{ fontWeight:700, fontSize:16, marginBottom:6 }}>{song.title}</div>
-              <div style={{ fontSize:13 }}>PDF 악보가 없습니다</div>
+            // ── 싱글 모드
+            <div style={{ width:"100%", height:"100%", display:"flex",
+              alignItems:"center", justifyContent:"center", padding:8 }}>
+              {song.pdfUrl ? (
+                loadErr
+                  ? <div style={{ color:C.red, fontSize:13 }}>{loadErr}</div>
+                  : <canvas ref={canvas1Ref} style={{ display:"block",
+                      borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)", flexShrink:0 }} />
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
+                  justifyContent:"center", color:C.dim, textAlign:"center", padding:40 }}>
+                  <div style={{
+                    width:84, height:84, borderRadius:18,
+                    background:`linear-gradient(135deg, ${C.acc}22, ${C.pur}22)`,
+                    border:`1px solid ${C.bdr}`,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:38, marginBottom:16,
+                  }}>🎼</div>
+                  <div style={{ fontWeight:700, fontSize:16, marginBottom:6 }}>{song.title}</div>
+                  <div style={{ fontSize:13 }}>PDF 악보가 없습니다</div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* AI 패널 (MEDIA 모드) */}
-        {media && (
+        {/* AI 패널 (MEDIA 모드, 듀얼 아닐 때만) */}
+        {media && !dual && (
           <div style={{ width:320, flexShrink:0, overflow:"hidden",
             borderLeft:`1px solid ${C.bdr}`, background:C.surf }}>
             <AIPanel song={song} user={user} />
@@ -1205,38 +1318,50 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
         )}
       </div>
 
-      {/* 하단 바: 페이지 + 곡 이동 */}
+      {/* 하단 바: 듀얼 모드 = 곡 쌍 이동 / 싱글 모드 = 페이지 + 곡 이동 */}
       <div style={{ background:C.surf, borderTop:`1px solid ${C.bdr}`,
         padding:"8px 12px", display:"flex", alignItems:"center",
         justifyContent:"space-between", flexShrink:0, gap:8 }}>
 
-        {svcSongs.length > 1
-          ? navSongBtn("이전 곡", "prev", songIdx <= 0, () => goToSong(songIdx - 1))
-          : <div />}
-
-        {numPages > 0 && (
-          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <button onClick={() => setPageNum(p => Math.max(1, p - (dual ? 2 : 1)))} disabled={pageNum <= 1}
-              style={{ background:C.card, border:`1px solid ${C.bdr}`, borderRadius:9,
-                padding:"6px 14px", cursor: pageNum <= 1 ? "not-allowed" : "pointer",
-                opacity: pageNum <= 1 ? 0.3 : 1 }}>
-              <Icon n="prev" size={16} color={C.txt} />
-            </button>
-            <span style={{ fontSize:12, color:C.dim, minWidth:52, textAlign:"center" }}>
-              {pageNum}{dual && pageNum + 1 <= numPages ? `-${pageNum + 1}` : ""} / {numPages}
+        {dual ? (
+          <>
+            {navSongBtn("이전", "prev", dualIdx <= 0, dualPrev)}
+            <span style={{ fontSize:12, color:C.dim, textAlign:"center" }}>
+              {dualIdx + 1}{svcSongs[dualIdx + 1] ? `–${dualIdx + 2}` : ""} / {svcSongs.length}곡
             </span>
-            <button onClick={() => setPageNum(p => Math.min(numPages, p + (dual ? 2 : 1)))} disabled={pageNum >= numPages}
-              style={{ background:C.card, border:`1px solid ${C.bdr}`, borderRadius:9,
-                padding:"6px 14px", cursor: pageNum >= numPages ? "not-allowed" : "pointer",
-                opacity: pageNum >= numPages ? 0.3 : 1 }}>
-              <Icon n="next" size={16} color={C.txt} />
-            </button>
-          </div>
-        )}
+            {navSongBtn("다음", "next", dualIdx >= svcSongs.length - 1, dualNext)}
+          </>
+        ) : (
+          <>
+            {svcSongs.length > 1
+              ? navSongBtn("이전 곡", "prev", songIdx <= 0, () => goToSong(songIdx - 1))
+              : <div />}
 
-        {svcSongs.length > 1
-          ? navSongBtn("다음 곡", "next", songIdx >= svcSongs.length - 1, () => goToSong(songIdx + 1))
-          : <div />}
+            {numPages > 0 && (
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <button onClick={() => setPageNum(p => Math.max(1, p - 1))} disabled={pageNum <= 1}
+                  style={{ background:C.card, border:`1px solid ${C.bdr}`, borderRadius:9,
+                    padding:"6px 14px", cursor: pageNum <= 1 ? "not-allowed" : "pointer",
+                    opacity: pageNum <= 1 ? 0.3 : 1 }}>
+                  <Icon n="prev" size={16} color={C.txt} />
+                </button>
+                <span style={{ fontSize:12, color:C.dim, minWidth:52, textAlign:"center" }}>
+                  {pageNum} / {numPages}
+                </span>
+                <button onClick={() => setPageNum(p => Math.min(numPages, p + 1))} disabled={pageNum >= numPages}
+                  style={{ background:C.card, border:`1px solid ${C.bdr}`, borderRadius:9,
+                    padding:"6px 14px", cursor: pageNum >= numPages ? "not-allowed" : "pointer",
+                    opacity: pageNum >= numPages ? 0.3 : 1 }}>
+                  <Icon n="next" size={16} color={C.txt} />
+                </button>
+              </div>
+            )}
+
+            {svcSongs.length > 1
+              ? navSongBtn("다음 곡", "next", songIdx >= svcSongs.length - 1, () => goToSong(songIdx + 1))
+              : <div />}
+          </>
+        )}
       </div>
 
       {/* 메모 입력 */}
