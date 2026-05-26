@@ -17,7 +17,11 @@ export let storage = null;
 if (hasFirebase) {
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);
-  storage = getStorage(app);
+
+  // IMPORTANT:
+  // Firebase new Storage bucket uses firebasestorage.app.
+  // This bypasses storageBucket confusion in config.js.
+  storage = getStorage(app, "gs://tvpcainos.firebasestorage.app");
 }
 
 const LOCAL_KEY = 'ainos_v2_songs';
@@ -72,8 +76,8 @@ export async function uploadPdf(file, onProgress = () => {}) {
 
     const timeout = setTimeout(() => {
       task.cancel();
-      reject(new Error('Upload timeout. Firebase Storage Rules 또는 네트워크를 확인하세요.'));
-    }, 60000);
+      reject(new Error('Upload timeout at 0%. Check Firebase Storage bucket or iPad Safari network.'));
+    }, 20000);
 
     task.on(
       'state_changed',
