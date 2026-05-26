@@ -1002,15 +1002,17 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
       .catch(() => setLoadErr("PDF를 불러올 수 없습니다"));
   }, [song?.pdfUrl, pdfjsReady, selectedSongId]);
 
-  // 페이지 렌더링 (폭에 맞춤)
+  // 페이지 렌더링 (한 화면에 꽉 맞춤 — 가로/세로 모두)
   const renderPage = useCallback(async () => {
     if (!pdfDocRef.current || !canvasRef.current) return;
     try {
-      const page = await pdfDocRef.current.getPage(pageNum);
+      const page      = await pdfDocRef.current.getPage(pageNum);
       const container = canvasRef.current.parentElement;
-      const w = (container?.clientWidth || 800) - 32;
-      const base = page.getViewport({ scale: 1 });
-      const vp   = page.getViewport({ scale: (w / base.width) * zoomMul });
+      const availW    = (container?.clientWidth  || 800) - 16;
+      const availH    = (container?.clientHeight || 600) - 16;
+      const base      = page.getViewport({ scale: 1 });
+      const fitScale  = Math.min(availW / base.width, availH / base.height);
+      const vp        = page.getViewport({ scale: fitScale * zoomMul });
       canvasRef.current.width  = vp.width;
       canvasRef.current.height = vp.height;
       await page.render({ canvasContext: canvasRef.current.getContext("2d"), viewport: vp }).promise;
@@ -1018,6 +1020,17 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   }, [pageNum, zoomMul]);
 
   useEffect(() => { renderPage(); }, [renderPage, numPages]);
+
+  // 화면 회전 / 크기 변경 시 재렌더링
+  useEffect(() => {
+    const handler = () => renderPage();
+    window.addEventListener("resize", handler);
+    window.addEventListener("orientationchange", handler);
+    return () => {
+      window.removeEventListener("resize", handler);
+      window.removeEventListener("orientationchange", handler);
+    };
+  }, [renderPage]);
 
   const saveNote = async () => {
     if (!noteTxt.trim() || saving) return;
@@ -1114,12 +1127,12 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
 
       {/* 콘텐츠 */}
       <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
-        <div style={{ flex:1, overflow:"auto", display:"flex",
-          alignItems:"flex-start", justifyContent:"center", padding:16 }}>
+        <div style={{ flex:1, overflow:"hidden", display:"flex",
+          alignItems:"center", justifyContent:"center", padding:8, background:C.bg }}>
           {song.pdfUrl ? (
             loadErr
-              ? <div style={{ color:C.red, fontSize:13, paddingTop:40 }}>{loadErr}</div>
-              : <canvas ref={canvasRef} style={{ display:"block", maxWidth:"100%",
+              ? <div style={{ color:C.red, fontSize:13 }}>{loadErr}</div>
+              : <canvas ref={canvasRef} style={{ display:"block",
                   borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
           ) : (
             <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
