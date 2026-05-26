@@ -1,17 +1,5 @@
-import { db, storage } from './firebase.js';
-
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-
-import {
-  collection,
-  addDoc
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
 const uploadBtn = document.getElementById('uploadBtn');
+const songList = document.getElementById('songList');
 
 uploadBtn.addEventListener('click', async () => {
 
@@ -20,30 +8,22 @@ uploadBtn.addEventListener('click', async () => {
   const file = document.getElementById('pdfFile').files[0];
 
   if (!file) {
-    alert('Select PDF');
+    alert('PDF 선택');
     return;
   }
 
-  try {
+  const item = document.createElement('div');
+  item.style.marginTop = '20px';
+  item.style.padding = '12px';
+  item.style.background = '#f5f5f5';
+  item.style.borderRadius = '10px';
 
-    const storageRef = ref(storage, `songs/${file.name}`);
+  item.innerHTML = `
+    <strong>${title}</strong> (${key})<br>
+    ${file.name}
+  `;
 
-    await uploadBytes(storageRef, file);
+  songList.appendChild(item);
 
-    const url = await getDownloadURL(storageRef);
-
-    await addDoc(collection(db, 'songs'), {
-      title,
-      key,
-      pdfUrl: url,
-      createdAt: new Date()
-    });
-
-    alert('Upload Complete');
-
-  } catch (err) {
-    console.error(err);
-    alert('Upload Failed');
-  }
-
+  alert('업로드 UI 테스트 성공');
 });
