@@ -1376,7 +1376,6 @@ export default function App() {
         try {
           const uRef = doc(db, "users", firebaseUser.uid);
           const snap = await getDoc(uRef);
-          const profile = snap.exists() ? snap.data() : {};
           if (!snap.exists()) {
             const leadersSnap = await getDocs(
               query(collection(db, "users"), where("role", "==", "leader"), limit(1))
@@ -1388,22 +1387,15 @@ export default function App() {
               role:  autoRole,
               part:  "",
             });
-            setUser({
-              uid:   firebaseUser.uid,
-              email: firebaseUser.email,
-              name:  firebaseUser.displayName || firebaseUser.email,
-              role:  autoRole,
-              part:  "",
-            });
-          } else {
-            setUser({
-              uid:   firebaseUser.uid,
-              email: firebaseUser.email,
-              name:  profile.name  || firebaseUser.displayName || firebaseUser.email,
-              role:  profile.role  || "member",
-              part:  profile.part  || "",
-            });
           }
+          // 실제 유저 데이터는 아래 onSnapshot 리스너가 담당
+          setUser(u => u ?? {
+            uid:   firebaseUser.uid,
+            email: firebaseUser.email,
+            name:  firebaseUser.displayName || firebaseUser.email,
+            role:  "member",
+            part:  "",
+          });
         } catch {
           setUser({
             uid:   firebaseUser.uid,
@@ -1418,6 +1410,22 @@ export default function App() {
       }
     });
   }, []);
+
+  // ── 유저 문서 실시간 리스너 (role 변경 즉시 반영)
+  useEffect(() => {
+    if (!user?.uid) return;
+    return onSnapshot(doc(db, "users", user.uid), snap => {
+      if (snap.exists()) {
+        const d = snap.data();
+        setUser(u => ({
+          ...u,
+          name: d.name || u.name,
+          role: d.role || "member",
+          part: d.part || "",
+        }));
+      }
+    });
+  }, [user?.uid]);
 
   // ── Firestore: songs (real-time, auth-gated)
   useEffect(() => {
