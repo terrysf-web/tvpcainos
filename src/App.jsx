@@ -816,7 +816,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
 function SongLibraryScreen({ user, songs, addSong, nav }) {
   const [query,       setQuery]       = useState("");
   const [showAdd,     setShowAdd]     = useState(false);
-  const [uploading, setUploading] = useState(null); // songId 저장
+  const [uploading,  setUploading]  = useState(null); // songId
+  const [confirmDel, setConfirmDel] = useState(null); // songId
 
   const filtered = songs.filter(s =>
     s.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -898,7 +899,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
             </div>
 
             {user.role === "leader" && (
-              <div style={{ flexShrink:0 }}>
+              <div style={{ display:"flex", gap:6, flexShrink:0 }}>
                 {uploading === song.id ? (
                   <div style={{ fontSize:11, color:C.acc, padding:"0 6px" }}>업로드 중...</div>
                 ) : (
@@ -910,12 +911,21 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
                       title={song.pdfUrl ? "PDF 교체" : "PDF 업로드"}
                       style={{
                         display:"flex", alignItems:"center", justifyContent:"center",
-                        width:36, height:36, borderRadius:9, cursor:"pointer",
+                        width:34, height:34, borderRadius:9, cursor:"pointer",
                         background: song.pdfUrl ? `${C.grn}22` : C.surf,
                         border:`1px solid ${song.pdfUrl ? C.grn : C.bdr}`,
                       }}>
-                      <Icon n="upload" size={15} color={song.pdfUrl ? C.grn : C.dim} />
+                      <Icon n="upload" size={14} color={song.pdfUrl ? C.grn : C.dim} />
                     </label>
+                    <button onClick={() => setConfirmDel(song.id)}
+                      title="곡 삭제"
+                      style={{
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        width:34, height:34, borderRadius:9, cursor:"pointer",
+                        background:`${C.red}11`, border:`1px solid ${C.red}33`,
+                      }}>
+                      <Icon n="trash" size={14} color={C.red} />
+                    </button>
                   </>
                 )}
               </div>
@@ -928,6 +938,24 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
         <AddSongModal onClose={() => setShowAdd(false)} onAdd={addSong} />
       )}
 
+      {confirmDel && (() => {
+        const s = songs.find(x => x.id === confirmDel);
+        return (
+          <Modal title="곡 삭제" onClose={() => setConfirmDel(null)}>
+            <div style={{ fontSize:14, color:C.txt, marginBottom:20, lineHeight:1.7 }}>
+              <strong>"{s?.title}"</strong>을(를) 라이브러리에서 삭제합니다.<br />
+              <span style={{ fontSize:12, color:C.dim }}>예배 일정에서도 제거됩니다.</span>
+            </div>
+            <div style={{ display:"flex", gap:8 }}>
+              <Btn label="취소" variant="ghost" full onClick={() => setConfirmDel(null)} />
+              <Btn label="삭제" variant="danger" full onClick={async () => {
+                await deleteDoc(doc(db, "songs", confirmDel));
+                setConfirmDel(null);
+              }} />
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
