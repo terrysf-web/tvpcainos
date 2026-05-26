@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF Viewer</title>
+  <style>
+    html,body{margin:0;height:100%;background:#f8fafc;overflow:auto}
+    #wrap{width:100%;min-height:100%;display:flex;flex-direction:column;align-items:center;padding:8px;gap:12px}
+    canvas{width:100%;height:auto;max-width:100%;background:white;box-shadow:0 1px 6px rgba(0,0,0,.12)}
+    #msg{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#66758b;margin-top:30px}
+  </style>
+</head>
+<body>
+  <div id="wrap"><div id="msg">PDF loading...</div></div>
+
+  <script type="module">
+    import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.mjs";
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.mjs";
+
+    const wrap = document.getElementById('wrap');
+    const msg = document.getElementById('msg');
+    const params = new URLSearchParams(location.search);
+    const file = params.get('file');
+
+    if (!file) {
+      msg.textContent = 'PDF 파일이 없습니다.';
+    } else {
+      try {
+        const pdf = await pdfjsLib.getDocument(file).promise;
+        msg.remove();
+
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const baseViewport = page.getViewport({ scale: 1 });
+          const availableWidth = Math.max(200, wrap.clientWidth - 16);
+          const scale = availableWidth / baseViewport.width;
+          const viewport = page.getViewport({ scale });
+
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+
+          const outputScale = window.devicePixelRatio || 1;
+          canvas.width = Math.floor(viewport.width * outputScale);
+          canvas.height = Math.floor(viewport.height * outputScale);
+          canvas.style.width = Math.floor(viewport.width) + 'px';
+          canvas.style.height = Math.floor(viewport.height) + 'px';
+
+          await page.render({
+            canvasContext: ctx,
+            viewport,
+            transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null
+          }).promise;
+
+          wrap.appendChild(canvas);
+        }
+      } catch (e) {
+        console.error(e);
+        msg.textContent = 'PDF를 열 수 없습니다. Firebase Storage CORS 또는 URL을 확인하세요.';
+      }
+    }
+  </script>
+</body>
+</html>
