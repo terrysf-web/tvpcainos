@@ -8,6 +8,12 @@ const C = {
   dim:"#585c80", red:"#cc5f5f",
 };
 
+const KEY_CLR = {
+  C:"#45b87a", D:"#60b4e0", E:"#e07a60", F:"#a060e0",
+  G:"#60e0a0", A:"#e8a93e", B:"#7b6af5",
+};
+const keyColor = (k) => KEY_CLR[k ? k[0].toUpperCase() : "C"] || C.acc;
+
 const MODEL = "claude-opus-4-7";
 
 function parseYtId(url) {
@@ -123,14 +129,21 @@ BPM: ${song.bpm || "미상"}
         display:"flex", alignItems:"center", gap:8,
         background:C.card, flexShrink:0,
       }}>
-        <span style={{ fontSize:15 }}>🎵</span>
-        <span style={{ fontWeight:700, fontSize:13, color:C.acc, letterSpacing:"-0.01em" }}>
+        <span style={{ fontSize:14 }}>🎵</span>
+        <span style={{ fontWeight:800, fontSize:13, color:C.acc, letterSpacing:"-0.01em" }}>
           AI 도움
         </span>
-        <span style={{ fontSize:10, color:C.dim, marginLeft:"auto",
-          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:120 }}>
-          {song.title}
-        </span>
+        <span style={{ fontSize:10, color:`${C.dim}88`, marginLeft:2 }}>고정 영역</span>
+        <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{
+            background:`${keyColor(song.key)}22`, color:keyColor(song.key),
+            border:`1px solid ${keyColor(song.key)}44`,
+            padding:"2px 7px", borderRadius:5, fontSize:10, fontWeight:700,
+          }}>Key {song.key}</span>
+          {song.bpm && (
+            <span style={{ fontSize:10, color:C.dim }}>♩{song.bpm}</span>
+          )}
+        </div>
       </div>
 
       <div style={{ flex:1, overflowY:"auto" }}>
@@ -153,12 +166,51 @@ BPM: ${song.bpm || "미상"}
                   allowFullScreen
                 />
               </div>
-              {isLeader && (
-                <div style={{ display:"flex", gap:6, marginTop:6 }}>
-                  <button onClick={() => setEditYt(true)} style={ghostBtnStyle}>영상 변경</button>
-                  <button onClick={removeYtId}            style={ghostBtnStyle}>삭제</button>
-                </div>
-              )}
+              {/* 곡 정보 카드 */}
+          <div style={{
+            display:"flex", alignItems:"center", gap:9, marginTop:8,
+            padding:"8px 10px", background:C.card, borderRadius:9,
+            border:`1px solid ${C.bdr}`,
+          }}>
+            <div style={{
+              width:34, height:34, borderRadius:8, flexShrink:0,
+              background:`linear-gradient(135deg, ${keyColor(song.key)}33, ${C.pur}33)`,
+              border:`1px solid ${keyColor(song.key)}33`,
+              display:"flex", alignItems:"center", justifyContent:"center", fontSize:15,
+            }}>🎵</div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontWeight:700, fontSize:12, overflow:"hidden",
+                textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
+              <div style={{ fontSize:11, color:C.dim, marginTop:2,
+                display:"flex", alignItems:"center", gap:5 }}>
+                <span>{song.artist || "미상"}</span>
+                <span style={{
+                  background:`${C.grn}22`, color:C.grn,
+                  padding:"1px 5px", borderRadius:4, fontSize:9, fontWeight:700,
+                }}>Live</span>
+              </div>
+            </div>
+            <a href={`https://www.youtube.com/watch?v=${ytId}`}
+              target="_blank" rel="noopener noreferrer"
+              style={{
+                display:"flex", alignItems:"center", justifyContent:"center",
+                width:26, height:26, borderRadius:6,
+                background:C.surf, border:`1px solid ${C.bdr}`,
+                textDecoration:"none", flexShrink:0,
+              }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"
+                  stroke={C.dim} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </a>
+          </div>
+
+          {isLeader && (
+            <div style={{ display:"flex", gap:6, marginTop:6 }}>
+              <button onClick={() => setEditYt(true)} style={ghostBtnStyle}>영상 변경</button>
+              <button onClick={removeYtId}            style={ghostBtnStyle}>삭제</button>
+            </div>
+          )}
             </div>
           ) : (
             <div>

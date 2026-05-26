@@ -793,8 +793,10 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
             {song.title}
           </div>
-          <div style={{ fontSize:11, color:C.dim }}>
-            {song.artist} · Key {song.key} · {pageNum}/{numPages || "—"}p
+          <div style={{ fontSize:11, color:C.dim, marginTop:1 }}>
+            Key {song.key}
+            {song.bpm ? ` · ♩${song.bpm}` : ""}
+            {numPages > 0 ? ` · ${pageNum}/${numPages}p` : ""}
           </div>
         </div>
 
@@ -812,7 +814,25 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
           </button>
           {toolBtn("pen",  addMode,       () => setAddMode(p => !p),       "메모 추가 모드")}
           {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
-          {toolBtn("dual", dual,          () => setDual(p => !p),          "듀얼 모드")}
+
+          <div style={{ width:1, height:18, background:C.bdr, margin:"0 2px" }} />
+
+          {/* DUAL 레이블 버튼 */}
+          <button onClick={() => setDual(p => !p)}
+            style={{
+              display:"flex", alignItems:"center", gap:5,
+              padding:"5px 10px", borderRadius:8, cursor:"pointer",
+              background: dual ? C.acc : "transparent",
+              border:`1.5px solid ${dual ? C.acc : C.bdr}`,
+              color: dual ? "#111" : C.dim,
+              fontWeight:700, fontSize:11, fontFamily:"inherit",
+              letterSpacing:"0.04em",
+              boxShadow: dual ? `0 0 12px ${C.acc}44` : "none",
+              transition:"all .15s",
+            }}>
+            <Icon n="dual" size={13} color={dual ? "#111" : C.dim} />
+            DUAL
+          </button>
         </div>
       </div>
 
