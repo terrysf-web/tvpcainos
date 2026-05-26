@@ -76,7 +76,6 @@ async function openDrivePicker(onSelect) {
   new P.PickerBuilder()
     .addView(new P.DocsView().setMimeTypes("application/pdf"))
     .setOAuthToken(token)
-    .setDeveloperKey(FIREBASE_API_KEY)
     .setCallback(data => {
       if (data.action === P.Action.PICKED) {
         onSelect(`https://drive.google.com/file/d/${data.docs[0].id}/preview`);
