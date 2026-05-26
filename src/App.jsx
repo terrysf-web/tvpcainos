@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { auth, db, storage } from "./firebase.js";
+import AIPanel from "./AIPanel.jsx";
 import {
   signInWithEmailAndPassword,
   signOut,
@@ -674,11 +675,10 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
 /* ══════════════════════════════════════════════════════════════════
    PDF VIEWER SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function PDFViewerScreen({ songs, annotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, backTo, pdfjsReady }) {
+function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, backTo, pdfjsReady }) {
   const song = songs.find(s => s.id === selectedSongId);
 
   const canvas1Ref = useRef(null);
-  const canvas2Ref = useRef(null);
   const pdfDocRef  = useRef(null);
 
   const [numPages, setNumPages] = useState(0);
@@ -722,10 +722,7 @@ function PDFViewerScreen({ songs, annotations, onAddAnnotation, onDeleteAnnotati
   useEffect(() => {
     if (!pdfDocRef.current) return;
     renderPage(pageNum, canvas1Ref.current, scale);
-    if (dual && pageNum + 1 <= numPages) {
-      renderPage(pageNum + 1, canvas2Ref.current, scale);
-    }
-  }, [pageNum, scale, dual, numPages, renderPage]);
+  }, [pageNum, scale, numPages, renderPage]);
 
   const handleCanvasClick = e => {
     if (!addMode) return;
@@ -826,14 +823,13 @@ function PDFViewerScreen({ songs, annotations, onAddAnnotation, onDeleteAnnotati
         </div>
       )}
 
-      <div style={{ flex:1, overflow:"auto", display:"flex",
-        alignItems:"flex-start", justifyContent:"center",
-        gap: dual ? 12 : 0, padding:"16px",
-        flexDirection: dual ? "row" : "column",
-      }}>
-        {song.pdfUrl ? (
-          <>
-            <div style={{ position:"relative", display:"inline-block", flexShrink:0 }}>
+      <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"row" }}>
+        {/* PDF 악보 영역 */}
+        <div style={{ flex:1, overflow:"auto", display:"flex",
+          alignItems:"flex-start", justifyContent:"center",
+          padding:"16px", flexDirection:"column" }}>
+          {song.pdfUrl ? (
+            <div style={{ position:"relative", display:"inline-block" }}>
               <canvas ref={canvas1Ref} onClick={handleCanvasClick}
                 style={{
                   display:"block", maxWidth:"100%",
@@ -855,30 +851,28 @@ function PDFViewerScreen({ songs, annotations, onAddAnnotation, onDeleteAnnotati
                   }}>✎</div>
               ))}
             </div>
-            {dual && (
-              <div style={{ position:"relative", display:"inline-block", flexShrink:0 }}>
-                <canvas ref={canvas2Ref}
-                  style={{
-                    display: pageNum + 1 <= numPages ? "block" : "none",
-                    maxWidth:"100%", borderRadius:4,
-                    boxShadow:"0 4px 28px rgba(0,0,0,.5)",
-                  }} />
-              </div>
-            )}
-          </>
-        ) : (
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
-            justifyContent:"center", flex:1, color:C.dim, textAlign:"center", padding:40 }}>
-            <div style={{
-              width:84, height:84, borderRadius:18,
-              background:`linear-gradient(135deg, ${C.acc}22, ${C.pur}22)`,
-              border:`1px solid ${C.bdr}`,
-              display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:38, marginBottom:16,
-            }}>🎼</div>
-            <div style={{ fontWeight:700, fontSize:16, marginBottom:6 }}>{song.title}</div>
-            <div style={{ fontSize:13, marginBottom:16 }}>PDF 악보가 없습니다</div>
-            <div style={{ fontSize:12 }}>라이브러리 탭에서 PDF를 업로드해주세요</div>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
+              justifyContent:"center", flex:1, color:C.dim, textAlign:"center", padding:40 }}>
+              <div style={{
+                width:84, height:84, borderRadius:18,
+                background:`linear-gradient(135deg, ${C.acc}22, ${C.pur}22)`,
+                border:`1px solid ${C.bdr}`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:38, marginBottom:16,
+              }}>🎼</div>
+              <div style={{ fontWeight:700, fontSize:16, marginBottom:6 }}>{song.title}</div>
+              <div style={{ fontSize:13, marginBottom:16 }}>PDF 악보가 없습니다</div>
+              <div style={{ fontSize:12 }}>라이브러리 탭에서 PDF를 업로드해주세요</div>
+            </div>
+          )}
+        </div>
+
+        {/* AI 도움 패널 (DUAL 모드) */}
+        {dual && (
+          <div style={{ width:300, flexShrink:0, overflow:"hidden",
+            borderLeft:`1px solid ${C.bdr}` }}>
+            <AIPanel song={song} user={user} />
           </div>
         )}
       </div>
