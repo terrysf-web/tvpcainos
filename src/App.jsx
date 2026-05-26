@@ -14,7 +14,7 @@ import {
   collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc,
   query, orderBy, where, getDoc, getDocs, setDoc, serverTimestamp, arrayUnion, limit,
 } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 /* ══════════════════════════════════════════════════════════════════
    THEME
@@ -370,7 +370,6 @@ function AddSongModal({ onClose, onAdd }) {
   const [bpm,     setBpm]     = useState("80");
   const [pdfFile, setPdfFile] = useState(null);
   const [saving,  setSaving]  = useState(false);
-  const [progress, setProgress] = useState(0);
   const fileRef = useRef(null);
   const KEYS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
@@ -384,13 +383,7 @@ function AddSongModal({ onClose, onAdd }) {
         const docRef = await onAdd(songData);
         if (docRef?.id) {
           const storageRef = ref(storage, `pdfs/${docRef.id}.pdf`);
-          const task = uploadBytesResumable(storageRef, pdfFile);
-          await new Promise((resolve, reject) =>
-            task.on("state_changed",
-              snap => setProgress(Math.round(snap.bytesTransferred / snap.totalBytes * 100)),
-              reject, resolve
-            )
-          );
+          await uploadBytes(storageRef, pdfFile);
           const url = await getDownloadURL(storageRef);
           await updateDoc(doc(db, "songs", docRef.id), { pdfUrl: url });
         }
@@ -455,19 +448,13 @@ function AddSongModal({ onClose, onAdd }) {
         )}
       </div>
 
-      {saving && pdfFile && (
-        <div style={{ marginBottom:12 }}>
-          <div style={{ fontSize:12, color:C.dim, marginBottom:4 }}>
-            업로드 중... {progress}%
-          </div>
-          <div style={{ height:6, background:C.bdr, borderRadius:3 }}>
-            <div style={{ height:"100%", width:`${progress}%`,
-              background:C.acc, borderRadius:3, transition:"width .2s" }} />
-          </div>
+      {saving && (
+        <div style={{ fontSize:12, color:C.dim, marginBottom:12, textAlign:"center" }}>
+          {pdfFile ? "📤 PDF 업로드 중..." : "저장 중..."}
         </div>
       )}
 
-      <Btn label={saving ? (pdfFile ? `업로드 중... ${progress}%` : "추가 중...") : "추가하기"}
+      <Btn label={saving ? "처리 중..." : "추가하기"}
         icon="plus" onClick={handleAdd} full disabled={saving || !title} />
     </Modal>
   );
@@ -838,8 +825,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
     setUploading(songId);
     try {
       const storageRef = ref(storage, `pdfs/${songId}.pdf`);
-      const task = uploadBytesResumable(storageRef, file);
-      await new Promise((resolve, reject) => task.on("state_changed", null, reject, resolve));
+      await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
       await updateDoc(doc(db, "songs", songId), { pdfUrl: url });
     } catch (e) {
