@@ -1,69 +1,17 @@
 <!DOCTYPE html>
 <html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ainos v2</title>
-  <link rel="stylesheet" href="./css/app.css" />
-</head>
-<body>
-  <header class="topbar">
-    <div>
-      <h1>Ainos v2</h1>
-      <small id="modeText">Loading...</small>
-    </div>
-    <nav>
-      <button class="tab active" data-view="libraryView">Library</button>
-      <button class="tab" data-view="dualView">Dual</button>
-      <button class="tab" data-view="notesView">Notes</button>
-    </nav>
-  </header>
-
-  <main>
-    <section id="libraryView" class="view active">
-      <div class="card">
-        <h2>라이브러리</h2>
-        <p class="hint">곡 제목, Key, PDF 파일을 선택한 후 Upload PDF를 누르세요.</p>
-
-        <div class="form-grid">
-          <input id="songTitle" placeholder="곡 제목" />
-          <input id="songKey" placeholder="Key 예: F" />
-          <input id="pdfUrl" placeholder="PDF URL 선택사항" />
-          <input id="pdfFile" type="file" accept="application/pdf" />
-          <button id="uploadBtn">Upload PDF</button>
-          <button id="addUrlBtn">Add URL</button>
-        </div>
-
-        <div id="songList" class="song-list"></div>
-      </div>
-    </section>
-
-    <section id="dualView" class="view">
-      <div class="dual-actions">
-        <button id="clearLeft">좌측 비우기</button>
-        <button id="clearRight">오른쪽 비우기</button>
-      </div>
-
-      <div class="dual-grid">
-        <div class="pane">
-          <h2>Left</h2>
-          <div id="leftPane" class="pdf-pane empty">라이브러리에서 Left를 선택하세요.</div>
-        </div>
-        <div class="pane">
-          <h2>Right</h2>
-          <div id="rightPane" class="pdf-pane empty">라이브러리에서 Right를 선택하세요.</div>
-        </div>
-      </div>
-    </section>
-
-    <section id="notesView" class="view">
-      <div class="card">
-        <h2>Notes</h2>
-        <canvas id="notesCanvas"></canvas>
-      </div>
-    </section>
-  </main>
-
-  <script type="module" src="./js/app.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0b11" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="TVPC Worship" />
+    <link rel="icon" href="./icon-192.png" />
+    <link rel="manifest" href="./manifest.json" />
+    <title>TVPC Worship</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/main.jsx"></script>
+  </body>
 </html>
