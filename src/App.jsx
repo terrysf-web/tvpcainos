@@ -1,4 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { auth, db, storage } from "./firebase.js";
+import {
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from "firebase/auth";
+import {
+  collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc,
+  query, orderBy, where, getDoc, serverTimestamp, arrayUnion,
+} from "firebase/firestore";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 /* ══════════════════════════════════════════════════════════════════
    THEME
@@ -22,38 +33,19 @@ const KEY_CLR = {
 };
 const keyColor = (k) => KEY_CLR[k ? k[0].toUpperCase() : "C"] || C.acc;
 
-/* ══════════════════════════════════════════════════════════════════
-   DEMO DATA
-══════════════════════════════════════════════════════════════════ */
-const USERS = [
-  { id:"u1", name:"김지훈", email:"leader@tvpc.kr", pw:"1234", role:"leader", part:"리더 / 기타" },
-  { id:"u2", name:"이서연", email:"member@tvpc.kr", pw:"1234", role:"member", part:"건반" },
-  { id:"u3", name:"박민준", email:"drums@tvpc.kr",  pw:"1234", role:"member", part:"드럼" },
-];
-
-let _songId = 20;
-const INIT_SONGS = [
-  { id:"sg1", title:"말씀이신 예수",       artist:"전은주",      key:"A", bpm:72, pdf:null },
-  { id:"sg2", title:"주님만이 왕이십니다", artist:"소망교회",    key:"G", bpm:80, pdf:null },
-  { id:"sg3", title:"빛으로 비추시네",     artist:"YKDC",        key:"D", bpm:76, pdf:null },
-  { id:"sg4", title:"하나님의 은혜",       artist:"전통찬양",    key:"C", bpm:68, pdf:null },
-  { id:"sg5", title:"Holy Forever",        artist:"Bethel Music",key:"E", bpm:82, pdf:null },
-];
-
-let _svcId = 20;
-const INIT_SVCS = [
-  { id:"sv1", title:"주일 1부 예배", date:"2026-06-01", time:"09:00", songIds:["sg1","sg2","sg3"], notified:true  },
-  { id:"sv2", title:"주일 2부 예배", date:"2026-06-01", time:"11:00", songIds:["sg3","sg4","sg5"], notified:false },
-  { id:"sv3", title:"수요 예배",     date:"2026-06-04", time:"19:30", songIds:["sg1","sg4"],       notified:false },
-];
-
-const INIT_NOTIFS = [
-  { id:"n1", title:"주일 1부 예배 악보 등록", body:"6월 1일 예배 악보가 등록되었습니다. 연습 준비해주세요!", time:"2시간 전", read:false },
-  { id:"n2", title:"리허설 일정 변경",        body:"이번 주 토요일 리허설이 오후 3시로 변경되었습니다.",      time:"1일 전",  read:true  },
-];
+const fmtTime = (ts) => {
+  if (!ts?.toDate) return "방금";
+  const diff = Date.now() - ts.toDate().getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "방금";
+  if (m < 60) return `${m}분 전`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}시간 전`;
+  return `${Math.floor(h / 24)}일 전`;
+};
 
 /* ══════════════════════════════════════════════════════════════════
-   SVG ICON  (all paths defined, no external icon library)
+   SVG ICONS
 ══════════════════════════════════════════════════════════════════ */
 const P = {
   home:    "M3 12L12 3l9 9M5 10v9h4v-5h6v5h4v-9",
@@ -95,12 +87,12 @@ function Icon({ n, size = 20, color = C.txt, sw = 2 }) {
 ══════════════════════════════════════════════════════════════════ */
 function Btn({ label, icon, onClick, variant="primary", disabled=false, full=false, sm=false, style:extra={} }) {
   const V = {
-    primary: { bg:C.acc,            txt:"#111",  bdr:"none"                   },
-    outline: { bg:"transparent",    txt:C.acc,   bdr:`1.5px solid ${C.acc}`   },
-    ghost:   { bg:"transparent",    txt:C.dim,   bdr:`1.5px solid ${C.bdr}`   },
-    danger:  { bg:C.red,            txt:"#fff",  bdr:"none"                   },
-    purple:  { bg:C.pur,            txt:"#fff",  bdr:"none"                   },
-    green:   { bg:C.grn,            txt:"#fff",  bdr:"none"                   },
+    primary: { bg:C.acc,         txt:"#111", bdr:"none"                   },
+    outline: { bg:"transparent", txt:C.acc,  bdr:`1.5px solid ${C.acc}`   },
+    ghost:   { bg:"transparent", txt:C.dim,  bdr:`1.5px solid ${C.bdr}`   },
+    danger:  { bg:C.red,         txt:"#fff", bdr:"none"                   },
+    purple:  { bg:C.pur,         txt:"#fff", bdr:"none"                   },
+    green:   { bg:C.grn,         txt:"#fff", bdr:"none"                   },
   };
   const v = V[variant] || V.primary;
   return (
@@ -196,15 +188,22 @@ function Modal({ title, onClose, children }) {
 /* ══════════════════════════════════════════════════════════════════
    LOGIN SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function LoginScreen({ onLogin }) {
-  const [email, setEmail] = useState("");
-  const [pw,    setPw]    = useState("");
-  const [err,   setErr]   = useState("");
+function LoginScreen() {
+  const [email,   setEmail]   = useState("");
+  const [pw,      setPw]      = useState("");
+  const [err,     setErr]     = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const login = () => {
-    const u = USERS.find(x => x.email === email && x.pw === pw);
-    if (u) onLogin(u);
-    else setErr("이메일 또는 비밀번호를 확인하세요.");
+  const login = async () => {
+    if (!email || !pw) return;
+    setLoading(true);
+    setErr("");
+    try {
+      await signInWithEmailAndPassword(auth, email, pw);
+    } catch {
+      setErr("이메일 또는 비밀번호를 확인하세요.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -213,7 +212,6 @@ function LoginScreen({ onLogin }) {
       display:"flex", flexDirection:"column",
       alignItems:"center", justifyContent:"center", padding:24,
     }}>
-      {/* Logo */}
       <div className="wFadeIn" style={{ textAlign:"center", marginBottom:40 }}>
         <div style={{
           width:76, height:76,
@@ -228,20 +226,19 @@ function LoginScreen({ onLogin }) {
         <div style={{ fontSize:13, color:C.dim, marginTop:4 }}>예배 악보 & 연습 앱</div>
       </div>
 
-      {/* Card */}
       <div className="wFadeIn" style={{
         background:C.surf, borderRadius:20, padding:"28px 24px",
         width:"100%", maxWidth:380, border:`1px solid ${C.bdr}`,
       }}>
-        <Input label="이메일"   value={email} onChange={setEmail} type="email"    placeholder="your@email.com" />
-        <Input label="비밀번호" value={pw}    onChange={setPw}    type="password" placeholder="••••••••" />
+        <Input label="이메일" value={email} onChange={setEmail} type="email"
+          placeholder="your@email.com" autoFocus />
+        <Input label="비밀번호" value={pw} onChange={setPw} type="password" placeholder="••••••••" />
         {err && <div style={{ color:C.red, fontSize:13, marginBottom:12, textAlign:"center" }}>{err}</div>}
-        <Btn label="로그인" onClick={login} full />
+        <Btn label={loading ? "로그인 중..." : "로그인"}
+          onClick={login} full disabled={loading || !email || !pw} />
         <Divider />
-        <div style={{ fontSize:12, color:C.dim, textAlign:"center", lineHeight:1.9 }}>
-          <div style={{ fontWeight:700, color:`${C.txt}88`, marginBottom:2 }}>데모 계정</div>
-          <div>리더: leader@tvpc.kr / 1234</div>
-          <div>멤버: member@tvpc.kr / 1234</div>
+        <div style={{ fontSize:12, color:C.dim, textAlign:"center", lineHeight:1.8 }}>
+          계정이 없으시면 리더에게 문의하세요
         </div>
       </div>
     </div>
@@ -253,24 +250,39 @@ function LoginScreen({ onLogin }) {
 ══════════════════════════════════════════════════════════════════ */
 function CreateServiceModal({ songs, onClose, onCreate }) {
   const [title,    setTitle]    = useState("");
-  const [date,     setDate]     = useState("2026-06-07");
+  const [date,     setDate]     = useState(() => new Date().toISOString().slice(0, 10));
   const [time,     setTime]     = useState("09:00");
   const [selected, setSelected] = useState([]);
+  const [saving,   setSaving]   = useState(false);
 
   const toggle = id =>
     setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
 
+  const handleCreate = async () => {
+    if (!title || !selected.length) return;
+    setSaving(true);
+    await onCreate({ title, date, time, songIds: selected });
+    setSaving(false);
+    onClose();
+  };
+
   return (
     <Modal title="새 예배 일정 만들기" onClose={onClose}>
-      <Input label="예배 제목" value={title} onChange={setTitle} placeholder="예) 주일 1부 예배" />
-      <Input label="날짜"      value={date}  onChange={setDate}  type="date" />
-      <Input label="시간"      value={time}  onChange={setTime}  type="time" />
+      <Input label="예배 제목" value={title} onChange={setTitle}
+        placeholder="예) 주일 1부 예배" autoFocus />
+      <Input label="날짜" value={date} onChange={setDate} type="date" />
+      <Input label="시간" value={time} onChange={setTime} type="time" />
 
       <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
         textTransform:"uppercase", marginBottom:8 }}>
         곡 선택 · {selected.length}곡
       </div>
       <div style={{ maxHeight:220, overflowY:"auto", marginBottom:16 }}>
+        {songs.length === 0 && (
+          <div style={{ textAlign:"center", padding:"20px 0", color:C.dim, fontSize:13 }}>
+            먼저 악보 라이브러리에서 곡을 추가해주세요
+          </div>
+        )}
         {songs.map(s => {
           const sel = selected.includes(s.id);
           return (
@@ -296,10 +308,8 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
           );
         })}
       </div>
-      <Btn label="예배 만들기" icon="check" onClick={() => {
-        if (!title || !selected.length) return;
-        onCreate({ title, date, time, songIds: selected });
-      }} full disabled={!title || !selected.length} />
+      <Btn label={saving ? "저장 중..." : "예배 만들기"} icon="check"
+        onClick={handleCreate} full disabled={saving || !title || !selected.length} />
     </Modal>
   );
 }
@@ -312,12 +322,23 @@ function AddSongModal({ onClose, onAdd }) {
   const [artist, setArtist] = useState("");
   const [key,    setKey]    = useState("C");
   const [bpm,    setBpm]    = useState("80");
+  const [saving, setSaving] = useState(false);
   const KEYS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+  const handleAdd = async () => {
+    if (!title) return;
+    setSaving(true);
+    await onAdd({ title, artist, key, bpm: Number(bpm) || 80 });
+    setSaving(false);
+    onClose();
+  };
 
   return (
     <Modal title="새 곡 추가" onClose={onClose}>
-      <Input label="곡 제목"   value={title}  onChange={setTitle}  placeholder="예) 주님 이름 찬양" />
-      <Input label="아티스트" value={artist} onChange={setArtist} placeholder="예) Hillsong Worship" />
+      <Input label="곡 제목"  value={title}  onChange={setTitle}
+        placeholder="예) 주님 이름 찬양" autoFocus />
+      <Input label="아티스트" value={artist} onChange={setArtist}
+        placeholder="예) Hillsong Worship" />
 
       <div style={{ marginBottom:14 }}>
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
@@ -335,9 +356,8 @@ function AddSongModal({ onClose, onAdd }) {
         </div>
       </div>
       <Input label="BPM" value={bpm} onChange={setBpm} type="number" placeholder="80" />
-      <Btn label="추가하기" icon="plus" onClick={() => {
-        if (title) onAdd({ title, artist, key, bpm: Number(bpm) || 80 });
-      }} full disabled={!title} />
+      <Btn label={saving ? "추가 중..." : "추가하기"} icon="plus"
+        onClick={handleAdd} full disabled={saving || !title} />
     </Modal>
   );
 }
@@ -345,16 +365,15 @@ function AddSongModal({ onClose, onAdd }) {
 /* ══════════════════════════════════════════════════════════════════
    SERVICES SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function ServicesScreen({ user, services, setServices, songs, notifs, nav }) {
+function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
   const [showCreate, setShowCreate] = useState(false);
   const unread = notifs.filter(n => !n.read).length;
 
-  const fmtDate = d => new Date(d).toLocaleDateString("ko-KR",
+  const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("ko-KR",
     { month:"long", day:"numeric", weekday:"short" });
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
-      {/* Header */}
       <div style={{ background:C.surf, padding:"20px 20px 16px",
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", justifyContent:"space-between" }}>
@@ -385,7 +404,6 @@ function ServicesScreen({ user, services, setServices, songs, notifs, nav }) {
         </div>
       </div>
 
-      {/* List */}
       <div style={{ padding:16, paddingBottom:90, overflowY:"auto", maxHeight:"calc(100vh - 73px)" }}>
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
           textTransform:"uppercase", marginBottom:12, paddingLeft:2 }}>
@@ -398,7 +416,7 @@ function ServicesScreen({ user, services, setServices, songs, notifs, nav }) {
           </div>
         )}
         {services.map(svc => {
-          const svcSongs = svc.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
+          const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
           return (
             <div key={svc.id} className="wFadeIn"
               onClick={() => nav("svcDetail", { svcId: svc.id })}
@@ -409,7 +427,9 @@ function ServicesScreen({ user, services, setServices, songs, notifs, nav }) {
               <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:8 }}>
                 <div>
                   <div style={{ fontWeight:700, fontSize:16, letterSpacing:"-0.02em" }}>{svc.title}</div>
-                  <div style={{ color:C.dim, fontSize:13, marginTop:2 }}>{fmtDate(svc.date)} · {svc.time}</div>
+                  <div style={{ color:C.dim, fontSize:13, marginTop:2 }}>
+                    {fmtDate(svc.date)} · {svc.time}
+                  </div>
                 </div>
                 <Badge label={svc.notified ? "알림완료" : "대기중"}
                   color={svc.notified ? C.grn : C.dim} />
@@ -433,10 +453,7 @@ function ServicesScreen({ user, services, setServices, songs, notifs, nav }) {
 
       {showCreate && (
         <CreateServiceModal songs={songs} onClose={() => setShowCreate(false)}
-          onCreate={s => {
-            setServices(p => [...p, { ...s, id:`sv${++_svcId}`, notified:false }]);
-            setShowCreate(false);
-          }} />
+          onCreate={createService} />
       )}
     </div>
   );
@@ -445,24 +462,25 @@ function ServicesScreen({ user, services, setServices, songs, notifs, nav }) {
 /* ══════════════════════════════════════════════════════════════════
    SERVICE DETAIL SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function ServiceDetailScreen({ user, services, setServices, songs, setNotifs, annotations, nav, selectedSvcId }) {
+function ServiceDetailScreen({ user, services, songs, annotations, nav, selectedSvcId }) {
   const svc = services.find(s => s.id === selectedSvcId);
   if (!svc) return null;
 
-  const svcSongs = svc.songIds.map(id => songs.find(s => s.id === id)).filter(Boolean);
+  const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
 
-  const sendNotif = () => {
-    setServices(p => p.map(s => s.id === svc.id ? { ...s, notified:true } : s));
-    setNotifs(p => [{
-      id: `n${Date.now()}`, read:false, time:"방금",
+  const sendNotif = async () => {
+    await updateDoc(doc(db, "services", svc.id), { notified: true });
+    await addDoc(collection(db, "notifications"), {
       title: `${svc.title} 악보 등록`,
       body: `${svc.date} ${svc.title} 악보가 등록되었습니다. 연습 준비해주세요!`,
-    }, ...p]);
+      createdAt: serverTimestamp(),
+      readBy: [],
+      serviceId: svc.id,
+    });
   };
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
-      {/* Header */}
       <div style={{ background:C.surf, padding:"18px 16px",
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", gap:12 }}>
@@ -488,7 +506,6 @@ function ServiceDetailScreen({ user, services, setServices, songs, setNotifs, an
         }
       </div>
 
-      {/* Songs */}
       <div style={{ padding:16, paddingBottom:90, overflowY:"auto", maxHeight:"calc(100vh - 73px)" }}>
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
           textTransform:"uppercase", marginBottom:12 }}>
@@ -504,7 +521,6 @@ function ServiceDetailScreen({ user, services, setServices, songs, setNotifs, an
                 marginBottom:8, border:`1px solid ${C.bdr}`, cursor:"pointer",
                 display:"flex", alignItems:"center", gap:12,
               }}>
-              {/* Order badge */}
               <div style={{
                 width:32, height:32, borderRadius:9, flexShrink:0,
                 background:`linear-gradient(135deg, ${C.acc}33, ${C.pur}33)`,
@@ -518,8 +534,8 @@ function ServiceDetailScreen({ user, services, setServices, songs, setNotifs, an
               <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
                 <KeyBadge k={song.key} />
                 <div style={{ display:"flex", gap:4, flexWrap:"wrap", justifyContent:"flex-end" }}>
-                  {song.pdf  && <span style={{ fontSize:10, color:C.acc, fontWeight:700 }}>📄 PDF</span>}
-                  {hasNotes  && <span style={{ fontSize:10, color:C.grn, fontWeight:700 }}>✏ 메모</span>}
+                  {song.pdfUrl && <span style={{ fontSize:10, color:C.acc, fontWeight:700 }}>📄 PDF</span>}
+                  {hasNotes    && <span style={{ fontSize:10, color:C.grn, fontWeight:700 }}>✏ 메모</span>}
                 </div>
               </div>
             </div>
@@ -533,27 +549,34 @@ function ServiceDetailScreen({ user, services, setServices, songs, setNotifs, an
 /* ══════════════════════════════════════════════════════════════════
    SONG LIBRARY SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function SongLibraryScreen({ user, songs, setSongs, nav }) {
-  const [query,   setQuery]   = useState("");
-  const [showAdd, setShowAdd] = useState(false);
+function SongLibraryScreen({ user, songs, addSong, nav }) {
+  const [query,     setQuery]     = useState("");
+  const [showAdd,   setShowAdd]   = useState(false);
+  const [uploading, setUploading] = useState(null);
 
   const filtered = songs.filter(s =>
     s.title.toLowerCase().includes(query.toLowerCase()) ||
-    s.artist.toLowerCase().includes(query.toLowerCase())
+    (s.artist || "").toLowerCase().includes(query.toLowerCase())
   );
 
-  const handlePdfUpload = (file, songId) => {
+  const handlePdfUpload = async (file, songId) => {
     if (!file || file.type !== "application/pdf") return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      setSongs(p => p.map(s => s.id === songId ? { ...s, pdf: e.target.result } : s));
-    };
-    reader.readAsArrayBuffer(file);
+    setUploading(songId);
+    try {
+      const storageRef = ref(storage, `pdfs/${songId}.pdf`);
+      const task = uploadBytesResumable(storageRef, file);
+      await new Promise((resolve, reject) => task.on("state_changed", null, reject, resolve));
+      const url = await getDownloadURL(storageRef);
+      await updateDoc(doc(db, "songs", songId), { pdfUrl: url });
+    } catch (e) {
+      console.error("PDF upload failed:", e);
+    } finally {
+      setUploading(null);
+    }
   };
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
-      {/* Header */}
       <div style={{ background:C.surf, padding:"18px 16px 14px",
         borderBottom:`1px solid ${C.bdr}` }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
@@ -562,7 +585,6 @@ function SongLibraryScreen({ user, songs, setSongs, nav }) {
             <Btn label="곡 추가" icon="plus" sm onClick={() => setShowAdd(true)} />
           )}
         </div>
-        {/* Search */}
         <div style={{ position:"relative" }}>
           <div style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)" }}>
             <Icon n="search" size={16} color={C.dim} />
@@ -577,15 +599,19 @@ function SongLibraryScreen({ user, songs, setSongs, nav }) {
         </div>
       </div>
 
-      {/* List */}
       <div style={{ padding:16, paddingBottom:90, overflowY:"auto", maxHeight:"calc(100vh - 130px)" }}>
+        {filtered.length === 0 && (
+          <div style={{ textAlign:"center", padding:"60px 0", color:C.dim }}>
+            <div style={{ fontSize:36, marginBottom:12 }}>🎵</div>
+            <div>{query ? "검색 결과가 없습니다" : "등록된 곡이 없습니다"}</div>
+          </div>
+        )}
         {filtered.map(song => (
           <div key={song.id} className="wFadeIn" style={{
             background:C.card, borderRadius:14, padding:"13px 16px",
             marginBottom:8, border:`1px solid ${C.bdr}`,
             display:"flex", alignItems:"center", gap:12,
           }}>
-            {/* Cover */}
             <div style={{
               width:46, height:46, borderRadius:11, flexShrink:0,
               background:`linear-gradient(135deg, ${keyColor(song.key)}44, ${C.pur}44)`,
@@ -594,7 +620,6 @@ function SongLibraryScreen({ user, songs, setSongs, nav }) {
               fontSize:20,
             }}>🎵</div>
 
-            {/* Info — tapping opens viewer */}
             <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
               onClick={() => nav("pdfViewer", { songId: song.id, backTo: "library" })}>
               <div style={{ fontWeight:700, fontSize:14, letterSpacing:"-0.01em",
@@ -605,38 +630,42 @@ function SongLibraryScreen({ user, songs, setSongs, nav }) {
               <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap" }}>
                 <KeyBadge k={song.key} />
                 <Badge label={`♩ ${song.bpm}`} color={C.dim} />
-                {song.pdf && <Badge label="PDF" color={C.grn} />}
+                {song.pdfUrl && <Badge label="PDF" color={C.grn} />}
               </div>
             </div>
 
-            {/* PDF Upload */}
-            <div style={{ flexShrink:0 }}>
-              <input type="file" accept=".pdf" style={{ display:"none" }}
-                id={`up-${song.id}`}
-                onChange={e => {
-                  handlePdfUpload(e.target.files[0], song.id);
-                  e.target.value = "";
-                }} />
-              <label htmlFor={`up-${song.id}`} title={song.pdf ? "PDF 다시 업로드" : "PDF 업로드"}
-                style={{
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  width:36, height:36, borderRadius:9, cursor:"pointer",
-                  background: song.pdf ? `${C.grn}22` : C.surf,
-                  border:`1px solid ${song.pdf ? C.grn : C.bdr}`,
-                }}>
-                <Icon n="upload" size={15} color={song.pdf ? C.grn : C.dim} />
-              </label>
-            </div>
+            {user.role === "leader" && (
+              <div style={{ flexShrink:0 }}>
+                {uploading === song.id ? (
+                  <div style={{ fontSize:11, color:C.acc, padding:"0 6px" }}>업로드 중...</div>
+                ) : (
+                  <>
+                    <input type="file" accept=".pdf" style={{ display:"none" }}
+                      id={`up-${song.id}`}
+                      onChange={e => {
+                        handlePdfUpload(e.target.files[0], song.id);
+                        e.target.value = "";
+                      }} />
+                    <label htmlFor={`up-${song.id}`}
+                      title={song.pdfUrl ? "PDF 다시 업로드" : "PDF 업로드"}
+                      style={{
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        width:36, height:36, borderRadius:9, cursor:"pointer",
+                        background: song.pdfUrl ? `${C.grn}22` : C.surf,
+                        border:`1px solid ${song.pdfUrl ? C.grn : C.bdr}`,
+                      }}>
+                      <Icon n="upload" size={15} color={song.pdfUrl ? C.grn : C.dim} />
+                    </label>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
 
       {showAdd && (
-        <AddSongModal onClose={() => setShowAdd(false)}
-          onAdd={s => {
-            setSongs(p => [...p, { ...s, id:`sg${++_songId}`, pdf:null }]);
-            setShowAdd(false);
-          }} />
+        <AddSongModal onClose={() => setShowAdd(false)} onAdd={addSong} />
       )}
     </div>
   );
@@ -645,12 +674,12 @@ function SongLibraryScreen({ user, songs, setSongs, nav }) {
 /* ══════════════════════════════════════════════════════════════════
    PDF VIEWER SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function PDFViewerScreen({ songs, annotations, setAnnotations, nav, selectedSongId, backTo, pdfjsReady }) {
+function PDFViewerScreen({ songs, annotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, backTo, pdfjsReady }) {
   const song = songs.find(s => s.id === selectedSongId);
 
   const canvas1Ref = useRef(null);
   const canvas2Ref = useRef(null);
-  const pdfDocRef  = useRef(null);   // holds parsed pdfjsLib document
+  const pdfDocRef  = useRef(null);
 
   const [numPages, setNumPages] = useState(0);
   const [pageNum,  setPageNum]  = useState(1);
@@ -661,25 +690,23 @@ function PDFViewerScreen({ songs, annotations, setAnnotations, nav, selectedSong
   const [noteInput,     setNoteInput]     = useState(false);
   const [noteTxt,       setNoteTxt]       = useState("");
   const [notePos,       setNotePos]       = useState(null);
+  const [saving,        setSaving]        = useState(false);
 
   const myNotes = annotations[selectedSongId] || [];
 
-  // ── Load PDF document
   useEffect(() => {
-    if (!song?.pdf || !pdfjsReady || !window.pdfjsLib) return;
+    if (!song?.pdfUrl || !pdfjsReady || !window.pdfjsLib) return;
     pdfDocRef.current = null;
     setPageNum(1);
     setNumPages(0);
-    const data = song.pdf instanceof ArrayBuffer ? song.pdf.slice(0) : song.pdf;
-    window.pdfjsLib.getDocument({ data }).promise
+    window.pdfjsLib.getDocument({ url: song.pdfUrl }).promise
       .then(pdf => {
         pdfDocRef.current = pdf;
         setNumPages(pdf.numPages);
       })
       .catch(err => console.error("PDF load:", err));
-  }, [song?.pdf, pdfjsReady]);
+  }, [song?.pdfUrl, pdfjsReady]);
 
-  // ── Render page(s) to canvas
   const renderPage = useCallback(async (pNum, canvasEl, sc) => {
     if (!pdfDocRef.current || !canvasEl) return;
     if (pNum < 1 || pNum > pdfDocRef.current.numPages) return;
@@ -700,7 +727,6 @@ function PDFViewerScreen({ songs, annotations, setAnnotations, nav, selectedSong
     }
   }, [pageNum, scale, dual, numPages, renderPage]);
 
-  // ── Note on canvas click
   const handleCanvasClick = e => {
     if (!addMode) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -711,28 +737,21 @@ function PDFViewerScreen({ songs, annotations, setAnnotations, nav, selectedSong
     setNoteInput(true);
   };
 
-  const saveNote = () => {
-    if (!noteTxt.trim() || !notePos) { setNoteInput(false); return; }
-    setAnnotations(p => ({
-      ...p,
-      [selectedSongId]: [
-        ...(p[selectedSongId] || []),
-        { id: Date.now(), page: pageNum, x: notePos.x, y: notePos.y, text: noteTxt },
-      ],
-    }));
+  const saveNote = async () => {
+    if (!noteTxt.trim() || !notePos || saving) return;
+    setSaving(true);
+    await onAddAnnotation(selectedSongId, {
+      page: pageNum, x: notePos.x, y: notePos.y, text: noteTxt,
+    });
     setNoteTxt("");
     setNotePos(null);
     setNoteInput(false);
     setAddMode(false);
+    setSaving(false);
   };
 
-  const deleteNote = id =>
-    setAnnotations(p => ({
-      ...p,
-      [selectedSongId]: (p[selectedSongId] || []).filter(n => n.id !== id),
-    }));
-
-  const pageNotes = myNotes.filter(n => n.page === pageNum);
+  const deleteNote = id => onDeleteAnnotation(selectedSongId, id);
+  const pageNotes  = myNotes.filter(n => n.page === pageNum);
 
   if (!song) return null;
 
@@ -764,17 +783,14 @@ function PDFViewerScreen({ songs, annotations, setAnnotations, nav, selectedSong
     <div style={{ height:"100vh", background:"#0a0a0e", display:"flex",
       flexDirection:"column", overflow:"hidden" }}>
 
-      {/* ── Top bar */}
       <div style={{ background:C.surf, padding:"10px 14px",
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
-
         <button onClick={() => nav(backTo || "library")}
           style={{ background:"none", border:"none", color:C.txt, cursor:"pointer",
             padding:4, display:"flex" }}>
           <Icon n="back" size={20} />
         </button>
-
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontWeight:700, fontSize:15, letterSpacing:"-0.01em",
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
@@ -785,7 +801,6 @@ function PDFViewerScreen({ songs, annotations, setAnnotations, nav, selectedSong
           </div>
         </div>
 
-        {/* Tools */}
         <div style={{ display:"flex", gap:5, alignItems:"center" }}>
           <button onClick={() => setScale(s => Math.max(.6, s - .15))}
             style={{ background:"none", border:"none", cursor:"pointer", padding:6, display:"flex" }}>
@@ -798,14 +813,12 @@ function PDFViewerScreen({ songs, annotations, setAnnotations, nav, selectedSong
             style={{ background:"none", border:"none", cursor:"pointer", padding:6, display:"flex" }}>
             <Icon n="zoomIn" size={17} color={C.dim} />
           </button>
-
-          {toolBtn("pen",  addMode,        () => setAddMode(p => !p),        "메모 추가 모드")}
-          {toolBtn("note", showNotePanel,  () => setShowNotePanel(p => !p),  "메모 목록")}
-          {toolBtn("dual", dual,           () => setDual(p => !p),           "듀얼 모드")}
+          {toolBtn("pen",  addMode,       () => setAddMode(p => !p),       "메모 추가 모드")}
+          {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
+          {toolBtn("dual", dual,          () => setDual(p => !p),          "듀얼 모드")}
         </div>
       </div>
 
-      {/* Add mode hint */}
       {addMode && (
         <div style={{ background:`${C.acc}22`, padding:"5px 14px",
           fontSize:12, color:C.acc, textAlign:"center", flexShrink:0 }}>
@@ -813,24 +826,20 @@ function PDFViewerScreen({ songs, annotations, setAnnotations, nav, selectedSong
         </div>
       )}
 
-      {/* ── PDF area */}
       <div style={{ flex:1, overflow:"auto", display:"flex",
         alignItems:"flex-start", justifyContent:"center",
         gap: dual ? 12 : 0, padding:"16px",
         flexDirection: dual ? "row" : "column",
       }}>
-        {song.pdf ? (
+        {song.pdfUrl ? (
           <>
-            {/* Page 1 canvas */}
             <div style={{ position:"relative", display:"inline-block", flexShrink:0 }}>
-              <canvas ref={canvas1Ref}
-                onClick={handleCanvasClick}
+              <canvas ref={canvas1Ref} onClick={handleCanvasClick}
                 style={{
                   display:"block", maxWidth:"100%",
                   borderRadius:4, boxShadow:"0 4px 28px rgba(0,0,0,.5)",
                   cursor: addMode ? "crosshair" : "default",
                 }} />
-              {/* Note pins */}
               {pageNotes.map(n => (
                 <div key={n.id} title={n.text}
                   onClick={() => setShowNotePanel(true)}
@@ -846,8 +855,6 @@ function PDFViewerScreen({ songs, annotations, setAnnotations, nav, selectedSong
                   }}>✎</div>
               ))}
             </div>
-
-            {/* Page 2 canvas (dual mode) */}
             {dual && (
               <div style={{ position:"relative", display:"inline-block", flexShrink:0 }}>
                 <canvas ref={canvas2Ref}
@@ -860,7 +867,6 @@ function PDFViewerScreen({ songs, annotations, setAnnotations, nav, selectedSong
             )}
           </>
         ) : (
-          /* No PDF placeholder */
           <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
             justifyContent:"center", flex:1, color:C.dim, textAlign:"center", padding:40 }}>
             <div style={{
@@ -877,7 +883,6 @@ function PDFViewerScreen({ songs, annotations, setAnnotations, nav, selectedSong
         )}
       </div>
 
-      {/* ── Bottom page nav */}
       <div style={{ background:C.surf, borderTop:`1px solid ${C.bdr}`,
         padding:"10px 20px", display:"flex", alignItems:"center",
         justifyContent:"space-between", flexShrink:0 }}>
@@ -896,7 +901,6 @@ function PDFViewerScreen({ songs, annotations, setAnnotations, nav, selectedSong
         )}
       </div>
 
-      {/* ── Note input overlay */}
       {noteInput && (
         <div style={{
           position:"fixed", inset:0, background:"rgba(0,0,0,.7)",
@@ -916,14 +920,15 @@ function PDFViewerScreen({ songs, annotations, setAnnotations, nav, selectedSong
                 resize:"vertical", minHeight:80,
               }} />
             <div style={{ display:"flex", gap:8, marginTop:12 }}>
-              <Btn label="취소" variant="ghost" onClick={() => { setNoteInput(false); setAddMode(false); }} full />
-              <Btn label="저장" variant="primary" onClick={saveNote} full />
+              <Btn label="취소" variant="ghost"
+                onClick={() => { setNoteInput(false); setAddMode(false); }} full />
+              <Btn label={saving ? "저장 중..." : "저장"} variant="primary"
+                onClick={saveNote} full disabled={saving} />
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Notes side panel */}
       {showNotePanel && (
         <div style={{
           position:"absolute", right:0, top:0, bottom:0,
@@ -969,14 +974,14 @@ function PDFViewerScreen({ songs, annotations, setAnnotations, nav, selectedSong
 /* ══════════════════════════════════════════════════════════════════
    NOTIFICATIONS SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function NotificationsScreen({ notifs, setNotifs }) {
+function NotificationsScreen({ notifs, markNotifRead, markAllNotifRead }) {
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
       <div style={{ background:C.surf, padding:"18px 16px",
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>알림</div>
-        <button onClick={() => setNotifs(p => p.map(n => ({ ...n, read:true })))}
+        <button onClick={markAllNotifRead}
           style={{ background:"none", border:"none", color:C.acc, fontSize:13,
             cursor:"pointer", fontWeight:600, fontFamily:"inherit" }}>
           모두 읽음
@@ -990,7 +995,7 @@ function NotificationsScreen({ notifs, setNotifs }) {
         )}
         {notifs.map(n => (
           <div key={n.id} className="wFadeIn"
-            onClick={() => setNotifs(p => p.map(x => x.id===n.id ? {...x, read:true} : x))}
+            onClick={() => markNotifRead(n.id)}
             style={{
               background: n.read ? C.card : `${C.pur}18`,
               border:`1px solid ${n.read ? C.bdr : `${C.pur}44`}`,
@@ -1036,7 +1041,7 @@ function ProfileScreen({ user, onLogout }) {
             background:`linear-gradient(135deg, ${C.acc}, ${C.pur})`,
             display:"flex", alignItems:"center", justifyContent:"center",
             fontSize:22, fontWeight:800, color:"#111", flexShrink:0,
-          }}>{user.name[0]}</div>
+          }}>{(user.name || "?")[0]}</div>
           <div>
             <div style={{ fontWeight:700, fontSize:16 }}>{user.name}</div>
             <div style={{ fontSize:13, color:C.dim, marginTop:2 }}>{user.email}</div>
@@ -1051,7 +1056,7 @@ function ProfileScreen({ user, onLogout }) {
 
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
-        {["앱 정보 (v2.0)", "도움말", "문의하기"].map((item, i) => (
+        {["앱 정보 (v3.0)", "도움말", "문의하기"].map((item, i) => (
           <div key={i} style={{
             padding:"14px 16px",
             borderBottom: i < 2 ? `1px solid ${C.bdr}` : "none",
@@ -1074,10 +1079,10 @@ function ProfileScreen({ user, onLogout }) {
 ══════════════════════════════════════════════════════════════════ */
 function BottomNav({ view, nav, unread }) {
   const tabs = [
-    { id:"services",      icon:"home",  label:"예배"  },
-    { id:"library",       icon:"music", label:"악보"  },
-    { id:"notifications", icon:"bell",  label:"알림"  },
-    { id:"profile",       icon:"user",  label:"프로필"},
+    { id:"services",      icon:"home",  label:"예배"   },
+    { id:"library",       icon:"music", label:"악보"   },
+    { id:"notifications", icon:"bell",  label:"알림"   },
+    { id:"profile",       icon:"user",  label:"프로필" },
   ];
   return (
     <div style={{
@@ -1117,18 +1122,87 @@ function BottomNav({ view, nav, unread }) {
    MAIN APP
 ══════════════════════════════════════════════════════════════════ */
 export default function App() {
-  const [user,        setUser]        = useState(null);
+  const [user,        setUser]        = useState(undefined); // undefined = loading
   const [view,        setView]        = useState("services");
-  const [songs,       setSongs]       = useState(INIT_SONGS);
-  const [services,    setServices]    = useState(INIT_SVCS);
-  const [notifs,      setNotifs]      = useState(INIT_NOTIFS);
+  const [songs,       setSongs]       = useState([]);
+  const [services,    setServices]    = useState([]);
+  const [notifs,      setNotifs]      = useState([]);
+  const [annotations, setAnnotations] = useState({});
   const [selSvcId,    setSelSvcId]    = useState(null);
   const [selSongId,   setSelSongId]   = useState(null);
   const [backTo,      setBackTo]      = useState("library");
-  const [annotations, setAnnotations] = useState({});
   const [pdfjsReady,  setPdfjsReady]  = useState(false);
 
-  // ── Load PDF.js with proper worker
+  // ── Firebase Auth listener
+  useEffect(() => {
+    return onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const snap = await getDoc(doc(db, "users", firebaseUser.uid));
+        const profile = snap.exists() ? snap.data() : {};
+        setUser({
+          uid:   firebaseUser.uid,
+          email: firebaseUser.email,
+          name:  profile.name  || firebaseUser.email,
+          role:  profile.role  || "member",
+          part:  profile.part  || "",
+        });
+      } else {
+        setUser(null);
+      }
+    });
+  }, []);
+
+  // ── Firestore: songs (real-time)
+  useEffect(() => {
+    return onSnapshot(
+      query(collection(db, "songs"), orderBy("title")),
+      snap => setSongs(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+  }, []);
+
+  // ── Firestore: services (real-time)
+  useEffect(() => {
+    return onSnapshot(
+      query(collection(db, "services"), orderBy("date")),
+      snap => setServices(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+  }, []);
+
+  // ── Firestore: notifications (per user, real-time)
+  useEffect(() => {
+    if (!user?.uid) return;
+    return onSnapshot(
+      query(collection(db, "notifications"), orderBy("createdAt", "desc")),
+      snap => setNotifs(snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          read: (data.readBy || []).includes(user.uid),
+          time: fmtTime(data.createdAt),
+        };
+      }))
+    );
+  }, [user?.uid]);
+
+  // ── Firestore: annotations (per user, real-time)
+  useEffect(() => {
+    if (!user?.uid) return;
+    return onSnapshot(
+      query(collection(db, "annotations"), where("userId", "==", user.uid)),
+      snap => {
+        const byId = {};
+        snap.docs.forEach(d => {
+          const data = d.data();
+          if (!byId[data.songId]) byId[data.songId] = [];
+          byId[data.songId].push({ id: d.id, ...data });
+        });
+        setAnnotations(byId);
+      }
+    );
+  }, [user?.uid]);
+
+  // ── PDF.js loader
   useEffect(() => {
     if (window.pdfjsLib) { setPdfjsReady(true); return; }
     const script = document.createElement("script");
@@ -1163,7 +1237,66 @@ export default function App() {
     return () => { try { document.head.removeChild(el); } catch(_) {} };
   }, []);
 
-  if (!user) return <LoginScreen onLogin={u => { setUser(u); setView("services"); }} />;
+  // ── CRUD helpers
+  const addSong = async (data) => {
+    await addDoc(collection(db, "songs"), {
+      ...data,
+      pdfUrl: null,
+      createdAt: serverTimestamp(),
+      createdBy: user.uid,
+    });
+  };
+
+  const createService = async (data) => {
+    await addDoc(collection(db, "services"), {
+      ...data,
+      notified: false,
+      createdAt: serverTimestamp(),
+      createdBy: user.uid,
+    });
+  };
+
+  const addAnnotation = async (songId, noteData) => {
+    await addDoc(collection(db, "annotations"), {
+      ...noteData,
+      songId,
+      userId: user.uid,
+      createdAt: serverTimestamp(),
+    });
+  };
+
+  const deleteAnnotation = async (_songId, noteId) => {
+    await deleteDoc(doc(db, "annotations", noteId));
+  };
+
+  const markNotifRead = async (id) => {
+    setNotifs(p => p.map(n => n.id === id ? { ...n, read: true } : n));
+    await updateDoc(doc(db, "notifications", id), { readBy: arrayUnion(user.uid) });
+  };
+
+  const markAllNotifRead = async () => {
+    const unread = notifs.filter(n => !n.read);
+    setNotifs(p => p.map(n => ({ ...n, read: true })));
+    await Promise.all(
+      unread.map(n => updateDoc(doc(db, "notifications", n.id), { readBy: arrayUnion(user.uid) }))
+    );
+  };
+
+  // ── Loading screen
+  if (user === undefined) return (
+    <div style={{ minHeight:"100vh", background:C.bg, display:"flex",
+      flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16 }}>
+      <div style={{
+        width:60, height:60,
+        background:`linear-gradient(135deg, ${C.acc}, ${C.pur})`,
+        borderRadius:16, display:"flex", alignItems:"center", justifyContent:"center",
+        fontSize:28, boxShadow:`0 0 30px ${C.acc}44`,
+      }}>🎵</div>
+      <div style={{ color:C.dim, fontSize:13 }}>불러오는 중...</div>
+    </div>
+  );
+
+  if (!user) return <LoginScreen />;
 
   const nav = (newView, params = {}) => {
     if (params.svcId  !== undefined) setSelSvcId(params.svcId);
@@ -1175,8 +1308,11 @@ export default function App() {
   const unread = notifs.filter(n => !n.read).length;
 
   const shared = {
-    user, songs, setSongs, services, setServices,
-    notifs, setNotifs, annotations, setAnnotations,
+    user, songs, services, notifs, annotations,
+    addSong, createService,
+    onAddAnnotation: addAnnotation,
+    onDeleteAnnotation: deleteAnnotation,
+    markNotifRead, markAllNotifRead,
     nav, pdfjsReady,
   };
 
@@ -1186,10 +1322,18 @@ export default function App() {
       {view === "services"      && <ServicesScreen      {...shared} />}
       {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} />}
       {view === "library"       && <SongLibraryScreen   {...shared} />}
-      {view === "pdfViewer"     && <PDFViewerScreen     {...shared} selectedSongId={selSongId} backTo={backTo} />}
-      {view === "notifications" && <NotificationsScreen {...shared} />}
-      {view === "profile"       && (
-        <ProfileScreen user={user} onLogout={() => { setUser(null); setView("services"); }} />
+      {view === "pdfViewer"     && (
+        <PDFViewerScreen {...shared} selectedSongId={selSongId} backTo={backTo} />
+      )}
+      {view === "notifications" && (
+        <NotificationsScreen
+          notifs={notifs}
+          markNotifRead={markNotifRead}
+          markAllNotifRead={markAllNotifRead}
+        />
+      )}
+      {view === "profile" && (
+        <ProfileScreen user={user} onLogout={() => signOut(auth)} />
       )}
 
       {view !== "pdfViewer" && (
