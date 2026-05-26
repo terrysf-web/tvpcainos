@@ -966,7 +966,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
 function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, backTo, pdfjsReady }) {
   const song = songs.find(s => s.id === selectedSongId);
 
-  // ── 예배 곡 순서 네비게이션
+  // ── 예배 곡 순서
   const svc      = selectedSvcId ? services.find(s => s.id === selectedSvcId) : null;
   const svcSongs = svc ? (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean) : [];
   const songIdx  = svcSongs.findIndex(s => s?.id === selectedSongId);
@@ -975,15 +975,18 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
     nav("pdfViewer", { songId: svcSongs[idx].id, backTo });
   };
 
-  // ── PDF.js
-  const canvasRef = useRef(null);
-  const pdfDocRef = useRef(null);
+  // ── PDF.js refs / state
+  const canvas1Ref   = useRef(null);
+  const canvas2Ref   = useRef(null);
+  const containerRef = useRef(null);
+  const pdfDocRef    = useRef(null);
   const [numPages, setNumPages] = useState(0);
   const [pageNum,  setPageNum]  = useState(1);
   const [zoomMul,  setZoomMul]  = useState(1.0);
   const [loadErr,  setLoadErr]  = useState("");
+  const [cSize,    setCSize]    = useState({ w: 0, h: 0 });
 
-  // ── 기타 UI
+  // ── UI
   const [dual,          setDual]          = useState(false);
   const [showNotePanel, setShowNotePanel] = useState(false);
   const [noteInput,     setNoteInput]     = useState(false);
@@ -992,7 +995,17 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
 
   const myNotes = annotations[selectedSongId] || [];
 
-  // 곡/pdfjsReady 변경 시 PDF 로드
+  // 컨테이너 크기 추적 (ResizeObserver)
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver(([e]) =>
+      setCSize({ w: e.contentRect.width, h: e.contentRect.height })
+    );
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  // PDF 로드
   useEffect(() => {
     pdfDocRef.current = null;
     setPageNum(1); setNumPages(0); setLoadErr("");
@@ -1002,35 +1015,45 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
       .catch(() => setLoadErr("PDF를 불러올 수 없습니다"));
   }, [song?.pdfUrl, pdfjsReady, selectedSongId]);
 
-  // 페이지 렌더링 (한 화면에 꽉 맞춤 — 가로/세로 모두)
+  // 페이지 렌더링 — 컨테이너에 꼭 맞게
   const renderPage = useCallback(async () => {
-    if (!pdfDocRef.current || !canvasRef.current) return;
+    if (!pdfDocRef.current || !cSize.w || !cSize.h) return;
+    const pad = 8;
     try {
-      const page      = await pdfDocRef.current.getPage(pageNum);
-      const container = canvasRef.current.parentElement;
-      const availW    = (container?.clientWidth  || 800) - 16;
-      const availH    = (container?.clientHeight || 600) - 16;
-      const base      = page.getViewport({ scale: 1 });
-      const fitScale  = Math.min(availW / base.width, availH / base.height);
-      const vp        = page.getViewport({ scale: fitScale * zoomMul });
-      canvasRef.current.width  = vp.width;
-      canvasRef.current.height = vp.height;
-      await page.render({ canvasContext: canvasRef.current.getContext("2d"), viewport: vp }).promise;
+      if (dual) {
+        // 듀얼: 좌우 두 페이지
+        const halfW = cSize.w / 2 - pad * 2;
+        const availH = cSize.h - pad * 2;
+        const render = async (ref, pNum) => {
+          if (!ref.current || pNum < 1 || pNum > pdfDocRef.current.numPages) {
+            if (ref.current) { ref.current.width = 0; ref.current.height = 0; }
+            return;
+          }
+          const page = await pdfDocRef.current.getPage(pNum);
+          const base = page.getViewport({ scale: 1 });
+          const sc   = Math.min(halfW / base.width, availH / base.height) * zoomMul;
+          const vp   = page.getViewport({ scale: sc });
+          ref.current.width  = vp.width;
+          ref.current.height = vp.height;
+          await page.render({ canvasContext: ref.current.getContext("2d"), viewport: vp }).promise;
+        };
+        await render(canvas1Ref, pageNum);
+        await render(canvas2Ref, pageNum + 1);
+      } else {
+        // 싱글: 한 페이지 꽉 맞춤
+        if (!canvas1Ref.current) return;
+        const page = await pdfDocRef.current.getPage(pageNum);
+        const base = page.getViewport({ scale: 1 });
+        const sc   = Math.min((cSize.w - pad * 2) / base.width, (cSize.h - pad * 2) / base.height) * zoomMul;
+        const vp   = page.getViewport({ scale: sc });
+        canvas1Ref.current.width  = vp.width;
+        canvas1Ref.current.height = vp.height;
+        await page.render({ canvasContext: canvas1Ref.current.getContext("2d"), viewport: vp }).promise;
+      }
     } catch(e) { console.error(e); }
-  }, [pageNum, zoomMul]);
+  }, [pageNum, zoomMul, dual, numPages, cSize]);
 
   useEffect(() => { renderPage(); }, [renderPage, numPages]);
-
-  // 화면 회전 / 크기 변경 시 재렌더링
-  useEffect(() => {
-    const handler = () => renderPage();
-    window.addEventListener("resize", handler);
-    window.addEventListener("orientationchange", handler);
-    return () => {
-      window.removeEventListener("resize", handler);
-      window.removeEventListener("orientationchange", handler);
-    };
-  }, [renderPage]);
 
   const saveNote = async () => {
     if (!noteTxt.trim() || saving) return;
@@ -1126,34 +1149,33 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
       </div>
 
       {/* 콘텐츠 */}
-      <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
-        <div style={{ flex:1, overflow:"hidden", display:"flex",
-          alignItems:"center", justifyContent:"center", padding:8, background:C.bg }}>
-          {song.pdfUrl ? (
-            loadErr
-              ? <div style={{ color:C.red, fontSize:13 }}>{loadErr}</div>
-              : <canvas ref={canvasRef} style={{ display:"block",
-                  borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
-          ) : (
-            <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
-              justifyContent:"center", height:"100%", color:C.dim, textAlign:"center", padding:40 }}>
-              <div style={{
-                width:84, height:84, borderRadius:18,
-                background:`linear-gradient(135deg, ${C.acc}22, ${C.pur}22)`,
-                border:`1px solid ${C.bdr}`,
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:38, marginBottom:16,
-              }}>🎼</div>
-              <div style={{ fontWeight:700, fontSize:16, marginBottom:6 }}>{song.title}</div>
-              <div style={{ fontSize:13 }}>PDF 악보가 없습니다</div>
-            </div>
-          )}
-        </div>
-
-        {dual && (
-          <div style={{ width:320, flexShrink:0, overflow:"hidden",
-            borderLeft:`1px solid ${C.bdr}`, background:C.surf }}>
-            <AIPanel song={song} user={user} />
+      <div ref={containerRef} style={{ flex:1, overflow:"hidden", display:"flex",
+        alignItems:"center", justifyContent:"center", background:C.bg, gap:8, padding:8 }}>
+        {song.pdfUrl ? (
+          loadErr
+            ? <div style={{ color:C.red, fontSize:13 }}>{loadErr}</div>
+            : (
+              <>
+                <canvas ref={canvas1Ref} style={{ display:"block",
+                  borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)", flexShrink:0 }} />
+                {dual && (
+                  <canvas ref={canvas2Ref} style={{ display:"block",
+                    borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)", flexShrink:0 }} />
+                )}
+              </>
+            )
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
+            justifyContent:"center", height:"100%", color:C.dim, textAlign:"center", padding:40 }}>
+            <div style={{
+              width:84, height:84, borderRadius:18,
+              background:`linear-gradient(135deg, ${C.acc}22, ${C.pur}22)`,
+              border:`1px solid ${C.bdr}`,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:38, marginBottom:16,
+            }}>🎼</div>
+            <div style={{ fontWeight:700, fontSize:16, marginBottom:6 }}>{song.title}</div>
+            <div style={{ fontSize:13 }}>PDF 악보가 없습니다</div>
           </div>
         )}
       </div>
@@ -1169,16 +1191,16 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
 
         {numPages > 0 && (
           <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <button onClick={() => setPageNum(p => Math.max(1, p - 1))} disabled={pageNum <= 1}
+            <button onClick={() => setPageNum(p => Math.max(1, p - (dual ? 2 : 1)))} disabled={pageNum <= 1}
               style={{ background:C.card, border:`1px solid ${C.bdr}`, borderRadius:9,
                 padding:"6px 14px", cursor: pageNum <= 1 ? "not-allowed" : "pointer",
                 opacity: pageNum <= 1 ? 0.3 : 1 }}>
               <Icon n="prev" size={16} color={C.txt} />
             </button>
             <span style={{ fontSize:12, color:C.dim, minWidth:52, textAlign:"center" }}>
-              {pageNum} / {numPages}
+              {pageNum}{dual && pageNum + 1 <= numPages ? `-${pageNum + 1}` : ""} / {numPages}
             </span>
-            <button onClick={() => setPageNum(p => Math.min(numPages, p + 1))} disabled={pageNum >= numPages}
+            <button onClick={() => setPageNum(p => Math.min(numPages, p + (dual ? 2 : 1)))} disabled={pageNum >= numPages}
               style={{ background:C.card, border:`1px solid ${C.bdr}`, borderRadius:9,
                 padding:"6px 14px", cursor: pageNum >= numPages ? "not-allowed" : "pointer",
                 opacity: pageNum >= numPages ? 0.3 : 1 }}>
