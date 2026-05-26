@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { auth, db, FIREBASE_API_KEY } from "./firebase.js";
 import { uploadPdf } from "./supabase.js";
 import AIPanel from "./AIPanel.jsx";
@@ -963,8 +963,27 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
 /* ══════════════════════════════════════════════════════════════════
    PDF VIEWER SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, backTo }) {
+function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, backTo, pdfjsReady }) {
   const song = songs.find(s => s.id === selectedSongId);
+
+  // ── 예배 곡 순서 네비게이션
+  const svc      = selectedSvcId ? services.find(s => s.id === selectedSvcId) : null;
+  const svcSongs = svc ? (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean) : [];
+  const songIdx  = svcSongs.findIndex(s => s?.id === selectedSongId);
+  const goToSong = (idx) => {
+    if (idx < 0 || idx >= svcSongs.length) return;
+    nav("pdfViewer", { songId: svcSongs[idx].id, backTo });
+  };
+
+  // ── PDF.js
+  const canvasRef = useRef(null);
+  const pdfDocRef = useRef(null);
+  const [numPages, setNumPages] = useState(0);
+  const [pageNum,  setPageNum]  = useState(1);
+  const [zoomMul,  setZoomMul]  = useState(1.0);
+  const [loadErr,  setLoadErr]  = useState("");
+
+  // ── 기타 UI
   const [dual,          setDual]          = useState(false);
   const [showNotePanel, setShowNotePanel] = useState(false);
   const [noteInput,     setNoteInput]     = useState(false);
@@ -973,26 +992,62 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
 
   const myNotes = annotations[selectedSongId] || [];
 
+  // 곡/pdfjsReady 변경 시 PDF 로드
+  useEffect(() => {
+    pdfDocRef.current = null;
+    setPageNum(1); setNumPages(0); setLoadErr("");
+    if (!song?.pdfUrl || !pdfjsReady || !window.pdfjsLib) return;
+    window.pdfjsLib.getDocument({ url: song.pdfUrl }).promise
+      .then(pdf => { pdfDocRef.current = pdf; setNumPages(pdf.numPages); })
+      .catch(() => setLoadErr("PDF를 불러올 수 없습니다"));
+  }, [song?.pdfUrl, pdfjsReady, selectedSongId]);
+
+  // 페이지 렌더링 (폭에 맞춤)
+  const renderPage = useCallback(async () => {
+    if (!pdfDocRef.current || !canvasRef.current) return;
+    try {
+      const page = await pdfDocRef.current.getPage(pageNum);
+      const container = canvasRef.current.parentElement;
+      const w = (container?.clientWidth || 800) - 32;
+      const base = page.getViewport({ scale: 1 });
+      const vp   = page.getViewport({ scale: (w / base.width) * zoomMul });
+      canvasRef.current.width  = vp.width;
+      canvasRef.current.height = vp.height;
+      await page.render({ canvasContext: canvasRef.current.getContext("2d"), viewport: vp }).promise;
+    } catch(e) { console.error(e); }
+  }, [pageNum, zoomMul]);
+
+  useEffect(() => { renderPage(); }, [renderPage, numPages]);
+
   const saveNote = async () => {
     if (!noteTxt.trim() || saving) return;
     setSaving(true);
-    await onAddAnnotation(selectedSongId, { text: noteTxt, page: 0, x: 0, y: 0 });
-    setNoteTxt("");
-    setNoteInput(false);
-    setSaving(false);
+    await onAddAnnotation(selectedSongId, { text: noteTxt, page: pageNum, x: 0, y: 0 });
+    setNoteTxt(""); setNoteInput(false); setSaving(false);
   };
-
   const deleteNote = id => onDeleteAnnotation(selectedSongId, id);
 
   const toolBtn = (name, active, onClick, ttl) => (
-    <button onClick={onClick} title={ttl}
-      style={{
-        background: active ? `${C.acc}33` : "transparent",
-        border:`1px solid ${active ? C.acc : C.bdr}`,
-        borderRadius:8, padding:7, cursor:"pointer",
-        display:"flex", alignItems:"center",
-      }}>
+    <button onClick={onClick} title={ttl} style={{
+      background: active ? `${C.acc}33` : "transparent",
+      border:`1px solid ${active ? C.acc : C.bdr}`,
+      borderRadius:8, padding:7, cursor:"pointer", display:"flex", alignItems:"center",
+    }}>
       <Icon n={name} size={17} color={active ? C.acc : C.dim} />
+    </button>
+  );
+
+  const navSongBtn = (label, icon, disabled, onClick) => (
+    <button onClick={onClick} disabled={disabled} style={{
+      background:C.card, border:`1px solid ${C.bdr}`, borderRadius:10,
+      padding:"7px 14px", cursor: disabled ? "not-allowed" : "pointer",
+      display:"flex", alignItems:"center", gap:5,
+      opacity: disabled ? 0.3 : 1, fontSize:12, fontFamily:"inherit",
+      color:C.txt, fontWeight:600,
+    }}>
+      {icon === "prev" && <Icon n="prev" size={14} color={C.txt} />}
+      {label}
+      {icon === "next" && <Icon n="next" size={14} color={C.txt} />}
     </button>
   );
 
@@ -1004,8 +1059,7 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
 
       {/* 상단 툴바 */}
       <div style={{
-        background:C.surf, height:52,
-        borderBottom:`1px solid ${C.bdr}`,
+        background:C.surf, height:52, borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", gap:6,
         padding:"0 12px", flexShrink:0,
         boxShadow:"0 1px 0 rgba(0,0,0,.06)",
@@ -1019,23 +1073,33 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
 
         <div style={{ flex:1, minWidth:0, textAlign:"center" }}>
           <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
-            textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            {song.title}
-          </div>
+            textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
           <div style={{ fontSize:11, color:C.dim }}>
             Key {song.key}{song.bpm ? ` · ♩${song.bpm}` : ""}
+            {numPages > 0 ? ` · ${pageNum}/${numPages}p` : ""}
+            {svcSongs.length > 1 ? ` · 곡 ${songIdx + 1}/${svcSongs.length}` : ""}
           </div>
         </div>
 
         <div style={{ display:"flex", gap:4, alignItems:"center", flexShrink:0 }}>
-          {toolBtn("pen",  noteInput,     () => setNoteInput(p => !p),      "메모 추가")}
-          {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p),  "메모 목록")}
-
+          <button onClick={() => setZoomMul(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
+            style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
+            <Icon n="zoomOut" size={18} color={C.dim} />
+          </button>
+          <span style={{ fontSize:11, color:C.dim, minWidth:34, textAlign:"center", fontWeight:600 }}>
+            {Math.round(zoomMul * 100)}%
+          </span>
+          <button onClick={() => setZoomMul(z => Math.min(2.5, +(z + 0.15).toFixed(2)))}
+            style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
+            <Icon n="zoomIn" size={18} color={C.dim} />
+          </button>
           <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
-
+          {toolBtn("pen",  noteInput,     () => setNoteInput(p => !p),     "메모 추가")}
+          {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
+          <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
           <button onClick={() => setDual(p => !p)} style={{
             display:"flex", alignItems:"center", gap:5,
-            padding:"5px 11px", borderRadius:8, cursor:"pointer",
+            padding:"5px 10px", borderRadius:8, cursor:"pointer",
             background: dual ? C.acc : C.card,
             border:`1px solid ${dual ? C.acc : C.bdr}`,
             color: dual ? "#fff" : C.dim,
@@ -1048,15 +1112,15 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
         </div>
       </div>
 
-      <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"row" }}>
-        {/* PDF iframe 영역 */}
-        <div style={{ flex:1, overflow:"hidden", position:"relative" }}>
+      {/* 콘텐츠 */}
+      <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
+        <div style={{ flex:1, overflow:"auto", display:"flex",
+          alignItems:"flex-start", justifyContent:"center", padding:16 }}>
           {song.pdfUrl ? (
-            <iframe
-              src={song.pdfUrl}
-              style={{ width:"100%", height:"100%", border:"none", display:"block" }}
-              allow="autoplay"
-            />
+            loadErr
+              ? <div style={{ color:C.red, fontSize:13, paddingTop:40 }}>{loadErr}</div>
+              : <canvas ref={canvasRef} style={{ display:"block", maxWidth:"100%",
+                  borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
           ) : (
             <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
               justifyContent:"center", height:"100%", color:C.dim, textAlign:"center", padding:40 }}>
@@ -1068,13 +1132,11 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
                 fontSize:38, marginBottom:16,
               }}>🎼</div>
               <div style={{ fontWeight:700, fontSize:16, marginBottom:6 }}>{song.title}</div>
-              <div style={{ fontSize:13, marginBottom:16 }}>PDF 악보가 없습니다</div>
-              <div style={{ fontSize:12 }}>라이브러리에서 Google Drive 링크를 추가해주세요</div>
+              <div style={{ fontSize:13 }}>PDF 악보가 없습니다</div>
             </div>
           )}
         </div>
 
-        {/* AI 패널 (DUAL) */}
         {dual && (
           <div style={{ width:320, flexShrink:0, overflow:"hidden",
             borderLeft:`1px solid ${C.bdr}`, background:C.surf }}>
@@ -1083,42 +1145,66 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
         )}
       </div>
 
+      {/* 하단 바: 페이지 + 곡 이동 */}
+      <div style={{ background:C.surf, borderTop:`1px solid ${C.bdr}`,
+        padding:"8px 12px", display:"flex", alignItems:"center",
+        justifyContent:"space-between", flexShrink:0, gap:8 }}>
+
+        {svcSongs.length > 1
+          ? navSongBtn("이전 곡", "prev", songIdx <= 0, () => goToSong(songIdx - 1))
+          : <div />}
+
+        {numPages > 0 && (
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <button onClick={() => setPageNum(p => Math.max(1, p - 1))} disabled={pageNum <= 1}
+              style={{ background:C.card, border:`1px solid ${C.bdr}`, borderRadius:9,
+                padding:"6px 14px", cursor: pageNum <= 1 ? "not-allowed" : "pointer",
+                opacity: pageNum <= 1 ? 0.3 : 1 }}>
+              <Icon n="prev" size={16} color={C.txt} />
+            </button>
+            <span style={{ fontSize:12, color:C.dim, minWidth:52, textAlign:"center" }}>
+              {pageNum} / {numPages}
+            </span>
+            <button onClick={() => setPageNum(p => Math.min(numPages, p + 1))} disabled={pageNum >= numPages}
+              style={{ background:C.card, border:`1px solid ${C.bdr}`, borderRadius:9,
+                padding:"6px 14px", cursor: pageNum >= numPages ? "not-allowed" : "pointer",
+                opacity: pageNum >= numPages ? 0.3 : 1 }}>
+              <Icon n="next" size={16} color={C.txt} />
+            </button>
+          </div>
+        )}
+
+        {svcSongs.length > 1
+          ? navSongBtn("다음 곡", "next", songIdx >= svcSongs.length - 1, () => goToSong(songIdx + 1))
+          : <div />}
+      </div>
+
       {/* 메모 입력 */}
       {noteInput && (
-        <div style={{
-          position:"fixed", inset:0, background:"rgba(0,0,0,.7)",
-          display:"flex", alignItems:"center", justifyContent:"center",
-          zIndex:200, padding:20,
-        }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)",
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, padding:20 }}>
           <div style={{ background:C.surf, borderRadius:16, padding:20,
             width:"100%", maxWidth:400, border:`1px solid ${C.bdr}` }}>
-            <div style={{ fontWeight:700, marginBottom:12 }}>메모 추가</div>
+            <div style={{ fontWeight:700, marginBottom:12 }}>메모 추가 (p.{pageNum})</div>
             <textarea value={noteTxt} onChange={e => setNoteTxt(e.target.value)}
-              placeholder="예) 2절 — 건반 솔로, 리더 신호 기다릴 것"
-              autoFocus
-              style={{
-                width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
+              placeholder="예) 2절 — 건반 솔로" autoFocus
+              style={{ width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
                 color:C.txt, padding:"10px 14px", borderRadius:10,
                 fontSize:14, outline:"none", fontFamily:"inherit",
-                resize:"vertical", minHeight:80,
-              }} />
+                resize:"vertical", minHeight:80 }} />
             <div style={{ display:"flex", gap:8, marginTop:12 }}>
-              <Btn label="취소" variant="ghost"
-                onClick={() => { setNoteInput(false); setNoteTxt(""); }} full />
-              <Btn label={saving ? "저장 중..." : "저장"} variant="primary"
-                onClick={saveNote} full disabled={saving} />
+              <Btn label="취소" variant="ghost" onClick={() => { setNoteInput(false); setNoteTxt(""); }} full />
+              <Btn label={saving ? "저장 중..." : "저장"} variant="primary" onClick={saveNote} full disabled={saving} />
             </div>
           </div>
         </div>
       )}
 
-      {/* 메모 목록 패널 */}
+      {/* 메모 패널 */}
       {showNotePanel && (
-        <div style={{
-          position:"absolute", right:0, top:0, bottom:0,
+        <div style={{ position:"absolute", right:0, top:0, bottom:0,
           width:270, background:C.surf, borderLeft:`1px solid ${C.bdr}`,
-          zIndex:100, overflowY:"auto", padding:16,
-        }}>
+          zIndex:100, overflowY:"auto", padding:16 }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
             <div style={{ fontWeight:700 }}>내 메모</div>
             <button onClick={() => setShowNotePanel(false)}
@@ -1126,18 +1212,14 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
               <Icon n="xmark" size={18} />
             </button>
           </div>
-          {myNotes.length === 0 ? (
-            <div style={{ color:C.dim, fontSize:13, textAlign:"center", padding:"40px 0" }}>
-              메모가 없습니다
-            </div>
-          ) : (
-            myNotes.map(n => (
-              <div key={n.id} style={{
-                background:C.card, borderRadius:10, padding:"10px 12px",
-                marginBottom:8, border:`1px solid ${C.bdr}`,
-              }}>
+          {myNotes.length === 0
+            ? <div style={{ color:C.dim, fontSize:13, textAlign:"center", padding:"40px 0" }}>메모가 없습니다</div>
+            : myNotes.map(n => (
+              <div key={n.id} style={{ background:C.card, borderRadius:10, padding:"10px 12px",
+                marginBottom:8, border:`1px solid ${C.bdr}` }}>
                 <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
                   <div style={{ flex:1 }}>
+                    {n.page > 0 && <span style={{ fontSize:10, color:C.acc, fontWeight:700 }}>p.{n.page} </span>}
                     <span style={{ fontSize:13, lineHeight:1.5 }}>{n.text}</span>
                   </div>
                   <button onClick={() => deleteNote(n.id)}
@@ -1147,7 +1229,7 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
                 </div>
               </div>
             ))
-          )}
+          }
         </div>
       )}
     </div>
@@ -1441,6 +1523,7 @@ export default function App() {
   const [selSvcId,    setSelSvcId]    = useState(null);
   const [selSongId,   setSelSongId]   = useState(null);
   const [backTo,      setBackTo]      = useState("library");
+  const [pdfjsReady,  setPdfjsReady]  = useState(false);
 
   // ── Handle Google redirect result
   useEffect(() => {
@@ -1558,6 +1641,21 @@ export default function App() {
   }, [user?.uid]);
 
 
+  // ── PDF.js 로더
+  useEffect(() => {
+    if (window.pdfjsLib) { setPdfjsReady(true); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+    s.onload = () => {
+      if (window.pdfjsLib) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        setPdfjsReady(true);
+      }
+    };
+    document.head.appendChild(s);
+  }, []);
+
   // ── Global styles
   useEffect(() => {
     const el = document.createElement("style");
@@ -1664,7 +1762,8 @@ export default function App() {
       {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} />}
       {view === "library"       && <SongLibraryScreen   {...shared} />}
       {view === "pdfViewer"     && (
-        <PDFViewerScreen {...shared} selectedSongId={selSongId} backTo={backTo} />
+        <PDFViewerScreen {...shared} selectedSongId={selSongId}
+          selectedSvcId={selSvcId} backTo={backTo} pdfjsReady={pdfjsReady} />
       )}
       {view === "notifications" && (
         <NotificationsScreen
