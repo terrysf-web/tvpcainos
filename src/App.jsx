@@ -547,8 +547,71 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
 /* ══════════════════════════════════════════════════════════════════
    SERVICE DETAIL SCREEN
 ══════════════════════════════════════════════════════════════════ */
+function SongPickerModal({ songs, currentIds, onClose, onSave }) {
+  const [selected, setSelected] = useState([...currentIds]);
+  const [query,    setQuery]    = useState("");
+
+  const filtered = songs.filter(s =>
+    s.title.toLowerCase().includes(query.toLowerCase()) ||
+    (s.artist || "").toLowerCase().includes(query.toLowerCase())
+  );
+  const toggle = id => setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+
+  return (
+    <Modal title={`곡 선택 (${selected.length}곡)`} onClose={onClose}>
+      <input value={query} onChange={e => setQuery(e.target.value)}
+        placeholder="곡명, 아티스트 검색..."
+        style={{
+          width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
+          color:C.txt, padding:"9px 14px", borderRadius:10,
+          fontSize:14, outline:"none", fontFamily:"inherit", marginBottom:12,
+        }} />
+      <div style={{ maxHeight:320, overflowY:"auto", marginBottom:14 }}>
+        {filtered.length === 0 && (
+          <div style={{ textAlign:"center", padding:"30px 0", color:C.dim, fontSize:13 }}>
+            {query ? "검색 결과 없음" : "악보 라이브러리에 곡이 없습니다"}
+          </div>
+        )}
+        {filtered.map(s => {
+          const sel = selected.includes(s.id);
+          return (
+            <div key={s.id} onClick={() => toggle(s.id)} style={{
+              display:"flex", alignItems:"center", gap:10, padding:"10px 12px",
+              borderRadius:10, cursor:"pointer", marginBottom:4,
+              background: sel ? `${C.acc}18` : C.card,
+              border:`1.5px solid ${sel ? C.acc : C.bdr}`,
+            }}>
+              <div style={{
+                width:22, height:22, borderRadius:6, flexShrink:0,
+                border:`2px solid ${sel ? C.acc : C.bdr}`,
+                background: sel ? C.acc : "transparent",
+                display:"flex", alignItems:"center", justifyContent:"center",
+              }}>
+                {sel && <Icon n="check" size={12} color="#fff" sw={3} />}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontWeight:600, fontSize:14, overflow:"hidden",
+                  textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.title}</div>
+                <div style={{ fontSize:12, color:C.dim, marginTop:1 }}>
+                  {s.artist} · Key {s.key}{s.bpm ? ` · ♩${s.bpm}` : ""}
+                  {s.pdfUrl ? " · 📄 PDF" : ""}
+                </div>
+              </div>
+              <KeyBadge k={s.key} />
+            </div>
+          );
+        })}
+      </div>
+      <Btn label={`${selected.length}곡 저장`} icon="check"
+        onClick={() => onSave(selected)} full disabled={selected.length === 0} />
+    </Modal>
+  );
+}
+
 function ServiceDetailScreen({ user, services, songs, annotations, nav, selectedSvcId }) {
   const svc = services.find(s => s.id === selectedSvcId);
+  const [showPicker, setShowPicker] = useState(false);
+
   if (!svc) return null;
 
   const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
@@ -564,21 +627,35 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
     });
   };
 
+  const removeSong = async (id) => {
+    const newIds = (svc.songIds || []).filter(x => x !== id);
+    await updateDoc(doc(db, "services", svc.id), { songIds: newIds });
+  };
+
+  const saveSongs = async (ids) => {
+    await updateDoc(doc(db, "services", svc.id), { songIds: ids });
+    setShowPicker(false);
+  };
+
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
+      {/* 헤더 */}
       <div style={{ background:C.surf, padding:"18px 16px",
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", gap:12 }}>
         <button onClick={() => nav("services")}
-          style={{ background:"none", border:"none", color:C.txt, cursor:"pointer", padding:4, display:"flex" }}>
-          <Icon n="back" size={20} />
+          style={{ background:"none", border:"none", color:C.acc, cursor:"pointer",
+            padding:4, display:"flex", alignItems:"center", gap:4 }}>
+          <Icon n="back" size={18} color={C.acc} />
         </button>
         <div style={{ flex:1 }}>
-          <div style={{ fontWeight:700, fontSize:17, letterSpacing:"-0.02em" }}>{svc.title}</div>
-          <div style={{ fontSize:12, color:C.dim, marginTop:1 }}>{svc.date} · {svc.time}</div>
+          <div style={{ fontWeight:700, fontSize:17 }}>{svc.title}</div>
+          <div style={{ fontSize:12, color:C.dim, marginTop:1 }}>
+            📅 {svc.date}{svc.time ? ` · ${svc.time}` : ""}
+          </div>
         </div>
         {svc.notified
-          ? <Badge label="알림 완료" color={C.grn} />
+          ? <Badge label="알림완료" color={C.grn} />
           : user.role === "leader" && (
             <button onClick={sendNotif} style={{
               background:C.pur, border:"none", borderRadius:9, padding:"7px 12px",
@@ -591,42 +668,89 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
         }
       </div>
 
-      <div style={{ padding:16, paddingBottom:90, overflowY:"auto", maxHeight:"calc(100vh - 73px)" }}>
+      <div style={{ padding:16, paddingBottom:90 }}>
+        {/* 리더: 곡 추가 버튼 */}
+        {user.role === "leader" && (
+          <button onClick={() => setShowPicker(true)} style={{
+            width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
+            gap:8, padding:"12px 0", borderRadius:12, marginBottom:16,
+            background:"transparent", border:`2px dashed ${C.acc}`,
+            cursor:"pointer", fontFamily:"inherit",
+            fontWeight:600, fontSize:14, color:C.acc,
+          }}>
+            <Icon n="plus" size={16} color={C.acc} />
+            라이브러리에서 곡 추가
+          </button>
+        )}
+
+        {/* 곡 목록 */}
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
-          textTransform:"uppercase", marginBottom:12 }}>
+          textTransform:"uppercase", marginBottom:10 }}>
           예배 곡 순서 · {svcSongs.length}곡
         </div>
+
+        {svcSongs.length === 0 && (
+          <div style={{ textAlign:"center", padding:"40px 0", color:C.dim }}>
+            <div style={{ fontSize:36, marginBottom:10 }}>🎵</div>
+            <div style={{ fontWeight:600, marginBottom:4 }}>곡이 없습니다</div>
+            <div style={{ fontSize:13 }}>위 버튼으로 라이브러리에서 곡을 추가하세요</div>
+          </div>
+        )}
+
         {svcSongs.map((song, idx) => {
           const hasNotes = (annotations[song.id] || []).length > 0;
           return (
-            <div key={song.id} className="wFadeIn"
-              onClick={() => nav("pdfViewer", { songId: song.id, backTo: "svcDetail" })}
-              style={{
-                background:C.card, borderRadius:14, padding:"14px 16px",
-                marginBottom:8, border:`1px solid ${C.bdr}`, cursor:"pointer",
-                display:"flex", alignItems:"center", gap:12,
-              }}>
+            <div key={song.id} className="wFadeIn" style={{
+              background:C.surf, borderRadius:14, padding:"14px 16px",
+              marginBottom:8, border:`1px solid ${C.bdr}`,
+              display:"flex", alignItems:"center", gap:12,
+              boxShadow:"0 1px 4px rgba(0,0,0,.05)",
+            }}>
+              {/* 순서 번호 */}
               <div style={{
-                width:32, height:32, borderRadius:9, flexShrink:0,
-                background:`linear-gradient(135deg, ${C.acc}33, ${C.pur}33)`,
+                width:34, height:34, borderRadius:10, flexShrink:0,
+                background:`linear-gradient(135deg, ${C.acc}33, ${C.pur}22)`,
                 display:"flex", alignItems:"center", justifyContent:"center",
-                fontWeight:700, fontSize:14, color:C.acc,
+                fontWeight:800, fontSize:15, color:C.acc,
               }}>{idx + 1}</div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontWeight:700, fontSize:15, letterSpacing:"-0.01em" }}>{song.title}</div>
-                <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>{song.artist}</div>
-              </div>
-              <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
-                <KeyBadge k={song.key} />
-                <div style={{ display:"flex", gap:4, flexWrap:"wrap", justifyContent:"flex-end" }}>
-                  {song.pdfUrl && <span style={{ fontSize:10, color:C.acc, fontWeight:700 }}>📄 PDF</span>}
-                  {hasNotes    && <span style={{ fontSize:10, color:C.grn, fontWeight:700 }}>✏ 메모</span>}
+
+              {/* 곡 정보 */}
+              <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
+                onClick={() => nav("pdfViewer", { songId: song.id, backTo: "svcDetail" })}>
+                <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
+                  textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
+                <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>
+                  {song.artist}{song.bpm ? ` · ♩${song.bpm}` : ""}
+                </div>
+                <div style={{ display:"flex", gap:5, marginTop:5 }}>
+                  <KeyBadge k={song.key} />
+                  {song.pdfUrl && <Badge label="PDF" color={C.grn} />}
+                  {hasNotes    && <Badge label="✏ 메모" color={C.pur} />}
                 </div>
               </div>
+
+              {/* 삭제 버튼 (리더만) */}
+              {user.role === "leader" && (
+                <button onClick={() => removeSong(song.id)} style={{
+                  background:"none", border:"none", cursor:"pointer",
+                  padding:6, display:"flex", flexShrink:0,
+                }}>
+                  <Icon n="xmark" size={18} color={C.dim} />
+                </button>
+              )}
             </div>
           );
         })}
       </div>
+
+      {showPicker && (
+        <SongPickerModal
+          songs={songs}
+          currentIds={svc.songIds || []}
+          onClose={() => setShowPicker(false)}
+          onSave={saveSongs}
+        />
+      )}
     </div>
   );
 }
