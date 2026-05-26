@@ -71,7 +71,7 @@ function setPane(pane, song) {
   }
 
   const encodedUrl = encodeURI(song.pdfUrl);
-const viewerUrl = `./viewer.html?file=${encodedUrl}`;
+  const viewerUrl = `./viewer.html?file=${encodedUrl}`;
   pane.innerHTML = `<iframe src="${viewerUrl}" title="${escapeHtml(song.title || 'PDF')}"></iframe>`;
 }
 
