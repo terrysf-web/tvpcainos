@@ -37,6 +37,55 @@ const KEY_CLR = {
 };
 const keyColor = (k) => KEY_CLR[k ? k[0].toUpperCase() : "C"] || C.acc;
 
+// ── Google Drive Picker
+let _driveToken = null;
+let _driveTokenExp = 0;
+
+async function getDriveToken() {
+  if (_driveToken && Date.now() < _driveTokenExp) return _driveToken;
+  try {
+    const p = new GoogleAuthProvider();
+    p.addScope("https://www.googleapis.com/auth/drive.readonly");
+    const result = await signInWithPopup(auth, p);
+    const cred = GoogleAuthProvider.credentialFromResult(result);
+    if (cred?.accessToken) {
+      _driveToken = cred.accessToken;
+      _driveTokenExp = Date.now() + 3_500_000;
+    }
+  } catch (e) {
+    console.error("Drive token:", e);
+  }
+  return _driveToken;
+}
+
+async function openDrivePicker(onSelect) {
+  const token = await getDriveToken();
+  if (!token) return;
+  if (!window.gapi) {
+    await new Promise(res => {
+      const s = document.createElement("script");
+      s.src = "https://apis.google.com/js/api.js";
+      s.onload = res;
+      document.head.appendChild(s);
+    });
+  }
+  if (!window.google?.picker) {
+    await new Promise(res => window.gapi.load("picker", res));
+  }
+  const P = window.google.picker;
+  new P.PickerBuilder()
+    .addView(new P.DocsView().setMimeTypes("application/pdf"))
+    .setOAuthToken(token)
+    .setDeveloperKey(FIREBASE_API_KEY)
+    .setCallback(data => {
+      if (data.action === P.Action.PICKED) {
+        onSelect(`https://drive.google.com/file/d/${data.docs[0].id}/preview`);
+      }
+    })
+    .build()
+    .setVisible(true);
+}
+
 function parseDriveUrl(input) {
   const s = (input || "").trim();
   const m = s.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
@@ -202,6 +251,7 @@ function Modal({ title, onClose, children }) {
    LOGIN SCREEN
 ══════════════════════════════════════════════════════════════════ */
 const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope("https://www.googleapis.com/auth/drive.readonly");
 
 function LoginScreen() {
   const [email,      setEmail]      = useState("");
@@ -372,28 +422,25 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
    ADD SONG MODAL
 ══════════════════════════════════════════════════════════════════ */
 function AddSongModal({ onClose, onAdd }) {
-  const [title,    setTitle]    = useState("");
-  const [artist,   setArtist]   = useState("");
-  const [key,      setKey]      = useState("C");
-  const [bpm,      setBpm]      = useState("80");
-  const [driveUrl, setDriveUrl] = useState("");
-  const [urlErr,   setUrlErr]   = useState("");
-  const [saving,   setSaving]   = useState(false);
+  const [title,    setTitle]   = useState("");
+  const [artist,   setArtist]  = useState("");
+  const [key,      setKey]     = useState("C");
+  const [bpm,      setBpm]     = useState("80");
+  const [pdfUrl,   setPdfUrl]  = useState(null);
+  const [picking,  setPicking] = useState(false);
+  const [saving,   setSaving]  = useState(false);
   const KEYS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+  const pickPdf = async () => {
+    setPicking(true);
+    await openDrivePicker(url => setPdfUrl(url));
+    setPicking(false);
+  };
 
   const handleAdd = async () => {
     if (!title) return;
     setSaving(true);
     try {
-      let pdfUrl = null;
-      if (driveUrl.trim()) {
-        pdfUrl = parseDriveUrl(driveUrl);
-        if (!pdfUrl) {
-          setUrlErr("올바른 Google Drive URL을 입력하세요.");
-          setSaving(false);
-          return;
-        }
-      }
       await onAdd({ title, artist, key, bpm: Number(bpm) || 80, pdfUrl });
       onClose();
     } catch(e) {
@@ -427,25 +474,35 @@ function AddSongModal({ onClose, onAdd }) {
 
       <Input label="BPM" value={bpm} onChange={setBpm} type="number" placeholder="80" />
 
-      {/* Google Drive 링크 */}
+      {/* Google Drive Picker */}
       <div style={{ marginBottom:16 }}>
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
-          textTransform:"uppercase", marginBottom:8 }}>악보 PDF — Google Drive 링크 (선택)</div>
-        <input
-          value={driveUrl}
-          onChange={e => { setDriveUrl(e.target.value); setUrlErr(""); }}
-          placeholder="https://drive.google.com/file/d/..."
-          style={{
-            width:"100%", background:C.card,
-            border:`1.5px solid ${urlErr ? C.red : C.bdr}`,
-            color:C.txt, padding:"10px 14px", borderRadius:10,
-            fontSize:13, outline:"none", fontFamily:"inherit",
-          }}
-        />
-        {urlErr && <div style={{ fontSize:11, color:C.red, marginTop:4 }}>{urlErr}</div>}
-        <div style={{ fontSize:11, color:C.dim, marginTop:6, lineHeight:1.6 }}>
-          Drive에서 PDF 공유 → "링크가 있는 모든 사용자" 설정 후 링크 붙여넣기
-        </div>
+          textTransform:"uppercase", marginBottom:8 }}>악보 PDF (선택)</div>
+        {pdfUrl ? (
+          <div style={{
+            display:"flex", alignItems:"center", gap:10, padding:"12px 14px",
+            background:`${C.grn}12`, border:`1.5px solid ${C.grn}55`,
+            borderRadius:10,
+          }}>
+            <span style={{ fontSize:20 }}>📄</span>
+            <span style={{ fontSize:13, color:C.grn, fontWeight:600, flex:1 }}>Drive 파일 선택됨</span>
+            <button onClick={() => setPdfUrl(null)}
+              style={{ background:"none", border:"none", cursor:"pointer", padding:2, display:"flex" }}>
+              <Icon n="xmark" size={16} color={C.dim} />
+            </button>
+          </div>
+        ) : (
+          <button onClick={pickPdf} disabled={picking} style={{
+            width:"100%", padding:"16px", borderRadius:12, cursor:"pointer",
+            border:`2px dashed ${C.bdr}`, background:C.card,
+            fontFamily:"inherit", fontSize:14, fontWeight:600, color:C.dim,
+            display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+            opacity: picking ? 0.6 : 1,
+          }}>
+            <span style={{ fontSize:20 }}>📁</span>
+            {picking ? "Drive 연결 중..." : "Google Drive에서 PDF 선택"}
+          </button>
+        )}
       </div>
 
       <Btn label={saving ? "추가 중..." : "추가하기"}
@@ -808,19 +865,20 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
   const [query,       setQuery]       = useState("");
   const [showAdd,     setShowAdd]     = useState(false);
   const [editDriveId, setEditDriveId] = useState(null);
-  const [driveInput,  setDriveInput]  = useState("");
-  const [driveErr,    setDriveErr]    = useState("");
+  const [picking,     setPicking]     = useState(false);
 
   const filtered = songs.filter(s =>
     s.title.toLowerCase().includes(query.toLowerCase()) ||
     (s.artist || "").toLowerCase().includes(query.toLowerCase())
   );
 
-  const saveDriveUrl = async () => {
-    const url = driveInput.trim() ? parseDriveUrl(driveInput) : null;
-    if (driveInput.trim() && !url) { setDriveErr("올바른 Google Drive URL을 입력하세요."); return; }
-    await updateDoc(doc(db, "songs", editDriveId), { pdfUrl: url });
-    setEditDriveId(null);
+  const pickAndSave = async (songId) => {
+    setPicking(true);
+    await openDrivePicker(async url => {
+      await updateDoc(doc(db, "songs", songId), { pdfUrl: url });
+      setEditDriveId(null);
+    });
+    setPicking(false);
   };
 
   return (
@@ -904,32 +962,23 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
       )}
 
       {editDriveId && (
-        <Modal title="Google Drive 악보 링크" onClose={() => setEditDriveId(null)}>
-          <div style={{ fontSize:12, color:C.dim, marginBottom:12, lineHeight:1.7 }}>
-            구글 드라이브에서 PDF를 공유(링크가 있는 모든 사용자)하고 링크를 붙여넣으세요.
-          </div>
-          <input
-            value={driveInput}
-            onChange={e => { setDriveInput(e.target.value); setDriveErr(""); }}
-            placeholder="https://drive.google.com/file/d/..."
-            autoFocus
-            style={{
-              width:"100%", background:C.card,
-              border:`1.5px solid ${driveErr ? C.red : C.bdr}`,
-              color:C.txt, padding:"10px 14px", borderRadius:10,
-              fontSize:13, outline:"none", fontFamily:"inherit", marginBottom:6,
-            }}
-          />
-          {driveErr && <div style={{ fontSize:11, color:C.red, marginBottom:8 }}>{driveErr}</div>}
-          <div style={{ display:"flex", gap:8, marginTop:4 }}>
-            <Btn label="저장" full onClick={saveDriveUrl} />
-            {songs.find(s => s.id === editDriveId)?.pdfUrl && (
-              <Btn label="삭제" variant="danger" onClick={async () => {
-                await updateDoc(doc(db, "songs", editDriveId), { pdfUrl: null });
-                setEditDriveId(null);
-              }} />
-            )}
-          </div>
+        <Modal title="악보 PDF" onClose={() => setEditDriveId(null)}>
+          <button onClick={() => pickAndSave(editDriveId)} disabled={picking} style={{
+            width:"100%", padding:"18px", borderRadius:12, cursor:"pointer",
+            border:`2px dashed ${C.pur}88`, background:`${C.pur}08`,
+            fontFamily:"inherit", fontSize:15, fontWeight:700, color:C.pur,
+            display:"flex", alignItems:"center", justifyContent:"center", gap:10,
+            opacity: picking ? 0.6 : 1, marginBottom:12,
+          }}>
+            <span style={{ fontSize:22 }}>📁</span>
+            {picking ? "Drive 연결 중..." : "Google Drive에서 PDF 선택"}
+          </button>
+          {songs.find(s => s.id === editDriveId)?.pdfUrl && (
+            <Btn label="현재 PDF 삭제" variant="danger" full onClick={async () => {
+              await updateDoc(doc(db, "songs", editDriveId), { pdfUrl: null });
+              setEditDriveId(null);
+            }} />
+          )}
         </Modal>
       )}
     </div>
