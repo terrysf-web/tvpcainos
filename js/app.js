@@ -70,7 +70,8 @@ function setPane(pane, song) {
     return;
   }
 
-  const viewerUrl = `./viewer.html?file=${encodeURIComponent(song.pdfUrl)}`;
+  const encodedUrl = encodeURI(song.pdfUrl);
+const viewerUrl = `./viewer.html?file=${encodedUrl}`;
   pane.innerHTML = `<iframe src="${viewerUrl}" title="${escapeHtml(song.title || 'PDF')}"></iframe>`;
 }
 
