@@ -3,9 +3,9 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
 
 const C = {
-  bg:"#f4f5f9", surf:"#ffffff", card:"#f0f2f7", bdr:"#e0e4ed",
-  acc:"#e8a93e", pur:"#6b5de7", grn:"#2da05a", txt:"#1a1d2e",
-  dim:"#8892b0", red:"#d94f4f",
+  bg:"#f2f2f7", surf:"#ffffff", card:"#f8f8fb", bdr:"#e5e5ea",
+  acc:"#e8a93e", pur:"#6b5de7", grn:"#34c759", txt:"#1c1c1e",
+  dim:"#8e8e93", red:"#ff3b30",
 };
 
 const KEY_CLR = {

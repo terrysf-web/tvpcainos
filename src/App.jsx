@@ -20,16 +20,16 @@ import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
    THEME
 ══════════════════════════════════════════════════════════════════ */
 const C = {
-  bg:    "#f4f5f9",
+  bg:    "#f2f2f7",
   surf:  "#ffffff",
-  card:  "#f0f2f7",
-  bdr:   "#e0e4ed",
+  card:  "#f8f8fb",
+  bdr:   "#e5e5ea",
   acc:   "#e8a93e",
   pur:   "#6b5de7",
-  grn:   "#2da05a",
-  txt:   "#1a1d2e",
-  dim:   "#8892b0",
-  red:   "#d94f4f",
+  grn:   "#34c759",
+  txt:   "#1c1c1e",
+  dim:   "#8e8e93",
+  red:   "#ff3b30",
 };
 
 const KEY_CLR = {
@@ -825,57 +825,63 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
     <div style={{ height:"100vh", background:C.bg, display:"flex",
       flexDirection:"column", overflow:"hidden" }}>
 
-      <div style={{ background:C.surf, padding:"10px 14px",
+      {/* Piascore 스타일 상단 툴바 */}
+      <div style={{
+        background:C.surf, height:52,
         borderBottom:`1px solid ${C.bdr}`,
-        display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
+        display:"flex", alignItems:"center", gap:6,
+        padding:"0 12px", flexShrink:0,
+        boxShadow:"0 1px 0 rgba(0,0,0,.06)",
+      }}>
+        {/* 왼쪽: 뒤로 + 제목 */}
         <button onClick={() => nav(backTo || "library")}
-          style={{ background:"none", border:"none", color:C.txt, cursor:"pointer",
-            padding:4, display:"flex" }}>
-          <Icon n="back" size={20} />
+          style={{ background:"none", border:"none", color:C.acc, cursor:"pointer",
+            padding:"4px 8px 4px 0", display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+          <Icon n="back" size={18} color={C.acc} />
+          <span style={{ fontSize:15, fontWeight:500, color:C.acc }}>Back</span>
         </button>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontWeight:700, fontSize:15, letterSpacing:"-0.01em",
-            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+
+        <div style={{ flex:1, minWidth:0, textAlign:"center" }}>
+          <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
+            textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
             {song.title}
           </div>
-          <div style={{ fontSize:11, color:C.dim, marginTop:1 }}>
-            Key {song.key}
-            {song.bpm ? ` · ♩${song.bpm}` : ""}
-            {numPages > 0 ? ` · ${pageNum}/${numPages}p` : ""}
+          <div style={{ fontSize:11, color:C.dim }}>
+            Key {song.key}{song.bpm ? ` · ♩${song.bpm}` : ""}{numPages > 0 ? ` · ${pageNum}/${numPages}p` : ""}
           </div>
         </div>
 
-        <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+        {/* 오른쪽: 툴 버튼들 */}
+        <div style={{ display:"flex", gap:4, alignItems:"center", flexShrink:0 }}>
           <button onClick={() => setScale(s => Math.max(.6, s - .15))}
-            style={{ background:"none", border:"none", cursor:"pointer", padding:6, display:"flex" }}>
-            <Icon n="zoomOut" size={17} color={C.dim} />
+            style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
+            <Icon n="zoomOut" size={18} color={C.dim} />
           </button>
-          <span style={{ fontSize:11, color:C.dim, minWidth:34, textAlign:"center" }}>
+          <span style={{ fontSize:12, color:C.dim, minWidth:36, textAlign:"center", fontWeight:600 }}>
             {Math.round(scale * 100)}%
           </span>
           <button onClick={() => setScale(s => Math.min(2.5, s + .15))}
-            style={{ background:"none", border:"none", cursor:"pointer", padding:6, display:"flex" }}>
-            <Icon n="zoomIn" size={17} color={C.dim} />
+            style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
+            <Icon n="zoomIn" size={18} color={C.dim} />
           </button>
-          {toolBtn("pen",  addMode,       () => setAddMode(p => !p),       "메모 추가 모드")}
-          {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
 
-          <div style={{ width:1, height:18, background:C.bdr, margin:"0 2px" }} />
+          <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
 
-          {/* DUAL 레이블 버튼 */}
-          <button onClick={() => setDual(p => !p)}
-            style={{
-              display:"flex", alignItems:"center", gap:5,
-              padding:"5px 10px", borderRadius:8, cursor:"pointer",
-              background: dual ? C.acc : "transparent",
-              border:`1.5px solid ${dual ? C.acc : C.bdr}`,
-              color: dual ? "#111" : C.dim,
-              fontWeight:700, fontSize:11, fontFamily:"inherit",
-              letterSpacing:"0.04em",
-              boxShadow: dual ? `0 0 12px ${C.acc}44` : "none",
-              transition:"all .15s",
-            }}>
-            <Icon n="dual" size={13} color={dual ? "#111" : C.dim} />
+          {toolBtn("pen",  addMode,       () => setAddMode(p => !p),       "메모")}
+          {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모목록")}
+
+          <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
+
+          <button onClick={() => setDual(p => !p)} style={{
+            display:"flex", alignItems:"center", gap:5,
+            padding:"5px 11px", borderRadius:8, cursor:"pointer",
+            background: dual ? C.acc : C.card,
+            border:`1px solid ${dual ? C.acc : C.bdr}`,
+            color: dual ? "#fff" : C.dim,
+            fontWeight:700, fontSize:11, fontFamily:"inherit",
+            letterSpacing:"0.06em", transition:"all .15s",
+          }}>
+            <Icon n="dual" size={12} color={dual ? "#fff" : C.dim} />
             DUAL
           </button>
         </div>
@@ -1496,8 +1502,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ maxWidth:640, margin:"0 auto", minHeight:"100vh",
-      background:C.bg, position:"relative" }}>
+    <div style={{ width:"100%", minHeight:"100vh", background:C.bg, position:"relative" }}>
       {view === "services"      && <ServicesScreen      {...shared} />}
       {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} />}
       {view === "library"       && <SongLibraryScreen   {...shared} />}
