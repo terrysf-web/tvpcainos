@@ -364,19 +364,44 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
    ADD SONG MODAL
 ══════════════════════════════════════════════════════════════════ */
 function AddSongModal({ onClose, onAdd }) {
-  const [title,  setTitle]  = useState("");
-  const [artist, setArtist] = useState("");
-  const [key,    setKey]    = useState("C");
-  const [bpm,    setBpm]    = useState("80");
-  const [saving, setSaving] = useState(false);
+  const [title,   setTitle]   = useState("");
+  const [artist,  setArtist]  = useState("");
+  const [key,     setKey]     = useState("C");
+  const [bpm,     setBpm]     = useState("80");
+  const [pdfFile, setPdfFile] = useState(null);
+  const [saving,  setSaving]  = useState(false);
+  const [progress, setProgress] = useState(0);
+  const fileRef = useRef(null);
   const KEYS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
   const handleAdd = async () => {
     if (!title) return;
     setSaving(true);
-    await onAdd({ title, artist, key, bpm: Number(bpm) || 80 });
-    setSaving(false);
-    onClose();
+    try {
+      const songData = { title, artist, key, bpm: Number(bpm) || 80 };
+      // PDF 파일이 있으면 먼저 곡을 만들고 업로드
+      if (pdfFile) {
+        const docRef = await onAdd(songData);
+        if (docRef?.id) {
+          const storageRef = ref(storage, `pdfs/${docRef.id}.pdf`);
+          const task = uploadBytesResumable(storageRef, pdfFile);
+          await new Promise((resolve, reject) =>
+            task.on("state_changed",
+              snap => setProgress(Math.round(snap.bytesTransferred / snap.totalBytes * 100)),
+              reject, resolve
+            )
+          );
+          const url = await getDownloadURL(storageRef);
+          await updateDoc(doc(db, "songs", docRef.id), { pdfUrl: url });
+        }
+      } else {
+        await onAdd(songData);
+      }
+      onClose();
+    } catch(e) {
+      console.error(e);
+      setSaving(false);
+    }
   };
 
   return (
@@ -401,9 +426,49 @@ function AddSongModal({ onClose, onAdd }) {
           ))}
         </div>
       </div>
+
       <Input label="BPM" value={bpm} onChange={setBpm} type="number" placeholder="80" />
-      <Btn label={saving ? "추가 중..." : "추가하기"} icon="plus"
-        onClick={handleAdd} full disabled={saving || !title} />
+
+      {/* PDF 업로드 */}
+      <div style={{ marginBottom:16 }}>
+        <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+          textTransform:"uppercase", marginBottom:8 }}>악보 PDF (선택)</div>
+        <input ref={fileRef} type="file" accept="application/pdf"
+          style={{ display:"none" }}
+          onChange={e => setPdfFile(e.target.files[0] || null)} />
+        <button onClick={() => fileRef.current.click()} style={{
+          width:"100%", padding:"14px", borderRadius:12, cursor:"pointer",
+          border:`2px dashed ${pdfFile ? C.grn : C.bdr}`,
+          background: pdfFile ? `${C.grn}10` : C.card,
+          fontFamily:"inherit", fontSize:14, fontWeight:600,
+          color: pdfFile ? C.grn : C.dim,
+          display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+        }}>
+          <Icon n="upload" size={18} color={pdfFile ? C.grn : C.dim} />
+          {pdfFile ? `📄 ${pdfFile.name}` : "PDF 파일 선택하기"}
+        </button>
+        {pdfFile && (
+          <button onClick={() => setPdfFile(null)} style={{
+            background:"none", border:"none", cursor:"pointer",
+            fontSize:12, color:C.dim, marginTop:4, padding:0,
+          }}>✕ 파일 제거</button>
+        )}
+      </div>
+
+      {saving && pdfFile && (
+        <div style={{ marginBottom:12 }}>
+          <div style={{ fontSize:12, color:C.dim, marginBottom:4 }}>
+            업로드 중... {progress}%
+          </div>
+          <div style={{ height:6, background:C.bdr, borderRadius:3 }}>
+            <div style={{ height:"100%", width:`${progress}%`,
+              background:C.acc, borderRadius:3, transition:"width .2s" }} />
+          </div>
+        </div>
+      )}
+
+      <Btn label={saving ? (pdfFile ? `업로드 중... ${progress}%` : "추가 중...") : "추가하기"}
+        icon="plus" onClick={handleAdd} full disabled={saving || !title} />
     </Modal>
   );
 }
@@ -1640,12 +1705,13 @@ export default function App() {
 
   // ── CRUD helpers
   const addSong = async (data) => {
-    await addDoc(collection(db, "songs"), {
+    const docRef = await addDoc(collection(db, "songs"), {
       ...data,
       pdfUrl: null,
       createdAt: serverTimestamp(),
       createdBy: user.uid,
     });
+    return docRef;
   };
 
   const createService = async (data) => {
