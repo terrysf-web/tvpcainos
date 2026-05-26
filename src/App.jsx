@@ -1284,24 +1284,34 @@ export default function App() {
   useEffect(() => {
     return onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const uRef = doc(db, "users", firebaseUser.uid);
-        const snap = await getDoc(uRef);
-        const profile = snap.exists() ? snap.data() : {};
-        if (!snap.exists()) {
-          await setDoc(uRef, {
-            name:  firebaseUser.displayName || firebaseUser.email,
+        try {
+          const uRef = doc(db, "users", firebaseUser.uid);
+          const snap = await getDoc(uRef);
+          const profile = snap.exists() ? snap.data() : {};
+          if (!snap.exists()) {
+            await setDoc(uRef, {
+              name:  firebaseUser.displayName || firebaseUser.email,
+              email: firebaseUser.email,
+              role:  "member",
+              part:  "",
+            });
+          }
+          setUser({
+            uid:   firebaseUser.uid,
             email: firebaseUser.email,
+            name:  profile.name  || firebaseUser.displayName || firebaseUser.email,
+            role:  profile.role  || "member",
+            part:  profile.part  || "",
+          });
+        } catch {
+          setUser({
+            uid:   firebaseUser.uid,
+            email: firebaseUser.email,
+            name:  firebaseUser.displayName || firebaseUser.email,
             role:  "member",
             part:  "",
           });
         }
-        setUser({
-          uid:   firebaseUser.uid,
-          email: firebaseUser.email,
-          name:  profile.name  || firebaseUser.displayName || firebaseUser.email,
-          role:  profile.role  || "member",
-          part:  profile.part  || "",
-        });
       } else {
         setUser(null);
       }
