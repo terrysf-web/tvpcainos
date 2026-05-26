@@ -1214,6 +1214,13 @@ function AddMemberModal({ onClose }) {
 function ProfileScreen({ user, onLogout, onRoleUpdate }) {
   const [showAdd,    setShowAdd]    = useState(false);
   const [claiming,   setClaiming]   = useState(false);
+  const [noLeader,   setNoLeader]   = useState(false);
+
+  useEffect(() => {
+    if (user.role === "leader") return;
+    getDocs(query(collection(db, "users"), where("role", "==", "leader"), limit(1)))
+      .then(snap => setNoLeader(snap.empty));
+  }, [user.role]);
 
   const claimLeader = async () => {
     setClaiming(true);
@@ -1251,8 +1258,8 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
         </div>
       </div>
 
-      {/* 리더 권한 설정 (멤버에게만 표시) */}
-      {user.role !== "leader" && (
+      {/* 리더 권한 설정 (리더가 없을 때만 표시) */}
+      {user.role !== "leader" && noLeader && (
         <div style={{
           background:`${C.acc}11`, border:`1px solid ${C.acc}44`,
           borderRadius:14, padding:16, marginBottom:12,

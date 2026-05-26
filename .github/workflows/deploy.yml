@@ -1,4 +1,4 @@
-name: Firebase Hosting 자동 배포
+name: Firebase 자동 배포
 
 on:
   push:
@@ -32,3 +32,10 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: tvpcainos
+
+      - name: Firestore & Storage 규칙 배포
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "$SERVICE_ACCOUNT_JSON" > /tmp/sa.json
+          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json npx firebase-tools deploy --only firestore:rules,storage --project tvpcainos --non-interactive
