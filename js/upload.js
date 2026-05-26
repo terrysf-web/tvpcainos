@@ -13,41 +13,37 @@ import {
 
 const uploadBtn = document.getElementById('uploadBtn');
 
-if (uploadBtn) {
+uploadBtn.addEventListener('click', async () => {
 
-  uploadBtn.addEventListener('click', async () => {
+  const title = document.getElementById('songTitle').value;
+  const key = document.getElementById('songKey').value;
+  const file = document.getElementById('pdfFile').files[0];
 
-    const title = document.getElementById('songTitle').value;
-    const key = document.getElementById('songKey').value;
-    const file = document.getElementById('pdfFile').files[0];
+  if (!file) {
+    alert('Select PDF');
+    return;
+  }
 
-    if (!file) {
-      alert('Select PDF');
-      return;
-    }
+  try {
 
-    try {
+    const storageRef = ref(storage, `songs/${file.name}`);
 
-      const storageRef = ref(storage, `songs/${file.name}`);
+    await uploadBytes(storageRef, file);
 
-      await uploadBytes(storageRef, file);
+    const url = await getDownloadURL(storageRef);
 
-      const url = await getDownloadURL(storageRef);
+    await addDoc(collection(db, 'songs'), {
+      title,
+      key,
+      pdfUrl: url,
+      createdAt: new Date()
+    });
 
-      await addDoc(collection(db, 'songs'), {
-        title,
-        key,
-        pdfUrl: url,
-        createdAt: new Date()
-      });
+    alert('Upload Complete');
 
-      alert('Upload Complete');
+  } catch (err) {
+    console.error(err);
+    alert('Upload Failed');
+  }
 
-    } catch (err) {
-      console.error(err);
-      alert('Upload Failed');
-    }
-
-  });
-
-}
+});
