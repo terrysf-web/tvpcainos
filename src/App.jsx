@@ -20,16 +20,16 @@ import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
    THEME
 ══════════════════════════════════════════════════════════════════ */
 const C = {
-  bg:    "#0a0b11",
-  surf:  "#111320",
-  card:  "#181a28",
-  bdr:   "#252840",
+  bg:    "#f4f5f9",
+  surf:  "#ffffff",
+  card:  "#f0f2f7",
+  bdr:   "#e0e4ed",
   acc:   "#e8a93e",
-  pur:   "#7b6af5",
-  grn:   "#45b87a",
-  txt:   "#dde0f2",
-  dim:   "#585c80",
-  red:   "#cc5f5f",
+  pur:   "#6b5de7",
+  grn:   "#2da05a",
+  txt:   "#1a1d2e",
+  dim:   "#8892b0",
+  red:   "#d94f4f",
 };
 
 const KEY_CLR = {
@@ -166,9 +166,9 @@ function Divider() {
 function Modal({ title, onClose, children }) {
   return (
     <div style={{
-      position:"fixed", inset:0, background:"rgba(0,0,0,.75)",
+      position:"fixed", inset:0, background:"rgba(0,0,0,.45)",
       display:"flex", alignItems:"flex-end", justifyContent:"center",
-      zIndex:900, backdropFilter:"blur(6px)",
+      zIndex:900, backdropFilter:"blur(4px)",
     }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="wSlideUp" style={{
@@ -822,7 +822,7 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
   );
 
   return (
-    <div style={{ height:"100vh", background:"#0a0a0e", display:"flex",
+    <div style={{ height:"100vh", background:C.bg, display:"flex",
       flexDirection:"column", overflow:"hidden" }}>
 
       <div style={{ background:C.surf, padding:"10px 14px",
@@ -898,7 +898,7 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
               <canvas ref={canvas1Ref} onClick={handleCanvasClick}
                 style={{
                   display:"block", maxWidth:"100%",
-                  borderRadius:4, boxShadow:"0 4px 28px rgba(0,0,0,.5)",
+                  borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)",
                   cursor: addMode ? "crosshair" : "default",
                 }} />
               {pageNotes.map(n => (
@@ -935,8 +935,8 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
 
         {/* AI 도움 패널 (DUAL 모드) */}
         {dual && (
-          <div style={{ width:300, flexShrink:0, overflow:"hidden",
-            borderLeft:`1px solid ${C.bdr}` }}>
+          <div style={{ width:320, flexShrink:0, overflow:"hidden",
+            borderLeft:`1px solid ${C.bdr}`, background:C.surf }}>
             <AIPanel song={song} user={user} />
           </div>
         )}
@@ -1404,8 +1404,8 @@ export default function App() {
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Noto Sans KR', -apple-system, sans-serif;
              background: ${C.bg}; color: ${C.txt}; -webkit-tap-highlight-color: transparent; }
-      ::-webkit-scrollbar { width: 3px; height: 3px; }
-      ::-webkit-scrollbar-thumb { background: ${C.bdr}; border-radius: 2px; }
+      ::-webkit-scrollbar { width: 4px; height: 4px; }
+      ::-webkit-scrollbar-thumb { background: #c8cfe0; border-radius: 2px; }
       input, textarea { font-family: inherit; }
       .wFadeIn  { animation: wFadeIn  .22s ease; }
       .wSlideUp { animation: wSlideUp .28s cubic-bezier(.16,1,.3,1); }
