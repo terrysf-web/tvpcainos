@@ -69,6 +69,7 @@ const P = {
   pen:     "M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z",
   note:    "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8",
   dual:    "M3 3h7v18H3zM14 3h7v18h-7z",
+  sideR:   "M3 3h18v18H3zM14 3v18",
   zoomIn:  "M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM11 8v6M8 11h6",
   zoomOut: "M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM8 11h6",
   prev:    "M15 18l-6-6 6-6",
@@ -988,6 +989,7 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
 
   // ── UI
   const [dual,          setDual]          = useState(false);
+  const [media,         setMedia]         = useState(false);
   const [showNotePanel, setShowNotePanel] = useState(false);
   const [noteInput,     setNoteInput]     = useState(false);
   const [noteTxt,       setNoteTxt]       = useState("");
@@ -1136,46 +1138,69 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
           <button onClick={() => setDual(p => !p)} style={{
             display:"flex", alignItems:"center", gap:5,
             padding:"5px 10px", borderRadius:8, cursor:"pointer",
-            background: dual ? C.acc : C.card,
-            border:`1px solid ${dual ? C.acc : C.bdr}`,
+            background: dual ? C.pur : C.card,
+            border:`1px solid ${dual ? C.pur : C.bdr}`,
             color: dual ? "#fff" : C.dim,
             fontWeight:700, fontSize:11, fontFamily:"inherit",
             letterSpacing:"0.06em", transition:"all .15s",
           }}>
             <Icon n="dual" size={12} color={dual ? "#fff" : C.dim} />
+            DUAL
+          </button>
+          <button onClick={() => setMedia(p => !p)} style={{
+            display:"flex", alignItems:"center", gap:5,
+            padding:"5px 10px", borderRadius:8, cursor:"pointer",
+            background: media ? C.acc : C.card,
+            border:`1px solid ${media ? C.acc : C.bdr}`,
+            color: media ? "#fff" : C.dim,
+            fontWeight:700, fontSize:11, fontFamily:"inherit",
+            letterSpacing:"0.06em", transition:"all .15s",
+          }}>
+            <Icon n="sideR" size={12} color={media ? "#fff" : C.dim} />
             MEDIA
           </button>
         </div>
       </div>
 
       {/* 콘텐츠 */}
-      <div ref={containerRef} style={{ flex:1, overflow:"hidden", display:"flex",
-        alignItems:"center", justifyContent:"center", background:C.bg, gap:8, padding:8 }}>
-        {song.pdfUrl ? (
-          loadErr
-            ? <div style={{ color:C.red, fontSize:13 }}>{loadErr}</div>
-            : (
-              <>
-                <canvas ref={canvas1Ref} style={{ display:"block",
-                  borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)", flexShrink:0 }} />
-                {dual && (
-                  <canvas ref={canvas2Ref} style={{ display:"block",
+      <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
+        {/* PDF 캔버스 영역 */}
+        <div ref={containerRef} style={{ flex:1, overflow:"hidden", display:"flex",
+          alignItems:"center", justifyContent:"center", background:C.bg, gap:8, padding:8 }}>
+          {song.pdfUrl ? (
+            loadErr
+              ? <div style={{ color:C.red, fontSize:13 }}>{loadErr}</div>
+              : (
+                <>
+                  <canvas ref={canvas1Ref} style={{ display:"block",
                     borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)", flexShrink:0 }} />
-                )}
-              </>
-            )
-        ) : (
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
-            justifyContent:"center", height:"100%", color:C.dim, textAlign:"center", padding:40 }}>
-            <div style={{
-              width:84, height:84, borderRadius:18,
-              background:`linear-gradient(135deg, ${C.acc}22, ${C.pur}22)`,
-              border:`1px solid ${C.bdr}`,
-              display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:38, marginBottom:16,
-            }}>🎼</div>
-            <div style={{ fontWeight:700, fontSize:16, marginBottom:6 }}>{song.title}</div>
-            <div style={{ fontSize:13 }}>PDF 악보가 없습니다</div>
+                  {dual && (
+                    <canvas ref={canvas2Ref} style={{ display:"block",
+                      borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)", flexShrink:0 }} />
+                  )}
+                </>
+              )
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
+              justifyContent:"center", height:"100%", color:C.dim, textAlign:"center", padding:40 }}>
+              <div style={{
+                width:84, height:84, borderRadius:18,
+                background:`linear-gradient(135deg, ${C.acc}22, ${C.pur}22)`,
+                border:`1px solid ${C.bdr}`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:38, marginBottom:16,
+              }}>🎼</div>
+              <div style={{ fontWeight:700, fontSize:16, marginBottom:6 }}>{song.title}</div>
+              <div style={{ fontSize:13 }}>PDF 악보가 없습니다</div>
+            </div>
+          )}
+        </div>
+
+        {/* AI 패널 (MEDIA 모드) */}
+        {media && (
+          <div style={{ width:320, flexShrink:0, overflow:"hidden",
+            borderLeft:`1px solid ${C.bdr}`, background:C.surf }}>
+            <AIPanel song={song} user={user} />
           </div>
         )}
       </div>
