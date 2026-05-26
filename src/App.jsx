@@ -987,8 +987,9 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   const [loadErr,  setLoadErr]  = useState("");
   const [cSize,    setCSize]    = useState({ w: 0, h: 0 });
   const [dualIdx,  setDualIdx]  = useState(Math.max(0, songIdx));
-  const [pdf1,     setPdf1]     = useState(null);
-  const [pdf2,     setPdf2]     = useState(null);
+  const dualPdf1Ref = useRef(null);  // dual left song PDF doc
+  const dualPdf2Ref = useRef(null);  // dual right song PDF doc
+  const [dualKey,  setDualKey]  = useState(0); // bumped once when both PDFs are ready
   const [dualToast, setDualToast] = useState("");
   const touchStartX = useRef(null);
   const toastTimer  = useRef(null);
@@ -1024,17 +1025,21 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
       .catch(() => setLoadErr("PDF를 불러올 수 없습니다"));
   }, [song?.pdfUrl, pdfjsReady, selectedSongId, dual]);
 
-  // PDF 로드 (듀얼 모드) — URL 문자열을 deps로 써서 무한 루프 방지
-  const dualLeftUrl  = svcSongs[dualIdx]?.pdfUrl  || null;
+  // PDF 로드 (듀얼 모드) — Promise.all로 두 곡 동시 로드, 완료 후 한 번만 렌더 트리거
+  const dualLeftUrl  = svcSongs[dualIdx]?.pdfUrl     || null;
   const dualRightUrl = svcSongs[dualIdx + 1]?.pdfUrl || null;
   useEffect(() => {
     if (!dual || !pdfjsReady || !window.pdfjsLib) return;
-    setPdf1(null); setPdf2(null);
+    dualPdf1Ref.current = null;
+    dualPdf2Ref.current = null;
     const load = (url) => url
       ? window.pdfjsLib.getDocument({ url }).promise.catch(() => null)
       : Promise.resolve(null);
-    load(dualLeftUrl).then(p => setPdf1(p));
-    load(dualRightUrl).then(p => setPdf2(p));
+    Promise.all([load(dualLeftUrl), load(dualRightUrl)]).then(([p1, p2]) => {
+      dualPdf1Ref.current = p1;
+      dualPdf2Ref.current = p2;
+      setDualKey(k => k + 1); // single render trigger after both are ready
+    });
   }, [dual, dualIdx, dualLeftUrl, dualRightUrl, pdfjsReady]);
 
   // 페이지 렌더링 — 컨테이너에 꼭 맞게
@@ -1057,8 +1062,8 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
           ref.current.height = vp.height;
           await page.render({ canvasContext: ref.current.getContext("2d"), viewport: vp }).promise;
         };
-        await renderTo(canvas1Ref, pdf1);
-        await renderTo(canvas2Ref, pdf2);
+        await renderTo(canvas1Ref, dualPdf1Ref.current);
+        await renderTo(canvas2Ref, dualPdf2Ref.current);
       } else {
         // 싱글: 한 페이지 꽉 맞춤
         if (!pdfDocRef.current || !canvas1Ref.current) return;
@@ -1071,7 +1076,7 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
         await page.render({ canvasContext: canvas1Ref.current.getContext("2d"), viewport: vp }).promise;
       }
     } catch(e) { console.error(e); }
-  }, [pageNum, zoomMul, dual, numPages, cSize, pdf1, pdf2]);
+  }, [pageNum, zoomMul, dual, numPages, cSize, dualKey]);
 
   useEffect(() => { renderPage(); }, [renderPage, numPages]);
 
