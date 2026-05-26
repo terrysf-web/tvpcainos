@@ -1,3 +1,5 @@
+// Add to firebase.js
+
 import { getStorage } from
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
