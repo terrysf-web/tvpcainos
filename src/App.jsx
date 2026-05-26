@@ -1043,7 +1043,7 @@ function PDFViewerScreen({ user, songs, annotations, onAddAnnotation, onDeleteAn
             letterSpacing:"0.06em", transition:"all .15s",
           }}>
             <Icon n="dual" size={12} color={dual ? "#fff" : C.dim} />
-            DUAL
+            MEDIA
           </button>
         </div>
       </div>
