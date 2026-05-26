@@ -5,7 +5,7 @@ import {
   getFirestore, collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
-  getStorage, ref, uploadBytes, getDownloadURL
+  getStorage, ref, getDownloadURL, uploadBytesResumable
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 export const hasFirebase = !!firebaseConfig.projectId;
@@ -38,6 +38,7 @@ export async function saveSong(song) {
     });
     return { id: docRef.id, ...song };
   }
+
   const songs = await loadSongs();
   const saved = { id: crypto.randomUUID(), ...song, createdAt: new Date().toISOString() };
   songs.unshift(saved);
@@ -50,17 +51,49 @@ export async function removeSong(id) {
     await deleteDoc(doc(db, 'songs', id));
     return;
   }
+
   const songs = (await loadSongs()).filter(s => s.id !== id);
   localStorage.setItem(LOCAL_KEY, JSON.stringify(songs));
 }
 
-export async function uploadPdf(file) {
+export async function uploadPdf(file, onProgress = () => {}) {
   if (!hasFirebase) {
     return URL.createObjectURL(file);
   }
+
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
   const path = `songs/${Date.now()}_${safeName}`;
   const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, file);
-  return await getDownloadURL(storageRef);
+
+  return await new Promise((resolve, reject) => {
+    const task = uploadBytesResumable(storageRef, file, {
+      contentType: 'application/pdf'
+    });
+
+    const timeout = setTimeout(() => {
+      task.cancel();
+      reject(new Error('Upload timeout. Firebase Storage Rules 또는 네트워크를 확인하세요.'));
+    }, 60000);
+
+    task.on(
+      'state_changed',
+      (snapshot) => {
+        const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+        onProgress(progress);
+      },
+      (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      },
+      async () => {
+        clearTimeout(timeout);
+        try {
+          const url = await getDownloadURL(task.snapshot.ref);
+          resolve(url);
+        } catch (error) {
+          reject(error);
+        }
+      }
+    );
+  });
 }

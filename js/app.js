@@ -66,14 +66,7 @@ function setPane(pane, song) {
   pane.className = 'pdf-pane';
 
   if (!song.pdfUrl) {
-    pane.innerHTML = `
-      <div class="empty" style="height:100%;padding:24px;">
-        <div>
-          <h3>${escapeHtml(song.title || 'Untitled')}</h3>
-          <p>PDF URL이 없습니다. PDF 파일로 다시 업로드하세요.</p>
-        </div>
-      </div>
-    `;
+    pane.innerHTML = `<div class="empty" style="height:100%;padding:24px;">PDF URL이 없습니다.</div>`;
     return;
   }
 
@@ -98,19 +91,27 @@ uploadBtn.onclick = async () => {
 
   if (!title) return alert('곡 제목을 입력하세요.');
   if (!file) return alert('PDF 파일을 선택하세요.');
+  if (file.type !== 'application/pdf') return alert('PDF 파일만 업로드 가능합니다.');
 
   uploadBtn.disabled = true;
-  uploadBtn.textContent = 'Uploading...';
+  uploadBtn.textContent = 'Uploading 0%...';
 
   try {
-    const pdfUrl = await uploadPdf(file);
+    const pdfUrl = await uploadPdf(file, (progress) => {
+      uploadBtn.textContent = `Uploading ${progress}%...`;
+    });
+
+    uploadBtn.textContent = 'Saving...';
+
     const saved = await saveSong({ title, key, pdfUrl, fileName: file.name });
     songs.unshift(saved);
     clearForm();
     renderSongs();
+
+    alert('Upload complete');
   } catch (e) {
     console.error(e);
-    alert('업로드 실패. Firebase Storage 설정/Rules를 확인하세요.');
+    alert(`업로드 실패: ${e.message || e.code || 'Unknown error'}\nFirebase Storage Rules 또는 Storage Bucket을 확인하세요.`);
   } finally {
     uploadBtn.disabled = false;
     uploadBtn.textContent = 'Upload PDF';
