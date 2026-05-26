@@ -6,7 +6,8 @@ import {
   signOut,
   onAuthStateChanged,
   GoogleAuthProvider,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
 } from "firebase/auth";
 import {
   collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc,
@@ -212,15 +213,9 @@ function LoginScreen() {
     }
   };
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = () => {
     setGLoading(true);
-    setErr("");
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (e) {
-      setErr("Google 로그인에 실패했습니다.");
-      setGLoading(false);
-    }
+    signInWithRedirect(auth, googleProvider);
   };
 
   return (
@@ -1280,6 +1275,11 @@ export default function App() {
   const [backTo,      setBackTo]      = useState("library");
   const [pdfjsReady,  setPdfjsReady]  = useState(false);
 
+  // ── Handle Google redirect result
+  useEffect(() => {
+    getRedirectResult(auth).catch(() => {});
+  }, []);
+
   // ── Firebase Auth listener
   useEffect(() => {
     return onAuthStateChanged(auth, async (firebaseUser) => {
@@ -1308,21 +1308,23 @@ export default function App() {
     });
   }, []);
 
-  // ── Firestore: songs (real-time)
+  // ── Firestore: songs (real-time, auth-gated)
   useEffect(() => {
+    if (!user?.uid) return;
     return onSnapshot(
       query(collection(db, "songs"), orderBy("title")),
       snap => setSongs(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
-  }, []);
+  }, [user?.uid]);
 
-  // ── Firestore: services (real-time)
+  // ── Firestore: services (real-time, auth-gated)
   useEffect(() => {
+    if (!user?.uid) return;
     return onSnapshot(
       query(collection(db, "services"), orderBy("date")),
       snap => setServices(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
-  }, []);
+  }, [user?.uid]);
 
   // ── Firestore: notifications (per user, real-time)
   useEffect(() => {
