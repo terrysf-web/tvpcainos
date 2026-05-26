@@ -1,52 +1,66 @@
-import { firebaseConfig, collectionName } from "./config.js";
+import { firebaseConfig } from './config.js';
 
-let firebaseReady = false;
-let db = null;
-let fb = null;
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getStorage, ref, uploadBytes, getDownloadURL
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
-import { getStorage } from
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+export const hasFirebase = !!firebaseConfig.projectId;
 
-export const storage = getStorage(app);
+let app = null;
+export let db = null;
+export let storage = null;
 
-export async function initFirebase() {
-  const hasConfig = firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId;
-  if (!hasConfig) return { ready: false, message: "Local mode" };
+if (hasFirebase) {
+  app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  storage = getStorage(app);
+}
 
-  try {
-    const appMod = await import("https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js");
-    const fsMod = await import("https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js");
-    const app = appMod.initializeApp(firebaseConfig);
-    db = fsMod.getFirestore(app);
-    fb = fsMod;
-    firebaseReady = true;
-    return { ready: true, message: "Firebase connected" };
-  } catch (error) {
-    console.warn("Firebase init failed. Falling back to local mode.", error);
-    return { ready: false, message: "Firebase failed · Local mode" };
+const LOCAL_KEY = 'ainos_v2_songs';
+
+export async function loadSongs() {
+  if (hasFirebase) {
+    const snap = await getDocs(collection(db, 'songs'));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   }
+  return JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
 }
 
-export function isFirebaseReady() {
-  return firebaseReady;
+export async function saveSong(song) {
+  if (hasFirebase) {
+    const docRef = await addDoc(collection(db, 'songs'), {
+      ...song,
+      createdAt: serverTimestamp()
+    });
+    return { id: docRef.id, ...song };
+  }
+  const songs = await loadSongs();
+  const saved = { id: crypto.randomUUID(), ...song, createdAt: new Date().toISOString() };
+  songs.push(saved);
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(songs));
+  return saved;
 }
 
-export async function fetchCloudItems() {
-  if (!firebaseReady) return null;
-  const snap = await fb.getDocs(fb.collection(db, collectionName));
-  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+export async function removeSong(id) {
+  if (hasFirebase) {
+    await deleteDoc(doc(db, 'songs', id));
+    return;
+  }
+  const songs = (await loadSongs()).filter(s => s.id !== id);
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(songs));
 }
 
-export async function saveCloudItem(item) {
-  if (!firebaseReady) return null;
-  const ref = item.id ? fb.doc(db, collectionName, item.id) : fb.doc(fb.collection(db, collectionName));
-  const data = { ...item, id: ref.id, updatedAt: Date.now() };
-  if (!data.createdAt) data.createdAt = Date.now();
-  await fb.setDoc(ref, data, { merge: true });
-  return data;
-}
-
-export async function deleteCloudItem(id) {
-  if (!firebaseReady || !id) return;
-  await fb.deleteDoc(fb.doc(db, collectionName, id));
+export async function uploadPdf(file) {
+  if (!hasFirebase) {
+    return URL.createObjectURL(file);
+  }
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `songs/${Date.now()}_${safeName}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file);
+  return await getDownloadURL(storageRef);
 }
