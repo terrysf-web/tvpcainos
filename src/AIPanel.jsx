@@ -14,7 +14,7 @@ const KEY_CLR = {
 };
 const keyColor = (k) => KEY_CLR[k ? k[0].toUpperCase() : "C"] || C.acc;
 
-const MODEL = "gemini-1.5-flash";
+const MODEL = "gemini-2.5-flash";
 
 function parseYtId(url) {
   const s = (url || "").trim();
@@ -93,7 +93,7 @@ BPM: ${song.bpm || "미상"}
 4. **예배 흐름** — 곡 분위기와 예배에서의 역할`;
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1/models/${MODEL}:generateContent?key=${key}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
         {
           method: "POST",
           headers: { "content-type": "application/json" },
