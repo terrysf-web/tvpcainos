@@ -12,7 +12,7 @@ import {
 } from "firebase/auth";
 import {
   collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc,
-  query, orderBy, where, getDoc, setDoc, serverTimestamp, arrayUnion,
+  query, orderBy, where, getDoc, getDocs, setDoc, serverTimestamp, arrayUnion, limit,
 } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
@@ -418,21 +418,64 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
   const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("ko-KR",
     { month:"long", day:"numeric", weekday:"short" });
 
+  const upcoming = services.filter(s => s.date >= new Date().toISOString().slice(0,10));
+  const past     = services.filter(s => s.date <  new Date().toISOString().slice(0,10));
+
+  const SvcCard = ({ svc }) => {
+    const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
+    return (
+      <div className="wFadeIn"
+        onClick={() => nav("svcDetail", { svcId: svc.id })}
+        style={{
+          background:C.surf, borderRadius:14, padding:"16px",
+          marginBottom:10, border:`1px solid ${C.bdr}`, cursor:"pointer",
+          boxShadow:"0 1px 4px rgba(0,0,0,.06)",
+        }}>
+        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:10 }}>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontWeight:700, fontSize:16 }}>{svc.title}</div>
+            <div style={{ color:C.dim, fontSize:13, marginTop:3 }}>
+              📅 {fmtDate(svc.date)}{svc.time ? ` · ${svc.time}` : ""}
+            </div>
+          </div>
+          <Badge label={svc.notified ? "알림완료" : "대기중"}
+            color={svc.notified ? C.grn : C.dim} />
+        </div>
+        <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:8 }}>
+          {svcSongs.map((s, i) => (
+            <span key={s.id} style={{
+              fontSize:12, background:C.bg, border:`1px solid ${C.bdr}`,
+              borderRadius:6, padding:"3px 8px", color:C.txt,
+              display:"flex", alignItems:"center", gap:4,
+            }}>
+              <span style={{ color:C.dim, fontSize:11 }}>{i+1}.</span>
+              {s.title}
+              <span style={{
+                background:`${keyColor(s.key)}22`, color:keyColor(s.key),
+                borderRadius:4, padding:"0 4px", fontSize:10, fontWeight:700,
+              }}>Key {s.key}</span>
+            </span>
+          ))}
+        </div>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <span style={{ fontSize:12, color:C.dim }}>{svcSongs.length}곡 선택됨</span>
+          <Icon n="chevR" size={16} color={C.dim} />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
+      {/* 헤더 */}
       <div style={{ background:C.surf, padding:"20px 20px 16px",
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div>
-          <div style={{ fontSize:12, color:C.dim, marginBottom:2 }}>안녕하세요,</div>
-          <div style={{ fontWeight:800, fontSize:18, letterSpacing:"-0.03em" }}>
-            {user.name} <span style={{ color:C.acc }}>✦</span>
-          </div>
+          <div style={{ fontSize:12, color:C.dim, marginBottom:2 }}>TVPC Worship</div>
+          <div style={{ fontWeight:800, fontSize:20 }}>예배 일정</div>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-          {user.role === "leader" && (
-            <Btn label="새 예배" icon="plus" sm onClick={() => setShowCreate(true)} />
-          )}
           <button onClick={() => nav("notifications")} style={{
             background:C.card, border:`1px solid ${C.bdr}`,
             borderRadius:10, padding:8, position:"relative",
@@ -450,51 +493,47 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
         </div>
       </div>
 
-      <div style={{ padding:16, paddingBottom:90, overflowY:"auto", maxHeight:"calc(100vh - 73px)" }}>
-        <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
-          textTransform:"uppercase", marginBottom:12, paddingLeft:2 }}>
-          예배 일정
-        </div>
+      <div style={{ padding:16, paddingBottom:90 }}>
+        {/* 리더: 예배 만들기 큰 버튼 */}
+        {user.role === "leader" && (
+          <button onClick={() => setShowCreate(true)} style={{
+            width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
+            gap:10, padding:"14px 0", borderRadius:14, marginBottom:20,
+            background:`linear-gradient(135deg, ${C.acc}, #d4922a)`,
+            border:"none", cursor:"pointer", fontFamily:"inherit",
+            fontWeight:700, fontSize:15, color:"#fff",
+            boxShadow:`0 4px 16px ${C.acc}44`,
+          }}>
+            <Icon n="plus" size={18} color="#fff" />
+            새 예배 일정 만들기
+          </button>
+        )}
+
+        {/* 다가오는 예배 */}
+        {upcoming.length > 0 && (
+          <>
+            <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+              textTransform:"uppercase", marginBottom:10 }}>다가오는 예배</div>
+            {upcoming.map(svc => <SvcCard key={svc.id} svc={svc} />)}
+          </>
+        )}
+
+        {/* 지난 예배 */}
+        {past.length > 0 && (
+          <>
+            <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+              textTransform:"uppercase", margin:"16px 0 10px" }}>지난 예배</div>
+            {past.map(svc => <SvcCard key={svc.id} svc={svc} />)}
+          </>
+        )}
+
         {services.length === 0 && (
           <div style={{ textAlign:"center", padding:"60px 0", color:C.dim }}>
-            <div style={{ fontSize:36, marginBottom:12 }}>📋</div>
-            <div>등록된 예배 일정이 없습니다</div>
+            <div style={{ fontSize:48, marginBottom:16 }}>📋</div>
+            <div style={{ fontWeight:600, marginBottom:6 }}>등록된 예배 일정이 없습니다</div>
+            <div style={{ fontSize:13 }}>위 버튼을 눌러 첫 예배를 만들어보세요</div>
           </div>
         )}
-        {services.map(svc => {
-          const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
-          return (
-            <div key={svc.id} className="wFadeIn"
-              onClick={() => nav("svcDetail", { svcId: svc.id })}
-              style={{
-                background:C.card, borderRadius:14, padding:"16px",
-                marginBottom:10, border:`1px solid ${C.bdr}`, cursor:"pointer",
-              }}>
-              <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:8 }}>
-                <div>
-                  <div style={{ fontWeight:700, fontSize:16, letterSpacing:"-0.02em" }}>{svc.title}</div>
-                  <div style={{ color:C.dim, fontSize:13, marginTop:2 }}>
-                    {fmtDate(svc.date)} · {svc.time}
-                  </div>
-                </div>
-                <Badge label={svc.notified ? "알림완료" : "대기중"}
-                  color={svc.notified ? C.grn : C.dim} />
-              </div>
-              <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:10 }}>
-                {svcSongs.map(s => (
-                  <span key={s.id} style={{
-                    fontSize:12, background:C.surf, border:`1px solid ${C.bdr}`,
-                    borderRadius:6, padding:"2px 8px", color:`${C.txt}bb`,
-                  }}>{s.title}</span>
-                ))}
-              </div>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                <span style={{ fontSize:12, color:C.dim }}>{svcSongs.length}곡</span>
-                <Icon n="chevR" size={16} color={C.dim} />
-              </div>
-            </div>
-          );
-        })}
       </div>
 
       {showCreate && (
@@ -1306,20 +1345,32 @@ export default function App() {
           const snap = await getDoc(uRef);
           const profile = snap.exists() ? snap.data() : {};
           if (!snap.exists()) {
+            const leadersSnap = await getDocs(
+              query(collection(db, "users"), where("role", "==", "leader"), limit(1))
+            );
+            const autoRole = leadersSnap.empty ? "leader" : "member";
             await setDoc(uRef, {
               name:  firebaseUser.displayName || firebaseUser.email,
               email: firebaseUser.email,
-              role:  "member",
+              role:  autoRole,
               part:  "",
             });
+            setUser({
+              uid:   firebaseUser.uid,
+              email: firebaseUser.email,
+              name:  firebaseUser.displayName || firebaseUser.email,
+              role:  autoRole,
+              part:  "",
+            });
+          } else {
+            setUser({
+              uid:   firebaseUser.uid,
+              email: firebaseUser.email,
+              name:  profile.name  || firebaseUser.displayName || firebaseUser.email,
+              role:  profile.role  || "member",
+              part:  profile.part  || "",
+            });
           }
-          setUser({
-            uid:   firebaseUser.uid,
-            email: firebaseUser.email,
-            name:  profile.name  || firebaseUser.displayName || firebaseUser.email,
-            role:  profile.role  || "member",
-            part:  profile.part  || "",
-          });
         } catch {
           setUser({
             uid:   firebaseUser.uid,
