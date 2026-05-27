@@ -235,6 +235,7 @@ function Input({ label, value, onChange, type="text", placeholder="", autoFocus=
       )}
       <input type={type} value={value} placeholder={placeholder}
         autoFocus={autoFocus}
+        autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
         onChange={e => onChange(e.target.value)}
         style={{
           width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
@@ -638,6 +639,7 @@ function AddSongModal({ onClose, onAdd }) {
                   value={e.title}
                   onChange={ev => updateEntry(i, "title", ev.target.value)}
                   placeholder={`곡 제목 (페이지 ${i + 1})`}
+                  autoComplete="off" autoCorrect="off" spellCheck="false"
                   style={{
                     width:"100%", boxSizing:"border-box",
                     background:C.surf, border:`1px solid ${C.bdr}`,
@@ -650,6 +652,7 @@ function AddSongModal({ onClose, onAdd }) {
                     value={e.artist}
                     onChange={ev => updateEntry(i, "artist", ev.target.value)}
                     placeholder="아티스트"
+                    autoComplete="off" autoCorrect="off" spellCheck="false"
                     style={{
                       flex:1, background:C.surf, border:`1px solid ${C.bdr}`,
                       color:C.txt, padding:"6px 8px", borderRadius:7,
