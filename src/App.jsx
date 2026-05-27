@@ -2035,10 +2035,10 @@ Return ONLY the JSON array, no other text.`;
         {/* iOS safe area spacer */}
         <div style={{ height:"env(safe-area-inset-top)", background:C.surf }} />
 
-        {/* Row 1: Back · Title */}
+        {/* Row 1: Back · Title · 전조 */}
         <div style={{
-          height:44, display:"flex", alignItems:"center", gap:6,
-          padding:"0 10px",
+          height:48, display:"flex", alignItems:"center", gap:8,
+          padding:"0 12px",
         }}>
           <button onClick={() => nav(backTo || "library")}
             style={{ background:"none", border:"none", color:C.acc, cursor:"pointer",
@@ -2047,40 +2047,52 @@ Return ONLY the JSON array, no other text.`;
             <span style={{ fontSize:15, fontWeight:500, color:C.acc }}>Back</span>
           </button>
 
-          <div style={{ flex:1, minWidth:0, textAlign:"center" }}>
+          <div style={{ flex:1, minWidth:0, textAlign:"center", overflow:"hidden" }}>
             <div style={{ fontWeight:700, fontSize:14, overflow:"hidden",
               textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
-            <div style={{ fontSize:11, color:C.dim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              Key {transposeMode && transposeSteps !== 0
+            <div style={{ fontSize:11, color:C.dim, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+              {transposeMode && transposeSteps !== 0
                 ? `${song.key}→${keyName(song.key, transposeSteps)}`
-                : song.key}
-              {song.bpm ? ` · ♩${song.bpm}` : ""}
-              {numPages > 0 ? ` · ${pageNum}/${numPages}p` : ""}
-              {svcSongs.length > 1 ? ` · ${songIdx + 1}/${svcSongs.length}` : ""}
+                : `Key ${song.key}`}
+              {song.bpm ? ` ♩${song.bpm}` : ""}
+              {numPages > 0 ? ` ${pageNum}/${numPages}p` : ""}
             </div>
           </div>
+
+          {isLeader(user.role) && (
+            <button onClick={() => {
+              setTransposeMode(p => !p);
+              if (transposeMode) { setTransposeSteps(0); setChordData([]); setChordData2([]); setDetectErr(""); }
+            }} style={{
+              flexShrink:0, padding:"5px 10px", borderRadius:8, cursor:"pointer",
+              background: transposeMode ? C.grn : C.card,
+              border:`1px solid ${transposeMode ? C.grn : C.bdr}`,
+              color: transposeMode ? "#fff" : C.dim,
+              fontWeight:700, fontSize:12, fontFamily:"inherit",
+            }}>
+              전조
+            </button>
+          )}
         </div>
 
-        {/* Row 2: Tools (scrollable) */}
-        <div className="toolbar-scroll" style={{
-          height:38, display:"flex", alignItems:"center",
-          borderTop:`1px solid ${C.bdr}`,
-          overflowX:"auto", overflowY:"hidden",
-          scrollbarWidth:"none", msOverflowStyle:"none",
-          padding:"0 10px", gap:6,
+        {/* Row 2: Zoom · Pen · Note · Dual · Media */}
+        <div style={{
+          height:36, display:"flex", alignItems:"center", gap:6,
+          padding:"0 12px", borderTop:`1px solid ${C.bdr}`,
+          width:"100%", boxSizing:"border-box",
         }}>
           <button onClick={() => setZoomMul(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
-            style={{ background:"none", border:"none", cursor:"pointer", padding:"5px 4px", display:"flex", borderRadius:8, flexShrink:0 }}>
-            <Icon n="zoomOut" size={18} color={C.dim} />
+            style={{ background:"none", border:"none", cursor:"pointer", padding:"4px 3px", display:"flex", borderRadius:6, flexShrink:0 }}>
+            <Icon n="zoomOut" size={17} color={C.dim} />
           </button>
-          <span style={{ fontSize:11, color:C.dim, minWidth:28, textAlign:"center", fontWeight:600, flexShrink:0 }}>
+          <span style={{ fontSize:11, color:C.dim, minWidth:26, textAlign:"center", fontWeight:600, flexShrink:0 }}>
             {Math.round(zoomMul * 100)}%
           </span>
           <button onClick={() => setZoomMul(z => Math.min(2.5, +(z + 0.15).toFixed(2)))}
-            style={{ background:"none", border:"none", cursor:"pointer", padding:"5px 4px", display:"flex", borderRadius:8, flexShrink:0 }}>
-            <Icon n="zoomIn" size={18} color={C.dim} />
+            style={{ background:"none", border:"none", cursor:"pointer", padding:"4px 3px", display:"flex", borderRadius:6, flexShrink:0 }}>
+            <Icon n="zoomIn" size={17} color={C.dim} />
           </button>
-          <div style={{ width:1, height:18, background:C.bdr, flexShrink:0 }} />
+          <div style={{ width:1, height:16, background:C.bdr, flexShrink:0 }} />
           {[
             { n:"pen",  active:drawMode,      fn:()=>{ setDrawMode(p=>!p); setDrawTool("pen"); } },
             { n:"note", active:showNotePanel, fn:()=>setShowNotePanel(p=>!p) },
@@ -2088,52 +2100,32 @@ Return ONLY the JSON array, no other text.`;
             <button key={b.n} onClick={b.fn} style={{
               background: b.active ? `${C.acc}33` : "transparent",
               border:`1px solid ${b.active ? C.acc : C.bdr}`,
-              borderRadius:8, padding:5, cursor:"pointer",
+              borderRadius:7, padding:"4px 5px", cursor:"pointer",
               display:"flex", alignItems:"center", flexShrink:0,
             }}>
               <Icon n={b.n} size={16} color={b.active ? C.acc : C.dim} />
             </button>
           ))}
-          <div style={{ width:1, height:18, background:C.bdr, flexShrink:0 }} />
+          <div style={{ width:1, height:16, background:C.bdr, flexShrink:0 }} />
           <button title="DUAL" onClick={() => setDual(p => !p)} style={{
             display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
-            width:34, height:28, borderRadius:8, cursor:"pointer",
+            width:30, height:26, borderRadius:7, cursor:"pointer",
             background: dual ? C.pur : C.card,
             border:`1px solid ${dual ? C.pur : C.bdr}`,
-            transition:"all .15s",
           }}>
-            <Icon n="dual" size={14} color={dual ? "#fff" : C.dim} />
+            <Icon n="dual" size={13} color={dual ? "#fff" : C.dim} />
           </button>
           <button title="MEDIA" onClick={() => {
             if (dual) { showToast("싱글 모드에서만 사용 가능합니다"); return; }
             setMedia(p => !p);
           }} style={{
             display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
-            width:34, height:28, borderRadius:8, cursor:"pointer",
+            width:30, height:26, borderRadius:7, cursor:"pointer",
             background: media ? C.acc : C.card,
             border:`1px solid ${media ? C.acc : C.bdr}`,
-            transition:"all .15s",
           }}>
-            <Icon n="sideR" size={14} color={media ? "#fff" : C.dim} />
+            <Icon n="sideR" size={13} color={media ? "#fff" : C.dim} />
           </button>
-          {isLeader(user.role) && (
-            <button onClick={() => {
-              setTransposeMode(p => !p);
-              if (transposeMode) { setTransposeSteps(0); setChordData([]); setChordData2([]); setDetectErr(""); }
-            }} style={{
-              display:"flex", alignItems:"center", gap:4, flexShrink:0,
-              padding:"4px 10px", borderRadius:8, cursor:"pointer",
-              background: transposeMode ? C.grn : C.card,
-              border:`1px solid ${transposeMode ? C.grn : C.bdr}`,
-              color: transposeMode ? "#fff" : C.dim,
-              fontWeight:700, fontSize:11, fontFamily:"inherit",
-              transition:"all .15s",
-            }}>
-              {transposeMode && transposeSteps !== 0
-                ? `${song.key}→${keyName(song.key, transposeSteps)}`
-                : "전조"}
-            </button>
-          )}
         </div>
       </div>
 
