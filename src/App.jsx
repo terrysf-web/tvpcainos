@@ -1062,13 +1062,15 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
             📅 {svc.date}{svc.time ? ` · ${svc.time}` : ""}
           </div>
         </div>
-        <button onClick={shareToKakao} style={{
-          background:"#FEE500", border:"none", borderRadius:9, padding:"7px 12px",
-          display:"flex", alignItems:"center", gap:5,
-          fontWeight:700, fontSize:12, cursor:"pointer", fontFamily:"inherit", color:"#3C1E1E",
-        }}>
-          <span style={{ fontSize:14 }}>💬</span> 공유
-        </button>
+        {leader && (
+          <button onClick={shareToKakao} style={{
+            background:"#FEE500", border:"none", borderRadius:9, padding:"7px 12px",
+            display:"flex", alignItems:"center", gap:5,
+            fontWeight:700, fontSize:12, cursor:"pointer", fontFamily:"inherit", color:"#3C1E1E",
+          }}>
+            <span style={{ fontSize:14 }}>💬</span> 공유
+          </button>
+        )}
         {svc.notified
           ? <Badge label="알림완료" color={C.grn} />
           : leader && (
