@@ -92,6 +92,37 @@ function Icon({ n, size = 20, color = C.txt, sw = 2 }) {
   );
 }
 
+/* ── Chord transposition utilities (module-level) */
+const SEMITONES   = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const FLAT_SHARP  = {Db:'C#',Eb:'D#',Gb:'F#',Ab:'G#',Bb:'A#'};
+const DISPLAY_KEY = {C:'C','C#':'Db',D:'D','D#':'Eb',E:'E',F:'F','F#':'Gb',G:'G','G#':'Ab',A:'A','A#':'Bb',B:'B'};
+
+function transposeNote(note, steps) {
+  const n = FLAT_SHARP[note] || note;
+  const i = SEMITONES.indexOf(n);
+  if (i === -1) return note;
+  return SEMITONES[((i + steps) % 12 + 12) % 12];
+}
+
+function transposeChord(chord, steps) {
+  if (!chord || steps === 0) return chord;
+  // normalize flats to sharps, find root
+  const c = chord.replace(/^(Db|Eb|Gb|Ab|Bb)/, m => FLAT_SHARP[m] || m);
+  const twoChar = c.length > 1 && c[1] === '#';
+  const root   = twoChar ? c.slice(0, 2) : c[0];
+  const suffix = c.slice(root.length);
+  const newRoot = transposeNote(root, steps);
+  // use flat display for common keys
+  return (DISPLAY_KEY[newRoot] || newRoot) + suffix;
+}
+
+function keyName(key, steps) {
+  if (!key) return '?';
+  const n = FLAT_SHARP[key] || key;
+  const transposed = SEMITONES[((SEMITONES.indexOf(n) + steps) % 12 + 12) % 12];
+  return DISPLAY_KEY[transposed] || transposed;
+}
+
 /* ── Canvas drawing utility (module-level, pure) */
 function drawStrokes(canvas, strokes, cur = null) {
   if (!canvas || !canvas.width || !canvas.height) return;
@@ -1051,6 +1082,13 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   const [drawWidth, setDrawWidth] = useState(3);
   const [drawTool,  setDrawTool]  = useState("pen"); // "pen" | "highlighter" | "eraser"
   const [drawSaveErr, setDrawSaveErr] = useState("");
+
+  // ── Chord transposition
+  const [transposeMode,  setTransposeMode]  = useState(false);
+  const [transposeSteps, setTransposeSteps] = useState(0);
+  const [chordData,      setChordData]      = useState([]);   // [{chord,x,y}]
+  const [detectingChords, setDetectingChords] = useState(false);
+  const [detectErr,      setDetectErr]      = useState("");
   const drawCanvas1Ref  = useRef(null);  // single mode + dual left
   const drawCanvas2Ref  = useRef(null);  // dual right
   const isDrawing1Ref   = useRef(false);
@@ -1141,6 +1179,48 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
     el.addEventListener("touchmove", prevent, { passive: false });
     return () => el.removeEventListener("touchmove", prevent);
   }, []);
+
+  // 페이지/곡 바뀌면 코드 감지 결과 초기화
+  useEffect(() => { setChordData([]); setDetectErr(""); }, [pageNum, selectedSongId]);
+
+  const detectChords = async () => {
+    const canvas = canvas1Ref.current;
+    if (!canvas || !canvas.width) return;
+    const key = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!key) { setDetectErr("VITE_GEMINI_API_KEY 없음"); return; }
+    setDetectingChords(true); setDetectErr(""); setChordData([]);
+    try {
+      const b64 = canvas.toDataURL("image/png").split(",")[1];
+      const prompt = `이 악보 이미지에서 코드 심볼(chord symbol)을 모두 찾아주세요.
+각 코드의 이미지 내 위치를 0.0~1.0 범위의 정규화 좌표로 반환하세요.
+반드시 JSON 배열만 반환하세요 (설명 없이):
+[{"chord":"C","x":0.12,"y":0.05},{"chord":"Am","x":0.34,"y":0.05}]
+코드가 없으면 []`;
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [
+            { inlineData: { mimeType: "image/png", data: b64 } },
+            { text: prompt },
+          ]}]}),
+        }
+      );
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const text = data.candidates[0].content.parts[0].text;
+      const match = text.match(/\[[\s\S]*\]/);
+      if (!match) { setDetectErr("응답 파싱 실패"); return; }
+      const chords = JSON.parse(match[0]);
+      setChordData(chords);
+      if (chords.length === 0) setDetectErr("코드를 찾지 못했습니다");
+    } catch(e) {
+      setDetectErr("오류: " + e.message);
+    } finally {
+      setDetectingChords(false);
+    }
+  };
 
   // PDF 로드 (싱글 모드)
   useEffect(() => {
@@ -1427,7 +1507,10 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
           <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
             textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
           <div style={{ fontSize:11, color:C.dim }}>
-            Key {song.key}{song.bpm ? ` · ♩${song.bpm}` : ""}
+            Key {transposeMode && transposeSteps !== 0
+              ? `${song.key} → ${keyName(song.key, transposeSteps)}`
+              : song.key}
+            {song.bpm ? ` · ♩${song.bpm}` : ""}
             {numPages > 0 ? ` · ${pageNum}/${numPages}p` : ""}
             {svcSongs.length > 1 ? ` · 곡 ${songIdx + 1}/${svcSongs.length}` : ""}
           </div>
@@ -1475,6 +1558,23 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
           }}>
             <Icon n="sideR" size={12} color={media ? "#fff" : C.dim} />
             MEDIA
+          </button>
+          <button onClick={() => {
+            if (dual) { showToast("싱글 모드에서만 사용 가능합니다"); return; }
+            setTransposeMode(p => !p);
+            if (transposeMode) { setTransposeSteps(0); setChordData([]); setDetectErr(""); }
+          }} style={{
+            display:"flex", alignItems:"center", gap:5,
+            padding:"5px 10px", borderRadius:8, cursor:"pointer",
+            background: transposeMode ? C.grn : C.card,
+            border:`1px solid ${transposeMode ? C.grn : C.bdr}`,
+            color: transposeMode ? "#fff" : C.dim,
+            fontWeight:700, fontSize:11, fontFamily:"inherit",
+            letterSpacing:"0.06em", transition:"all .15s",
+          }}>
+            {transposeMode && transposeSteps !== 0
+              ? `${song.key}→${keyName(song.key, transposeSteps)}`
+              : "전조"}
           </button>
         </div>
       </div>
@@ -1554,6 +1654,63 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
               ⚠ {drawSaveErr}
             </span>
           )}
+        </div>
+      )}
+
+      {/* 전조 서브툴바 */}
+      {transposeMode && !dual && (
+        <div style={{
+          display:"flex", alignItems:"center", gap:8, flexWrap:"wrap",
+          padding:"0 14px", minHeight:46, flexShrink:0,
+          background:`${C.grn}0a`, borderBottom:`1px solid ${C.bdr}`,
+          overflowX:"auto",
+        }}>
+          {/* 반음 조절 */}
+          <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+            <button onClick={() => setTransposeSteps(s => Math.max(-6, s - 1))}
+              style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
+                background:"transparent", cursor:"pointer", fontWeight:700, fontSize:15, display:"flex",
+                alignItems:"center", justifyContent:"center", color:C.txt }}>−</button>
+            <div style={{ textAlign:"center", minWidth:70 }}>
+              <div style={{ fontSize:13, fontWeight:800, color: transposeSteps === 0 ? C.dim : C.grn }}>
+                {transposeSteps === 0
+                  ? `Key ${song.key}`
+                  : `${song.key} → ${keyName(song.key, transposeSteps)}`}
+              </div>
+              <div style={{ fontSize:10, color:C.dim }}>
+                {transposeSteps === 0 ? "원본" : `${transposeSteps > 0 ? "+" : ""}${transposeSteps} 반음`}
+              </div>
+            </div>
+            <button onClick={() => setTransposeSteps(s => Math.min(6, s + 1))}
+              style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
+                background:"transparent", cursor:"pointer", fontWeight:700, fontSize:15, display:"flex",
+                alignItems:"center", justifyContent:"center", color:C.txt }}>+</button>
+          </div>
+          <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+          {/* AI 감지 버튼 */}
+          <button onClick={detectChords} disabled={detectingChords} style={{
+            background: detectingChords ? `${C.grn}44` : C.grn,
+            border:"none", borderRadius:7, padding:"5px 12px",
+            cursor: detectingChords ? "not-allowed" : "pointer",
+            fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
+          }}>
+            {detectingChords ? "⏳ 감지 중..." : "🎵 코드 감지 (AI)"}
+          </button>
+          {chordData.length > 0 && (
+            <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>
+              ✓ {chordData.length}개 감지됨
+            </span>
+          )}
+          {detectErr && (
+            <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>
+          )}
+          <div style={{ marginLeft:"auto", flexShrink:0 }}>
+            <button onClick={() => { setTransposeSteps(0); setChordData([]); setDetectErr(""); }}
+              style={{ background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
+                padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit" }}>
+              초기화
+            </button>
+          </div>
         </div>
       )}
       </div>
@@ -1670,6 +1827,31 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
                         onPointerUp={handleDraw1Up}
                         onPointerCancel={handleDraw1Cancel}
                       />
+                      {/* 전조 코드 오버레이 */}
+                      {transposeMode && chordData.length > 0 && (
+                        <div style={{ position:"absolute", inset:0, pointerEvents:"none", borderRadius:4 }}>
+                          {chordData.map((item, i) => (
+                            <span key={i} style={{
+                              position:"absolute",
+                              left:`${item.x * 100}%`,
+                              top:`${item.y * 100}%`,
+                              transform:"translate(-50%, -50%)",
+                              background: transposeSteps === 0 ? "rgba(107,93,231,0.82)" : "rgba(255,220,20,0.92)",
+                              color: transposeSteps === 0 ? "#fff" : "#111",
+                              borderRadius:4,
+                              padding:"1px 5px",
+                              fontSize:12,
+                              fontWeight:800,
+                              lineHeight:1.4,
+                              whiteSpace:"nowrap",
+                              fontFamily:"monospace",
+                              boxShadow:"0 1px 4px rgba(0,0,0,.25)",
+                            }}>
+                              {transposeChord(item.chord, transposeSteps)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
               ) : (
                 <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
