@@ -1108,15 +1108,15 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   const dualLeftSongId  = svcSongs[dualIdx]?.id     || null;
   const dualRightSongId = svcSongs[dualIdx + 1]?.id || null;
 
-  // drawings stored under userAnnotations/{uid}/drawings/{songId}_p{page}
-  // — this collection already has deployed rules: authed user can only access own path
+  // drawings stored under customSongs/drw_{uid}_{songId}_p{page}
+  // — customSongs has "allow read, write: if isAuthed()" in live Firestore rules
 
   const loadDrawing = (songId, page, strokesRef2, dcRef) => {
     strokesRef2.current = [];
     const dc = dcRef.current;
     if (dc) dc.getContext("2d").clearRect(0, 0, dc.width, dc.height);
     if (!user?.uid || !songId) return;
-    getDoc(doc(db, "userAnnotations", user.uid, "drawings", `${songId}_p${page}`))
+    getDoc(doc(db, "customSongs", `drw_${user.uid}_${songId}_p${page}`))
       .then(snap => {
         if (snap.exists()) {
           strokesRef2.current = snap.data().strokes || [];
@@ -1151,7 +1151,7 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
     if (!user?.uid || !songId) return;
     try {
       await setDoc(
-        doc(db, "userAnnotations", user.uid, "drawings", `${songId}_p${page}`),
+        doc(db, "customSongs", `drw_${user.uid}_${songId}_p${page}`),
         { strokes, updatedAt: serverTimestamp() }
       );
       setDrawSaveErr("");
@@ -1191,11 +1191,14 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
     setDetectingChords(true); setDetectErr(""); setChordData([]);
     try {
       const b64 = canvas.toDataURL("image/png").split(",")[1];
-      const prompt = `이 악보 이미지에서 코드 심볼(chord symbol)을 모두 찾아주세요.
-각 코드의 이미지 내 위치를 0.0~1.0 범위의 정규화 좌표로 반환하세요.
-반드시 JSON 배열만 반환하세요 (설명 없이):
-[{"chord":"C","x":0.12,"y":0.05},{"chord":"Am","x":0.34,"y":0.05}]
-코드가 없으면 []`;
+      const prompt = `Detect all chord symbols (like C, Am, G7, F#m, Bb, Dm7, etc.) in this sheet music image.
+Return ONLY a JSON array. Each item must have:
+- "label": the chord symbol text exactly as shown
+- "box_2d": bounding box as [ymin, xmin, ymax, xmax] where values are 0-1000 (0=top/left, 1000=bottom/right)
+
+Example: [{"label":"C","box_2d":[45,120,75,160]},{"label":"Am","box_2d":[45,340,75,390]}]
+If no chords found, return [].
+Return ONLY the JSON array, no other text.`;
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
         {
@@ -1212,7 +1215,17 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
       const text = data.candidates[0].content.parts[0].text;
       const match = text.match(/\[[\s\S]*\]/);
       if (!match) { setDetectErr("응답 파싱 실패"); return; }
-      const chords = JSON.parse(match[0]);
+      const raw = JSON.parse(match[0]);
+      // Convert bounding boxes to normalized center coordinates
+      const chords = raw.map(item => {
+        const b = item.box_2d;
+        // box_2d: [ymin, xmin, ymax, xmax] in 0-1000 scale
+        const x = (b[1] + b[3]) / 2 / 1000;
+        const y = (b[0] + b[2]) / 2 / 1000;
+        const w = (b[3] - b[1]) / 1000;
+        const h = (b[2] - b[0]) / 1000;
+        return { chord: item.label, x, y, w, h };
+      });
       setChordData(chords);
       if (chords.length === 0) setDetectErr("코드를 찾지 못했습니다");
     } catch(e) {
@@ -1830,26 +1843,33 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
                       {/* 전조 코드 오버레이 */}
                       {transposeMode && chordData.length > 0 && (
                         <div style={{ position:"absolute", inset:0, pointerEvents:"none", borderRadius:4 }}>
-                          {chordData.map((item, i) => (
-                            <span key={i} style={{
-                              position:"absolute",
-                              left:`${item.x * 100}%`,
-                              top:`${item.y * 100}%`,
-                              transform:"translate(-50%, -50%)",
-                              background: transposeSteps === 0 ? "rgba(107,93,231,0.82)" : "rgba(255,220,20,0.92)",
-                              color: transposeSteps === 0 ? "#fff" : "#111",
-                              borderRadius:4,
-                              padding:"1px 5px",
-                              fontSize:12,
-                              fontWeight:800,
-                              lineHeight:1.4,
-                              whiteSpace:"nowrap",
-                              fontFamily:"monospace",
-                              boxShadow:"0 1px 4px rgba(0,0,0,.25)",
-                            }}>
-                              {transposeChord(item.chord, transposeSteps)}
-                            </span>
-                          ))}
+                          {chordData.map((item, i) => {
+                            const canvas = canvas1Ref.current;
+                            const cw = canvas?.width || 600;
+                            const ch = canvas?.height || 800;
+                            const pxW = (item.w || 0.08) * cw;
+                            const fs = Math.max(9, Math.min(18, pxW * 0.55));
+                            return (
+                              <span key={i} style={{
+                                position:"absolute",
+                                left:`${item.x * 100}%`,
+                                top:`${item.y * 100}%`,
+                                transform:"translate(-50%, -50%)",
+                                background: transposeSteps === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
+                                color: transposeSteps === 0 ? "#fff" : "#111",
+                                borderRadius:3,
+                                padding:"0px 4px",
+                                fontSize:fs,
+                                fontWeight:800,
+                                lineHeight:1.5,
+                                whiteSpace:"nowrap",
+                                fontFamily:"monospace",
+                                boxShadow:"0 1px 4px rgba(0,0,0,.3)",
+                              }}>
+                                {transposeChord(item.chord, transposeSteps)}
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
