@@ -2996,15 +2996,12 @@ export default function App() {
     };
     const onMove  = (e) => { if (e.pointerType === "pen") show(e.clientX, e.clientY); };
     const onDown  = (e) => { if (e.pointerType === "pen") { clearTimeout(pencilHideTimer.current); setPencilCursor(null); } };
-    const onUp    = (e) => { if (e.pointerType === "pen") show(e.clientX, e.clientY); };
-    window.addEventListener("pointermove",   onMove);
-    window.addEventListener("pointerdown",   onDown);
-    window.addEventListener("pointerup",     onUp);
-    window.addEventListener("pointerleave",  onDown);
+    window.addEventListener("pointermove",  onMove);
+    window.addEventListener("pointerdown",  onDown);
+    window.addEventListener("pointerleave", onDown);
     return () => {
       window.removeEventListener("pointermove",  onMove);
       window.removeEventListener("pointerdown",  onDown);
-      window.removeEventListener("pointerup",    onUp);
       window.removeEventListener("pointerleave", onDown);
       clearTimeout(pencilHideTimer.current);
     };
