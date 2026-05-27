@@ -3674,7 +3674,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             <img src="/icon-192.png" width={64} height={64}
               style={{ borderRadius:16, marginBottom:12 }} alt="Ainos" />
             <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>TVPC Worship</div>
-            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.2</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.13</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
               찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />
               악보 업로드, 필기, 코드 전조, 예배 일정 관리 등<br />
