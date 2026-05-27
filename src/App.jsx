@@ -2569,22 +2569,25 @@ Return ONLY the JSON array, no other text.`;
       {drawMode && (
         <div style={{ flexShrink:0, background:`${C.pur}0a`, borderBottom:`1px solid ${C.bdr}`, position:"relative" }}>
           {/* 메인 툴바 행 */}
-          <div style={{ display:"flex", alignItems:"center", gap:8, padding:"0 14px", height:48, overflowX:"auto" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6, padding:"0 14px", height:56, overflowX:"auto" }}>
             {/* Tool selector */}
             {[
-              { id:"pen",         icon:"pen",       label:"펜"   },
-              { id:"highlighter", icon:"highlight",  label:"형광" },
-              { id:"eraser",      icon:"eraser",     label:"지우개" },
-              { id:"stamp",       icon:"stamp",      label:"스탬프" },
-              { id:"shape",       icon:"slur",       label:"도형" },
+              { id:"pen",         icon:"pen",      label:"펜"    },
+              { id:"highlighter", icon:"highlight", label:"마커"  },
+              { id:"eraser",      icon:"eraser",    label:"지우개" },
+              { id:"stamp",       icon:"stamp",     label:"스탬프" },
+              { id:"shape",       icon:"slur",      label:"도형"  },
             ].map(t => (
-              <button key={t.id} onClick={() => setDrawTool(t.id)} title={t.label} style={{
-                display:"flex", alignItems:"center", gap:3, padding:"4px 8px",
+              <button key={t.id} onClick={() => setDrawTool(t.id)} style={{
+                display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+                padding:"5px 8px",
                 background: drawTool === t.id ? `${C.pur}22` : "transparent",
                 border:`1px solid ${drawTool === t.id ? C.pur : C.bdr}`,
-                borderRadius:6, cursor:"pointer", flexShrink:0,
+                borderRadius:7, cursor:"pointer", flexShrink:0,
               }}>
                 <Icon n={t.icon} size={15} color={drawTool === t.id ? C.pur : C.dim} />
+                <span style={{ fontSize:9, fontWeight:600, color: drawTool === t.id ? C.pur : C.dim,
+                  fontFamily:"inherit", lineHeight:1 }}>{t.label}</span>
               </button>
             ))}
             <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
