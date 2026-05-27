@@ -2926,9 +2926,12 @@ function TeamManagementModal({ currentUserId, onClose }) {
    PROFILE SCREEN
 ══════════════════════════════════════════════════════════════════ */
 function ProfileScreen({ user, onLogout, onRoleUpdate }) {
-  const [showTeam,   setShowTeam]   = useState(false);
-  const [claiming,   setClaiming]   = useState(false);
-  const [noLeader,   setNoLeader]   = useState(false);
+  const [showTeam,    setShowTeam]    = useState(false);
+  const [claiming,    setClaiming]    = useState(false);
+  const [noLeader,    setNoLeader]    = useState(false);
+  const [showInfo,    setShowInfo]    = useState(false);
+  const [showHelp,    setShowHelp]    = useState(false);
+  const [showContact, setShowContact] = useState(false);
 
   useEffect(() => {
     if (isLeader(user.role)) return;
@@ -3001,14 +3004,18 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
 
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
-        {["앱 정보 (v3.0)", "도움말", "문의하기"].map((item, i) => (
-          <div key={i} style={{
+        {[
+          { label:"앱 정보 (v3.2)", action: () => setShowInfo(true) },
+          { label:"도움말",         action: () => setShowHelp(true) },
+          { label:"문의하기",       action: () => setShowContact(true) },
+        ].map((item, i, arr) => (
+          <div key={i} onClick={item.action} style={{
             padding:"14px 16px",
-            borderBottom: i < 2 ? `1px solid ${C.bdr}` : "none",
+            borderBottom: i < arr.length - 1 ? `1px solid ${C.bdr}` : "none",
             display:"flex", alignItems:"center", justifyContent:"space-between",
             cursor:"pointer",
           }}>
-            <span style={{ fontSize:14 }}>{item}</span>
+            <span style={{ fontSize:14 }}>{item.label}</span>
             <Icon n="chevR" size={15} color={C.dim} />
           </div>
         ))}
@@ -3017,6 +3024,64 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <Btn label="로그아웃" icon="logout" onClick={onLogout} variant="ghost" full />
 
       {showTeam && <TeamManagementModal currentUserId={user.uid} onClose={() => setShowTeam(false)} />}
+
+      {/* 앱 정보 */}
+      {showInfo && (
+        <Modal title="앱 정보" onClose={() => setShowInfo(false)}>
+          <div style={{ textAlign:"center", padding:"8px 0 16px" }}>
+            <img src="/icon-192.png" width={64} height={64}
+              style={{ borderRadius:16, marginBottom:12 }} alt="Ainos" />
+            <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>TVPC Worship</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.2</div>
+            <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
+              찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />
+              악보 업로드, 필기, 코드 전조, 예배 일정 관리 등<br />
+              찬양팀에 필요한 기능을 제공합니다.
+            </div>
+          </div>
+          <Btn label="확인" full onClick={() => setShowInfo(false)} />
+        </Modal>
+      )}
+
+      {/* 도움말 */}
+      {showHelp && (
+        <Modal title="도움말" onClose={() => setShowHelp(false)}>
+          <div style={{ fontSize:13, lineHeight:1.9, color:C.txt }}>
+            {[
+              { title:"📋 예배 일정", desc:"예배탭에서 일정을 만들고 곡을 추가하세요. 리더는 순서 변경·복사·삭제가 가능하고, 카카오톡으로 일정을 공유할 수 있습니다." },
+              { title:"🎵 악보 라이브러리", desc:"악보탭에서 PDF를 업로드하세요. 자음 인덱스로 빠르게 찾고, 키·아티스트·제목으로 검색할 수 있습니다." },
+              { title:"✏️ 필기", desc:"악보 화면에서 펜 아이콘을 눌러 필기 모드를 켜세요. 애플펜슬로 그리면 손바닥은 자동으로 무시됩니다. 필기는 자동 저장됩니다." },
+              { title:"🎼 코드 전조", desc:"리더만 사용 가능합니다. 전조 버튼을 누른 후 Gemini 감지로 코드를 인식하고 반음 단위로 올리거나 내릴 수 있습니다." },
+              { title:"📖 듀얼 모드", desc:"악보 화면 상단의 듀얼 아이콘을 누르면 두 곡을 나란히 볼 수 있습니다." },
+              { title:"🔔 알림", desc:"리더가 예배 일정을 등록하면 팀원에게 알림이 갑니다. 알림탭에서 확인하세요." },
+            ].map((s, i) => (
+              <div key={i} style={{ marginBottom:14, paddingBottom:14,
+                borderBottom: i < 5 ? `1px solid ${C.bdr}` : "none" }}>
+                <div style={{ fontWeight:700, marginBottom:3 }}>{s.title}</div>
+                <div style={{ color:C.dim, fontSize:12 }}>{s.desc}</div>
+              </div>
+            ))}
+          </div>
+          <Btn label="확인" full onClick={() => setShowHelp(false)} />
+        </Modal>
+      )}
+
+      {/* 문의하기 */}
+      {showContact && (
+        <Modal title="문의하기" onClose={() => setShowContact(false)}>
+          <div style={{ textAlign:"center", padding:"8px 0 20px" }}>
+            <div style={{ fontSize:40, marginBottom:12 }}>✉️</div>
+            <div style={{ fontSize:14, color:C.dim, marginBottom:16, lineHeight:1.7 }}>
+              앱 사용 중 문의사항이나 오류가 있으면<br />아래 이메일로 연락해 주세요.
+            </div>
+            <div style={{ background:C.card, borderRadius:10, padding:"12px 16px",
+              border:`1px solid ${C.bdr}`, fontSize:15, fontWeight:700, letterSpacing:"0.01em" }}>
+              terrysf@gmail.com
+            </div>
+          </div>
+          <Btn label="이메일 보내기" full onClick={() => window.location.href = "mailto:terrysf@gmail.com"} />
+        </Modal>
+      )}
     </div>
   );
 }
