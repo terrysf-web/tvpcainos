@@ -1351,7 +1351,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
       {/* 리스트 + 자음 인덱스 */}
       <div style={{ flex:1, display:"flex", overflow:"hidden", position:"relative" }}>
         {/* 곡 목록 (스크롤) */}
-        <div style={{ flex:1, overflowY:"auto", padding:"12px 44px 90px 16px" }}>
+        <div style={{ flex:1, overflowY:"auto", padding:"12px 52px 90px 16px" }}>
           {filtered.length === 0 && (
             <div style={{ textAlign:"center", padding:"60px 0", color:C.dim }}>
               <div style={{ fontSize:36, marginBottom:12 }}>🎵</div>
@@ -1427,21 +1427,21 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
 
         {/* 자음 인덱스 */}
         <div style={{
-          position:"absolute", right:0, top:0, bottom:0, width:36,
+          position:"absolute", right:0, top:0, bottom:0, width:44,
           display:"flex", flexDirection:"column", alignItems:"center",
-          justifyContent:"center", gap:1, paddingTop:4,
+          justifyContent:"center", gap:2, paddingTop:4,
         }}>
           <button onClick={() => setConsonant("")}
-            style={{ fontSize:9, fontWeight:700, padding:"2px 0", border:"none",
+            style={{ fontSize:11, fontWeight:700, padding:"3px 0", border:"none",
               background: !consonant ? C.acc : "transparent",
               color: !consonant ? "#fff" : C.dim,
-              borderRadius:4, cursor:"pointer", fontFamily:"inherit", width:28 }}>전체</button>
+              borderRadius:5, cursor:"pointer", fontFamily:"inherit", width:34 }}>전체</button>
           {CONSONANTS.map(c => (
             <button key={c} onClick={() => setConsonant(prev => prev === c ? "" : c)}
-              style={{ fontSize:10, fontWeight:700, padding:"2px 0", border:"none",
+              style={{ fontSize:13, fontWeight:700, padding:"3px 0", border:"none",
                 background: consonant === c ? C.acc : "transparent",
                 color: consonant === c ? "#fff" : C.dim,
-                borderRadius:4, cursor:"pointer", fontFamily:"inherit", width:28 }}>{c}</button>
+                borderRadius:5, cursor:"pointer", fontFamily:"inherit", width:34 }}>{c}</button>
           ))}
         </div>
       </div>
