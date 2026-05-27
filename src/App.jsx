@@ -2059,28 +2059,24 @@ Return ONLY the JSON array, no other text.`;
             </div>
           </div>
 
-          <div className="toolbar-scroll" style={{
-            display:"flex", gap:4, alignItems:"center", flexShrink:0,
-            overflowX:"auto", scrollbarWidth:"none", msOverflowStyle:"none",
-            maxWidth:"60vw",
-          }}>
+          <div style={{ display:"flex", gap:4, alignItems:"center", flexShrink:0 }}>
             <button onClick={() => setZoomMul(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
-              style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8, flexShrink:0 }}>
+              style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
               <Icon n="zoomOut" size={18} color={C.dim} />
             </button>
-            <span style={{ fontSize:11, color:C.dim, minWidth:34, textAlign:"center", fontWeight:600, flexShrink:0 }}>
+            <span style={{ fontSize:11, color:C.dim, minWidth:34, textAlign:"center", fontWeight:600 }}>
               {Math.round(zoomMul * 100)}%
             </span>
             <button onClick={() => setZoomMul(z => Math.min(2.5, +(z + 0.15).toFixed(2)))}
-              style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8, flexShrink:0 }}>
+              style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
               <Icon n="zoomIn" size={18} color={C.dim} />
             </button>
-            <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px", flexShrink:0 }} />
+            <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
             {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
             {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
-            <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px", flexShrink:0 }} />
+            <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
             <button onClick={() => setDual(p => !p)} style={{
-              display:"flex", alignItems:"center", gap:5, flexShrink:0,
+              display:"flex", alignItems:"center", gap:5,
               padding:"5px 10px", borderRadius:8, cursor:"pointer",
               background: dual ? C.pur : C.card,
               border:`1px solid ${dual ? C.pur : C.bdr}`,
@@ -2095,7 +2091,7 @@ Return ONLY the JSON array, no other text.`;
               if (dual) { showToast("싱글 모드에서만 사용 가능합니다"); return; }
               setMedia(p => !p);
             }} style={{
-              display:"flex", alignItems:"center", gap:5, flexShrink:0,
+              display:"flex", alignItems:"center", gap:5,
               padding:"5px 10px", borderRadius:8, cursor:"pointer",
               background: media ? C.acc : C.card,
               border:`1px solid ${media ? C.acc : C.bdr}`,
@@ -2111,7 +2107,7 @@ Return ONLY the JSON array, no other text.`;
                 setTransposeMode(p => !p);
                 if (transposeMode) { setTransposeSteps(0); setChordData([]); setChordData2([]); setDetectErr(""); }
               }} style={{
-                display:"flex", alignItems:"center", gap:5, flexShrink:0,
+                display:"flex", alignItems:"center", gap:5,
                 padding:"5px 10px", borderRadius:8, cursor:"pointer",
                 background: transposeMode ? C.grn : C.card,
                 border:`1px solid ${transposeMode ? C.grn : C.bdr}`,

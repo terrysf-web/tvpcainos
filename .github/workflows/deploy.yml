@@ -25,25 +25,12 @@ jobs:
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
         run: npm run build
 
-      - name: 시크릿 확인
-        run: |
-          if [ -z "$SA_JSON" ]; then
-            echo "❌ FIREBASE_SERVICE_ACCOUNT 시크릿이 설정되지 않았습니다."
-            echo "Firebase Console > 프로젝트 설정 > 서비스 계정 > 새 비공개 키 생성 후"
-            echo "GitHub > Settings > Secrets and variables > Actions > FIREBASE_SERVICE_ACCOUNT 에 추가하세요."
-            exit 1
-          else
-            echo "✅ FIREBASE_SERVICE_ACCOUNT 시크릿 확인됨"
-          fi
-        env:
-          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-
-      - name: Firebase 배포
+      - name: Firebase Hosting 배포
         env:
           SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
           echo "$SERVICE_ACCOUNT_JSON" > /tmp/sa.json
           GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json npx firebase-tools deploy \
-            --only hosting,firestore:rules \
+            --only hosting \
             --project tvpcainos \
             --non-interactive
