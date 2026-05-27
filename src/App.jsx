@@ -1139,11 +1139,11 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
         </div>
         {leader && (
           <button onClick={() => setShowEdit(true)} style={{
-            background:"none", border:`1px solid ${C.bdr}`, borderRadius:9,
+            background:C.card, border:`1px solid ${C.bdr}`, borderRadius:9,
             padding:"6px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:4,
-            color:C.dim, fontSize:12, fontFamily:"inherit",
+            color:C.txt, fontSize:12, fontFamily:"inherit",
           }}>
-            <Icon n="edit" size={13} color={C.dim} /> 수정
+            <Icon n="edit" size={13} color={C.txt} /> 수정
           </button>
         )}
         {leader && (
