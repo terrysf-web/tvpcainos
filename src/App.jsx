@@ -1014,17 +1014,19 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
           )}
           <button onClick={() => window.location.reload()} style={{
             background:C.card, border:`1px solid ${C.bdr}`,
-            borderRadius:10, padding:8, cursor:"pointer",
-            display:"flex", alignItems:"center",
+            borderRadius:10, padding:"6px 8px", cursor:"pointer",
+            display:"flex", flexDirection:"column", alignItems:"center", gap:2,
           }}>
             <Icon n="refresh" size={18} color={C.dim} />
+            <span style={{ fontSize:9, color:C.dim, fontWeight:600 }}>새로고침</span>
           </button>
           <button onClick={() => nav("notifications")} style={{
             background:C.card, border:`1px solid ${C.bdr}`,
-            borderRadius:10, padding:8, position:"relative",
-            cursor:"pointer", display:"flex",
+            borderRadius:10, padding:"6px 8px", position:"relative",
+            cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:2,
           }}>
             <Icon n="bell" size={18} color={unread > 0 ? C.acc : C.dim} />
+            <span style={{ fontSize:9, color:unread > 0 ? C.acc : C.dim, fontWeight:600 }}>알림</span>
             {unread > 0 && (
               <span style={{
                 position:"absolute", top:4, right:4,
@@ -1328,7 +1330,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
           textTransform:"uppercase", marginBottom:10 }}>
           예배 곡 순서 · {totalCount}곡
-          {leader && <span style={{ fontSize:10, color:`${C.dim}88`, fontWeight:400,
+          {leader && <span style={{ fontSize:10, color:C.dim, fontWeight:500,
             marginLeft:6, textTransform:"none" }}>≡ 드래그로 순서 변경</span>}
         </div>
 
@@ -3699,6 +3701,23 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
               { title:"🔔 알림", desc:"리더가 예배 일정을 등록하면 팀 전체에게 알림이 갑니다. 알림탭에서 확인하세요." },
             ].map((s, i) => (
               <div key={i} style={{ marginBottom:12, paddingBottom:12, borderBottom:`1px solid ${C.bdr}` }}>
+                <div style={{ fontWeight:700, marginBottom:3 }}>{s.title}</div>
+                <div style={{ color:C.dim, fontSize:12 }}>{s.desc}</div>
+              </div>
+            ))}
+
+            {/* 쓰기 툴 섹션 */}
+            <div style={{ fontSize:11, fontWeight:800, color:"#4ade80", letterSpacing:"0.05em",
+              margin:"16px 0 8px", textTransform:"uppercase" }}>✍️ 악보 쓰기 툴</div>
+            {[
+              { title:"펜 / 마커", desc:"펜은 가는 선으로 정밀하게 필기합니다. 마커는 반투명 형광펜으로 악보 구간을 강조할 때 유용합니다." },
+              { title:"지우개", desc:"그린 획을 지웁니다. 지우개 크기는 하단 슬라이더로 조절하세요." },
+              { title:"스탬프", desc:"악상기호(pp·f·sfz), 음표, 임시표, 아티큘레이션 등을 악보 위에 찍습니다. 돋보기(루페)로 정확한 위치를 확인하며 배치할 수 있습니다." },
+              { title:"도형", desc:"슬러, 크레셴도/디크레셴도(헤어핀), 직선, 박스, 원형을 그릴 수 있습니다. 시작점을 터치한 뒤 끝점까지 드래그하세요." },
+              { title:"줌 & D-패드", desc:"악보를 줌인하면 화면 오른쪽에 방향 D-패드가 나타납니다. 화살표로 악보를 상하좌우로 이동하고, 가운데 % 버튼으로 원래 크기로 돌아옵니다." },
+            ].map((s, i, arr) => (
+              <div key={i} style={{ marginBottom:12, paddingBottom:12,
+                borderBottom: i < arr.length - 1 ? `1px solid ${C.bdr}` : `1px solid ${C.bdr}` }}>
                 <div style={{ fontWeight:700, marginBottom:3 }}>{s.title}</div>
                 <div style={{ color:C.dim, fontSize:12 }}>{s.desc}</div>
               </div>
