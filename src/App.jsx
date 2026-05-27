@@ -2975,6 +2975,7 @@ export default function App() {
   useEffect(() => {
     const onMove = (e) => {
       if (e.pointerType !== "pen") return;
+      if (e.buttons !== 0) { setPencilCursor(null); return; } // 화면에 닿으면 숨김
       setPencilCursor({ x: e.clientX, y: e.clientY });
       clearTimeout(pencilHideTimer.current);
       pencilHideTimer.current = setTimeout(() => setPencilCursor(null), 1500);
