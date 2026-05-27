@@ -16,7 +16,7 @@ import {
 } from "firebase/firestore";
 
 /* ── Kakao SDK ── */
-const KAKAO_JS_KEY = "YOUR_KAKAO_JS_KEY"; // ← developers.kakao.com 에서 발급한 JavaScript 키로 교체
+const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
 
 /* ══════════════════════════════════════════════════════════════════
    THEME
