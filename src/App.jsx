@@ -2113,7 +2113,9 @@ Return ONLY the JSON array, no other text.`;
   const updateLoupe = useCallback((e, pdfCanvas, drawCanvas, sym, italic, color) => {
     const lc = loupeCanvasRef.current;
     if (!lc || !pdfCanvas || !pdfCanvas.width) return;
-    const r = pdfCanvas.getBoundingClientRect();
+    // Use drawCanvas rect for position (same as getCanvasPt) to ensure loupe ↔ stamp alignment
+    const posRef = drawCanvas || pdfCanvas;
+    const r = posRef.getBoundingClientRect();
     if (!r.width) return;
     const scX = pdfCanvas.width  / r.width;
     const scY = pdfCanvas.height / r.height;
@@ -2204,12 +2206,12 @@ Return ONLY the JSON array, no other text.`;
     curStroke1Ref.current.points.push(getCanvasPt(e, canvas));
     drawStrokes(canvas, strokes1Ref.current, curStroke1Ref.current);
   };
-  const handleDraw1Up = async () => {
+  const handleDraw1Up = async (e) => {
     if (drawTool === "stamp") {
       setLoupePos(null);
       const canvas = drawCanvas1Ref.current;
       if (!canvas) return;
-      const pt = lastPt1Ref.current;
+      const pt = e ? getCanvasPt(e, canvas) : lastPt1Ref.current;
       const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
         color:drawColor, size:drawWidth * 3 + 8, points:[pt] };
       const next = [...strokes1Ref.current, stamp];
@@ -2303,12 +2305,12 @@ Return ONLY the JSON array, no other text.`;
     curStroke2Ref.current.points.push(getCanvasPt(e, canvas));
     drawStrokes(canvas, strokes2Ref.current, curStroke2Ref.current);
   };
-  const handleDraw2Up = async () => {
+  const handleDraw2Up = async (e) => {
     if (drawTool === "stamp") {
       setLoupePos(null);
       const canvas = drawCanvas2Ref.current;
       if (!canvas) return;
-      const pt = lastPt2Ref.current;
+      const pt = e ? getCanvasPt(e, canvas) : lastPt2Ref.current;
       const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
         color:drawColor, size:drawWidth * 3 + 8, points:[pt] };
       const next = [...strokes2Ref.current, stamp];
@@ -2443,10 +2445,17 @@ Return ONLY the JSON array, no other text.`;
               style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
               <Icon n="zoomOut" size={18} color={C.dim} />
             </button>
-            <span style={{ fontSize:11, color:C.dim, minWidth:34, textAlign:"center", fontWeight:600 }}>
+            <button onClick={() => setZoomMul(1.0)}
+              style={{
+                background: zoomMul !== 1.0 ? `${C.acc}22` : "none",
+                border: zoomMul !== 1.0 ? `1px solid ${C.acc}` : "1px solid transparent",
+                borderRadius:6, cursor:"pointer", padding:"2px 6px",
+                fontSize:11, color: zoomMul !== 1.0 ? C.acc : C.dim,
+                fontWeight:700, fontFamily:"inherit", minWidth:36,
+              }}>
               {Math.round(zoomMul * 100)}%
-            </span>
-            <button onClick={() => setZoomMul(z => Math.min(2.5, +(z + 0.15).toFixed(2)))}
+            </button>
+            <button onClick={() => setZoomMul(z => Math.min(3.0, +(z + 0.15).toFixed(2)))}
               style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
               <Icon n="zoomIn" size={18} color={C.dim} />
             </button>
@@ -2760,8 +2769,9 @@ Return ONLY the JSON array, no other text.`;
       {/* 콘텐츠 */}
       <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
         {/* PDF 캔버스 영역 */}
-        <div ref={containerRef} style={{ flex:1, overflow:"hidden", display:"flex",
-          position:"relative", background:C.bg, touchAction:"none" }}
+        <div ref={containerRef} style={{ flex:1, overflow:"auto", display:"flex",
+          position:"relative", background:C.bg,
+          touchAction: drawMode ? "none" : "pan-x pan-y" }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}>
 
@@ -2890,8 +2900,8 @@ Return ONLY the JSON array, no other text.`;
               )}
             </>
           ) : (
-            // ── 싱글 모드
-            <div style={{ width:"100%", height:"100%", display:"flex",
+            // ── 싱글 모드 (minWidth/minHeight → 줌 시 스크롤 가능)
+            <div style={{ minWidth:"100%", minHeight:"100%", display:"flex",
               alignItems:"center", justifyContent:"center", padding:8 }}>
               {song.pdfUrl ? (
                 loadErr
