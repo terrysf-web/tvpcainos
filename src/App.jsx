@@ -92,6 +92,8 @@ const P = {
   cresc:   "M4 12 L20 7 M4 12 L20 17",
   dim:     "M4 7 L20 12 M4 17 L20 12",
   line:    "M4 12 L20 12",
+  rect:    "M3 5h18v14H3z",
+  circle:  "M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0",
 };
 
 function Icon({ n, size = 20, color = C.txt, sw = 2 }) {
@@ -216,8 +218,8 @@ function drawStrokes(canvas, strokes, cur = null) {
   const all = cur ? [...strokes, cur] : strokes;
   for (const s of all) {
     ctx.save();
-    // ── Shape tools (slur, hairpin, line) — need 2 points
-    if (s.tool === "slur" || s.tool === "hairpin-cresc" || s.tool === "hairpin-dim" || s.tool === "line") {
+    // ── Shape tools — need 2 points
+    if (["slur","hairpin-cresc","hairpin-dim","line","rect","circle"].includes(s.tool)) {
       if (s.points && s.points.length >= 2) {
         const W = canvas.width, H = canvas.height;
         const p0 = s.points[0], p1 = s.points[1];
@@ -245,6 +247,15 @@ function drawStrokes(canvas, strokes, cur = null) {
           const spread = Math.max(8, Math.abs(x1-x0) * 0.18);
           ctx.beginPath(); ctx.moveTo(x0, y0 - spread); ctx.lineTo(x1, y1);
           ctx.moveTo(x0, y0 + spread); ctx.lineTo(x1, y1); ctx.stroke();
+        } else if (s.tool === "rect") {
+          ctx.beginPath();
+          ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+        } else if (s.tool === "circle") {
+          const rx = Math.abs(x1 - x0) / 2, ry = Math.abs(y1 - y0) / 2;
+          const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+          ctx.stroke();
         } else {
           ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
         }
@@ -2632,17 +2643,21 @@ Return ONLY the JSON array, no other text.`;
               </button>
             ))}
             <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
-            <button onClick={handleUndo} title="실행 취소" style={{
+            <button onClick={handleUndo} style={{
               background:"transparent", border:`1px solid ${C.bdr}`,
-              borderRadius:6, padding:5, cursor:"pointer", display:"flex", flexShrink:0,
+              borderRadius:7, padding:"5px 8px", cursor:"pointer",
+              display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0,
             }}>
-              <Icon n="undo" size={16} color={C.dim} />
+              <Icon n="undo" size={15} color={C.dim} />
+              <span style={{ fontSize:9, fontWeight:600, color:C.dim, fontFamily:"inherit", lineHeight:1 }}>취소</span>
             </button>
-            <button onClick={handleClearPage} title="현재 페이지 지우기" style={{
+            <button onClick={handleClearPage} style={{
               background:"transparent", border:`1px solid ${C.bdr}`,
-              borderRadius:6, padding:5, cursor:"pointer", display:"flex", flexShrink:0,
+              borderRadius:7, padding:"5px 8px", cursor:"pointer",
+              display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0,
             }}>
-              <Icon n="trash" size={16} color={C.dim} />
+              <Icon n="trash" size={15} color={C.dim} />
+              <span style={{ fontSize:9, fontWeight:600, color:C.dim, fontFamily:"inherit", lineHeight:1 }}>지우기</span>
             </button>
             {drawSaveErr && (
               <span style={{ fontSize:10, color:C.red, marginLeft:4, flexShrink:0 }}>
@@ -2703,10 +2718,12 @@ Return ONLY the JSON array, no other text.`;
               padding:"8px 12px", display:"flex", flexDirection:"column", gap:4,
             }}>
               {[
-                { id:"slur",         icon:"slur", label:"슬러" },
-                { id:"hairpin-cresc",icon:"cresc",label:"크레센도" },
-                { id:"hairpin-dim",  icon:"dim",  label:"디크레센도" },
-                { id:"line",         icon:"line", label:"직선" },
+                { id:"slur",         icon:"slur",   label:"슬러"      },
+                { id:"hairpin-cresc",icon:"cresc",  label:"크레센도"   },
+                { id:"hairpin-dim",  icon:"dim",    label:"디크레센도"  },
+                { id:"line",         icon:"line",   label:"직선"      },
+                { id:"rect",         icon:"rect",   label:"박스"      },
+                { id:"circle",       icon:"circle", label:"원형"      },
               ].map(s => (
                 <button key={s.id} onClick={() => setShapeTool(s.id)} style={{
                   display:"flex", alignItems:"center", gap:8, padding:"5px 10px",
