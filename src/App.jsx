@@ -155,6 +155,7 @@ function drawStrokes(canvas, strokes, cur = null) {
       ctx.lineJoin    = "round";
     } else {
       ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
       ctx.strokeStyle = s.color;
       ctx.fillStyle   = s.color;
       ctx.lineWidth   = lw;
