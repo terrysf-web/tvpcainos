@@ -109,6 +109,13 @@ function transposeNote(note, steps) {
 
 function transposeChord(chord, steps) {
   if (!chord || steps === 0) return chord;
+  // 슬래시 코드 처리 (예: E/G# → 앞뒤 각각 전조)
+  if (chord.includes("/")) {
+    const slash = chord.indexOf("/");
+    const main = chord.slice(0, slash);
+    const bass = chord.slice(slash + 1);
+    return transposeChord(main, steps) + "/" + transposeChord(bass, steps);
+  }
   // normalize flats to sharps, find root
   const c = chord.replace(/^(Db|Eb|Gb|Ab|Bb)/, m => FLAT_SHARP[m] || m);
   const twoChar = c.length > 1 && c[1] === '#';
