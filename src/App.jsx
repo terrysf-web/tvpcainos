@@ -84,6 +84,10 @@ const P = {
   undo:    "M3 10h13a4 4 0 0 1 0 8H9M3 10l4-4M3 10l4 4",
   highlight:"M3 20h4L19.5 8.5a2.12 2.12 0 0 0-3-3L5 17 3 20zM16 5l3 3M15 7l-8 8",
   stamp:   "M9 2h6v3H9zM5 7h14v2a3 3 0 0 0-3 3v8a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-8a3 3 0 0 0-3-3V7z",
+  slur:    "M4 17 Q12 7 20 17",
+  cresc:   "M4 12 L20 7 M4 12 L20 17",
+  dim:     "M4 7 L20 12 M4 17 L20 12",
+  line:    "M4 12 L20 12",
 };
 
 function Icon({ n, size = 20, color = C.txt, sw = 2 }) {
@@ -135,22 +139,39 @@ function keyName(key, steps) {
 }
 
 /* ── Stamp palette definition (module-level) */
-const STAMPS = [
-  { sym:"p",   italic:true,  label:"p"   },
-  { sym:"mp",  italic:true,  label:"mp"  },
-  { sym:"mf",  italic:true,  label:"mf"  },
-  { sym:"f",   italic:true,  label:"f"   },
-  { sym:"ff",  italic:true,  label:"ff"  },
-  { sym:"sfz", italic:true,  label:"sfz" },
-  { sym:"∪",   italic:false, label:"호흡" },
-  { sym:"①",  italic:false, label:"①"  },
-  { sym:"②",  italic:false, label:"②"  },
-  { sym:"③",  italic:false, label:"③"  },
-  { sym:"④",  italic:false, label:"④"  },
-  { sym:"⑤",  italic:false, label:"⑤"  },
-  { sym:"✓",   italic:false, label:"✓"  },
-  { sym:"★",   italic:false, label:"★"  },
+const STAMP_GROUPS = [
+  { label:"악상", items:[
+    { sym:"pp",  italic:true  },
+    { sym:"p",   italic:true  },
+    { sym:"mp",  italic:true  },
+    { sym:"mf",  italic:true  },
+    { sym:"f",   italic:true  },
+    { sym:"ff",  italic:true  },
+    { sym:"sfz", italic:true  },
+    { sym:"fp",  italic:true  },
+  ]},
+  { label:"아티큘", items:[
+    { sym:"·",   italic:false },
+    { sym:"–",   italic:false },
+    { sym:">",   italic:false },
+    { sym:"^",   italic:false },
+    { sym:"∪",   italic:false },
+  ]},
+  { label:"핑거링", items:[
+    { sym:"1", italic:false },
+    { sym:"2", italic:false },
+    { sym:"3", italic:false },
+    { sym:"4", italic:false },
+    { sym:"5", italic:false },
+  ]},
+  { label:"기타", items:[
+    { sym:"✓", italic:false },
+    { sym:"★", italic:false },
+    { sym:"!", italic:false },
+    { sym:"?", italic:false },
+  ]},
 ];
+const STAMPS = STAMP_GROUPS.flatMap(g => g.items);
 
 /* ── Canvas drawing utility (module-level, pure) */
 function drawStrokes(canvas, strokes, cur = null) {
@@ -159,13 +180,48 @@ function drawStrokes(canvas, strokes, cur = null) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const all = cur ? [...strokes, cur] : strokes;
   for (const s of all) {
-    if (!s.points || s.points.length < 1) continue;
     ctx.save();
+    // ── Shape tools (slur, hairpin, line) — need 2 points
+    if (s.tool === "slur" || s.tool === "hairpin-cresc" || s.tool === "hairpin-dim" || s.tool === "line") {
+      if (s.points && s.points.length >= 2) {
+        const W = canvas.width, H = canvas.height;
+        const p0 = s.points[0], p1 = s.points[1];
+        const x0 = p0.x * W, y0 = p0.y * H;
+        const x1 = p1.x * W, y1 = p1.y * H;
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = s.color || "#e8383b";
+        ctx.lineWidth = Math.max(1, (s.width || 1) * W / 900);
+        ctx.lineCap = "round"; ctx.lineJoin = "round";
+        if (s.tool === "slur") {
+          const dx = x1 - x0, dy = y1 - y0;
+          const len = Math.sqrt(dx*dx + dy*dy) || 1;
+          const curve = Math.min(len * 0.3, 40);
+          const nx = -dy / len, ny = dx / len;
+          const cpx = (x0+x1)/2 + nx * curve;
+          const cpy = (y0+y1)/2 + ny * curve;
+          ctx.beginPath(); ctx.moveTo(x0, y0);
+          ctx.quadraticCurveTo(cpx, cpy, x1, y1); ctx.stroke();
+        } else if (s.tool === "hairpin-cresc") {
+          const spread = Math.max(8, Math.abs(x1-x0) * 0.18);
+          ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1 - spread);
+          ctx.moveTo(x0, y0); ctx.lineTo(x1, y1 + spread); ctx.stroke();
+        } else if (s.tool === "hairpin-dim") {
+          const spread = Math.max(8, Math.abs(x1-x0) * 0.18);
+          ctx.beginPath(); ctx.moveTo(x0, y0 - spread); ctx.lineTo(x1, y1);
+          ctx.moveTo(x0, y0 + spread); ctx.lineTo(x1, y1); ctx.stroke();
+        } else {
+          ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+        }
+      }
+      ctx.restore(); continue;
+    }
+    if (!s.points || s.points.length < 1) { ctx.restore(); continue; }
     if (s.tool === "stamp") {
       const pt = s.points[0];
       const px = pt.x * canvas.width;
       const py = pt.y * canvas.height;
-      const sz = Math.max(10, (s.size || 16) * canvas.width / 280);
+      const sz = Math.max(7, (s.size || 10) * canvas.width / 450);
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
       ctx.fillStyle = s.color || "#e8383b";
@@ -1682,6 +1738,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const lastPt1Ref = useRef({ x: 0.5, y: 0.5 });
   const lastPt2Ref = useRef({ x: 0.5, y: 0.5 });
 
+  // ── Shape tool (slur, hairpin, line)
+  const [shapeTool, setShapeTool] = useState("slur");
+  const shapeStart1Ref = useRef(null);
+  const shapeStart2Ref = useRef(null);
+
   // ── Chord transposition
   const [transposeMode,  setTransposeMode]  = useState(false);
   const [transposeSteps, setTransposeSteps] = useState(0);
@@ -2013,7 +2074,7 @@ Return ONLY the JSON array, no other text.`;
   const deleteNote = id => onDeleteAnnotation(selectedSongId, id);
 
   // ── Loupe update (stamp mode)
-  const updateLoupe = useCallback((e, pdfCanvas, drawCanvas) => {
+  const updateLoupe = useCallback((e, pdfCanvas, drawCanvas, sym, italic, color) => {
     const lc = loupeCanvasRef.current;
     if (!lc || !pdfCanvas || !pdfCanvas.width) return;
     const r = pdfCanvas.getBoundingClientRect();
@@ -2022,7 +2083,7 @@ Return ONLY the JSON array, no other text.`;
     const scY = pdfCanvas.height / r.height;
     const cx = (e.clientX - r.left) * scX;
     const cy = (e.clientY - r.top)  * scY;
-    const ZOOM = 2.5;
+    const ZOOM = 3;
     const LW = lc.width, LH = lc.height;
     const srcW = LW / ZOOM, srcH = LH / ZOOM;
     const ctx = lc.getContext("2d");
@@ -2031,12 +2092,25 @@ Return ONLY the JSON array, no other text.`;
     if (drawCanvas && drawCanvas.width) {
       ctx.drawImage(drawCanvas, cx - srcW / 2, cy - srcH / 2, srcW, srcH, 0, 0, LW, LH);
     }
-    ctx.strokeStyle = "rgba(220,50,50,0.85)";
-    ctx.lineWidth = 1.5;
+    // crosshair (subtle)
+    ctx.strokeStyle = "rgba(255,255,255,0.45)";
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(LW / 2 - 14, LH / 2); ctx.lineTo(LW / 2 + 14, LH / 2);
-    ctx.moveTo(LW / 2, LH / 2 - 14); ctx.lineTo(LW / 2, LH / 2 + 14);
+    ctx.moveTo(LW / 2 - 10, LH / 2); ctx.lineTo(LW / 2 + 10, LH / 2);
+    ctx.moveTo(LW / 2, LH / 2 - 10); ctx.lineTo(LW / 2, LH / 2 + 10);
     ctx.stroke();
+    // stamp symbol preview at center
+    if (sym) {
+      const sz = 22;
+      const family = italic ? '"Times New Roman", Georgia, serif' : 'system-ui, sans-serif';
+      ctx.font = `${italic ? "italic " : ""}bold ${sz}px ${family}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = color || "#e8383b";
+      ctx.globalAlpha = 0.92;
+      ctx.fillText(sym, LW / 2, LH / 2);
+      ctx.globalAlpha = 1;
+    }
   }, []);
 
   // ── Drawing pointer handlers
@@ -2059,8 +2133,14 @@ Return ONLY the JSON array, no other text.`;
     if (drawTool === "stamp") {
       const pt = getCanvasPt(e, canvas);
       lastPt1Ref.current = pt;
-      updateLoupe(e, canvas1Ref.current, canvas);
+      updateLoupe(e, canvas1Ref.current, canvas, stampSymbol, stampItalic, drawColor);
       setLoupePos({ x: e.clientX, y: e.clientY });
+      return;
+    }
+    if (drawTool === "shape") {
+      const pt = getCanvasPt(e, canvas);
+      shapeStart1Ref.current = pt;
+      curStroke1Ref.current = { tool: shapeTool, points: [pt], color: drawColor, width: drawWidth };
       return;
     }
     isDrawing1Ref.current = true;
@@ -2074,8 +2154,14 @@ Return ONLY the JSON array, no other text.`;
     e.preventDefault();
     if (drawTool === "stamp") {
       lastPt1Ref.current = getCanvasPt(e, canvas);
-      updateLoupe(e, canvas1Ref.current, canvas);
+      updateLoupe(e, canvas1Ref.current, canvas, stampSymbol, stampItalic, drawColor);
       setLoupePos({ x: e.clientX, y: e.clientY });
+      return;
+    }
+    if (drawTool === "shape" && shapeStart1Ref.current) {
+      const pt = getCanvasPt(e, canvas);
+      curStroke1Ref.current = { tool: shapeTool, points: [shapeStart1Ref.current, pt], color: drawColor, width: drawWidth };
+      drawStrokes(canvas, strokes1Ref.current, curStroke1Ref.current);
       return;
     }
     if (!isDrawing1Ref.current || !curStroke1Ref.current) return;
@@ -2089,12 +2175,29 @@ Return ONLY the JSON array, no other text.`;
       if (!canvas) return;
       const pt = lastPt1Ref.current;
       const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
-        color:drawColor, size:drawWidth * 8 + 8, points:[pt] };
+        color:drawColor, size:drawWidth * 3 + 8, points:[pt] };
       const next = [...strokes1Ref.current, stamp];
       strokes1Ref.current = next;
       drawStrokes(canvas, next);
       const songId = dual ? dualLeftSongId : selectedSongId;
       await saveDrawing(songId, dual ? 1 : pageNum, next);
+      return;
+    }
+    if (drawTool === "shape") {
+      const shape = curStroke1Ref.current;
+      curStroke1Ref.current = null;
+      shapeStart1Ref.current = null;
+      if (!shape || shape.points.length < 2) {
+        const canvas = drawCanvas1Ref.current;
+        if (canvas) drawStrokes(canvas, strokes1Ref.current);
+        return;
+      }
+      const next = [...strokes1Ref.current, shape];
+      strokes1Ref.current = next;
+      const songId = dual ? dualLeftSongId : selectedSongId;
+      await saveDrawing(songId, dual ? 1 : pageNum, next);
+      const canvas = drawCanvas1Ref.current;
+      if (canvas) drawStrokes(canvas, next);
       return;
     }
     if (!isDrawing1Ref.current || !curStroke1Ref.current) return;
@@ -2112,6 +2215,7 @@ Return ONLY the JSON array, no other text.`;
   };
   const handleDraw1Cancel = () => {
     setLoupePos(null);
+    shapeStart1Ref.current = null;
     isDrawing1Ref.current = false; curStroke1Ref.current = null;
     const canvas = drawCanvas1Ref.current;
     if (canvas) drawStrokes(canvas, strokes1Ref.current);
@@ -2128,8 +2232,14 @@ Return ONLY the JSON array, no other text.`;
     if (drawTool === "stamp") {
       const pt = getCanvasPt(e, canvas);
       lastPt2Ref.current = pt;
-      updateLoupe(e, canvas2Ref.current, canvas);
+      updateLoupe(e, canvas2Ref.current, canvas, stampSymbol, stampItalic, drawColor);
       setLoupePos({ x: e.clientX, y: e.clientY });
+      return;
+    }
+    if (drawTool === "shape") {
+      const pt = getCanvasPt(e, canvas);
+      shapeStart2Ref.current = pt;
+      curStroke2Ref.current = { tool: shapeTool, points: [pt], color: drawColor, width: drawWidth };
       return;
     }
     isDrawing2Ref.current = true;
@@ -2143,8 +2253,14 @@ Return ONLY the JSON array, no other text.`;
     e.preventDefault();
     if (drawTool === "stamp") {
       lastPt2Ref.current = getCanvasPt(e, canvas);
-      updateLoupe(e, canvas2Ref.current, canvas);
+      updateLoupe(e, canvas2Ref.current, canvas, stampSymbol, stampItalic, drawColor);
       setLoupePos({ x: e.clientX, y: e.clientY });
+      return;
+    }
+    if (drawTool === "shape" && shapeStart2Ref.current) {
+      const pt = getCanvasPt(e, canvas);
+      curStroke2Ref.current = { tool: shapeTool, points: [shapeStart2Ref.current, pt], color: drawColor, width: drawWidth };
+      drawStrokes(canvas, strokes2Ref.current, curStroke2Ref.current);
       return;
     }
     if (!isDrawing2Ref.current || !curStroke2Ref.current) return;
@@ -2158,11 +2274,27 @@ Return ONLY the JSON array, no other text.`;
       if (!canvas) return;
       const pt = lastPt2Ref.current;
       const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
-        color:drawColor, size:drawWidth * 8 + 8, points:[pt] };
+        color:drawColor, size:drawWidth * 3 + 8, points:[pt] };
       const next = [...strokes2Ref.current, stamp];
       strokes2Ref.current = next;
       drawStrokes(canvas, next);
       await saveDrawing(dualRightSongId, 1, next);
+      return;
+    }
+    if (drawTool === "shape") {
+      const shape = curStroke2Ref.current;
+      curStroke2Ref.current = null;
+      shapeStart2Ref.current = null;
+      if (!shape || shape.points.length < 2) {
+        const canvas = drawCanvas2Ref.current;
+        if (canvas) drawStrokes(canvas, strokes2Ref.current);
+        return;
+      }
+      const next = [...strokes2Ref.current, shape];
+      strokes2Ref.current = next;
+      await saveDrawing(dualRightSongId, 1, next);
+      const canvas = drawCanvas2Ref.current;
+      if (canvas) drawStrokes(canvas, next);
       return;
     }
     if (!isDrawing2Ref.current || !curStroke2Ref.current) return;
@@ -2179,6 +2311,7 @@ Return ONLY the JSON array, no other text.`;
   };
   const handleDraw2Cancel = () => {
     setLoupePos(null);
+    shapeStart2Ref.current = null;
     isDrawing2Ref.current = false; curStroke2Ref.current = null;
     const canvas = drawCanvas2Ref.current;
     if (canvas) drawStrokes(canvas, strokes2Ref.current);
@@ -2345,6 +2478,7 @@ Return ONLY the JSON array, no other text.`;
               { id:"highlighter", icon:"highlight",  label:"형광" },
               { id:"eraser",      icon:"eraser",     label:"지우개" },
               { id:"stamp",       icon:"stamp",      label:"스탬프" },
+              { id:"shape",       icon:"slur",       label:"도형" },
             ].map(t => (
               <button key={t.id} onClick={() => setDrawTool(t.id)} title={t.label} style={{
                 display:"flex", alignItems:"center", gap:3, padding:"4px 8px",
@@ -2380,10 +2514,10 @@ Return ONLY the JSON array, no other text.`;
                   border:`1px solid ${drawWidth === w ? C.pur : C.bdr}`,
                   borderRadius:6, cursor:"pointer", flexShrink:0,
                 }}>
-                {drawTool === "stamp" ? (
+                {(drawTool === "stamp" || drawTool === "shape") ? (
                   <span style={{ fontSize: w === 1 ? 9 : w === 2 ? 12 : 16, color:drawColor, fontWeight:700,
-                    fontStyle: stampItalic ? "italic" : "normal", lineHeight:1 }}>
-                    {stampSymbol}
+                    fontStyle: drawTool === "stamp" && stampItalic ? "italic" : "normal", lineHeight:1 }}>
+                    {drawTool === "stamp" ? stampSymbol : w === 1 ? "S" : w === 2 ? "M" : "L"}
                   </span>
                 ) : (
                   <div style={{
@@ -2415,28 +2549,63 @@ Return ONLY the JSON array, no other text.`;
               </span>
             )}
           </div>
-          {/* 스탬프 팔레트 행 */}
+          {/* 스탬프 팔레트 — 컴팩트 그룹 그리드 */}
           {drawTool === "stamp" && (
             <div style={{
-              display:"flex", alignItems:"center", gap:6, padding:"6px 14px",
-              overflowX:"auto", borderTop:`1px solid ${C.bdr}`,
+              borderTop:`1px solid ${C.bdr}`, padding:"5px 10px",
+              display:"flex", flexDirection:"column", gap:3,
             }}>
-              {STAMPS.map(st => (
-                <button key={st.sym}
-                  onClick={() => { setStampSymbol(st.sym); setStampItalic(st.italic); }}
-                  style={{
-                    minWidth:36, height:32, display:"flex", alignItems:"center", justifyContent:"center",
-                    background: stampSymbol === st.sym ? `${C.acc}22` : "transparent",
-                    border:`1px solid ${stampSymbol === st.sym ? C.acc : C.bdr}`,
-                    borderRadius:7, cursor:"pointer", flexShrink:0, padding:"0 6px",
-                  }}>
-                  <span style={{
-                    fontSize:15, fontWeight:700, color: stampSymbol === st.sym ? C.acc : C.txt,
-                    fontStyle: st.italic ? "italic" : "normal",
-                    fontFamily: st.italic ? '"Times New Roman", Georgia, serif' : "inherit",
-                  }}>{st.label}</span>
+              {STAMP_GROUPS.map(group => (
+                <div key={group.label} style={{ display:"flex", alignItems:"center", gap:3 }}>
+                  <span style={{ fontSize:8, color:C.dim, fontWeight:700, width:28, textAlign:"right",
+                    flexShrink:0, letterSpacing:"0.04em" }}>{group.label}</span>
+                  {group.items.map(st => (
+                    <button key={st.sym}
+                      onClick={() => { setStampSymbol(st.sym); setStampItalic(st.italic); }}
+                      style={{
+                        width:28, height:24,
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        background: stampSymbol === st.sym ? `${C.acc}22` : "transparent",
+                        border:`1px solid ${stampSymbol === st.sym ? C.acc : C.bdr}`,
+                        borderRadius:5, cursor:"pointer", padding:0, flexShrink:0,
+                      }}>
+                      <span style={{
+                        fontSize:11, fontWeight:700,
+                        color: stampSymbol === st.sym ? C.acc : C.txt,
+                        fontStyle: st.italic ? "italic" : "normal",
+                        fontFamily: st.italic ? '"Times New Roman", Georgia, serif' : "inherit",
+                        lineHeight:1,
+                      }}>{st.sym}</span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+          {/* 도형 도구 서브팔레트 */}
+          {drawTool === "shape" && (
+            <div style={{
+              display:"flex", alignItems:"center", gap:4, padding:"5px 14px",
+              borderTop:`1px solid ${C.bdr}`, overflowX:"auto",
+            }}>
+              {[
+                { id:"slur",         icon:"slur", label:"슬러" },
+                { id:"hairpin-cresc",icon:"cresc",label:"크레센도" },
+                { id:"hairpin-dim",  icon:"dim",  label:"디크레센도" },
+                { id:"line",         icon:"line", label:"직선" },
+              ].map(s => (
+                <button key={s.id} onClick={() => setShapeTool(s.id)} title={s.label} style={{
+                  display:"flex", alignItems:"center", gap:4, padding:"4px 10px",
+                  background: shapeTool === s.id ? `${C.pur}22` : "transparent",
+                  border:`1px solid ${shapeTool === s.id ? C.pur : C.bdr}`,
+                  borderRadius:6, cursor:"pointer", flexShrink:0,
+                  fontSize:10, color: shapeTool === s.id ? C.pur : C.dim, fontFamily:"inherit", fontWeight:700,
+                }}>
+                  <Icon n={s.icon} size={14} color={shapeTool === s.id ? C.pur : C.dim} />
+                  {s.label}
                 </button>
               ))}
+              <span style={{ fontSize:10, color:C.dim, marginLeft:6 }}>드래그로 그리기</span>
             </div>
           )}
         </div>
