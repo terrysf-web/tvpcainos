@@ -2024,7 +2024,7 @@ Return ONLY the JSON array, no other text.`;
   if (!song) return null;
 
   return (
-    <div className="h-screen" style={{ background:C.bg, display:"flex",
+    <div style={{ position:"fixed", inset:0, background:C.bg, display:"flex",
       flexDirection:"column", overflow:"hidden" }}>
 
       {/* 상단 툴바 */}
