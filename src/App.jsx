@@ -78,6 +78,7 @@ const P = {
   prev:    "M15 18l-6-6 6-6",
   next:    "M9 18l6-6-6-6",
   back:    "M19 12H5M12 5l-7 7 7 7",
+  refresh: "M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.76-4.24L13 11h7V4l-2.35 2.35z",
   chevU:   "M18 15l-6-6-6 6",
   chevD:   "M6 9l6 6 6-6",
   chevL:   "M15 18l-6-6 6-6",
@@ -1007,14 +1008,21 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
           <div style={{ fontWeight:800, fontSize:20 }}>예배 일정</div>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          {isLeader(user.role) && (
+            <button onClick={() => setShowCreate(true)} style={{
+              background:C.card, border:`1px solid ${C.acc}`, borderRadius:9,
+              padding:"6px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:4,
+              color:C.acc, fontSize:12, fontFamily:"inherit", fontWeight:600,
+            }}>
+              <Icon n="plus" size={13} color={C.acc} /> 새 예배 일정 만들기
+            </button>
+          )}
           <button onClick={() => window.location.reload()} style={{
             background:C.card, border:`1px solid ${C.bdr}`,
             borderRadius:10, padding:8, cursor:"pointer",
-            display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+            display:"flex", alignItems:"center",
           }}>
-            <img src="/icon-192.png" width={18} height={18}
-              style={{ display:"block", borderRadius:4, objectFit:"cover" }} alt="새로고침" />
-            <span style={{ fontSize:9, color:C.dim, fontWeight:600, letterSpacing:"0.02em" }}>새로고침</span>
+            <Icon n="refresh" size={18} color={C.dim} />
           </button>
           <button onClick={() => nav("notifications")} style={{
             background:C.card, border:`1px solid ${C.bdr}`,
@@ -1034,21 +1042,6 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
       </div>
 
       <div style={{ padding:16, paddingBottom:90 }}>
-        {/* 리더: 예배 만들기 큰 버튼 */}
-        {isLeader(user.role) && (
-          <button onClick={() => setShowCreate(true)} style={{
-            width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
-            gap:10, padding:"14px 0", borderRadius:14, marginBottom:20,
-            background:`linear-gradient(135deg, ${C.acc}, #d4922a)`,
-            border:"none", cursor:"pointer", fontFamily:"inherit",
-            fontWeight:700, fontSize:15, color:"#fff",
-            boxShadow:`0 4px 16px ${C.acc}44`,
-          }}>
-            <Icon n="plus" size={18} color="#fff" />
-            새 예배 일정 만들기
-          </button>
-        )}
-
         {/* 다가오는 예배 */}
         {upcoming.length > 0 && (
           <>
@@ -1296,6 +1289,15 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           </div>
         </div>
         {leader && (
+          <button onClick={() => setShowPicker(true)} style={{
+            background:C.card, border:`1px solid ${C.acc}`, borderRadius:9,
+            padding:"6px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:4,
+            color:C.acc, fontSize:12, fontFamily:"inherit", fontWeight:600,
+          }}>
+            <Icon n="plus" size={13} color={C.acc} /> 라이브러리에서 곡 추가
+          </button>
+        )}
+        {leader && (
           <button onClick={() => setShowEdit(true)} style={{
             background:C.card, border:`1px solid ${C.bdr}`, borderRadius:9,
             padding:"6px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:4,
@@ -1328,19 +1330,6 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       </div>
 
       <div style={{ padding:16, paddingBottom:90 }}>
-        {/* 리더: 곡 추가 버튼 */}
-        {leader && (
-          <button onClick={() => setShowPicker(true)} style={{
-            width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
-            gap:8, padding:"12px 0", borderRadius:12, marginBottom:16,
-            background:"transparent", border:`2px dashed ${C.acc}`,
-            cursor:"pointer", fontFamily:"inherit", fontWeight:600, fontSize:14, color:C.acc,
-          }}>
-            <Icon n="plus" size={16} color={C.acc} />
-            라이브러리에서 곡 추가
-          </button>
-        )}
-
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
           textTransform:"uppercase", marginBottom:10 }}>
           예배 곡 순서 · {totalCount}곡
@@ -1352,7 +1341,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           <div style={{ textAlign:"center", padding:"40px 0", color:C.dim }}>
             <div style={{ fontSize:36, marginBottom:10 }}>🎵</div>
             <div style={{ fontWeight:600, marginBottom:4 }}>곡이 없습니다</div>
-            <div style={{ fontSize:13 }}>위 버튼으로 라이브러리에서 곡을 추가하세요</div>
+            <div style={{ fontSize:13 }}>헤더의 "라이브러리에서 곡 추가" 버튼으로 추가하세요</div>
           </div>
         )}
 
