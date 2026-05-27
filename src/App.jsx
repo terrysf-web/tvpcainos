@@ -799,28 +799,22 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
       <div className="wFadeIn"
         onClick={() => nav("svcDetail", { svcId: svc.id })}
         style={{
-          background: past ? C.card : C.surf,
-          borderRadius:14, padding: past ? "12px 16px" : "16px",
+          background: C.surf,
+          borderRadius:14, padding:"16px",
           marginBottom:10,
-          border:`1px solid ${past ? "transparent" : C.bdr}`,
+          border: past ? `1px solid ${C.bdr}` : `1.5px solid ${C.acc}`,
           cursor:"pointer",
-          boxShadow: past ? "none" : "0 1px 4px rgba(0,0,0,.06)",
-          opacity: past ? 0.78 : 1,
+          boxShadow: past ? "0 1px 4px rgba(0,0,0,.06)" : `0 2px 12px ${C.acc}33`,
         }}>
-        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom: past ? 6 : 10 }}>
+        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:10 }}>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontWeight: past ? 500 : 700, fontSize: past ? 14 : 16, color: past ? C.dim : C.txt }}>
-              {svc.title}
-            </div>
-            <div style={{ color:C.dim, fontSize: past ? 12 : 13, marginTop:2 }}>
-              {fmtDate(svc.date)}{svc.time ? ` · ${svc.time}` : ""}
+            <div style={{ fontWeight:700, fontSize:16 }}>{svc.title}</div>
+            <div style={{ color:C.dim, fontSize:13, marginTop:3 }}>
+              📅 {fmtDate(svc.date)}{svc.time ? ` · ${svc.time}` : ""}
             </div>
           </div>
-          {!past && svc.notified && (
+          {svc.notified && (
             <span style={{ fontSize:11, color:C.dim, marginLeft:8, marginTop:2 }}>✓ 알림완료</span>
-          )}
-          {!past && !svc.notified && (
-            <span style={{ fontSize:11, color:C.dim, marginLeft:8, marginTop:2, opacity:0.6 }}>대기중</span>
           )}
         </div>
         <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:8 }}>
