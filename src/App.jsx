@@ -38,6 +38,7 @@ const KEY_CLR = {
 };
 const keyColor = (k) => KEY_CLR[k ? k[0].toUpperCase() : "C"] || C.acc;
 
+const isLeader = (role) => role === "leader" || role === "admin";
 
 const fmtTime = (ts) => {
   if (!ts?.toDate) return "방금";
@@ -551,7 +552,7 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
 
       <div style={{ padding:16, paddingBottom:90 }}>
         {/* 리더: 예배 만들기 큰 버튼 */}
-        {user.role === "leader" && (
+        {isLeader(user.role) && (
           <button onClick={() => setShowCreate(true)} style={{
             width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
             gap:10, padding:"14px 0", borderRadius:14, marginBottom:20,
@@ -712,7 +713,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
         </div>
         {svc.notified
           ? <Badge label="알림완료" color={C.grn} />
-          : user.role === "leader" && (
+          : isLeader(user.role) && (
             <button onClick={sendNotif} style={{
               background:C.pur, border:"none", borderRadius:9, padding:"7px 12px",
               display:"flex", alignItems:"center", gap:5, color:"#fff",
@@ -726,7 +727,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
 
       <div style={{ padding:16, paddingBottom:90 }}>
         {/* 리더: 곡 추가 버튼 */}
-        {user.role === "leader" && (
+        {isLeader(user.role) && (
           <button onClick={() => setShowPicker(true)} style={{
             width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
             gap:8, padding:"12px 0", borderRadius:12, marginBottom:16,
@@ -786,7 +787,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
               </div>
 
               {/* 삭제 버튼 (리더만) */}
-              {user.role === "leader" && (
+              {isLeader(user.role) && (
                 <button onClick={() => removeSong(song.id)} style={{
                   background:"none", border:"none", cursor:"pointer",
                   padding:6, display:"flex", flexShrink:0,
@@ -846,7 +847,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
         borderBottom:`1px solid ${C.bdr}` }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
           <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>악보 라이브러리</div>
-          {user.role === "leader" && (
+          {isLeader(user.role) && (
             <Btn label="곡 추가" icon="plus" sm onClick={() => setShowAdd(true)} />
           )}
         </div>
@@ -899,7 +900,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
               </div>
             </div>
 
-            {user.role === "leader" && (
+            {isLeader(user.role) && (
               <div style={{ display:"flex", gap:6, flexShrink:0 }}>
                 {uploading === song.id ? (
                   <div style={{ fontSize:11, color:C.acc, padding:"0 6px" }}>업로드 중...</div>
@@ -1514,7 +1515,7 @@ function AddMemberModal({ onClose }) {
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
           textTransform:"uppercase", marginBottom:8 }}>역할</div>
         <div style={{ display:"flex", gap:8 }}>
-          {[["member","멤버"], ["leader","리더"]].map(([r, label]) => (
+          {[["member","멤버"], ["leader","리더"], ["admin","어드민"]].map(([r, label]) => (
             <button key={r} onClick={() => setRole(r)} style={{
               flex:1, padding:"9px 0", borderRadius:9, border:"none", cursor:"pointer",
               fontFamily:"inherit", fontWeight:600, fontSize:13,
@@ -1546,7 +1547,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
   const [noLeader,   setNoLeader]   = useState(false);
 
   useEffect(() => {
-    if (user.role === "leader") return;
+    if (isLeader(user.role)) return;
     getDocs(query(collection(db, "users"), where("role", "==", "leader"), limit(1)))
       .then(snap => setNoLeader(snap.empty));
   }, [user.role]);
@@ -1579,8 +1580,9 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             <div style={{ fontWeight:700, fontSize:16 }}>{user.name}</div>
             <div style={{ fontSize:13, color:C.dim, marginTop:2 }}>{user.email}</div>
             <div style={{ marginTop:8, display:"flex", gap:6, alignItems:"center" }}>
-              <Badge label={user.role === "leader" ? "리더" : "멤버"}
-                color={user.role === "leader" ? C.acc : C.grn} />
+              <Badge
+                label={user.role === "admin" ? "어드민" : user.role === "leader" ? "리더" : "멤버"}
+                color={user.role === "admin" ? C.red : user.role === "leader" ? C.acc : C.grn} />
               {user.part && <span style={{ fontSize:12, color:C.dim }}>{user.part}</span>}
             </div>
           </div>
@@ -1602,8 +1604,8 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
         </div>
       )}
 
-      {/* 팀 관리 (리더만) */}
-      {user.role === "leader" && (
+      {/* 팀 관리 (어드민만) */}
+      {user.role === "admin" && (
         <div style={{ marginBottom:12 }}>
           <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
             textTransform:"uppercase", marginBottom:10 }}>팀 관리</div>

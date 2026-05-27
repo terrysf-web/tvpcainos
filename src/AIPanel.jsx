@@ -55,7 +55,7 @@ export default function AIPanel({ song, user }) {
   const [loading,   setLoading]   = useState(false);
   const [aiErr,     setAiErr]     = useState("");
 
-  const isLeader = user?.role === "leader";
+  const isLeader = user?.role === "leader" || user?.role === "admin";
   const ytId = song?.youtubeId;
 
   const saveYtId = async () => {
