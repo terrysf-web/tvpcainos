@@ -778,7 +778,7 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
             borderRadius:10, padding:0, cursor:"pointer", display:"flex",
             overflow:"hidden",
           }}>
-            <img src="/ainos-logo.jpg" width={34} height={34}
+            <img src="/icon-192.png" width={34} height={34}
               style={{ display:"block", borderRadius:9, objectFit:"cover" }} alt="새로고침" />
           </button>
           <button onClick={() => nav("notifications")} style={{
@@ -1137,7 +1137,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
               borderRadius:10, padding:0, cursor:"pointer", display:"flex",
               overflow:"hidden",
             }}>
-              <img src="/ainos-logo.jpg" width={32} height={32}
+              <img src="/icon-192.png" width={32} height={32}
                 style={{ display:"block", borderRadius:8, objectFit:"cover" }} alt="새로고침" />
             </button>
             {isLeader(user.role) && (
