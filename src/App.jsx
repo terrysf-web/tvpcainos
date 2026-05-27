@@ -1096,18 +1096,27 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
     setDualIdx(i => i + 1);
   }, [dualIdx, svcSongs.length, showToast]);
 
-  const handleTouchStart = useCallback((e) => {
+  const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
-  }, []);
+  };
 
-  const handleTouchEnd = useCallback((e) => {
+  const handleTouchEnd = (e) => {
     if (touchStartX.current === null) return;
     const delta = e.changedTouches[0].clientX - touchStartX.current;
     touchStartX.current = null;
     if (Math.abs(delta) < 50) return;
-    if (delta < 0) dualNext();
-    else dualPrev();
-  }, [dualNext, dualPrev]);
+    if (dual) {
+      if (delta < 0) dualNext(); else dualPrev();
+    } else if (svcSongs.length > 1 && songIdx >= 0) {
+      if (delta < 0) {
+        if (songIdx >= svcSongs.length - 1) showToast("마지막 곡입니다");
+        else nav("pdfViewer", { songId: svcSongs[songIdx + 1].id, backTo });
+      } else {
+        if (songIdx <= 0) showToast("첫번째 곡입니다");
+        else nav("pdfViewer", { songId: svcSongs[songIdx - 1].id, backTo });
+      }
+    }
+  };
 
   const saveNote = async () => {
     if (!noteTxt.trim() || saving) return;
@@ -1199,7 +1208,10 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
             <Icon n="dual" size={12} color={dual ? "#fff" : C.dim} />
             DUAL
           </button>
-          <button onClick={() => setMedia(p => !p)} style={{
+          <button onClick={() => {
+            if (dual) { showToast("싱글 모드에서만 사용 가능합니다"); return; }
+            setMedia(p => !p);
+          }} style={{
             display:"flex", alignItems:"center", gap:5,
             padding:"5px 10px", borderRadius:8, cursor:"pointer",
             background: media ? C.acc : C.card,
@@ -1219,8 +1231,8 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
         {/* PDF 캔버스 영역 */}
         <div ref={containerRef} style={{ flex:1, overflow:"hidden", display:"flex",
           position:"relative", background:C.bg }}
-          onTouchStart={dual ? handleTouchStart : undefined}
-          onTouchEnd={dual ? handleTouchEnd : undefined}>
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}>
 
           {dual ? (
             // ── 듀얼 모드: 두 곡 나란히 (정확히 50/50)
@@ -1277,17 +1289,6 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
                   </div>
                 </div>
               )}
-              {/* 토스트 메시지 */}
-              {dualToast && (
-                <div style={{ position:"absolute", top:"50%", left:"50%",
-                  transform:"translate(-50%,-50%)",
-                  background:"rgba(0,0,0,.78)", color:"#fff",
-                  padding:"14px 30px", borderRadius:14, fontSize:15,
-                  fontWeight:700, zIndex:50, pointerEvents:"none", textAlign:"center",
-                  boxShadow:"0 4px 20px rgba(0,0,0,.3)" }}>
-                  {dualToast}
-                </div>
-              )}
             </>
           ) : (
             // ── 싱글 모드
@@ -1312,6 +1313,18 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
                   <div style={{ fontSize:13 }}>PDF 악보가 없습니다</div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 토스트 메시지 (싱글/듀얼 공통) */}
+          {dualToast && (
+            <div style={{ position:"absolute", top:"50%", left:"50%",
+              transform:"translate(-50%,-50%)",
+              background:"rgba(0,0,0,.78)", color:"#fff",
+              padding:"14px 30px", borderRadius:14, fontSize:15,
+              fontWeight:700, zIndex:50, pointerEvents:"none", textAlign:"center",
+              boxShadow:"0 4px 20px rgba(0,0,0,.3)" }}>
+              {dualToast}
             </div>
           )}
         </div>
