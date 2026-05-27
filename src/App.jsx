@@ -1443,7 +1443,7 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   // ── Drawing / handwriting
   const [drawMode,  setDrawMode]  = useState(false);
   const [drawColor, setDrawColor] = useState("#e8383b");
-  const [drawWidth, setDrawWidth] = useState(3);
+  const [drawWidth, setDrawWidth] = useState(1);
   const [drawTool,  setDrawTool]  = useState("pen"); // "pen" | "highlighter" | "eraser"
   const [drawSaveErr, setDrawSaveErr] = useState("");
 
@@ -2969,6 +2969,30 @@ export default function App() {
     }
   }, []);
 
+  // ── Apple Pencil 호버 커서
+  const [pencilCursor, setPencilCursor] = useState(null); // {x, y}
+  const pencilHideTimer = useRef(null);
+  useEffect(() => {
+    const onMove = (e) => {
+      if (e.pointerType !== "pen") return;
+      setPencilCursor({ x: e.clientX, y: e.clientY });
+      clearTimeout(pencilHideTimer.current);
+      pencilHideTimer.current = setTimeout(() => setPencilCursor(null), 1500);
+    };
+    const onLeave = (e) => {
+      if (e.pointerType !== "pen") return;
+      clearTimeout(pencilHideTimer.current);
+      setPencilCursor(null);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerleave", onLeave);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerleave", onLeave);
+      clearTimeout(pencilHideTimer.current);
+    };
+  }, []);
+
   // ── Handle Google redirect result
   useEffect(() => {
     getRedirectResult(auth).catch(e => console.error("redirect result error:", e));
@@ -3217,6 +3241,17 @@ export default function App() {
 
   return (
     <div style={{ width:"100%", minHeight:"100vh", background:C.bg, position:"relative" }}>
+      {/* Apple Pencil 호버 커서 */}
+      {pencilCursor && (
+        <div style={{
+          position:"fixed", pointerEvents:"none", zIndex:9999,
+          left: pencilCursor.x - 10, top: pencilCursor.y - 10,
+          width:20, height:20, borderRadius:"50%",
+          border:"2px solid rgba(108,93,231,0.8)",
+          background:"rgba(108,93,231,0.12)",
+          transition:"opacity .2s",
+        }} />
+      )}
       {view === "services"      && <ServicesScreen      {...shared} />}
       {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} />}
       {view === "library"       && <SongLibraryScreen   {...shared} />}
