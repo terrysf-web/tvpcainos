@@ -1347,52 +1347,6 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
         )}
       </div>
 
-      {/* 하단 바: 듀얼 모드 = 곡 쌍 이동 / 싱글 모드 = 페이지 + 곡 이동 */}
-      <div style={{ background:C.surf, borderTop:`1px solid ${C.bdr}`,
-        padding:"8px 12px", display:"flex", alignItems:"center",
-        justifyContent:"space-between", flexShrink:0, gap:8 }}>
-
-        {dual ? (
-          <>
-            {navSongBtn("이전", "prev", dualIdx <= 0, dualPrev)}
-            <span style={{ fontSize:12, color:C.dim, textAlign:"center" }}>
-              {dualIdx + 1}{svcSongs[dualIdx + 1] ? `–${dualIdx + 2}` : ""} / {svcSongs.length}곡
-            </span>
-            {navSongBtn("다음", "next", dualIdx >= svcSongs.length - 1, dualNext)}
-          </>
-        ) : (
-          <>
-            {svcSongs.length > 1
-              ? navSongBtn("이전 곡", "prev", songIdx <= 0, () => goToSong(songIdx - 1))
-              : <div />}
-
-            {numPages > 0 && (
-              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <button onClick={() => setPageNum(p => Math.max(1, p - 1))} disabled={pageNum <= 1}
-                  style={{ background:C.card, border:`1px solid ${C.bdr}`, borderRadius:9,
-                    padding:"6px 14px", cursor: pageNum <= 1 ? "not-allowed" : "pointer",
-                    opacity: pageNum <= 1 ? 0.3 : 1 }}>
-                  <Icon n="prev" size={16} color={C.txt} />
-                </button>
-                <span style={{ fontSize:12, color:C.dim, minWidth:52, textAlign:"center" }}>
-                  {pageNum} / {numPages}
-                </span>
-                <button onClick={() => setPageNum(p => Math.min(numPages, p + 1))} disabled={pageNum >= numPages}
-                  style={{ background:C.card, border:`1px solid ${C.bdr}`, borderRadius:9,
-                    padding:"6px 14px", cursor: pageNum >= numPages ? "not-allowed" : "pointer",
-                    opacity: pageNum >= numPages ? 0.3 : 1 }}>
-                  <Icon n="next" size={16} color={C.txt} />
-                </button>
-              </div>
-            )}
-
-            {svcSongs.length > 1
-              ? navSongBtn("다음 곡", "next", songIdx >= svcSongs.length - 1, () => goToSong(songIdx + 1))
-              : <div />}
-          </>
-        )}
-      </div>
-
       {/* 메모 입력 */}
       {noteInput && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)",
