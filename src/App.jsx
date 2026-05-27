@@ -169,15 +169,16 @@ function Modal({ title, onClose, children }) {
   return (
     <div style={{
       position:"fixed", inset:0, background:"rgba(0,0,0,.45)",
-      display:"flex", alignItems:"flex-end", justifyContent:"center",
+      display:"flex", alignItems:"center", justifyContent:"center",
       zIndex:900, backdropFilter:"blur(4px)",
+      padding:"16px 16px calc(16px + env(safe-area-inset-bottom)) 16px",
     }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="wSlideUp" style={{
-        background:C.surf, borderRadius:"20px 20px 0 0",
-        width:"100%", maxWidth:480, maxHeight:"88vh",
-        overflow:"auto", padding:"24px 20px 32px",
-        border:`1px solid ${C.bdr}`, borderBottom:"none",
+      <div className="wSlideUp modal-sheet" style={{
+        background:C.surf, borderRadius:20,
+        width:"100%", maxWidth:480,
+        overflow:"auto", padding:"24px 20px 28px",
+        border:`1px solid ${C.bdr}`,
       }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
           <div style={{ fontWeight:700, fontSize:17, letterSpacing:"-0.02em" }}>{title}</div>
@@ -1992,6 +1993,7 @@ export default function App() {
       @keyframes wFadeIn  { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
       @keyframes wSlideUp { from { opacity:0; transform:translateY(32px);} to { opacity:1; transform:translateY(0); } }
       .h-screen { height: 100vh; height: 100dvh; }
+      .modal-sheet { max-height: 90vh; max-height: 90dvh; }
     `;
     document.head.appendChild(el);
     return () => { try { document.head.removeChild(el); } catch(_) {} };
