@@ -198,6 +198,16 @@ const STAMP_GROUPS = [
 ];
 const STAMPS = STAMP_GROUPS.flatMap(g => g.items);
 
+// 음표·쉼표는 textBaseline:"bottom" → notehead가 터치 지점에 정확히 앉음
+// 악상·아티큘·임시표는 textBaseline:"middle" (글리프 중앙 = 의미있는 위치)
+const NOTE_SYMS = new Set(["♩","♪","♫","♬","𝄽","𝄾","𝄿","𝄞","𝄢"]);
+const ACCIDN_SYMS = new Set(["♭","♮","♯","𝄪","𝄫"]);
+function getStampBaseline(sym) {
+  if (NOTE_SYMS.has(sym))   return "bottom";
+  if (ACCIDN_SYMS.has(sym)) return "alphabetic";
+  return "middle";
+}
+
 /* ── Canvas drawing utility (module-level, pure) */
 function drawStrokes(canvas, strokes, cur = null) {
   if (!canvas || !canvas.width || !canvas.height) return;
@@ -269,7 +279,7 @@ function drawStrokes(canvas, strokes, cur = null) {
           : 'system-ui, -apple-system, sans-serif';
         ctx.font = `${s.italic ? "italic " : ""}bold ${sz}px ${family}`;
         ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+        ctx.textBaseline = getStampBaseline(s.symbol);
         ctx.fillText(s.symbol || "f", px, py);
       }
       ctx.restore();
@@ -2150,7 +2160,6 @@ Return ONLY the JSON array, no other text.`;
   const updateLoupe = useCallback((e, pdfCanvas, drawCanvas, sym, italic, color) => {
     const lc = loupeCanvasRef.current;
     if (!lc || !pdfCanvas || !pdfCanvas.width) return;
-    // Use drawCanvas rect for position (same as getCanvasPt) to ensure loupe ↔ stamp alignment
     const posRef = drawCanvas || pdfCanvas;
     const r = posRef.getBoundingClientRect();
     if (!r.width) return;
@@ -2158,7 +2167,7 @@ Return ONLY the JSON array, no other text.`;
     const scY = pdfCanvas.height / r.height;
     const cx = (e.clientX - r.left) * scX;
     const cy = (e.clientY - r.top)  * scY;
-    const ZOOM = 3;
+    const ZOOM = 4;                          // 더 큰 줌
     const LW = lc.width, LH = lc.height;
     const srcW = LW / ZOOM, srcH = LH / ZOOM;
     const ctx = lc.getContext("2d");
@@ -2167,22 +2176,29 @@ Return ONLY the JSON array, no other text.`;
     if (drawCanvas && drawCanvas.width) {
       ctx.drawImage(drawCanvas, cx - srcW / 2, cy - srcH / 2, srcW, srcH, 0, 0, LW, LH);
     }
-    // crosshair (subtle)
-    ctx.strokeStyle = "rgba(255,255,255,0.45)";
+    // 십자선 — 수평선만 강하게 (오선지 라인에 정렬하기 쉽게)
+    ctx.strokeStyle = "rgba(220,40,40,0.9)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(4, LH / 2); ctx.lineTo(LW - 4, LH / 2);   // 수평 전체
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(220,40,40,0.55)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(LW / 2 - 10, LH / 2); ctx.lineTo(LW / 2 + 10, LH / 2);
-    ctx.moveTo(LW / 2, LH / 2 - 10); ctx.lineTo(LW / 2, LH / 2 + 10);
+    ctx.moveTo(LW / 2, LH / 2 - 8); ctx.lineTo(LW / 2, LH / 2 + 8); // 수직 짧게
     ctx.stroke();
-    // stamp symbol preview at center
+    // 스탬프 미리보기 — drawStrokes와 동일한 baseline 적용
     if (sym) {
-      const sz = 22;
+      const baseline = getStampBaseline(sym);
+      // 루프 크기에 비례한 크기 계산: 실제 스탬프 sz에 ZOOM 적용
+      const actualSz = Math.max(7, 12 * pdfCanvas.width / 450);
+      const sz = actualSz * ZOOM;
       const family = italic ? '"Times New Roman", Georgia, serif' : 'system-ui, sans-serif';
       ctx.font = `${italic ? "italic " : ""}bold ${sz}px ${family}`;
       ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
+      ctx.textBaseline = baseline;
       ctx.fillStyle = color || "#e8383b";
-      ctx.globalAlpha = 0.92;
+      ctx.globalAlpha = 0.88;
       ctx.fillText(sym, LW / 2, LH / 2);
       ctx.globalAlpha = 1;
     }
@@ -2788,12 +2804,12 @@ Return ONLY the JSON array, no other text.`;
       )}
 
       {/* 돋보기 루프 (스탬프 모드 / 애플펜슬) */}
-      <canvas ref={loupeCanvasRef} width={130} height={130}
+      <canvas ref={loupeCanvasRef} width={160} height={160}
         style={{
           position:"fixed",
-          left: loupePos ? loupePos.x - 65 : -9999,
-          top:  loupePos ? loupePos.y - 160 : -9999,
-          width:130, height:130,
+          left: loupePos ? loupePos.x - 80 : -9999,
+          top:  loupePos ? loupePos.y - 190 : -9999,
+          width:160, height:160,
           borderRadius:"50%",
           border:"3px solid rgba(255,255,255,0.85)",
           boxShadow:"0 4px 24px rgba(0,0,0,0.55)",
