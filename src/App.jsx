@@ -774,16 +774,12 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           <button onClick={() => window.location.reload()} style={{
-            background:"transparent", border:"none",
-            borderRadius:10, padding:0, cursor:"pointer",
+            background:C.card, border:`1px solid ${C.bdr}`,
+            borderRadius:10, padding:8, cursor:"pointer",
             display:"flex", flexDirection:"column", alignItems:"center", gap:2,
           }}>
-            <img src="/icon-192.png" width={30} height={30}
-              style={{
-                display:"block", borderRadius:8, objectFit:"cover",
-                border:`1px solid ${C.bdr}`,
-                boxShadow:"0 1px 4px rgba(0,0,0,0.10)",
-              }} alt="새로고침" />
+            <img src="/icon-192.png" width={18} height={18}
+              style={{ display:"block", borderRadius:4, objectFit:"cover" }} alt="새로고침" />
             <span style={{ fontSize:9, color:C.dim, fontWeight:600, letterSpacing:"0.02em" }}>새로고침</span>
           </button>
           <button onClick={() => nav("notifications")} style={{
@@ -1138,16 +1134,12 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
           <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>악보 라이브러리</div>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
             <button onClick={() => window.location.reload()} style={{
-              background:"transparent", border:"none",
-              borderRadius:10, padding:0, cursor:"pointer",
+              background:C.card, border:`1px solid ${C.bdr}`,
+              borderRadius:10, padding:8, cursor:"pointer",
               display:"flex", flexDirection:"column", alignItems:"center", gap:2,
             }}>
-              <img src="/icon-192.png" width={30} height={30}
-                style={{
-                  display:"block", borderRadius:8, objectFit:"cover",
-                  border:`1px solid ${C.bdr}`,
-                  boxShadow:"0 1px 4px rgba(0,0,0,0.10)",
-                }} alt="새로고침" />
+              <img src="/icon-192.png" width={18} height={18}
+                style={{ display:"block", borderRadius:4, objectFit:"cover" }} alt="새로고침" />
               <span style={{ fontSize:9, color:C.dim, fontWeight:600, letterSpacing:"0.02em" }}>새로고침</span>
             </button>
             {isLeader(user.role) && (
