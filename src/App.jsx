@@ -2081,35 +2081,40 @@ Return ONLY the JSON array, no other text.`;
             <Icon n="zoomIn" size={18} color={C.dim} />
           </button>
           <div style={{ width:1, height:18, background:C.bdr, flexShrink:0 }} />
-          {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
-          {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
+          {[
+            { n:"pen",  active:drawMode,      fn:()=>{ setDrawMode(p=>!p); setDrawTool("pen"); } },
+            { n:"note", active:showNotePanel, fn:()=>setShowNotePanel(p=>!p) },
+          ].map(b => (
+            <button key={b.n} onClick={b.fn} style={{
+              background: b.active ? `${C.acc}33` : "transparent",
+              border:`1px solid ${b.active ? C.acc : C.bdr}`,
+              borderRadius:8, padding:5, cursor:"pointer",
+              display:"flex", alignItems:"center", flexShrink:0,
+            }}>
+              <Icon n={b.n} size={16} color={b.active ? C.acc : C.dim} />
+            </button>
+          ))}
           <div style={{ width:1, height:18, background:C.bdr, flexShrink:0 }} />
-          <button onClick={() => setDual(p => !p)} style={{
-            display:"flex", alignItems:"center", gap:4, flexShrink:0,
-            padding:"4px 9px", borderRadius:8, cursor:"pointer",
+          <button title="DUAL" onClick={() => setDual(p => !p)} style={{
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+            width:34, height:28, borderRadius:8, cursor:"pointer",
             background: dual ? C.pur : C.card,
             border:`1px solid ${dual ? C.pur : C.bdr}`,
-            color: dual ? "#fff" : C.dim,
-            fontWeight:700, fontSize:11, fontFamily:"inherit",
-            letterSpacing:"0.06em", transition:"all .15s",
+            transition:"all .15s",
           }}>
-            <Icon n="dual" size={12} color={dual ? "#fff" : C.dim} />
-            DUAL
+            <Icon n="dual" size={14} color={dual ? "#fff" : C.dim} />
           </button>
-          <button onClick={() => {
+          <button title="MEDIA" onClick={() => {
             if (dual) { showToast("싱글 모드에서만 사용 가능합니다"); return; }
             setMedia(p => !p);
           }} style={{
-            display:"flex", alignItems:"center", gap:4, flexShrink:0,
-            padding:"4px 9px", borderRadius:8, cursor:"pointer",
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+            width:34, height:28, borderRadius:8, cursor:"pointer",
             background: media ? C.acc : C.card,
             border:`1px solid ${media ? C.acc : C.bdr}`,
-            color: media ? "#fff" : C.dim,
-            fontWeight:700, fontSize:11, fontFamily:"inherit",
-            letterSpacing:"0.06em", transition:"all .15s",
+            transition:"all .15s",
           }}>
-            <Icon n="sideR" size={12} color={media ? "#fff" : C.dim} />
-            MEDIA
+            <Icon n="sideR" size={14} color={media ? "#fff" : C.dim} />
           </button>
           {isLeader(user.role) && (
             <button onClick={() => {
@@ -2117,12 +2122,12 @@ Return ONLY the JSON array, no other text.`;
               if (transposeMode) { setTransposeSteps(0); setChordData([]); setChordData2([]); setDetectErr(""); }
             }} style={{
               display:"flex", alignItems:"center", gap:4, flexShrink:0,
-              padding:"4px 9px", borderRadius:8, cursor:"pointer",
+              padding:"4px 10px", borderRadius:8, cursor:"pointer",
               background: transposeMode ? C.grn : C.card,
               border:`1px solid ${transposeMode ? C.grn : C.bdr}`,
               color: transposeMode ? "#fff" : C.dim,
               fontWeight:700, fontSize:11, fontFamily:"inherit",
-              letterSpacing:"0.06em", transition:"all .15s",
+              transition:"all .15s",
             }}>
               {transposeMode && transposeSteps !== 0
                 ? `${song.key}→${keyName(song.key, transposeSteps)}`
