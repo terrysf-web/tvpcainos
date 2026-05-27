@@ -2287,7 +2287,6 @@ Return ONLY the JSON array, no other text.`;
           </div>
         </div>
       )}
-      </div>
 
       {/* 콘텐츠 */}
       <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
