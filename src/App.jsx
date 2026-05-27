@@ -253,7 +253,7 @@ function Divider() {
 /* ══════════════════════════════════════════════════════════════════
    MODAL
 ══════════════════════════════════════════════════════════════════ */
-function Modal({ title, onClose, children }) {
+function Modal({ title, onClose, children, noBackdrop = false }) {
   return (
     <div style={{
       position:"fixed", inset:0, background:"rgba(0,0,0,.45)",
@@ -261,7 +261,7 @@ function Modal({ title, onClose, children }) {
       zIndex:900, backdropFilter:"blur(4px)",
       padding:"16px 16px calc(16px + env(safe-area-inset-bottom)) 16px",
     }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      onClick={noBackdrop ? undefined : (e => { if (e.target === e.currentTarget) onClose(); })}>
       <div className="wSlideUp modal-sheet" style={{
         background:C.surf, borderRadius:20,
         width:"100%", maxWidth:480,
@@ -437,75 +437,150 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
    ADD SONG MODAL
 ══════════════════════════════════════════════════════════════════ */
 function AddSongModal({ onClose, onAdd }) {
-  const [title,    setTitle]   = useState("");
-  const [artist,   setArtist]  = useState("");
-  const [key,      setKey]     = useState("C");
-  const [bpm,      setBpm]     = useState("80");
-  const [pdfFile,   setPdfFile]   = useState(null);
-  const [saving,    setSaving]    = useState(false);
+  const [title,        setTitle]        = useState("");
+  const [artist,       setArtist]       = useState("");
+  const [key,          setKey]          = useState("C");
+  const [bpm,          setBpm]          = useState("80");
+  const [pdfFile,      setPdfFile]      = useState(null);
+  const [saving,       setSaving]       = useState(false);
+  const [pdfPageCount, setPdfPageCount] = useState(0);
+  const [splitMode,    setSplitMode]    = useState(false);
+  const [splitEntries, setSplitEntries] = useState([]);
+  const [savingPage,   setSavingPage]   = useState(""); // "2/5" progress
   const fileRef = useRef(null);
   const KEYS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
+  const handleFileSelect = async (file) => {
+    setPdfFile(file);
+    setSplitMode(false);
+    setPdfPageCount(0);
+    setSplitEntries([]);
+    if (!file || !window.pdfjsLib) return;
+    try {
+      const buf = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      const n = pdf.numPages;
+      setPdfPageCount(n);
+    } catch { /* ignore */ }
+  };
+
+  const enableSplit = () => {
+    setSplitMode(true);
+    setSplitEntries(
+      Array.from({ length: pdfPageCount }, (_, i) => ({
+        title: title ? `${title} (${i + 1})` : `페이지 ${i + 1}`,
+        artist, key, bpm,
+      }))
+    );
+  };
+
+  const updateEntry = (idx, field, val) =>
+    setSplitEntries(p => p.map((e, i) => i === idx ? { ...e, [field]: val } : e));
+
   const handleAdd = async () => {
-    if (!title) return;
+    if (splitMode) {
+      if (splitEntries.some(e => !e.title.trim())) return;
+    } else {
+      if (!title.trim()) return;
+    }
     setSaving(true);
     try {
-      const docRef = await onAdd({ title, artist, key, bpm: Number(bpm) || 80 });
-      if (pdfFile && docRef?.id) {
-        const url = await uploadPdf(pdfFile, docRef.id);
-        await updateDoc(doc(db, "songs", docRef.id), { pdfUrl: url });
+      if (splitMode && pdfPageCount > 1) {
+        // Upload PDF once using first song's id, then reuse url
+        const first = splitEntries[0];
+        setSavingPage(`1/${pdfPageCount}`);
+        const firstRef = await onAdd({
+          title: first.title, artist: first.artist,
+          key: first.key, bpm: Number(first.bpm) || 80, pdfPage: 1,
+        });
+        let sharedUrl = null;
+        if (pdfFile && firstRef?.id) {
+          sharedUrl = await uploadPdf(pdfFile, firstRef.id);
+          await updateDoc(doc(db, "songs", firstRef.id), { pdfUrl: sharedUrl });
+        }
+        for (let i = 1; i < splitEntries.length; i++) {
+          const e = splitEntries[i];
+          setSavingPage(`${i + 1}/${pdfPageCount}`);
+          const ref = await onAdd({
+            title: e.title, artist: e.artist,
+            key: e.key, bpm: Number(e.bpm) || 80, pdfPage: i + 1,
+          });
+          if (sharedUrl && ref?.id) {
+            await updateDoc(doc(db, "songs", ref.id), { pdfUrl: sharedUrl });
+          }
+        }
+      } else {
+        const docRef = await onAdd({ title, artist, key, bpm: Number(bpm) || 80 });
+        if (pdfFile && docRef?.id) {
+          const url = await uploadPdf(pdfFile, docRef.id);
+          await updateDoc(doc(db, "songs", docRef.id), { pdfUrl: url });
+        }
       }
       onClose();
     } catch(e) {
       console.error(e);
       alert("오류: " + e.message);
       setSaving(false);
+      setSavingPage("");
     }
   };
 
+  const canAdd = splitMode
+    ? splitEntries.length > 0 && splitEntries.every(e => e.title.trim())
+    : !!title.trim();
+
   return (
-    <Modal title="새 곡 추가" onClose={onClose}>
-      <Input label="곡 제목"  value={title}  onChange={setTitle}
-        placeholder="예) 주님 이름 찬양" autoFocus />
-      <Input label="아티스트" value={artist} onChange={setArtist}
-        placeholder="예) Hillsong Worship" />
-
-      <div style={{ marginBottom:14 }}>
-        <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
-          textTransform:"uppercase", marginBottom:8 }}>키</div>
-        <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-          {KEYS.map(k => (
-            <button key={k} onClick={() => setKey(k)} style={{
-              padding:"5px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize:13,
-              background: key===k ? keyColor(k) : C.card,
-              color:       key===k ? "#111"       : C.dim,
-              fontWeight:  key===k ? 700          : 400,
-              fontFamily:"inherit",
-            }}>{k}</button>
-          ))}
-        </div>
-      </div>
-
-      <Input label="BPM" value={bpm} onChange={setBpm} type="number" placeholder="80" />
+    <Modal title="새 곡 추가" onClose={onClose} noBackdrop>
+      {!splitMode && (
+        <>
+          <Input label="곡 제목"  value={title}  onChange={setTitle}
+            placeholder="예) 주님 이름 찬양" autoFocus />
+          <Input label="아티스트" value={artist} onChange={setArtist}
+            placeholder="예) Hillsong Worship" />
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+              textTransform:"uppercase", marginBottom:8 }}>키</div>
+            <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+              {KEYS.map(k => (
+                <button key={k} onClick={() => setKey(k)} style={{
+                  padding:"5px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize:13,
+                  background: key===k ? keyColor(k) : C.card,
+                  color:       key===k ? "#111"       : C.dim,
+                  fontWeight:  key===k ? 700          : 400,
+                  fontFamily:"inherit",
+                }}>{k}</button>
+              ))}
+            </div>
+          </div>
+          <Input label="BPM" value={bpm} onChange={setBpm} type="number" placeholder="80" />
+        </>
+      )}
 
       {/* PDF 업로드 */}
-      <div style={{ marginBottom:16 }}>
+      <div style={{ marginBottom:12 }}>
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
           textTransform:"uppercase", marginBottom:8 }}>악보 PDF (선택)</div>
         <input ref={fileRef} type="file" accept=".pdf,application/pdf"
           style={{ display:"none" }}
-          onChange={e => { setPdfFile(e.target.files[0] || null); e.target.value = ""; }} />
+          onChange={e => { handleFileSelect(e.target.files[0] || null); e.target.value = ""; }} />
         {pdfFile ? (
           <div style={{
             display:"flex", alignItems:"center", gap:10, padding:"12px 14px",
             background:`${C.grn}12`, border:`1.5px solid ${C.grn}55`, borderRadius:10,
           }}>
             <span style={{ fontSize:20 }}>📄</span>
-            <span style={{ fontSize:13, color:C.grn, fontWeight:600, flex:1,
-              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {pdfFile.name}
-            </span>
-            <button onClick={() => setPdfFile(null)}
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13, color:C.grn, fontWeight:600,
+                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {pdfFile.name}
+              </div>
+              {pdfPageCount > 0 && (
+                <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>
+                  {pdfPageCount}페이지
+                </div>
+              )}
+            </div>
+            <button onClick={() => { setPdfFile(null); setSplitMode(false); setPdfPageCount(0); }}
               style={{ background:"none", border:"none", cursor:"pointer", padding:2, display:"flex" }}>
               <Icon n="xmark" size={16} color={C.dim} />
             </button>
@@ -523,14 +598,100 @@ function AddSongModal({ onClose, onAdd }) {
         )}
       </div>
 
-      {saving && (
-        <div style={{ fontSize:12, color:C.dim, marginBottom:12, textAlign:"center" }}>
-          {pdfFile ? "📤 업로드 중..." : "저장 중..."}
+      {/* 분할 저장 옵션 */}
+      {pdfPageCount > 1 && !splitMode && (
+        <button onClick={enableSplit} style={{
+          width:"100%", padding:"10px", borderRadius:10, marginBottom:12, cursor:"pointer",
+          border:`1.5px solid ${C.pur}66`, background:`${C.pur}0e`,
+          fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.pur,
+          display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+        }}>
+          ✂️ PDF {pdfPageCount}페이지를 {pdfPageCount}개 곡으로 분할 저장
+        </button>
+      )}
+
+      {/* 분할 모드: 페이지별 제목 입력 */}
+      {splitMode && (
+        <div style={{ marginBottom:14 }}>
+          <div style={{
+            display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8,
+          }}>
+            <div style={{ fontSize:11, color:C.pur, fontWeight:700, letterSpacing:"0.06em",
+              textTransform:"uppercase" }}>
+              분할 저장 — {pdfPageCount}페이지
+            </div>
+            <button onClick={() => setSplitMode(false)} style={{
+              background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
+              padding:"2px 8px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit",
+            }}>취소</button>
+          </div>
+          <div style={{ maxHeight:280, overflowY:"auto", display:"flex", flexDirection:"column", gap:8 }}>
+            {splitEntries.map((e, i) => (
+              <div key={i} style={{
+                background:C.card, borderRadius:10, padding:"10px 12px",
+                border:`1px solid ${C.bdr}`,
+              }}>
+                <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:6 }}>
+                  페이지 {i + 1}
+                </div>
+                <input
+                  value={e.title}
+                  onChange={ev => updateEntry(i, "title", ev.target.value)}
+                  placeholder={`곡 제목 (페이지 ${i + 1})`}
+                  style={{
+                    width:"100%", boxSizing:"border-box",
+                    background:C.surf, border:`1px solid ${C.bdr}`,
+                    color:C.txt, padding:"7px 10px", borderRadius:8,
+                    fontSize:13, outline:"none", fontFamily:"inherit", marginBottom:6,
+                  }}
+                />
+                <div style={{ display:"flex", gap:6 }}>
+                  <input
+                    value={e.artist}
+                    onChange={ev => updateEntry(i, "artist", ev.target.value)}
+                    placeholder="아티스트"
+                    style={{
+                      flex:1, background:C.surf, border:`1px solid ${C.bdr}`,
+                      color:C.txt, padding:"6px 8px", borderRadius:7,
+                      fontSize:12, outline:"none", fontFamily:"inherit",
+                    }}
+                  />
+                  <select value={e.key} onChange={ev => updateEntry(i, "key", ev.target.value)}
+                    style={{
+                      background:C.surf, border:`1px solid ${C.bdr}`,
+                      color:C.txt, padding:"6px 8px", borderRadius:7,
+                      fontSize:12, fontFamily:"inherit", outline:"none",
+                    }}>
+                    {KEYS.map(k => <option key={k} value={k}>{k}</option>)}
+                  </select>
+                  <input
+                    value={e.bpm}
+                    onChange={ev => updateEntry(i, "bpm", ev.target.value)}
+                    placeholder="BPM"
+                    type="number"
+                    style={{
+                      width:60, background:C.surf, border:`1px solid ${C.bdr}`,
+                      color:C.txt, padding:"6px 8px", borderRadius:7,
+                      fontSize:12, outline:"none", fontFamily:"inherit",
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      <Btn label={saving ? "추가 중..." : "추가하기"}
-        icon="plus" onClick={handleAdd} full disabled={saving || !title} />
+      {saving && (
+        <div style={{ fontSize:12, color:C.dim, marginBottom:12, textAlign:"center" }}>
+          {savingPage ? `📤 저장 중... (${savingPage})` : pdfFile ? "📤 업로드 중..." : "저장 중..."}
+        </div>
+      )}
+
+      <Btn
+        label={saving ? (savingPage ? `저장 중... ${savingPage}` : "추가 중...") : (splitMode ? `${pdfPageCount}개 곡 추가하기` : "추가하기")}
+        icon="plus" onClick={handleAdd} full disabled={saving || !canAdd}
+      />
     </Modal>
   );
 }
@@ -1315,7 +1476,7 @@ Return ONLY the JSON array, no other text.`;
   useEffect(() => {
     if (dual) return;
     pdfDocRef.current = null;
-    setPageNum(1); setNumPages(0); setLoadErr("");
+    setPageNum(song?.pdfPage || 1); setNumPages(0); setLoadErr("");
     if (!song?.pdfUrl || !pdfjsReady || !window.pdfjsLib) return;
     window.pdfjsLib.getDocument({ url: song.pdfUrl }).promise
       .then(pdf => { pdfDocRef.current = pdf; setNumPages(pdf.numPages); })
