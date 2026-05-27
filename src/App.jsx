@@ -805,7 +805,7 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
           border:`1px solid ${past ? "transparent" : C.bdr}`,
           cursor:"pointer",
           boxShadow: past ? "none" : "0 1px 4px rgba(0,0,0,.06)",
-          opacity: past ? 0.55 : 1,
+          opacity: past ? 0.78 : 1,
         }}>
         <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom: past ? 6 : 10 }}>
           <div style={{ flex:1, minWidth:0 }}>
