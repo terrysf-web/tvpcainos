@@ -1014,6 +1014,15 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
     return () => ro.disconnect();
   }, []);
 
+  // 스와이프 중 브라우저 기본 스크롤 차단 (iOS Safari 포함)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const prevent = (e) => { if (touchStartX.current !== null) e.preventDefault(); };
+    el.addEventListener("touchmove", prevent, { passive: false });
+    return () => el.removeEventListener("touchmove", prevent);
+  }, []);
+
   // PDF 로드 (싱글 모드)
   useEffect(() => {
     if (dual) return;
@@ -1230,7 +1239,7 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
       <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
         {/* PDF 캔버스 영역 */}
         <div ref={containerRef} style={{ flex:1, overflow:"hidden", display:"flex",
-          position:"relative", background:C.bg }}
+          position:"relative", background:C.bg, touchAction:"none" }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}>
 
