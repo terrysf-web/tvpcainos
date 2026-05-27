@@ -1180,8 +1180,15 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
     return () => el.removeEventListener("touchmove", prevent);
   }, []);
 
-  // 페이지/곡 바뀌면 코드 감지 결과 초기화
-  useEffect(() => { setChordData([]); setDetectErr(""); }, [pageNum, selectedSongId]);
+  // 페이지/곡 바뀌면 코드 감지 결과 로드 (Firestore)
+  useEffect(() => {
+    setChordData([]); setDetectErr("");
+    if (!user?.uid || !selectedSongId || dual) return;
+    getDoc(doc(db, "customSongs", `chord_${user.uid}_${selectedSongId}_p${pageNum}`))
+      .then(snap => {
+        if (snap.exists()) setChordData(snap.data().chords || []);
+      }).catch(() => {});
+  }, [pageNum, selectedSongId, user?.uid, dual]);
 
   const detectChords = async () => {
     const canvas = canvas1Ref.current;
@@ -1227,7 +1234,14 @@ Return ONLY the JSON array, no other text.`;
         return { chord: item.label, x, y, w, h };
       });
       setChordData(chords);
-      if (chords.length === 0) setDetectErr("코드를 찾지 못했습니다");
+      if (chords.length === 0) {
+        setDetectErr("코드를 찾지 못했습니다");
+      } else if (user?.uid && selectedSongId) {
+        setDoc(
+          doc(db, "customSongs", `chord_${user.uid}_${selectedSongId}_p${pageNum}`),
+          { chords, updatedAt: serverTimestamp() }
+        ).catch(() => {});
+      }
     } catch(e) {
       setDetectErr("오류: " + e.message);
     } finally {
@@ -1841,15 +1855,12 @@ Return ONLY the JSON array, no other text.`;
                         onPointerCancel={handleDraw1Cancel}
                       />
                       {/* 전조 코드 오버레이 */}
-                      {transposeMode && chordData.length > 0 && (
-                        <div style={{ position:"absolute", inset:0, pointerEvents:"none", borderRadius:4 }}>
-                          {chordData.map((item, i) => {
-                            const canvas = canvas1Ref.current;
-                            const cw = canvas?.width || 600;
-                            const ch = canvas?.height || 800;
-                            const pxW = (item.w || 0.08) * cw;
-                            const fs = Math.max(9, Math.min(18, pxW * 0.55));
-                            return (
+                      {transposeMode && chordData.length > 0 && (() => {
+                        const cw = canvas1Ref.current?.offsetWidth || 600;
+                        const fs = Math.max(10, Math.min(16, cw / 50));
+                        return (
+                          <div style={{ position:"absolute", inset:0, pointerEvents:"none", borderRadius:4 }}>
+                            {chordData.map((item, i) => (
                               <span key={i} style={{
                                 position:"absolute",
                                 left:`${item.x * 100}%`,
@@ -1858,7 +1869,7 @@ Return ONLY the JSON array, no other text.`;
                                 background: transposeSteps === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
                                 color: transposeSteps === 0 ? "#fff" : "#111",
                                 borderRadius:3,
-                                padding:"0px 4px",
+                                padding:"1px 5px",
                                 fontSize:fs,
                                 fontWeight:800,
                                 lineHeight:1.5,
@@ -1868,10 +1879,10 @@ Return ONLY the JSON array, no other text.`;
                               }}>
                                 {transposeChord(item.chord, transposeSteps)}
                               </span>
-                            );
-                          })}
-                        </div>
-                      )}
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
               ) : (
                 <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
