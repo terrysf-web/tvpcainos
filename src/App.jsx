@@ -1311,7 +1311,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
   };
 
   return (
-    <div style={{ height:"100dvh", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div style={{ height:"var(--app-h, 100dvh)", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* 고정 헤더 */}
       <div style={{ background:C.surf, flexShrink:0,
         paddingTop:"calc(18px + env(safe-area-inset-top))",
@@ -3171,6 +3171,16 @@ export default function App() {
     }
   }, []);
 
+  // ── 실제 뷰포트 높이 CSS 변수 고정 (Android 브라우저 URL바 대응)
+  useEffect(() => {
+    const setVh = () => {
+      document.documentElement.style.setProperty("--app-h", `${window.innerHeight}px`);
+    };
+    setVh();
+    window.addEventListener("resize", setVh);
+    return () => window.removeEventListener("resize", setVh);
+  }, []);
+
   // ── Apple Pencil 호버 커서
   const [pencilCursor, setPencilCursor] = useState(null);
   const pencilHideTimer = useRef(null);
@@ -3353,9 +3363,8 @@ export default function App() {
       .wSlideUp { animation: wSlideUp .28s cubic-bezier(.16,1,.3,1); }
       @keyframes wFadeIn  { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
       @keyframes wSlideUp { from { opacity:0; transform:translateY(32px);} to { opacity:1; transform:translateY(0); } }
-      .h-screen { height: 100vh; height: 100dvh; }
+      .h-screen { height: 100vh; height: var(--app-h, 100dvh); }
       .modal-sheet { max-height: 90vh; max-height: 90dvh; }
-      .full-h { height: 100vh; height: 100dvh; }
     `;
     document.head.appendChild(el);
     return () => { try { document.head.removeChild(el); } catch(_) {} };
