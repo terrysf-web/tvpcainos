@@ -951,19 +951,24 @@ function SongPickerModal({ songs, currentIds, onClose, onSave }) {
 function ServiceDetailScreen({ user, services, songs, annotations, nav, selectedSvcId }) {
   const svc = services.find(s => s.id === selectedSvcId);
   const [showPicker, setShowPicker] = useState(false);
+  const [drag, setDrag]           = useState(null); // {fromIdx, startY, curY}
+  const [dropIdx, setDropIdx]     = useState(null);
+  const cardRefs = useRef([]);
 
   if (!svc) return null;
 
-  const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
+  // Map directly from svc.songIds to keep indices aligned (no filter shift)
+  const entries = (svc.songIds || []).map((id, i) => ({ id, song: songs.find(s => s.id === id) || null, i }));
+  const totalCount = entries.filter(e => e.song).length;
+
+  const leader = isLeader(user.role);
 
   const sendNotif = async () => {
     await updateDoc(doc(db, "services", svc.id), { notified: true });
     await addDoc(collection(db, "notifications"), {
       title: `${svc.title} 악보 등록`,
       body: `${svc.date} ${svc.title} 악보가 등록되었습니다. 연습 준비해주세요!`,
-      createdAt: serverTimestamp(),
-      readBy: [],
-      serviceId: svc.id,
+      createdAt: serverTimestamp(), readBy: [], serviceId: svc.id,
     });
   };
 
@@ -972,23 +977,49 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
     await updateDoc(doc(db, "services", svc.id), { songIds: newIds });
   };
 
-  const moveSong = async (idx, dir) => {
+  const duplicateSong = async (idx) => {
     const ids = [...(svc.songIds || [])];
-    const to = idx + dir;
-    if (to < 0 || to >= ids.length) return;
-    [ids[idx], ids[to]] = [ids[to], ids[idx]];
+    ids.splice(idx + 1, 0, ids[idx]); // insert copy right after
     await updateDoc(doc(db, "services", svc.id), { songIds: ids });
   };
 
-  const duplicateSong = async (idx) => {
+  const reorder = async (fromIdx, toIdx) => {
+    if (fromIdx === toIdx) return;
     const ids = [...(svc.songIds || [])];
-    ids.splice(idx + 1, 0, ids[idx]);
+    const [item] = ids.splice(fromIdx, 1);
+    ids.splice(toIdx, 0, item);
     await updateDoc(doc(db, "services", svc.id), { songIds: ids });
   };
 
   const saveSongs = async (ids) => {
     await updateDoc(doc(db, "services", svc.id), { songIds: ids });
     setShowPicker(false);
+  };
+
+  // ── Drag handlers
+  const onHandleDown = (e, idx) => {
+    e.preventDefault(); e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({ fromIdx: idx, startY: e.clientY, curY: e.clientY });
+    setDropIdx(idx);
+  };
+  const onHandleMove = (e) => {
+    if (!drag) return;
+    const curY = e.clientY;
+    setDrag(d => ({ ...d, curY }));
+    // Find drop position from card midpoints
+    let di = entries.length - 1;
+    for (let i = 0; i < entries.length; i++) {
+      const el = cardRefs.current[i];
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      if (curY < rect.top + rect.height / 2) { di = i; break; }
+    }
+    setDropIdx(di);
+  };
+  const onHandleUp = async () => {
+    if (drag && dropIdx !== null) await reorder(drag.fromIdx, dropIdx);
+    setDrag(null); setDropIdx(null);
   };
 
   return (
@@ -1011,7 +1042,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
         </div>
         {svc.notified
           ? <Badge label="알림완료" color={C.grn} />
-          : isLeader(user.role) && (
+          : leader && (
             <button onClick={sendNotif} style={{
               background:C.pur, border:"none", borderRadius:9, padding:"7px 12px",
               display:"flex", alignItems:"center", gap:5, color:"#fff",
@@ -1025,26 +1056,26 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
 
       <div style={{ padding:16, paddingBottom:90 }}>
         {/* 리더: 곡 추가 버튼 */}
-        {isLeader(user.role) && (
+        {leader && (
           <button onClick={() => setShowPicker(true)} style={{
             width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
             gap:8, padding:"12px 0", borderRadius:12, marginBottom:16,
             background:"transparent", border:`2px dashed ${C.acc}`,
-            cursor:"pointer", fontFamily:"inherit",
-            fontWeight:600, fontSize:14, color:C.acc,
+            cursor:"pointer", fontFamily:"inherit", fontWeight:600, fontSize:14, color:C.acc,
           }}>
             <Icon n="plus" size={16} color={C.acc} />
             라이브러리에서 곡 추가
           </button>
         )}
 
-        {/* 곡 목록 */}
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
           textTransform:"uppercase", marginBottom:10 }}>
-          예배 곡 순서 · {svcSongs.length}곡
+          예배 곡 순서 · {totalCount}곡
+          {leader && <span style={{ fontSize:10, color:`${C.dim}88`, fontWeight:400,
+            marginLeft:6, textTransform:"none" }}>≡ 드래그로 순서 변경</span>}
         </div>
 
-        {svcSongs.length === 0 && (
+        {totalCount === 0 && (
           <div style={{ textAlign:"center", padding:"40px 0", color:C.dim }}>
             <div style={{ fontSize:36, marginBottom:10 }}>🎵</div>
             <div style={{ fontWeight:600, marginBottom:4 }}>곡이 없습니다</div>
@@ -1052,103 +1083,123 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
           </div>
         )}
 
-        {svcSongs.map((song, idx) => {
+        {entries.map(({ id, song, i }) => {
+          if (!song) return null;
           const notes = annotations[song.id] || [];
           const firstNote = notes[0];
+          const isDragging = drag?.fromIdx === i;
+          const dy = isDragging ? drag.curY - drag.startY : 0;
+          const isDropTarget = !isDragging && dropIdx === i && drag !== null;
+          // visible order index (among found songs only)
+          const visIdx = entries.slice(0, i + 1).filter(e => e.song).length;
           return (
-            <div key={`${song.id}_${idx}`} className="wFadeIn" style={{
-              background:C.surf, borderRadius:14, padding:"14px 16px",
-              marginBottom:8, border:`1px solid ${C.bdr}`,
-              boxShadow:"0 1px 4px rgba(0,0,0,.05)",
-            }}>
-              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                {/* 순서 번호 + 이동 버튼 (리더만) */}
-                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0 }}>
-                  {isLeader(user.role) ? (
-                    <>
-                      <button onClick={() => moveSong(idx, -1)} disabled={idx === 0} style={{
-                        background:"none", border:"none", cursor: idx === 0 ? "default" : "pointer",
-                        padding:"1px 4px", color: idx === 0 ? `${C.dim}44` : C.dim, fontSize:12, lineHeight:1,
-                      }}>▲</button>
+            <div key={`${id}_${i}`} ref={el => cardRefs.current[i] = el}
+              style={{ position:"relative" }}>
+              {/* Drop indicator line */}
+              {isDropTarget && (
+                <div style={{
+                  height:3, borderRadius:2, background:C.acc,
+                  margin:"0 0 4px", transition:"none",
+                }} />
+              )}
+              <div className="wFadeIn" style={{
+                background:C.surf, borderRadius:14, padding:"14px 16px",
+                marginBottom:8, border:`1px solid ${isDragging ? C.acc : C.bdr}`,
+                boxShadow: isDragging ? "0 8px 24px rgba(0,0,0,.18)" : "0 1px 4px rgba(0,0,0,.05)",
+                transform: isDragging ? `translateY(${dy}px)` : "none",
+                transition: isDragging ? "none" : "transform 0.15s",
+                opacity: isDragging ? 0.88 : 1,
+                zIndex: isDragging ? 20 : 1,
+                position:"relative",
+                touchAction:"none",
+              }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  {/* 드래그 핸들 + 번호 (리더만) */}
+                  {leader ? (
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
+                      gap:2, flexShrink:0 }}>
+                      <div
+                        onPointerDown={e => onHandleDown(e, i)}
+                        onPointerMove={onHandleMove}
+                        onPointerUp={onHandleUp}
+                        onPointerCancel={onHandleUp}
+                        style={{
+                          cursor:"grab", touchAction:"none", userSelect:"none",
+                          fontSize:16, color:C.dim, lineHeight:1,
+                          padding:"4px 6px", borderRadius:6,
+                          background: isDragging ? `${C.acc}18` : "transparent",
+                        }}>≡</div>
                       <div style={{
-                        width:28, height:28, borderRadius:8,
+                        width:26, height:22, borderRadius:7,
                         background:`linear-gradient(135deg, ${C.acc}33, ${C.pur}22)`,
                         display:"flex", alignItems:"center", justifyContent:"center",
-                        fontWeight:800, fontSize:14, color:C.acc,
-                      }}>{idx + 1}</div>
-                      <button onClick={() => moveSong(idx, 1)} disabled={idx === svcSongs.length - 1} style={{
-                        background:"none", border:"none", cursor: idx === svcSongs.length - 1 ? "default" : "pointer",
-                        padding:"1px 4px", color: idx === svcSongs.length - 1 ? `${C.dim}44` : C.dim, fontSize:12, lineHeight:1,
-                      }}>▼</button>
-                    </>
+                        fontWeight:800, fontSize:12, color:C.acc,
+                      }}>{visIdx}</div>
+                    </div>
                   ) : (
                     <div style={{
-                      width:34, height:34, borderRadius:10,
+                      width:34, height:34, borderRadius:10, flexShrink:0,
                       background:`linear-gradient(135deg, ${C.acc}33, ${C.pur}22)`,
                       display:"flex", alignItems:"center", justifyContent:"center",
                       fontWeight:800, fontSize:15, color:C.acc,
-                    }}>{idx + 1}</div>
+                    }}>{visIdx}</div>
+                  )}
+
+                  {/* 곡 정보 */}
+                  <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
+                    onClick={() => !drag && nav("pdfViewer", { songId: song.id, backTo:"svcDetail" })}>
+                    <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
+                      textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
+                    <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>
+                      {song.artist}{song.bpm ? ` · ♩${song.bpm}` : ""}
+                    </div>
+                    <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap" }}>
+                      <KeyBadge k={song.key} />
+                      {song.pdfUrl && <Badge label="PDF" color={C.grn} />}
+                      {notes.length > 0 && <Badge label={`✏ ${notes.length}`} color={C.pur} />}
+                    </div>
+                  </div>
+
+                  {/* 복사·삭제 (리더만) */}
+                  {leader && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
+                      <button onClick={() => duplicateSong(i)} style={{
+                        background:`${C.pur}15`, border:`1px solid ${C.pur}44`,
+                        borderRadius:7, cursor:"pointer", padding:"4px 8px",
+                        fontSize:11, fontWeight:700, color:C.pur, fontFamily:"inherit",
+                      }}>복사</button>
+                      <button onClick={() => removeSong(i)} style={{
+                        background:"none", border:"none", cursor:"pointer",
+                        padding:4, display:"flex", justifyContent:"center",
+                      }}>
+                        <Icon n="xmark" size={16} color={C.dim} />
+                      </button>
+                    </div>
                   )}
                 </div>
 
-                {/* 곡 정보 */}
-                <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
-                  onClick={() => nav("pdfViewer", { songId: song.id, backTo: "svcDetail" })}>
-                  <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
-                    textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
-                  <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>
-                    {song.artist}{song.bpm ? ` · ♩${song.bpm}` : ""}
-                  </div>
-                  <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap" }}>
-                    <KeyBadge k={song.key} />
-                    {song.pdfUrl && <Badge label="PDF" color={C.grn} />}
-                    {notes.length > 0 && <Badge label={`✏ ${notes.length}`} color={C.pur} />}
-                  </div>
-                </div>
-
-                {/* 복사·삭제 버튼 (리더만) */}
-                {isLeader(user.role) && (
-                  <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
-                    <button onClick={() => duplicateSong(idx)} title="이 곡을 바로 아래에 복사" style={{
-                      background:`${C.pur}15`, border:`1px solid ${C.pur}44`,
-                      borderRadius:7, cursor:"pointer", padding:"4px 8px",
-                      fontSize:11, fontWeight:700, color:C.pur, fontFamily:"inherit",
-                    }}>복사</button>
-                    <button onClick={() => removeSong(idx)} style={{
-                      background:"none", border:"none", cursor:"pointer",
-                      padding:4, display:"flex", justifyContent:"center",
-                    }}>
-                      <Icon n="xmark" size={16} color={C.dim} />
-                    </button>
+                {/* 메모 미리보기 */}
+                {firstNote && (
+                  <div style={{
+                    marginTop:10, padding:"8px 10px", borderRadius:8,
+                    background:`${C.pur}0d`, border:`1px solid ${C.pur}22`,
+                    fontSize:12, color:C.dim, lineHeight:1.5,
+                    overflow:"hidden", display:"-webkit-box",
+                    WebkitLineClamp:2, WebkitBoxOrient:"vertical",
+                  }}>
+                    ✏ {firstNote.text}
+                    {notes.length > 1 && <span style={{ color:C.pur, fontWeight:700 }}> +{notes.length - 1}개</span>}
                   </div>
                 )}
               </div>
-
-              {/* 메모 내용 미리보기 */}
-              {firstNote && (
-                <div style={{
-                  marginTop:10, padding:"8px 10px", borderRadius:8,
-                  background:`${C.pur}0d`, border:`1px solid ${C.pur}22`,
-                  fontSize:12, color:C.dim, lineHeight:1.5,
-                  overflow:"hidden", display:"-webkit-box",
-                  WebkitLineClamp:2, WebkitBoxOrient:"vertical",
-                }}>
-                  ✏ {firstNote.text}
-                  {notes.length > 1 && <span style={{ color:C.pur, fontWeight:700 }}> +{notes.length - 1}개</span>}
-                </div>
-              )}
             </div>
           );
         })}
       </div>
 
       {showPicker && (
-        <SongPickerModal
-          songs={songs}
-          currentIds={svc.songIds || []}
-          onClose={() => setShowPicker(false)}
-          onSave={saveSongs}
-        />
+        <SongPickerModal songs={songs} currentIds={svc.songIds || []}
+          onClose={() => setShowPicker(false)} onSave={saveSongs} />
       )}
     </div>
   );
