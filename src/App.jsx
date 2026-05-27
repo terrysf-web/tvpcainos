@@ -793,25 +793,35 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
     .slice().sort((a, b) => b.date.localeCompare(a.date));
   const pastShown = pastExpanded ? past : past.slice(0, 3);
 
-  const SvcCard = ({ svc }) => {
+  const SvcCard = ({ svc, past }) => {
     const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
     return (
       <div className="wFadeIn"
         onClick={() => nav("svcDetail", { svcId: svc.id })}
         style={{
-          background:C.surf, borderRadius:14, padding:"16px",
-          marginBottom:10, border:`1px solid ${C.bdr}`, cursor:"pointer",
-          boxShadow:"0 1px 4px rgba(0,0,0,.06)",
+          background: past ? C.card : C.surf,
+          borderRadius:14, padding: past ? "12px 16px" : "16px",
+          marginBottom:10,
+          border:`1px solid ${past ? "transparent" : C.bdr}`,
+          cursor:"pointer",
+          boxShadow: past ? "none" : "0 1px 4px rgba(0,0,0,.06)",
+          opacity: past ? 0.55 : 1,
         }}>
-        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:10 }}>
+        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom: past ? 6 : 10 }}>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontWeight:700, fontSize:16 }}>{svc.title}</div>
-            <div style={{ color:C.dim, fontSize:13, marginTop:3 }}>
-              📅 {fmtDate(svc.date)}{svc.time ? ` · ${svc.time}` : ""}
+            <div style={{ fontWeight: past ? 500 : 700, fontSize: past ? 14 : 16, color: past ? C.dim : C.txt }}>
+              {svc.title}
+            </div>
+            <div style={{ color:C.dim, fontSize: past ? 12 : 13, marginTop:2 }}>
+              {fmtDate(svc.date)}{svc.time ? ` · ${svc.time}` : ""}
             </div>
           </div>
-          <Badge label={svc.notified ? "알림완료" : "대기중"}
-            color={svc.notified ? C.grn : C.dim} />
+          {!past && svc.notified && (
+            <span style={{ fontSize:11, color:C.dim, marginLeft:8, marginTop:2 }}>✓ 알림완료</span>
+          )}
+          {!past && !svc.notified && (
+            <span style={{ fontSize:11, color:C.dim, marginLeft:8, marginTop:2, opacity:0.6 }}>대기중</span>
+          )}
         </div>
         <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:8 }}>
           {svcSongs.map((s, i) => (
@@ -896,7 +906,7 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
           <>
             <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
               textTransform:"uppercase", marginBottom:10 }}>다가오는 예배</div>
-            {upcoming.map(svc => <SvcCard key={svc.id} svc={svc} />)}
+            {upcoming.map(svc => <SvcCard key={svc.id} svc={svc} past={false} />)}
           </>
         )}
 
@@ -928,7 +938,7 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
             </div>
             {pastShown.map(svc => (
               <div key={svc.id} style={{ opacity:0.75 }}>
-                <SvcCard svc={svc} />
+                <SvcCard svc={svc} past={true} />
               </div>
             ))}
             {!pastExpanded && past.length > 3 && (
