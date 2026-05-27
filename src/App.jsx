@@ -775,11 +775,12 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           <button onClick={() => window.location.reload()} style={{
             background:"transparent", border:"none",
-            borderRadius:10, padding:0, cursor:"pointer", display:"flex",
-            overflow:"hidden",
+            borderRadius:10, padding:0, cursor:"pointer",
+            display:"flex", flexDirection:"column", alignItems:"center", gap:2,
           }}>
-            <img src="/icon-192.png" width={34} height={34}
-              style={{ display:"block", borderRadius:9, objectFit:"cover" }} alt="새로고침" />
+            <img src="/icon-192.png" width={30} height={30}
+              style={{ display:"block", borderRadius:8, objectFit:"cover" }} alt="새로고침" />
+            <span style={{ fontSize:9, color:C.dim, fontWeight:600, letterSpacing:"0.02em" }}>새로고침</span>
           </button>
           <button onClick={() => nav("notifications")} style={{
             background:C.card, border:`1px solid ${C.bdr}`,
@@ -1134,11 +1135,12 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
             <button onClick={() => window.location.reload()} style={{
               background:"transparent", border:"none",
-              borderRadius:10, padding:0, cursor:"pointer", display:"flex",
-              overflow:"hidden",
+              borderRadius:10, padding:0, cursor:"pointer",
+              display:"flex", flexDirection:"column", alignItems:"center", gap:2,
             }}>
-              <img src="/icon-192.png" width={32} height={32}
+              <img src="/icon-192.png" width={30} height={30}
                 style={{ display:"block", borderRadius:8, objectFit:"cover" }} alt="새로고침" />
+              <span style={{ fontSize:9, color:C.dim, fontWeight:600, letterSpacing:"0.02em" }}>새로고침</span>
             </button>
             {isLeader(user.role) && (
               <Btn label="곡 추가" icon="plus" sm onClick={() => setShowAdd(true)} />
