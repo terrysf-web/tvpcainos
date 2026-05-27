@@ -967,9 +967,23 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
     });
   };
 
-  const removeSong = async (id) => {
-    const newIds = (svc.songIds || []).filter(x => x !== id);
+  const removeSong = async (idx) => {
+    const newIds = (svc.songIds || []).filter((_, i) => i !== idx);
     await updateDoc(doc(db, "services", svc.id), { songIds: newIds });
+  };
+
+  const moveSong = async (idx, dir) => {
+    const ids = [...(svc.songIds || [])];
+    const to = idx + dir;
+    if (to < 0 || to >= ids.length) return;
+    [ids[idx], ids[to]] = [ids[to], ids[idx]];
+    await updateDoc(doc(db, "services", svc.id), { songIds: ids });
+  };
+
+  const duplicateSong = async (idx) => {
+    const ids = [...(svc.songIds || [])];
+    ids.splice(idx + 1, 0, ids[idx]);
+    await updateDoc(doc(db, "services", svc.id), { songIds: ids });
   };
 
   const saveSongs = async (ids) => {
@@ -1039,45 +1053,89 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
         )}
 
         {svcSongs.map((song, idx) => {
-          const hasNotes = (annotations[song.id] || []).length > 0;
+          const notes = annotations[song.id] || [];
+          const firstNote = notes[0];
           return (
-            <div key={song.id} className="wFadeIn" style={{
+            <div key={`${song.id}_${idx}`} className="wFadeIn" style={{
               background:C.surf, borderRadius:14, padding:"14px 16px",
               marginBottom:8, border:`1px solid ${C.bdr}`,
-              display:"flex", alignItems:"center", gap:12,
               boxShadow:"0 1px 4px rgba(0,0,0,.05)",
             }}>
-              {/* 순서 번호 */}
-              <div style={{
-                width:34, height:34, borderRadius:10, flexShrink:0,
-                background:`linear-gradient(135deg, ${C.acc}33, ${C.pur}22)`,
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontWeight:800, fontSize:15, color:C.acc,
-              }}>{idx + 1}</div>
+              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                {/* 순서 번호 + 이동 버튼 (리더만) */}
+                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0 }}>
+                  {isLeader(user.role) ? (
+                    <>
+                      <button onClick={() => moveSong(idx, -1)} disabled={idx === 0} style={{
+                        background:"none", border:"none", cursor: idx === 0 ? "default" : "pointer",
+                        padding:"1px 4px", color: idx === 0 ? `${C.dim}44` : C.dim, fontSize:12, lineHeight:1,
+                      }}>▲</button>
+                      <div style={{
+                        width:28, height:28, borderRadius:8,
+                        background:`linear-gradient(135deg, ${C.acc}33, ${C.pur}22)`,
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        fontWeight:800, fontSize:14, color:C.acc,
+                      }}>{idx + 1}</div>
+                      <button onClick={() => moveSong(idx, 1)} disabled={idx === svcSongs.length - 1} style={{
+                        background:"none", border:"none", cursor: idx === svcSongs.length - 1 ? "default" : "pointer",
+                        padding:"1px 4px", color: idx === svcSongs.length - 1 ? `${C.dim}44` : C.dim, fontSize:12, lineHeight:1,
+                      }}>▼</button>
+                    </>
+                  ) : (
+                    <div style={{
+                      width:34, height:34, borderRadius:10,
+                      background:`linear-gradient(135deg, ${C.acc}33, ${C.pur}22)`,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      fontWeight:800, fontSize:15, color:C.acc,
+                    }}>{idx + 1}</div>
+                  )}
+                </div>
 
-              {/* 곡 정보 */}
-              <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
-                onClick={() => nav("pdfViewer", { songId: song.id, backTo: "svcDetail" })}>
-                <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
-                  textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
-                <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>
-                  {song.artist}{song.bpm ? ` · ♩${song.bpm}` : ""}
+                {/* 곡 정보 */}
+                <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
+                  onClick={() => nav("pdfViewer", { songId: song.id, backTo: "svcDetail" })}>
+                  <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
+                    textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
+                  <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>
+                    {song.artist}{song.bpm ? ` · ♩${song.bpm}` : ""}
+                  </div>
+                  <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap" }}>
+                    <KeyBadge k={song.key} />
+                    {song.pdfUrl && <Badge label="PDF" color={C.grn} />}
+                    {notes.length > 0 && <Badge label={`✏ ${notes.length}`} color={C.pur} />}
+                  </div>
                 </div>
-                <div style={{ display:"flex", gap:5, marginTop:5 }}>
-                  <KeyBadge k={song.key} />
-                  {song.pdfUrl && <Badge label="PDF" color={C.grn} />}
-                  {hasNotes    && <Badge label="✏ 메모" color={C.pur} />}
-                </div>
+
+                {/* 복사·삭제 버튼 (리더만) */}
+                {isLeader(user.role) && (
+                  <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
+                    <button onClick={() => duplicateSong(idx)} title="이 곡을 바로 아래에 복사" style={{
+                      background:`${C.pur}15`, border:`1px solid ${C.pur}44`,
+                      borderRadius:7, cursor:"pointer", padding:"4px 8px",
+                      fontSize:11, fontWeight:700, color:C.pur, fontFamily:"inherit",
+                    }}>복사</button>
+                    <button onClick={() => removeSong(idx)} style={{
+                      background:"none", border:"none", cursor:"pointer",
+                      padding:4, display:"flex", justifyContent:"center",
+                    }}>
+                      <Icon n="xmark" size={16} color={C.dim} />
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* 삭제 버튼 (리더만) */}
-              {isLeader(user.role) && (
-                <button onClick={() => removeSong(song.id)} style={{
-                  background:"none", border:"none", cursor:"pointer",
-                  padding:6, display:"flex", flexShrink:0,
+              {/* 메모 내용 미리보기 */}
+              {firstNote && (
+                <div style={{
+                  marginTop:10, padding:"8px 10px", borderRadius:8,
+                  background:`${C.pur}0d`, border:`1px solid ${C.pur}22`,
+                  fontSize:12, color:C.dim, lineHeight:1.5,
+                  overflow:"hidden", display:"-webkit-box",
+                  WebkitLineClamp:2, WebkitBoxOrient:"vertical",
                 }}>
-                  <Icon n="xmark" size={18} color={C.dim} />
-                </button>
+                  ✏ {firstNote.text}
+                  {notes.length > 1 && <span style={{ color:C.pur, fontWeight:700 }}> +{notes.length - 1}개</span>}
+                </div>
               )}
             </div>
           );
