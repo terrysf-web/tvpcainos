@@ -539,14 +539,19 @@ function AddSongModal({ onClose, onAdd }) {
    SERVICES SCREEN
 ══════════════════════════════════════════════════════════════════ */
 function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
-  const [showCreate, setShowCreate] = useState(false);
+  const [showCreate,   setShowCreate]   = useState(false);
+  const [pastExpanded, setPastExpanded] = useState(false);
   const unread = notifs.filter(n => !n.read).length;
 
   const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("ko-KR",
     { month:"long", day:"numeric", weekday:"short" });
 
-  const upcoming = services.filter(s => s.date >= new Date().toISOString().slice(0,10));
-  const past     = services.filter(s => s.date <  new Date().toISOString().slice(0,10));
+  const today    = new Date().toISOString().slice(0, 10);
+  const upcoming = services.filter(s => s.date >= today);
+  // 지난 예배: 최신순 정렬
+  const past     = services.filter(s => s.date < today)
+    .slice().sort((a, b) => b.date.localeCompare(a.date));
+  const pastShown = pastExpanded ? past : past.slice(0, 3);
 
   const SvcCard = ({ svc }) => {
     const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
@@ -646,12 +651,46 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
           </>
         )}
 
-        {/* 지난 예배 */}
+        {/* 지난 예배 아카이브 */}
         {past.length > 0 && (
           <>
-            <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
-              textTransform:"uppercase", margin:"16px 0 10px" }}>지난 예배</div>
-            {past.map(svc => <SvcCard key={svc.id} svc={svc} />)}
+            <div style={{
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              margin:"16px 0 10px",
+            }}>
+              <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+                textTransform:"uppercase", display:"flex", alignItems:"center", gap:6 }}>
+                지난 예배
+                <span style={{
+                  background:C.bg, border:`1px solid ${C.bdr}`,
+                  borderRadius:10, padding:"1px 7px",
+                  fontSize:10, fontWeight:700, color:C.dim,
+                }}>{past.length}개</span>
+              </div>
+              {past.length > 3 && (
+                <button onClick={() => setPastExpanded(p => !p)} style={{
+                  background:"transparent", border:`1px solid ${C.bdr}`,
+                  borderRadius:7, padding:"3px 10px", cursor:"pointer",
+                  fontSize:11, color:C.dim, fontFamily:"inherit", fontWeight:600,
+                }}>
+                  {pastExpanded ? "접기" : `전체 보기`}
+                </button>
+              )}
+            </div>
+            {pastShown.map(svc => (
+              <div key={svc.id} style={{ opacity:0.75 }}>
+                <SvcCard svc={svc} />
+              </div>
+            ))}
+            {!pastExpanded && past.length > 3 && (
+              <button onClick={() => setPastExpanded(true)} style={{
+                width:"100%", padding:"10px 0", borderRadius:10, marginTop:2,
+                background:"transparent", border:`1px dashed ${C.bdr}`,
+                cursor:"pointer", fontSize:12, color:C.dim, fontFamily:"inherit",
+              }}>
+                지난 예배 {past.length - 3}개 더 보기
+              </button>
+            )}
           </>
         )}
 
