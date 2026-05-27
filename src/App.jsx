@@ -779,7 +779,11 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
             display:"flex", flexDirection:"column", alignItems:"center", gap:2,
           }}>
             <img src="/icon-192.png" width={30} height={30}
-              style={{ display:"block", borderRadius:8, objectFit:"cover" }} alt="새로고침" />
+              style={{
+                display:"block", borderRadius:8, objectFit:"cover",
+                border:`1px solid ${C.bdr}`,
+                boxShadow:"0 1px 4px rgba(0,0,0,0.10)",
+              }} alt="새로고침" />
             <span style={{ fontSize:9, color:C.dim, fontWeight:600, letterSpacing:"0.02em" }}>새로고침</span>
           </button>
           <button onClick={() => nav("notifications")} style={{
@@ -1139,7 +1143,11 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
               display:"flex", flexDirection:"column", alignItems:"center", gap:2,
             }}>
               <img src="/icon-192.png" width={30} height={30}
-                style={{ display:"block", borderRadius:8, objectFit:"cover" }} alt="새로고침" />
+                style={{
+                  display:"block", borderRadius:8, objectFit:"cover",
+                  border:`1px solid ${C.bdr}`,
+                  boxShadow:"0 1px 4px rgba(0,0,0,0.10)",
+                }} alt="새로고침" />
               <span style={{ fontSize:9, color:C.dim, fontWeight:600, letterSpacing:"0.02em" }}>새로고침</span>
             </button>
             {isLeader(user.role) && (
