@@ -77,6 +77,8 @@ const P = {
   back:    "M19 12H5M12 5l-7 7 7 7",
   trash:   "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6",
   tag:     "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01",
+  eraser:  "M20 20H7L3 16 13 6l8 8-2.5 2.5M9 15l2 2",
+  undo:    "M3 10h13a4 4 0 0 1 0 8H9M3 10l4-4M3 10l4 4",
 };
 
 function Icon({ n, size = 20, color = C.txt, sw = 2 }) {
@@ -87,6 +89,47 @@ function Icon({ n, size = 20, color = C.txt, sw = 2 }) {
         strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
+}
+
+/* ── Canvas drawing utility (module-level, pure) */
+function drawStrokes(canvas, strokes, cur = null) {
+  if (!canvas || !canvas.width || !canvas.height) return;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const all = cur ? [...strokes, cur] : strokes;
+  for (const s of all) {
+    if (!s.points || s.points.length < 1) continue;
+    ctx.save();
+    const lw = Math.max(1, s.width * canvas.width / 600);
+    ctx.lineWidth = lw;
+    ctx.lineCap   = "round";
+    ctx.lineJoin  = "round";
+    if (s.eraser) {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.strokeStyle = "rgba(0,0,0,1)";
+      ctx.fillStyle   = "rgba(0,0,0,1)";
+    } else {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = s.color;
+      ctx.fillStyle   = s.color;
+    }
+    const pts = s.points.map(p => [p.x * canvas.width, p.y * canvas.height]);
+    ctx.beginPath();
+    if (pts.length === 1) {
+      ctx.arc(pts[0][0], pts[0][1], lw / 2, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i][0] + pts[i + 1][0]) / 2;
+        const my = (pts[i][1] + pts[i + 1][1]) / 2;
+        ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+      }
+      ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -988,7 +1031,49 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   const [noteTxt,       setNoteTxt]       = useState("");
   const [saving,        setSaving]        = useState(false);
 
+  // ── Drawing / handwriting
+  const [drawMode,  setDrawMode]  = useState(false);
+  const [drawColor, setDrawColor] = useState("#e8383b");
+  const [drawWidth, setDrawWidth] = useState(3);
+  const [eraser,    setEraser]    = useState(false);
+  const drawCanvasRef = useRef(null);
+  const isDrawingRef  = useRef(false);
+  const strokesRef    = useRef([]);
+  const curStrokeRef  = useRef(null);
+  const drawModeRef   = useRef(false);
+
   const myNotes = annotations[selectedSongId] || [];
+
+  // keep drawModeRef in sync for non-reactive listeners
+  useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
+
+  // load strokes from Firestore when song/page changes
+  const drawDocId = `${selectedSongId}_p${pageNum}`;
+  useEffect(() => {
+    strokesRef.current = [];
+    const dc = drawCanvasRef.current;
+    if (dc) dc.getContext("2d").clearRect(0, 0, dc.width, dc.height);
+    if (!user?.uid) return;
+    getDoc(doc(db, "userDrawings", user.uid, "pages", drawDocId))
+      .then(snap => {
+        if (snap.exists()) {
+          strokesRef.current = snap.data().strokes || [];
+          const dc2 = drawCanvasRef.current;
+          if (dc2 && dc2.width > 0) drawStrokes(dc2, strokesRef.current);
+        }
+      })
+      .catch(() => {});
+  }, [drawDocId, user?.uid]);
+
+  const saveStrokes = useCallback(async (strokes) => {
+    if (!user?.uid) return;
+    try {
+      await setDoc(
+        doc(db, "userDrawings", user.uid, "pages", `${selectedSongId}_p${pageNum}`),
+        { strokes, updatedAt: serverTimestamp() }
+      );
+    } catch(e) { console.error("필기 저장 실패:", e); }
+  }, [user?.uid, selectedSongId, pageNum]);
 
   // 컨테이너 크기 추적 (ResizeObserver)
   useEffect(() => {
@@ -1004,7 +1089,7 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const prevent = (e) => { if (touchStartX.current !== null) e.preventDefault(); };
+    const prevent = (e) => { if (drawModeRef.current || touchStartX.current !== null) e.preventDefault(); };
     el.addEventListener("touchmove", prevent, { passive: false });
     return () => el.removeEventListener("touchmove", prevent);
   }, []);
@@ -1069,6 +1154,11 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
         canvas1Ref.current.width  = vp.width;
         canvas1Ref.current.height = vp.height;
         await page.render({ canvasContext: canvas1Ref.current.getContext("2d"), viewport: vp }).promise;
+        if (drawCanvasRef.current) {
+          drawCanvasRef.current.width  = vp.width;
+          drawCanvasRef.current.height = vp.height;
+          drawStrokes(drawCanvasRef.current, strokesRef.current);
+        }
       }
     } catch(e) { console.error(e); }
   }, [pageNum, zoomMul, dual, numPages, cSize, dualKey]);
@@ -1092,10 +1182,12 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   }, [dualIdx, svcSongs.length, showToast]);
 
   const handleTouchStart = (e) => {
+    if (drawModeRef.current) return;
     touchStartX.current = e.touches[0].clientX;
   };
 
   const handleTouchEnd = (e) => {
+    if (drawModeRef.current) return;
     if (touchStartX.current === null) return;
     const delta = e.changedTouches[0].clientX - touchStartX.current;
     touchStartX.current = null;
@@ -1120,6 +1212,72 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
     setNoteTxt(""); setNoteInput(false); setSaving(false);
   };
   const deleteNote = id => onDeleteAnnotation(selectedSongId, id);
+
+  // ── Drawing pointer handlers
+  const getCanvasPt = (e, canvas) => {
+    const r = canvas.getBoundingClientRect();
+    if (!r.width || !r.height) return { x: 0, y: 0 };
+    return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+  };
+
+  const handleDrawDown = (e) => {
+    const canvas = drawCanvasRef.current;
+    if (!canvas) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.target.setPointerCapture(e.pointerId);
+    isDrawingRef.current = true;
+    const pt = getCanvasPt(e, canvas);
+    curStrokeRef.current = { color: drawColor, width: drawWidth, eraser, points: [pt] };
+    drawStrokes(canvas, strokesRef.current, curStrokeRef.current);
+  };
+
+  const handleDrawMove = (e) => {
+    if (!isDrawingRef.current || !curStrokeRef.current) return;
+    const canvas = drawCanvasRef.current;
+    if (!canvas) return;
+    e.preventDefault();
+    const pt = getCanvasPt(e, canvas);
+    curStrokeRef.current.points.push(pt);
+    drawStrokes(canvas, strokesRef.current, curStrokeRef.current);
+  };
+
+  const handleDrawUp = async () => {
+    if (!isDrawingRef.current || !curStrokeRef.current) return;
+    isDrawingRef.current = false;
+    const stroke = curStrokeRef.current;
+    curStrokeRef.current = null;
+    if (stroke.points.length > 0) {
+      const next = [...strokesRef.current, stroke];
+      strokesRef.current = next;
+      await saveStrokes(next);
+    }
+    const canvas = drawCanvasRef.current;
+    if (canvas) drawStrokes(canvas, strokesRef.current);
+  };
+
+  const handleDrawCancel = () => {
+    isDrawingRef.current = false;
+    curStrokeRef.current = null;
+    const canvas = drawCanvasRef.current;
+    if (canvas) drawStrokes(canvas, strokesRef.current);
+  };
+
+  const handleUndo = async () => {
+    if (strokesRef.current.length === 0) return;
+    const next = strokesRef.current.slice(0, -1);
+    strokesRef.current = next;
+    await saveStrokes(next);
+    const canvas = drawCanvasRef.current;
+    if (canvas) drawStrokes(canvas, next);
+  };
+
+  const handleClearPage = async () => {
+    strokesRef.current = [];
+    await saveStrokes([]);
+    const canvas = drawCanvasRef.current;
+    if (canvas) canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+  };
 
   const toolBtn = (name, active, onClick, ttl) => (
     <button onClick={onClick} title={ttl} style={{
@@ -1192,7 +1350,7 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
             <Icon n="zoomIn" size={18} color={C.dim} />
           </button>
           <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
-          {toolBtn("pen",  noteInput,     () => setNoteInput(p => !p),     "메모 추가")}
+          {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setEraser(false); }, "필기 모드")}
           {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
           <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
           <button onClick={() => setDual(p => !p)} style={{
@@ -1224,6 +1382,61 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
           </button>
         </div>
       </div>
+
+      {/* 필기 서브툴바 */}
+      {drawMode && !dual && (
+        <div style={{
+          display:"flex", alignItems:"center", gap:8,
+          padding:"0 14px", height:46, flexShrink:0,
+          background:`${C.pur}0a`, borderBottom:`1px solid ${C.bdr}`,
+          overflowX:"auto",
+        }}>
+          {["#e8383b","#1a73e8","#1c1c1e","#34c759","#e8a93e"].map(clr => (
+            <button key={clr} onClick={() => { setDrawColor(clr); setEraser(false); }}
+              style={{
+                width:22, height:22, borderRadius:"50%", background:clr,
+                border: drawColor === clr && !eraser ? "3px solid #fff" : "2px solid transparent",
+                outline: drawColor === clr && !eraser ? `2px solid ${clr}` : "none",
+                cursor:"pointer", flexShrink:0, padding:0,
+              }} />
+          ))}
+          <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+          {[2, 4, 7].map(w => (
+            <button key={w} onClick={() => { setDrawWidth(w); setEraser(false); }}
+              style={{
+                width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center",
+                background: drawWidth === w && !eraser ? `${C.pur}22` : "transparent",
+                border:`1px solid ${drawWidth === w && !eraser ? C.pur : C.bdr}`,
+                borderRadius:6, cursor:"pointer", flexShrink:0,
+              }}>
+              <div style={{
+                width:w + 2, height:w + 2, borderRadius:"50%",
+                background: eraser ? C.dim : drawColor,
+              }} />
+            </button>
+          ))}
+          <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+          <button onClick={() => setEraser(p => !p)} title="지우개" style={{
+            background: eraser ? `${C.red}22` : "transparent",
+            border:`1px solid ${eraser ? C.red : C.bdr}`,
+            borderRadius:6, padding:5, cursor:"pointer", display:"flex", flexShrink:0,
+          }}>
+            <Icon n="eraser" size={16} color={eraser ? C.red : C.dim} />
+          </button>
+          <button onClick={handleUndo} title="실행 취소" style={{
+            background:"transparent", border:`1px solid ${C.bdr}`,
+            borderRadius:6, padding:5, cursor:"pointer", display:"flex", flexShrink:0,
+          }}>
+            <Icon n="undo" size={16} color={C.dim} />
+          </button>
+          <button onClick={handleClearPage} title="페이지 지우기" style={{
+            background:"transparent", border:`1px solid ${C.bdr}`,
+            borderRadius:6, padding:5, cursor:"pointer", display:"flex", flexShrink:0,
+          }}>
+            <Icon n="trash" size={16} color={C.dim} />
+          </button>
+        </div>
+      )}
       </div>
 
       {/* 콘텐츠 */}
@@ -1297,8 +1510,22 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
               {song.pdfUrl ? (
                 loadErr
                   ? <div style={{ color:C.red, fontSize:13 }}>{loadErr}</div>
-                  : <canvas ref={canvas1Ref} style={{ display:"block",
-                      borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)", flexShrink:0 }} />
+                  : <div style={{ position:"relative", display:"inline-block", lineHeight:0, flexShrink:0 }}>
+                      <canvas ref={canvas1Ref} style={{ display:"block",
+                        borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
+                      <canvas ref={drawCanvasRef} style={{
+                        position:"absolute", top:0, left:0, width:"100%", height:"100%",
+                        borderRadius:4,
+                        cursor: drawMode ? (eraser ? "cell" : "crosshair") : "default",
+                        touchAction:"none",
+                        pointerEvents: drawMode ? "auto" : "none",
+                      }}
+                        onPointerDown={handleDrawDown}
+                        onPointerMove={handleDrawMove}
+                        onPointerUp={handleDrawUp}
+                        onPointerCancel={handleDrawCancel}
+                      />
+                    </div>
               ) : (
                 <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
                   justifyContent:"center", color:C.dim, textAlign:"center", padding:40 }}>
@@ -1366,10 +1593,18 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
           zIndex:100, overflowY:"auto", padding:16 }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
             <div style={{ fontWeight:700 }}>내 메모</div>
-            <button onClick={() => setShowNotePanel(false)}
-              style={{ background:"none", border:"none", cursor:"pointer", color:C.dim, display:"flex" }}>
-              <Icon n="xmark" size={18} />
-            </button>
+            <div style={{ display:"flex", gap:6 }}>
+              <button onClick={() => { setNoteInput(true); setShowNotePanel(false); }}
+                style={{ background:C.acc, border:"none", borderRadius:6, padding:"4px 10px",
+                  cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}>
+                <Icon n="plus" size={13} color="#111" />
+                <span style={{ fontSize:11, fontWeight:700, color:"#111" }}>추가</span>
+              </button>
+              <button onClick={() => setShowNotePanel(false)}
+                style={{ background:"none", border:"none", cursor:"pointer", color:C.dim, display:"flex" }}>
+                <Icon n="xmark" size={18} />
+              </button>
+            </div>
           </div>
           {myNotes.length === 0
             ? <div style={{ color:C.dim, fontSize:13, textAlign:"center", padding:"40px 0" }}>메모가 없습니다</div>

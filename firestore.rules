@@ -69,6 +69,10 @@ service cloud.firestore {
       allow read, write: if isAuthed() && request.auth.uid == userId;
     }
 
+    match /userDrawings/{userId}/{document=**} {
+      allow read, write: if isAuthed() && request.auth.uid == userId;
+    }
+
     match /teamSettings/{document=**} {
       allow read, write: if isAuthed();
     }
