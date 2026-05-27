@@ -1429,7 +1429,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
         <div style={{
           position:"absolute", right:0, top:0, bottom:0, width:44,
           display:"flex", flexDirection:"column", alignItems:"center",
-          justifyContent:"center", gap:5, paddingTop:4,
+          justifyContent:"flex-start", gap:5, paddingTop:16,
         }}>
           <button onClick={() => setConsonant("")}
             style={{ fontSize:11, fontWeight:700, padding:"3px 0", border:"none",
