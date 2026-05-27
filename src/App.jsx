@@ -78,6 +78,10 @@ const P = {
   prev:    "M15 18l-6-6 6-6",
   next:    "M9 18l6-6-6-6",
   back:    "M19 12H5M12 5l-7 7 7 7",
+  chevU:   "M18 15l-6-6-6 6",
+  chevD:   "M6 9l6 6 6-6",
+  chevL:   "M15 18l-6-6 6-6",
+  chevR2:  "M9 18l6-6-6-6",
   trash:   "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6",
   tag:     "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01",
   eraser:  "M20 20H7L3 16 13 6l8 8-2.5 2.5M9 15l2 2",
@@ -1739,6 +1743,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [numPages, setNumPages] = useState(0);
   const [pageNum,  setPageNum]  = useState(1);
   const [zoomMul,  setZoomMul]  = useState(1.0);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const panIntervalRef = useRef(null);
   const [loadErr,  setLoadErr]  = useState("");
   const [cSize,    setCSize]    = useState({ w: 0, h: 0 });
   const [dualIdx,  setDualIdx]  = useState(Math.max(0, songIdx));
@@ -1803,6 +1809,35 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // keep drawModeRef in sync for non-reactive listeners
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
+
+  // pan helpers
+  const PAN_STEP = 70;
+  const doPan = useCallback((dx, dy) => {
+    setPanOffset(prev => {
+      const maxX = cSize.w * Math.max(0, zoomMul - 1) / 2 + 40;
+      const maxY = cSize.h * Math.max(0, zoomMul - 1) / 2 + 40;
+      return {
+        x: Math.max(-maxX, Math.min(maxX, prev.x + dx)),
+        y: Math.max(-maxY, Math.min(maxY, prev.y + dy)),
+      };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cSize.w, cSize.h, zoomMul]);
+
+  const startPan = useCallback((dx, dy) => {
+    doPan(dx, dy);
+    clearInterval(panIntervalRef.current);
+    panIntervalRef.current = setInterval(() => doPan(dx, dy), 80);
+  }, [doPan]);
+
+  const stopPan = useCallback(() => {
+    clearInterval(panIntervalRef.current);
+  }, []);
+
+  const resetZoom = useCallback(() => {
+    setZoomMul(1.0);
+    setPanOffset({ x: 0, y: 0 });
+  }, []);
 
   const dualLeftSongId  = svcSongs[dualIdx]?.id     || null;
   const dualRightSongId = svcSongs[dualIdx + 1]?.id || null;
@@ -2078,12 +2113,14 @@ Return ONLY the JSON array, no other text.`;
 
   const handleTouchStart = (e) => {
     if (drawModeRef.current) return;
-    if (penDownRef.current) return; // 애플펜슬 입력이면 스와이프 무시
+    if (penDownRef.current) return;
+    if (zoomMul > 1.0) return; // 줌인 상태에서는 D-패드로 이동
     touchStartX.current = e.touches[0].clientX;
   };
 
   const handleTouchEnd = (e) => {
     if (drawModeRef.current) return;
+    if (zoomMul > 1.0) return;
     if (touchStartX.current === null) return;
     const delta = e.changedTouches[0].clientX - touchStartX.current;
     touchStartX.current = null;
@@ -2445,7 +2482,7 @@ Return ONLY the JSON array, no other text.`;
               style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
               <Icon n="zoomOut" size={18} color={C.dim} />
             </button>
-            <button onClick={() => setZoomMul(1.0)}
+            <button onClick={resetZoom}
               style={{
                 background: zoomMul !== 1.0 ? `${C.acc}22` : "none",
                 border: zoomMul !== 1.0 ? `1px solid ${C.acc}` : "1px solid transparent",
@@ -2766,12 +2803,67 @@ Return ONLY the JSON array, no other text.`;
         }}
       />
 
+      {/* D-패드 (줌인 시에만 표시) */}
+      {zoomMul > 1.0 && (
+        <div style={{
+          position:"fixed", right:14, top:"50%", transform:"translateY(-50%)",
+          zIndex:700, display:"flex", flexDirection:"column", alignItems:"center", gap:4,
+          background:"rgba(20,20,35,0.72)", borderRadius:18, padding:"10px 8px",
+          backdropFilter:"blur(6px)", border:`1px solid rgba(255,255,255,0.1)`,
+          boxShadow:"0 4px 24px rgba(0,0,0,0.5)",
+          userSelect:"none",
+        }}>
+          {/* 위 */}
+          <button
+            onPointerDown={() => startPan(0, PAN_STEP)} onPointerUp={stopPan} onPointerLeave={stopPan}
+            style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:9,
+              width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center",
+              cursor:"pointer", touchAction:"none" }}>
+            <Icon n="chevU" size={20} color="#fff" />
+          </button>
+          {/* 가운데 행: ← 100% → */}
+          <div style={{ display:"flex", gap:4, alignItems:"center" }}>
+            <button
+              onPointerDown={() => startPan(PAN_STEP, 0)} onPointerUp={stopPan} onPointerLeave={stopPan}
+              style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:9,
+                width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center",
+                cursor:"pointer", touchAction:"none" }}>
+              <Icon n="chevL" size={20} color="#fff" />
+            </button>
+            {/* 100% 리셋 버튼 (탭 → 줌·패드 모두 초기화) */}
+            <button onClick={resetZoom}
+              style={{ background:C.acc, border:"none", borderRadius:10,
+                width:44, height:44, display:"flex", alignItems:"center", justifyContent:"center",
+                cursor:"pointer", flexDirection:"column", gap:1, touchAction:"none" }}>
+              <span style={{ fontSize:9, fontWeight:800, color:"#111", lineHeight:1 }}>
+                {Math.round(zoomMul * 100)}%
+              </span>
+              <span style={{ fontSize:7, color:"#333", lineHeight:1 }}>RESET</span>
+            </button>
+            <button
+              onPointerDown={() => startPan(-PAN_STEP, 0)} onPointerUp={stopPan} onPointerLeave={stopPan}
+              style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:9,
+                width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center",
+                cursor:"pointer", touchAction:"none" }}>
+              <Icon n="chevR2" size={20} color="#fff" />
+            </button>
+          </div>
+          {/* 아래 */}
+          <button
+            onPointerDown={() => startPan(0, -PAN_STEP)} onPointerUp={stopPan} onPointerLeave={stopPan}
+            style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:9,
+              width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center",
+              cursor:"pointer", touchAction:"none" }}>
+            <Icon n="chevD" size={20} color="#fff" />
+          </button>
+        </div>
+      )}
+
       {/* 콘텐츠 */}
       <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
         {/* PDF 캔버스 영역 */}
-        <div ref={containerRef} style={{ flex:1, overflow:"auto", display:"flex",
-          position:"relative", background:C.bg,
-          touchAction: drawMode ? "none" : "pan-x pan-y" }}
+        <div ref={containerRef} style={{ flex:1, overflow:"hidden", display:"flex",
+          position:"relative", background:C.bg, touchAction:"none" }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}>
 
@@ -2900,9 +2992,13 @@ Return ONLY the JSON array, no other text.`;
               )}
             </>
           ) : (
-            // ── 싱글 모드 (minWidth/minHeight → 줌 시 스크롤 가능)
-            <div style={{ minWidth:"100%", minHeight:"100%", display:"flex",
-              alignItems:"center", justifyContent:"center", padding:8 }}>
+            // ── 싱글 모드 (panOffset transform으로 D-패드 이동)
+            <div style={{ width:"100%", height:"100%", display:"flex",
+              alignItems:"center", justifyContent:"center", padding:8,
+              transform: panOffset.x !== 0 || panOffset.y !== 0
+                ? `translate(${panOffset.x}px,${panOffset.y}px)` : undefined,
+              willChange: panOffset.x !== 0 || panOffset.y !== 0 ? "transform" : undefined,
+            }}>
               {song.pdfUrl ? (
                 loadErr
                   ? <div style={{ color:C.red, fontSize:13 }}>{loadErr}</div>
