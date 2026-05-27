@@ -1241,9 +1241,13 @@ Return ONLY the JSON array, no other text.`;
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
       const text = data.candidates[0].content.parts[0].text;
-      const match = text.match(/\[[\s\S]*\]/);
+      // Strip markdown code fences if present, then find JSON array
+      const cleaned = text.replace(/```[a-z]*\n?/gi, "").trim();
+      const match = cleaned.match(/\[[\s\S]*\]/);
       if (!match) { setDetectErr("응답 파싱 실패"); return; }
-      const raw = JSON.parse(match[0]);
+      let raw;
+      try { raw = JSON.parse(match[0]); }
+      catch { setDetectErr("JSON 파싱 실패 — 재시도 해보세요"); return; }
       const chords = raw.map(item => {
         const b = item.box_2d;
         const x = (b[1] + b[3]) / 2 / 1000;
