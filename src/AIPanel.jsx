@@ -71,15 +71,14 @@ export default function AIPanel({ song, user }) {
     await updateDoc(doc(db, "songs", song.id), { youtubeId: null });
   };
 
-  const analyze = async () => {
+  const analyze = async (attempt = 0) => {
     const key = import.meta.env.VITE_GEMINI_API_KEY;
     if (!key) {
       setAiErr("⚠️ .env 파일에 VITE_GEMINI_API_KEY를 설정하세요.");
       return;
     }
     setLoading(true);
-    setAnalysis("");
-    setAiErr("");
+    if (attempt === 0) { setAnalysis(""); setAiErr(""); }
     const prompt = `찬양 악보를 분석해주세요:
 제목: ${song.title}
 아티스트: ${song.artist || "미상"}
@@ -101,10 +100,25 @@ BPM: ${song.bpm || "미상"}
         }
       );
       const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
+      if (data.error) {
+        const isOverload =
+          data.error.status === "RESOURCE_EXHAUSTED" ||
+          (data.error.message || "").toLowerCase().includes("high demand") ||
+          (data.error.message || "").toLowerCase().includes("overload");
+        if (isOverload && attempt < 2) {
+          const wait = (attempt + 1) * 4000;
+          setAiErr(`⏳ 서버가 바빠요. ${wait / 1000}초 후 재시도 중... (${attempt + 1}/2)`);
+          await new Promise(r => setTimeout(r, wait));
+          return analyze(attempt + 1);
+        }
+        throw new Error(isOverload
+          ? "서버가 혼잡합니다. 잠시 후 다시 시도해주세요."
+          : data.error.message);
+      }
       setAnalysis(data.candidates[0].content.parts[0].text);
+      setAiErr("");
     } catch (e) {
-      setAiErr(`오류: ${e.message}`);
+      setAiErr(e.message);
     } finally {
       setLoading(false);
     }
@@ -262,10 +276,22 @@ BPM: ${song.bpm || "미상"}
           </button>
 
           {aiErr && (
-            <div style={{ fontSize:12, color:C.red, marginBottom:8,
-              background:`${C.red}11`, padding:"8px 10px", borderRadius:8,
-              border:`1px solid ${C.red}33` }}>
-              {aiErr}
+            <div style={{ fontSize:12, marginBottom:8,
+              background: aiErr.startsWith("⏳") ? `${C.acc}11` : `${C.red}11`,
+              color: aiErr.startsWith("⏳") ? C.acc : C.red,
+              padding:"10px 12px", borderRadius:8,
+              border:`1px solid ${aiErr.startsWith("⏳") ? C.acc : C.red}33` }}>
+              <div>{aiErr}</div>
+              {!loading && !aiErr.startsWith("⏳") && (
+                <button onClick={() => analyze(0)} style={{
+                  marginTop:8, background:"transparent",
+                  border:`1px solid ${C.red}55`, borderRadius:6,
+                  padding:"4px 12px", cursor:"pointer",
+                  fontSize:11, color:C.red, fontFamily:"inherit", fontWeight:600,
+                }}>
+                  다시 시도
+                </button>
+              )}
             </div>
           )}
 
