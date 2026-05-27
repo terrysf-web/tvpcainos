@@ -83,6 +83,7 @@ const P = {
   eraser:  "M20 20H7L3 16 13 6l8 8-2.5 2.5M9 15l2 2",
   undo:    "M3 10h13a4 4 0 0 1 0 8H9M3 10l4-4M3 10l4 4",
   highlight:"M3 20h4L19.5 8.5a2.12 2.12 0 0 0-3-3L5 17 3 20zM16 5l3 3M15 7l-8 8",
+  stamp:   "M9 2h6v3H9zM5 7h14v2a3 3 0 0 0-3 3v8a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-8a3 3 0 0 0-3-3V7z",
 };
 
 function Icon({ n, size = 20, color = C.txt, sw = 2 }) {
@@ -133,6 +134,24 @@ function keyName(key, steps) {
   return DISPLAY_KEY[transposed] || transposed;
 }
 
+/* ── Stamp palette definition (module-level) */
+const STAMPS = [
+  { sym:"p",   italic:true,  label:"p"   },
+  { sym:"mp",  italic:true,  label:"mp"  },
+  { sym:"mf",  italic:true,  label:"mf"  },
+  { sym:"f",   italic:true,  label:"f"   },
+  { sym:"ff",  italic:true,  label:"ff"  },
+  { sym:"sfz", italic:true,  label:"sfz" },
+  { sym:"∪",   italic:false, label:"호흡" },
+  { sym:"①",  italic:false, label:"①"  },
+  { sym:"②",  italic:false, label:"②"  },
+  { sym:"③",  italic:false, label:"③"  },
+  { sym:"④",  italic:false, label:"④"  },
+  { sym:"⑤",  italic:false, label:"⑤"  },
+  { sym:"✓",   italic:false, label:"✓"  },
+  { sym:"★",   italic:false, label:"★"  },
+];
+
 /* ── Canvas drawing utility (module-level, pure) */
 function drawStrokes(canvas, strokes, cur = null) {
   if (!canvas || !canvas.width || !canvas.height) return;
@@ -142,6 +161,24 @@ function drawStrokes(canvas, strokes, cur = null) {
   for (const s of all) {
     if (!s.points || s.points.length < 1) continue;
     ctx.save();
+    if (s.tool === "stamp") {
+      const pt = s.points[0];
+      const px = pt.x * canvas.width;
+      const py = pt.y * canvas.height;
+      const sz = Math.max(10, (s.size || 16) * canvas.width / 280);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = s.color || "#e8383b";
+      const family = s.italic
+        ? '"Times New Roman", Georgia, serif'
+        : 'system-ui, -apple-system, sans-serif';
+      ctx.font = `${s.italic ? "italic " : ""}bold ${sz}px ${family}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(s.symbol || "f", px, py);
+      ctx.restore();
+      continue;
+    }
     const isEraser     = s.tool === "eraser"     || s.eraser;
     const isHighlight  = s.tool === "highlighter";
     const lw = Math.max(0.5, s.width * canvas.width / 900);
@@ -1634,8 +1671,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [drawMode,  setDrawMode]  = useState(false);
   const [drawColor, setDrawColor] = useState("#e8383b");
   const [drawWidth, setDrawWidth] = useState(1);
-  const [drawTool,  setDrawTool]  = useState("pen"); // "pen" | "highlighter" | "eraser"
+  const [drawTool,  setDrawTool]  = useState("pen"); // "pen" | "highlighter" | "eraser" | "stamp"
   const [drawSaveErr, setDrawSaveErr] = useState("");
+
+  // ── Stamp + loupe
+  const [stampSymbol, setStampSymbol] = useState("f");
+  const [stampItalic, setStampItalic] = useState(true);
+  const [loupePos, setLoupePos] = useState(null); // { x, y } viewport coords
+  const loupeCanvasRef = useRef(null);
+  const lastPt1Ref = useRef({ x: 0.5, y: 0.5 });
+  const lastPt2Ref = useRef({ x: 0.5, y: 0.5 });
 
   // ── Chord transposition
   const [transposeMode,  setTransposeMode]  = useState(false);
@@ -1967,6 +2012,33 @@ Return ONLY the JSON array, no other text.`;
   };
   const deleteNote = id => onDeleteAnnotation(selectedSongId, id);
 
+  // ── Loupe update (stamp mode)
+  const updateLoupe = useCallback((e, pdfCanvas, drawCanvas) => {
+    const lc = loupeCanvasRef.current;
+    if (!lc || !pdfCanvas || !pdfCanvas.width) return;
+    const r = pdfCanvas.getBoundingClientRect();
+    if (!r.width) return;
+    const scX = pdfCanvas.width  / r.width;
+    const scY = pdfCanvas.height / r.height;
+    const cx = (e.clientX - r.left) * scX;
+    const cy = (e.clientY - r.top)  * scY;
+    const ZOOM = 2.5;
+    const LW = lc.width, LH = lc.height;
+    const srcW = LW / ZOOM, srcH = LH / ZOOM;
+    const ctx = lc.getContext("2d");
+    ctx.clearRect(0, 0, LW, LH);
+    ctx.drawImage(pdfCanvas, cx - srcW / 2, cy - srcH / 2, srcW, srcH, 0, 0, LW, LH);
+    if (drawCanvas && drawCanvas.width) {
+      ctx.drawImage(drawCanvas, cx - srcW / 2, cy - srcH / 2, srcW, srcH, 0, 0, LW, LH);
+    }
+    ctx.strokeStyle = "rgba(220,50,50,0.85)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(LW / 2 - 14, LH / 2); ctx.lineTo(LW / 2 + 14, LH / 2);
+    ctx.moveTo(LW / 2, LH / 2 - 14); ctx.lineTo(LW / 2, LH / 2 + 14);
+    ctx.stroke();
+  }, []);
+
   // ── Drawing pointer handlers
   const getCanvasPt = (e, canvas) => {
     const r = canvas.getBoundingClientRect();
@@ -1978,26 +2050,53 @@ Return ONLY the JSON array, no other text.`;
 
   // ── Canvas 1 handlers (single mode + dual left)
   const handleDraw1Down = (e) => {
-    if (e.pointerType === "touch") return; // 손가락/손바닥 무시
+    if (e.pointerType === "touch") return;
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
     e.preventDefault(); e.stopPropagation();
     e.target.setPointerCapture(e.pointerId);
-    isDrawing1Ref.current = true;
     lastSideRef.current = 1;
+    if (drawTool === "stamp") {
+      const pt = getCanvasPt(e, canvas);
+      lastPt1Ref.current = pt;
+      updateLoupe(e, canvas1Ref.current, canvas);
+      setLoupePos({ x: e.clientX, y: e.clientY });
+      return;
+    }
+    isDrawing1Ref.current = true;
     curStroke1Ref.current = { ...makeStroke(), points: [getCanvasPt(e, canvas)] };
     drawStrokes(canvas, strokes1Ref.current, curStroke1Ref.current);
   };
   const handleDraw1Move = (e) => {
     if (e.pointerType === "touch") return;
-    if (!isDrawing1Ref.current || !curStroke1Ref.current) return;
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
     e.preventDefault();
+    if (drawTool === "stamp") {
+      lastPt1Ref.current = getCanvasPt(e, canvas);
+      updateLoupe(e, canvas1Ref.current, canvas);
+      setLoupePos({ x: e.clientX, y: e.clientY });
+      return;
+    }
+    if (!isDrawing1Ref.current || !curStroke1Ref.current) return;
     curStroke1Ref.current.points.push(getCanvasPt(e, canvas));
     drawStrokes(canvas, strokes1Ref.current, curStroke1Ref.current);
   };
   const handleDraw1Up = async () => {
+    if (drawTool === "stamp") {
+      setLoupePos(null);
+      const canvas = drawCanvas1Ref.current;
+      if (!canvas) return;
+      const pt = lastPt1Ref.current;
+      const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
+        color:drawColor, size:drawWidth * 8 + 8, points:[pt] };
+      const next = [...strokes1Ref.current, stamp];
+      strokes1Ref.current = next;
+      drawStrokes(canvas, next);
+      const songId = dual ? dualLeftSongId : selectedSongId;
+      await saveDrawing(songId, dual ? 1 : pageNum, next);
+      return;
+    }
     if (!isDrawing1Ref.current || !curStroke1Ref.current) return;
     isDrawing1Ref.current = false;
     const stroke = curStroke1Ref.current;
@@ -2012,6 +2111,7 @@ Return ONLY the JSON array, no other text.`;
     if (canvas) drawStrokes(canvas, strokes1Ref.current);
   };
   const handleDraw1Cancel = () => {
+    setLoupePos(null);
     isDrawing1Ref.current = false; curStroke1Ref.current = null;
     const canvas = drawCanvas1Ref.current;
     if (canvas) drawStrokes(canvas, strokes1Ref.current);
@@ -2019,26 +2119,52 @@ Return ONLY the JSON array, no other text.`;
 
   // ── Canvas 2 handlers (dual right)
   const handleDraw2Down = (e) => {
-    if (e.pointerType === "touch") return; // 손가락/손바닥 무시
+    if (e.pointerType === "touch") return;
     const canvas = drawCanvas2Ref.current;
     if (!canvas) return;
     e.preventDefault(); e.stopPropagation();
     e.target.setPointerCapture(e.pointerId);
-    isDrawing2Ref.current = true;
     lastSideRef.current = 2;
+    if (drawTool === "stamp") {
+      const pt = getCanvasPt(e, canvas);
+      lastPt2Ref.current = pt;
+      updateLoupe(e, canvas2Ref.current, canvas);
+      setLoupePos({ x: e.clientX, y: e.clientY });
+      return;
+    }
+    isDrawing2Ref.current = true;
     curStroke2Ref.current = { ...makeStroke(), points: [getCanvasPt(e, canvas)] };
     drawStrokes(canvas, strokes2Ref.current, curStroke2Ref.current);
   };
   const handleDraw2Move = (e) => {
     if (e.pointerType === "touch") return;
-    if (!isDrawing2Ref.current || !curStroke2Ref.current) return;
     const canvas = drawCanvas2Ref.current;
     if (!canvas) return;
     e.preventDefault();
+    if (drawTool === "stamp") {
+      lastPt2Ref.current = getCanvasPt(e, canvas);
+      updateLoupe(e, canvas2Ref.current, canvas);
+      setLoupePos({ x: e.clientX, y: e.clientY });
+      return;
+    }
+    if (!isDrawing2Ref.current || !curStroke2Ref.current) return;
     curStroke2Ref.current.points.push(getCanvasPt(e, canvas));
     drawStrokes(canvas, strokes2Ref.current, curStroke2Ref.current);
   };
   const handleDraw2Up = async () => {
+    if (drawTool === "stamp") {
+      setLoupePos(null);
+      const canvas = drawCanvas2Ref.current;
+      if (!canvas) return;
+      const pt = lastPt2Ref.current;
+      const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
+        color:drawColor, size:drawWidth * 8 + 8, points:[pt] };
+      const next = [...strokes2Ref.current, stamp];
+      strokes2Ref.current = next;
+      drawStrokes(canvas, next);
+      await saveDrawing(dualRightSongId, 1, next);
+      return;
+    }
     if (!isDrawing2Ref.current || !curStroke2Ref.current) return;
     isDrawing2Ref.current = false;
     const stroke = curStroke2Ref.current;
@@ -2052,6 +2178,7 @@ Return ONLY the JSON array, no other text.`;
     if (canvas) drawStrokes(canvas, strokes2Ref.current);
   };
   const handleDraw2Cancel = () => {
+    setLoupePos(null);
     isDrawing2Ref.current = false; curStroke2Ref.current = null;
     const canvas = drawCanvas2Ref.current;
     if (canvas) drawStrokes(canvas, strokes2Ref.current);
@@ -2209,78 +2336,108 @@ Return ONLY the JSON array, no other text.`;
 
       {/* 필기 서브툴바 */}
       {drawMode && (
-        <div style={{
-          display:"flex", alignItems:"center", gap:8,
-          padding:"0 14px", height:48, flexShrink:0,
-          background:`${C.pur}0a`, borderBottom:`1px solid ${C.bdr}`,
-          overflowX:"auto",
-        }}>
-          {/* Tool selector */}
-          {[
-            { id:"pen",         icon:"pen",       label:"펜"   },
-            { id:"highlighter", icon:"highlight",  label:"형광" },
-            { id:"eraser",      icon:"eraser",     label:"지우개" },
-          ].map(t => (
-            <button key={t.id} onClick={() => setDrawTool(t.id)} title={t.label} style={{
-              display:"flex", alignItems:"center", gap:3, padding:"4px 8px",
-              background: drawTool === t.id ? `${C.pur}22` : "transparent",
-              border:`1px solid ${drawTool === t.id ? C.pur : C.bdr}`,
-              borderRadius:6, cursor:"pointer", flexShrink:0,
-            }}>
-              <Icon n={t.icon} size={15} color={drawTool === t.id ? C.pur : C.dim} />
-            </button>
-          ))}
-          <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
-          {/* Colors — pen/highlighter colors */}
-          {(drawTool === "highlighter"
-            ? ["#ffe034","#7dff6b","#5df4ff","#ff7de9","#ffac30"]
-            : ["#e8383b","#1a73e8","#1c1c1e","#34c759","#e8a93e"]
-          ).map(clr => (
-            <button key={clr} onClick={() => setDrawColor(clr)}
-              style={{
-                width:22, height:22, borderRadius:"50%", background:clr,
-                border: drawColor === clr && drawTool !== "eraser" ? "3px solid #fff" : "2px solid transparent",
-                outline: drawColor === clr && drawTool !== "eraser" ? `2px solid ${clr}` : "none",
-                cursor:"pointer", flexShrink:0, padding:0,
-                opacity: drawTool === "eraser" ? 0.35 : 1,
-              }} />
-          ))}
-          <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
-          {/* Width */}
-          {[1, 2, 4].map(w => (
-            <button key={w} onClick={() => setDrawWidth(w)}
-              style={{
-                width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center",
-                background: drawWidth === w ? `${C.pur}22` : "transparent",
-                border:`1px solid ${drawWidth === w ? C.pur : C.bdr}`,
+        <div style={{ flexShrink:0, background:`${C.pur}0a`, borderBottom:`1px solid ${C.bdr}` }}>
+          {/* 메인 툴바 행 */}
+          <div style={{ display:"flex", alignItems:"center", gap:8, padding:"0 14px", height:48, overflowX:"auto" }}>
+            {/* Tool selector */}
+            {[
+              { id:"pen",         icon:"pen",       label:"펜"   },
+              { id:"highlighter", icon:"highlight",  label:"형광" },
+              { id:"eraser",      icon:"eraser",     label:"지우개" },
+              { id:"stamp",       icon:"stamp",      label:"스탬프" },
+            ].map(t => (
+              <button key={t.id} onClick={() => setDrawTool(t.id)} title={t.label} style={{
+                display:"flex", alignItems:"center", gap:3, padding:"4px 8px",
+                background: drawTool === t.id ? `${C.pur}22` : "transparent",
+                border:`1px solid ${drawTool === t.id ? C.pur : C.bdr}`,
                 borderRadius:6, cursor:"pointer", flexShrink:0,
               }}>
-              <div style={{
-                width: drawTool === "highlighter" ? w * 2 + 1 : w + 2,
-                height: drawTool === "highlighter" ? Math.max(6, w) : w + 2,
-                borderRadius: drawTool === "highlighter" ? 2 : "50%",
-                background: drawTool === "eraser" ? C.dim : drawColor,
-                opacity: drawTool === "eraser" ? 0.4 : 0.8,
-              }} />
+                <Icon n={t.icon} size={15} color={drawTool === t.id ? C.pur : C.dim} />
+              </button>
+            ))}
+            <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+            {/* Colors */}
+            {(drawTool === "highlighter"
+              ? ["#ffe034","#7dff6b","#5df4ff","#ff7de9","#ffac30"]
+              : ["#e8383b","#1a73e8","#1c1c1e","#34c759","#e8a93e"]
+            ).map(clr => (
+              <button key={clr} onClick={() => setDrawColor(clr)}
+                style={{
+                  width:22, height:22, borderRadius:"50%", background:clr,
+                  border: drawColor === clr && drawTool !== "eraser" ? "3px solid #fff" : "2px solid transparent",
+                  outline: drawColor === clr && drawTool !== "eraser" ? `2px solid ${clr}` : "none",
+                  cursor:"pointer", flexShrink:0, padding:0,
+                  opacity: drawTool === "eraser" ? 0.35 : 1,
+                }} />
+            ))}
+            <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+            {/* Width / size */}
+            {[1, 2, 4].map(w => (
+              <button key={w} onClick={() => setDrawWidth(w)}
+                style={{
+                  width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center",
+                  background: drawWidth === w ? `${C.pur}22` : "transparent",
+                  border:`1px solid ${drawWidth === w ? C.pur : C.bdr}`,
+                  borderRadius:6, cursor:"pointer", flexShrink:0,
+                }}>
+                {drawTool === "stamp" ? (
+                  <span style={{ fontSize: w === 1 ? 9 : w === 2 ? 12 : 16, color:drawColor, fontWeight:700,
+                    fontStyle: stampItalic ? "italic" : "normal", lineHeight:1 }}>
+                    {stampSymbol}
+                  </span>
+                ) : (
+                  <div style={{
+                    width: drawTool === "highlighter" ? w * 2 + 1 : w + 2,
+                    height: drawTool === "highlighter" ? Math.max(6, w) : w + 2,
+                    borderRadius: drawTool === "highlighter" ? 2 : "50%",
+                    background: drawTool === "eraser" ? C.dim : drawColor,
+                    opacity: drawTool === "eraser" ? 0.4 : 0.8,
+                  }} />
+                )}
+              </button>
+            ))}
+            <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+            <button onClick={handleUndo} title="실행 취소" style={{
+              background:"transparent", border:`1px solid ${C.bdr}`,
+              borderRadius:6, padding:5, cursor:"pointer", display:"flex", flexShrink:0,
+            }}>
+              <Icon n="undo" size={16} color={C.dim} />
             </button>
-          ))}
-          <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
-          <button onClick={handleUndo} title="실행 취소" style={{
-            background:"transparent", border:`1px solid ${C.bdr}`,
-            borderRadius:6, padding:5, cursor:"pointer", display:"flex", flexShrink:0,
-          }}>
-            <Icon n="undo" size={16} color={C.dim} />
-          </button>
-          <button onClick={handleClearPage} title="현재 페이지 지우기" style={{
-            background:"transparent", border:`1px solid ${C.bdr}`,
-            borderRadius:6, padding:5, cursor:"pointer", display:"flex", flexShrink:0,
-          }}>
-            <Icon n="trash" size={16} color={C.dim} />
-          </button>
-          {drawSaveErr && (
-            <span style={{ fontSize:10, color:C.red, marginLeft:4, flexShrink:0 }}>
-              ⚠ {drawSaveErr}
-            </span>
+            <button onClick={handleClearPage} title="현재 페이지 지우기" style={{
+              background:"transparent", border:`1px solid ${C.bdr}`,
+              borderRadius:6, padding:5, cursor:"pointer", display:"flex", flexShrink:0,
+            }}>
+              <Icon n="trash" size={16} color={C.dim} />
+            </button>
+            {drawSaveErr && (
+              <span style={{ fontSize:10, color:C.red, marginLeft:4, flexShrink:0 }}>
+                ⚠ {drawSaveErr}
+              </span>
+            )}
+          </div>
+          {/* 스탬프 팔레트 행 */}
+          {drawTool === "stamp" && (
+            <div style={{
+              display:"flex", alignItems:"center", gap:6, padding:"6px 14px",
+              overflowX:"auto", borderTop:`1px solid ${C.bdr}`,
+            }}>
+              {STAMPS.map(st => (
+                <button key={st.sym}
+                  onClick={() => { setStampSymbol(st.sym); setStampItalic(st.italic); }}
+                  style={{
+                    minWidth:36, height:32, display:"flex", alignItems:"center", justifyContent:"center",
+                    background: stampSymbol === st.sym ? `${C.acc}22` : "transparent",
+                    border:`1px solid ${stampSymbol === st.sym ? C.acc : C.bdr}`,
+                    borderRadius:7, cursor:"pointer", flexShrink:0, padding:"0 6px",
+                  }}>
+                  <span style={{
+                    fontSize:15, fontWeight:700, color: stampSymbol === st.sym ? C.acc : C.txt,
+                    fontStyle: st.italic ? "italic" : "normal",
+                    fontFamily: st.italic ? '"Times New Roman", Georgia, serif' : "inherit",
+                  }}>{st.label}</span>
+                </button>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -2365,6 +2522,22 @@ Return ONLY the JSON array, no other text.`;
           </div>
         </div>
       )}
+
+      {/* 돋보기 루프 (스탬프 모드 / 애플펜슬) */}
+      <canvas ref={loupeCanvasRef} width={130} height={130}
+        style={{
+          position:"fixed",
+          left: loupePos ? loupePos.x - 65 : -9999,
+          top:  loupePos ? loupePos.y - 160 : -9999,
+          width:130, height:130,
+          borderRadius:"50%",
+          border:"3px solid rgba(255,255,255,0.85)",
+          boxShadow:"0 4px 24px rgba(0,0,0,0.55)",
+          pointerEvents:"none",
+          zIndex:1000,
+          display: loupePos ? "block" : "none",
+        }}
+      />
 
       {/* 콘텐츠 */}
       <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
