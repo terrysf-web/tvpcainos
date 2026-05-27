@@ -197,13 +197,14 @@ function Modal({ title, onClose, children }) {
 ══════════════════════════════════════════════════════════════════ */
 const googleProvider = new GoogleAuthProvider();
 
-function LoginScreen() {
+function LoginScreen({ loginErr = "", onClearErr }) {
   const [err,     setErr]     = useState("");
   const [loading, setLoading] = useState(false);
 
   const loginWithGoogle = async () => {
     setLoading(true);
     setErr("");
+    onClearErr?.();
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (e) {
@@ -256,12 +257,18 @@ function LoginScreen() {
           </svg>
           {loading ? "로그인 중..." : "Google로 로그인"}
         </button>
-        {err && (
-          <div style={{ color:C.red, fontSize:13, marginTop:14, textAlign:"center" }}>{err}</div>
+        {(err || loginErr) && (
+          <div style={{
+            marginTop:14, padding:"10px 14px", borderRadius:10,
+            background:`${C.red}11`, border:`1px solid ${C.red}33`,
+            color:C.red, fontSize:13, textAlign:"center", lineHeight:1.6,
+          }}>
+            {err || loginErr}
+          </div>
         )}
         <div style={{ fontSize:12, color:C.dim, textAlign:"center", marginTop:20, lineHeight:1.8 }}>
-          구글 계정으로 로그인하세요<br />
-          처음 로그인 시 자동으로 계정이 만들어집니다
+          관리자가 등록한 구글 계정으로만<br />
+          로그인할 수 있습니다
         </div>
       </div>
     </div>
@@ -1446,19 +1453,40 @@ function NotificationsScreen({ notifs, markNotifRead, markAllNotifRead }) {
    TEAM MANAGEMENT MODAL
 ══════════════════════════════════════════════════════════════════ */
 function TeamManagementModal({ currentUserId, onClose }) {
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving,  setSaving]  = useState(null); // uid currently being saved
-  const [editPart, setEditPart] = useState(null); // uid currently editing part
-  const [partVal,  setPartVal]  = useState("");
+  const [members,       setMembers]       = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [saving,        setSaving]        = useState(null);
+  const [editPart,      setEditPart]      = useState(null);
+  const [partVal,       setPartVal]       = useState("");
+  const [allowedEmails, setAllowedEmails] = useState([]);
+  const [emailInput,    setEmailInput]    = useState("");
+  const [addingEmail,   setAddingEmail]   = useState(false);
 
   useEffect(() => {
-    getDocs(query(collection(db, "users"), orderBy("name")))
-      .then(snap => {
-        setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        setLoading(false);
-      });
+    Promise.all([
+      getDocs(query(collection(db, "users"), orderBy("name"))),
+      getDocs(collection(db, "allowedEmails")),
+    ]).then(([usersSnap, emailsSnap]) => {
+      setMembers(usersSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setAllowedEmails(emailsSnap.docs.map(d => d.id));
+      setLoading(false);
+    });
   }, []);
+
+  const addEmail = async () => {
+    const email = emailInput.trim().toLowerCase();
+    if (!email || allowedEmails.includes(email)) return;
+    setAddingEmail(true);
+    await setDoc(doc(db, "allowedEmails", email), { addedAt: serverTimestamp() });
+    setAllowedEmails(p => [...p, email]);
+    setEmailInput("");
+    setAddingEmail(false);
+  };
+
+  const removeEmail = async (email) => {
+    await deleteDoc(doc(db, "allowedEmails", email));
+    setAllowedEmails(p => p.filter(e => e !== email));
+  };
 
   const changeRole = async (uid, newRole) => {
     setSaving(uid + newRole);
@@ -1577,6 +1605,71 @@ function TeamManagementModal({ currentUserId, onClose }) {
           ))}
         </div>
       )}
+
+      {/* ── 허용 이메일 목록 */}
+      <div style={{ marginTop:20 }}>
+        <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+          textTransform:"uppercase", marginBottom:10 }}>
+          로그인 허용 이메일
+        </div>
+        <div style={{ fontSize:12, color:C.dim, marginBottom:10, lineHeight:1.6 }}>
+          등록된 Gmail만 로그인 가능합니다. 새 팀원이 처음 로그인하기 전에 여기서 먼저 추가하세요.
+        </div>
+
+        {/* 이메일 추가 입력 */}
+        <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+          <input
+            value={emailInput}
+            onChange={e => setEmailInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && addEmail()}
+            placeholder="example@gmail.com"
+            style={{
+              flex:1, background:C.card, border:`1.5px solid ${C.bdr}`,
+              color:C.txt, padding:"8px 10px", borderRadius:8,
+              fontSize:12, outline:"none", fontFamily:"inherit",
+            }}
+          />
+          <button onClick={addEmail} disabled={addingEmail || !emailInput.trim()} style={{
+            background:C.acc, border:"none", borderRadius:8,
+            padding:"8px 14px", cursor:"pointer",
+            fontSize:12, fontWeight:700, color:"#111", fontFamily:"inherit",
+            opacity: addingEmail || !emailInput.trim() ? 0.5 : 1,
+            flexShrink:0,
+          }}>추가</button>
+        </div>
+
+        {/* 허용된 이메일 목록 */}
+        {loading ? null : allowedEmails.length === 0 ? (
+          <div style={{
+            padding:"14px", borderRadius:8, textAlign:"center",
+            background:C.card, border:`1px dashed ${C.bdr}`,
+            fontSize:12, color:`${C.dim}88`,
+          }}>
+            허용된 이메일이 없습니다 (부트스트랩 모드 — 누구나 로그인 가능)
+          </div>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+            {allowedEmails.map(email => (
+              <div key={email} style={{
+                display:"flex", alignItems:"center", gap:8,
+                padding:"8px 10px", borderRadius:8,
+                background:C.card, border:`1px solid ${C.bdr}`,
+              }}>
+                <span style={{ flex:1, fontSize:12, color:C.txt,
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {email}
+                </span>
+                <button onClick={() => removeEmail(email)} style={{
+                  background:"transparent", border:"none", cursor:"pointer",
+                  padding:4, display:"flex", flexShrink:0,
+                }}>
+                  <Icon n="xmark" size={14} color={C.dim} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </Modal>
   );
 }
@@ -1731,6 +1824,7 @@ function BottomNav({ view, nav, unread }) {
 ══════════════════════════════════════════════════════════════════ */
 export default function App() {
   const [user,        setUser]        = useState(undefined); // undefined = loading
+  const [loginErr,    setLoginErr]    = useState("");
   const [view,        setView]        = useState("services");
   const [songs,       setSongs]       = useState([]);
   const [services,    setServices]    = useState([]);
@@ -1754,10 +1848,20 @@ export default function App() {
           const uRef = doc(db, "users", firebaseUser.uid);
           const snap = await getDoc(uRef);
           if (!snap.exists()) {
-            const leadersSnap = await getDocs(
+            // 허용 목록 체크: 기존 어드민/리더 없으면 첫 가입(부트스트랩) → 허용
+            const anyAdmin = await getDocs(
               query(collection(db, "users"), where("role", "in", ["leader", "admin"]), limit(1))
             );
-            const autoRole = leadersSnap.empty ? "admin" : "member";
+            if (!anyAdmin.empty) {
+              // 어드민이 이미 있으면 허용 목록 확인
+              const allowed = await getDoc(doc(db, "allowedEmails", firebaseUser.email));
+              if (!allowed.exists()) {
+                await signOut(auth);
+                setLoginErr("등록되지 않은 이메일입니다. 관리자에게 문의하세요.");
+                return;
+              }
+            }
+            const autoRole = anyAdmin.empty ? "admin" : "member";
             await setDoc(uRef, {
               name:  firebaseUser.displayName || firebaseUser.email,
               email: firebaseUser.email,
@@ -1953,7 +2057,7 @@ export default function App() {
     </div>
   );
 
-  if (!user) return <LoginScreen />;
+  if (!user) return <LoginScreen loginErr={loginErr} onClearErr={() => setLoginErr("")} />;
 
   const nav = (newView, params = {}) => {
     if (params.svcId  !== undefined) setSelSvcId(params.svcId);
