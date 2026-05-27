@@ -2041,8 +2041,10 @@ function TeamManagementModal({ currentUserId, onClose }) {
   const [saving,        setSaving]        = useState(null);
   const [editPart,      setEditPart]      = useState(null);
   const [partVal,       setPartVal]       = useState("");
-  const [allowedEmails, setAllowedEmails] = useState([]);
+  const [allowedEmails, setAllowedEmails] = useState([]); // [{email, role, part}]
   const [emailInput,    setEmailInput]    = useState("");
+  const [newRole,       setNewRole]       = useState("member");
+  const [newPart,       setNewPart]       = useState("");
   const [addingEmail,   setAddingEmail]   = useState(false);
   const [emailErr,      setEmailErr]      = useState("");
 
@@ -2060,7 +2062,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
 
     // 허용 이메일 — 실시간
     const unsub = onSnapshot(collection(db, "allowedEmails"),
-      snap => setAllowedEmails(snap.docs.map(d => d.id)),
+      snap => setAllowedEmails(snap.docs.map(d => ({ email: d.id, ...d.data() }))),
       e => console.error("allowedEmails 실패:", e)
     );
     return unsub;
@@ -2068,12 +2070,18 @@ function TeamManagementModal({ currentUserId, onClose }) {
 
   const addEmail = async () => {
     const email = emailInput.trim().toLowerCase();
-    if (!email || allowedEmails.includes(email)) return;
+    if (!email || allowedEmails.some(e => e.email === email)) return;
     setAddingEmail(true);
     setEmailErr("");
     try {
-      await setDoc(doc(db, "allowedEmails", email), { addedAt: serverTimestamp() });
+      await setDoc(doc(db, "allowedEmails", email), {
+        addedAt: serverTimestamp(),
+        role: newRole,
+        part: newPart.trim(),
+      });
       setEmailInput("");
+      setNewRole("member");
+      setNewPart("");
     } catch (e) {
       setEmailErr("추가 실패: " + (e.code === "permission-denied" ? "권한이 없습니다" : e.message));
     } finally {
@@ -2218,25 +2226,55 @@ function TeamManagementModal({ currentUserId, onClose }) {
         </div>
 
         {/* 이메일 추가 입력 */}
-        <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+        <div style={{
+          background:C.card, border:`1.5px solid ${C.bdr}`,
+          borderRadius:10, padding:"12px 12px 10px", marginBottom:10,
+          display:"flex", flexDirection:"column", gap:8,
+        }}>
           <input
             value={emailInput}
             onChange={e => setEmailInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && addEmail()}
             placeholder="example@gmail.com"
             style={{
-              flex:1, background:C.card, border:`1.5px solid ${C.bdr}`,
+              background:C.surf, border:`1px solid ${C.bdr}`,
               color:C.txt, padding:"8px 10px", borderRadius:8,
-              fontSize:12, outline:"none", fontFamily:"inherit",
+              fontSize:12, outline:"none", fontFamily:"inherit", width:"100%", boxSizing:"border-box",
             }}
           />
-          <button onClick={addEmail} disabled={addingEmail || !emailInput.trim()} style={{
-            background:C.acc, border:"none", borderRadius:8,
-            padding:"8px 14px", cursor:"pointer",
-            fontSize:12, fontWeight:700, color:"#111", fontFamily:"inherit",
-            opacity: addingEmail || !emailInput.trim() ? 0.5 : 1,
-            flexShrink:0,
-          }}>추가</button>
+          {/* 권한 선택 */}
+          <div style={{ display:"flex", gap:5 }}>
+            {[["member","멤버",C.grn],["leader","리더",C.acc],["admin","어드민",C.red]].map(([r, label, clr]) => (
+              <button key={r} onClick={() => setNewRole(r)} style={{
+                flex:1, padding:"5px 0", borderRadius:7, cursor:"pointer",
+                fontFamily:"inherit", fontWeight:600, fontSize:11,
+                border: `1px solid ${newRole === r ? clr + "99" : C.bdr}`,
+                background: newRole === r ? clr + "22" : C.surf,
+                color: newRole === r ? clr : C.dim,
+                transition:"all .15s",
+              }}>{label}</button>
+            ))}
+          </div>
+          {/* 파트 입력 */}
+          <div style={{ display:"flex", gap:6 }}>
+            <input
+              value={newPart}
+              onChange={e => setNewPart(e.target.value)}
+              placeholder="파트 (예: 건반, 기타, 드럼)"
+              style={{
+                flex:1, background:C.surf, border:`1px solid ${C.bdr}`,
+                color:C.txt, padding:"7px 10px", borderRadius:8,
+                fontSize:12, outline:"none", fontFamily:"inherit",
+              }}
+            />
+            <button onClick={addEmail} disabled={addingEmail || !emailInput.trim()} style={{
+              background:C.acc, border:"none", borderRadius:8,
+              padding:"7px 16px", cursor:"pointer",
+              fontSize:12, fontWeight:700, color:"#111", fontFamily:"inherit",
+              opacity: addingEmail || !emailInput.trim() ? 0.5 : 1,
+              flexShrink:0,
+            }}>추가</button>
+          </div>
         </div>
         {emailErr && (
           <div style={{ fontSize:12, color:C.red, marginBottom:8,
@@ -2256,24 +2294,37 @@ function TeamManagementModal({ currentUserId, onClose }) {
           </div>
         ) : (
           <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-            {allowedEmails.map(email => (
-              <div key={email} style={{
-                display:"flex", alignItems:"center", gap:8,
-                padding:"8px 10px", borderRadius:8,
-                background:C.card, border:`1px solid ${C.bdr}`,
-              }}>
-                <span style={{ flex:1, fontSize:12, color:C.txt,
-                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                  {email}
-                </span>
-                <button onClick={() => removeEmail(email)} style={{
-                  background:"transparent", border:"none", cursor:"pointer",
-                  padding:4, display:"flex", flexShrink:0,
+            {allowedEmails.map(item => {
+              const clr = item.role === "admin" ? C.red : item.role === "leader" ? C.acc : C.grn;
+              const roleLabel = item.role === "admin" ? "어드민" : item.role === "leader" ? "리더" : "멤버";
+              return (
+                <div key={item.email} style={{
+                  display:"flex", alignItems:"center", gap:8,
+                  padding:"8px 10px", borderRadius:8,
+                  background:C.card, border:`1px solid ${C.bdr}`,
                 }}>
-                  <Icon n="xmark" size={14} color={C.dim} />
-                </button>
-              </div>
-            ))}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:12, color:C.txt,
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {item.email}
+                    </div>
+                    {item.part && (
+                      <div style={{ fontSize:11, color:C.dim, marginTop:1 }}>{item.part}</div>
+                    )}
+                  </div>
+                  <span style={{
+                    fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:5,
+                    background:`${clr}22`, color:clr, flexShrink:0,
+                  }}>{roleLabel}</span>
+                  <button onClick={() => removeEmail(item.email)} style={{
+                    background:"transparent", border:"none", cursor:"pointer",
+                    padding:4, display:"flex", flexShrink:0,
+                  }}>
+                    <Icon n="xmark" size={14} color={C.dim} />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -2459,21 +2510,24 @@ export default function App() {
             const anyAdmin = await getDocs(
               query(collection(db, "users"), where("role", "in", ["leader", "admin"]), limit(1))
             );
+            let allowed = null;
             if (!anyAdmin.empty) {
               // 어드민이 이미 있으면 허용 목록 확인
-              const allowed = await getDoc(doc(db, "allowedEmails", firebaseUser.email));
-              if (!allowed.exists()) {
+              const allowedSnap = await getDoc(doc(db, "allowedEmails", firebaseUser.email));
+              if (!allowedSnap.exists()) {
                 await signOut(auth);
                 setLoginErr("등록되지 않은 이메일입니다. 관리자에게 문의하세요.");
                 return;
               }
+              allowed = allowedSnap;
             }
-            const autoRole = anyAdmin.empty ? "admin" : "member";
+            const presetRole = anyAdmin.empty ? "admin" : (allowed?.data()?.role || "member");
+            const presetPart = allowed?.data()?.part || "";
             await setDoc(uRef, {
               name:  firebaseUser.displayName || firebaseUser.email,
               email: firebaseUser.email,
-              role:  autoRole,
-              part:  "",
+              role:  presetRole,
+              part:  presetPart,
             });
           }
           // 실제 유저 데이터는 아래 onSnapshot 리스너가 담당
