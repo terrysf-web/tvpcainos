@@ -201,13 +201,8 @@ const STAMP_GROUPS = [
 ];
 const STAMPS = STAMP_GROUPS.flatMap(g => g.items);
 
-// 음표·쉼표는 textBaseline:"bottom" → notehead가 터치 지점에 정확히 앉음
-// 악상·아티큘·임시표는 textBaseline:"middle" (글리프 중앙 = 의미있는 위치)
-const NOTE_SYMS = new Set(["♩","♪","♫","♬","𝄽","𝄾","𝄿","𝄞","𝄢"]);
-const ACCIDN_SYMS = new Set(["♭","♮","♯","𝄪","𝄫"]);
-function getStampBaseline(sym) {
-  if (NOTE_SYMS.has(sym))   return "bottom";
-  if (ACCIDN_SYMS.has(sym)) return "alphabetic";
+// 모든 심볼: textBaseline:"middle" → 글리프 중앙 = 터치 지점 = 루페 십자선
+function getStampBaseline(_sym) {
   return "middle";
 }
 
