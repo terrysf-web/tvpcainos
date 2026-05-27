@@ -773,6 +773,15 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
           <div style={{ fontWeight:800, fontSize:20 }}>예배 일정</div>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <button onClick={() => window.location.reload()} style={{
+            background:C.card, border:`1px solid ${C.bdr}`,
+            borderRadius:10, padding:8, cursor:"pointer", display:"flex",
+          }}>
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <path d="M1 4v6h6M23 20v-6h-6" stroke={C.dim} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15" stroke={C.dim} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
           <button onClick={() => nav("notifications")} style={{
             background:C.card, border:`1px solid ${C.bdr}`,
             borderRadius:10, padding:8, position:"relative",
@@ -1123,9 +1132,20 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
         borderBottom:`1px solid ${C.bdr}` }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
           <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>악보 라이브러리</div>
-          {isLeader(user.role) && (
-            <Btn label="곡 추가" icon="plus" sm onClick={() => setShowAdd(true)} />
-          )}
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <button onClick={() => window.location.reload()} style={{
+              background:C.card, border:`1px solid ${C.bdr}`,
+              borderRadius:10, padding:7, cursor:"pointer", display:"flex",
+            }}>
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                <path d="M1 4v6h6M23 20v-6h-6" stroke={C.dim} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15" stroke={C.dim} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            {isLeader(user.role) && (
+              <Btn label="곡 추가" icon="plus" sm onClick={() => setShowAdd(true)} />
+            )}
+          </div>
         </div>
         <div style={{ position:"relative" }}>
           <div style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)" }}>
