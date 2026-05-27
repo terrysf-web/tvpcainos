@@ -2368,7 +2368,7 @@ Return ONLY the JSON array, no other text.`;
 
       {/* 메모 패널 */}
       {showNotePanel && (
-        <div style={{ position:"absolute", right:0, top:0, bottom:0,
+        <div style={{ position:"absolute", right:0, top:"calc(env(safe-area-inset-top) + 52px)", bottom:0,
           width:270, background:C.surf, borderLeft:`1px solid ${C.bdr}`,
           zIndex:100, overflowY:"auto", padding:16 }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
