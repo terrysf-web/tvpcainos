@@ -1431,6 +1431,7 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   const [dualToast, setDualToast] = useState("");
   const touchStartX = useRef(null);
   const toastTimer  = useRef(null);
+  const penDownRef  = useRef(false); // 애플펜슬 터치 중 여부
 
   // ── UI
   const [dual,          setDual]          = useState(false);
@@ -1543,6 +1544,20 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
     const prevent = (e) => { if (drawModeRef.current || touchStartX.current !== null) e.preventDefault(); };
     el.addEventListener("touchmove", prevent, { passive: false });
     return () => el.removeEventListener("touchmove", prevent);
+  }, []);
+
+  // 애플펜슬 터치 추적 — 펜슬로 페이지 스와이프 방지
+  useEffect(() => {
+    const onDown = (e) => { if (e.pointerType === "pen") penDownRef.current = true; };
+    const onUp   = (e) => { if (e.pointerType === "pen") penDownRef.current = false; };
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointerup",   onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointerup",   onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
   }, []);
 
   // 코드 감지 결과 로드 — 싱글 모드
@@ -1730,6 +1745,7 @@ Return ONLY the JSON array, no other text.`;
 
   const handleTouchStart = (e) => {
     if (drawModeRef.current) return;
+    if (penDownRef.current) return; // 애플펜슬 입력이면 스와이프 무시
     touchStartX.current = e.touches[0].clientX;
   };
 
@@ -2973,23 +2989,33 @@ export default function App() {
   const [pencilCursor, setPencilCursor] = useState(null); // {x, y}
   const pencilHideTimer = useRef(null);
   useEffect(() => {
-    const onMove = (e) => {
-      if (e.pointerType !== "pen") return;
-      if (e.buttons !== 0) { setPencilCursor(null); return; } // 화면에 닿으면 숨김
-      setPencilCursor({ x: e.clientX, y: e.clientY });
+    const show = (x, y) => {
+      setPencilCursor({ x, y });
       clearTimeout(pencilHideTimer.current);
       pencilHideTimer.current = setTimeout(() => setPencilCursor(null), 1500);
     };
-    const onLeave = (e) => {
+    const onMove = (e) => {
+      if (e.pointerType !== "pen") return;
+      show(e.clientX, e.clientY);
+    };
+    const onDown = (e) => {
       if (e.pointerType !== "pen") return;
       clearTimeout(pencilHideTimer.current);
-      setPencilCursor(null);
+      setPencilCursor(null); // 화면에 닿으면 숨김
     };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerleave", onLeave);
+    const onUp = (e) => {
+      if (e.pointerType !== "pen") return;
+      show(e.clientX, e.clientY); // 떼면 다시 표시
+    };
+    window.addEventListener("pointermove",  onMove);
+    window.addEventListener("pointerdown",  onDown);
+    window.addEventListener("pointerup",    onUp);
+    window.addEventListener("pointerleave", onDown);
     return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerleave", onLeave);
+      window.removeEventListener("pointermove",  onMove);
+      window.removeEventListener("pointerdown",  onDown);
+      window.removeEventListener("pointerup",    onUp);
+      window.removeEventListener("pointerleave", onDown);
       clearTimeout(pencilHideTimer.current);
     };
   }, []);
