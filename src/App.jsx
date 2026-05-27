@@ -2985,40 +2985,6 @@ export default function App() {
     }
   }, []);
 
-  // ── Apple Pencil 호버 커서
-  const [pencilCursor, setPencilCursor] = useState(null); // {x, y}
-  const pencilHideTimer = useRef(null);
-  useEffect(() => {
-    const show = (x, y) => {
-      setPencilCursor({ x, y });
-      clearTimeout(pencilHideTimer.current);
-      pencilHideTimer.current = setTimeout(() => setPencilCursor(null), 1500);
-    };
-    const onMove = (e) => {
-      if (e.pointerType !== "pen") return;
-      show(e.clientX, e.clientY);
-    };
-    const onDown = (e) => {
-      if (e.pointerType !== "pen") return;
-      clearTimeout(pencilHideTimer.current);
-      setPencilCursor(null); // 화면에 닿으면 숨김
-    };
-    const onUp = (e) => {
-      if (e.pointerType !== "pen") return;
-      show(e.clientX, e.clientY); // 떼면 다시 표시
-    };
-    window.addEventListener("pointermove",  onMove);
-    window.addEventListener("pointerdown",  onDown);
-    window.addEventListener("pointerup",    onUp);
-    window.addEventListener("pointerleave", onDown);
-    return () => {
-      window.removeEventListener("pointermove",  onMove);
-      window.removeEventListener("pointerdown",  onDown);
-      window.removeEventListener("pointerup",    onUp);
-      window.removeEventListener("pointerleave", onDown);
-      clearTimeout(pencilHideTimer.current);
-    };
-  }, []);
 
   // ── Handle Google redirect result
   useEffect(() => {
@@ -3268,17 +3234,6 @@ export default function App() {
 
   return (
     <div style={{ width:"100%", minHeight:"100vh", background:C.bg, position:"relative" }}>
-      {/* Apple Pencil 호버 커서 */}
-      {pencilCursor && (
-        <div style={{
-          position:"fixed", pointerEvents:"none", zIndex:9999,
-          left: pencilCursor.x - 10, top: pencilCursor.y - 10,
-          width:20, height:20, borderRadius:"50%",
-          border:"2px solid rgba(108,93,231,0.8)",
-          background:"rgba(108,93,231,0.12)",
-          transition:"opacity .2s",
-        }} />
-      )}
       {view === "services"      && <ServicesScreen      {...shared} />}
       {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} />}
       {view === "library"       && <SongLibraryScreen   {...shared} />}
