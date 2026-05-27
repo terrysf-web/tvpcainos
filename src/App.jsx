@@ -1770,6 +1770,7 @@ Return ONLY the JSON array, no other text.`;
 
   // ── Canvas 1 handlers (single mode + dual left)
   const handleDraw1Down = (e) => {
+    if (e.pointerType === "touch") return; // 손가락/손바닥 무시
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
     e.preventDefault(); e.stopPropagation();
@@ -1780,6 +1781,7 @@ Return ONLY the JSON array, no other text.`;
     drawStrokes(canvas, strokes1Ref.current, curStroke1Ref.current);
   };
   const handleDraw1Move = (e) => {
+    if (e.pointerType === "touch") return;
     if (!isDrawing1Ref.current || !curStroke1Ref.current) return;
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
@@ -1809,6 +1811,7 @@ Return ONLY the JSON array, no other text.`;
 
   // ── Canvas 2 handlers (dual right)
   const handleDraw2Down = (e) => {
+    if (e.pointerType === "touch") return; // 손가락/손바닥 무시
     const canvas = drawCanvas2Ref.current;
     if (!canvas) return;
     e.preventDefault(); e.stopPropagation();
@@ -1819,6 +1822,7 @@ Return ONLY the JSON array, no other text.`;
     drawStrokes(canvas, strokes2Ref.current, curStroke2Ref.current);
   };
   const handleDraw2Move = (e) => {
+    if (e.pointerType === "touch") return;
     if (!isDrawing2Ref.current || !curStroke2Ref.current) return;
     const canvas = drawCanvas2Ref.current;
     if (!canvas) return;
