@@ -166,6 +166,24 @@ const STAMP_GROUPS = [
   ]},
   { label:"악보", items:[
     { sym:"staff", italic:false },
+    { sym:"𝄞",    italic:false },
+    { sym:"𝄢",    italic:false },
+  ]},
+  { label:"음표", items:[
+    { sym:"♩",  italic:false },
+    { sym:"♪",  italic:false },
+    { sym:"♫",  italic:false },
+    { sym:"♬",  italic:false },
+    { sym:"𝄽",  italic:false },
+    { sym:"𝄾",  italic:false },
+    { sym:"𝄿",  italic:false },
+  ]},
+  { label:"임시표", items:[
+    { sym:"♭",  italic:false },
+    { sym:"♮",  italic:false },
+    { sym:"♯",  italic:false },
+    { sym:"𝄪",  italic:false },
+    { sym:"𝄫",  italic:false },
   ]},
   { label:"기타", items:[
     { sym:"✓", italic:false },
