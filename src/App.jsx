@@ -1465,11 +1465,17 @@ function TeamManagementModal({ currentUserId, onClose }) {
 
   useEffect(() => {
     Promise.all([
-      getDocs(query(collection(db, "users"), orderBy("name"))),
+      getDocs(collection(db, "users")),
       getDocs(collection(db, "allowedEmails")),
     ]).then(([usersSnap, emailsSnap]) => {
-      setMembers(usersSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const sorted = usersSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (a.name || "").localeCompare(b.name || "", "ko"));
+      setMembers(sorted);
       setAllowedEmails(emailsSnap.docs.map(d => d.id));
+      setLoading(false);
+    }).catch(e => {
+      console.error("팀원 로드 실패:", e);
       setLoading(false);
     });
   }, []);
