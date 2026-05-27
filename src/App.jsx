@@ -3047,16 +3047,32 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       {showHelp && (
         <Modal title="도움말" onClose={() => setShowHelp(false)}>
           <div style={{ fontSize:13, lineHeight:1.9, color:C.txt }}>
+
+            {/* 팀 공유 섹션 */}
+            <div style={{ fontSize:11, fontWeight:800, color:C.acc, letterSpacing:"0.05em",
+              marginBottom:8, textTransform:"uppercase" }}>👥 팀 전체 공유</div>
             {[
-              { title:"📋 예배 일정", desc:"예배탭에서 일정을 만들고 곡을 추가하세요. 리더는 순서 변경·복사·삭제가 가능하고, 카카오톡으로 일정을 공유할 수 있습니다." },
-              { title:"🎵 악보 라이브러리", desc:"악보탭에서 PDF를 업로드하세요. 자음 인덱스로 빠르게 찾고, 키·아티스트·제목으로 검색할 수 있습니다." },
-              { title:"✏️ 필기", desc:"악보 화면에서 펜 아이콘을 눌러 필기 모드를 켜세요. 애플펜슬로 그리면 손바닥은 자동으로 무시됩니다. 필기는 자동 저장됩니다." },
-              { title:"🎼 코드 전조", desc:"리더만 사용 가능합니다. 전조 버튼을 누른 후 Gemini 감지로 코드를 인식하고 반음 단위로 올리거나 내릴 수 있습니다." },
-              { title:"📖 듀얼 모드", desc:"악보 화면 상단의 듀얼 아이콘을 누르면 두 곡을 나란히 볼 수 있습니다." },
-              { title:"🔔 알림", desc:"리더가 예배 일정을 등록하면 팀원에게 알림이 갑니다. 알림탭에서 확인하세요." },
+              { title:"📋 예배 일정", desc:"예배탭에서 일정을 만들고 곡을 추가하세요. 리더는 순서 변경·복사·삭제가 가능하고, 카카오톡으로 일정을 공유할 수 있습니다. 모든 팀원이 동일하게 봅니다." },
+              { title:"🎵 악보 라이브러리", desc:"PDF 악보는 팀 전체가 공유합니다. 리더가 업로드·편집·삭제할 수 있고, 모든 팀원이 열람할 수 있습니다." },
+              { title:"🔔 알림", desc:"리더가 예배 일정을 등록하면 팀 전체에게 알림이 갑니다. 알림탭에서 확인하세요." },
             ].map((s, i) => (
-              <div key={i} style={{ marginBottom:14, paddingBottom:14,
-                borderBottom: i < 5 ? `1px solid ${C.bdr}` : "none" }}>
+              <div key={i} style={{ marginBottom:12, paddingBottom:12, borderBottom:`1px solid ${C.bdr}` }}>
+                <div style={{ fontWeight:700, marginBottom:3 }}>{s.title}</div>
+                <div style={{ color:C.dim, fontSize:12 }}>{s.desc}</div>
+              </div>
+            ))}
+
+            {/* 개인 전용 섹션 */}
+            <div style={{ fontSize:11, fontWeight:800, color:C.pur, letterSpacing:"0.05em",
+              margin:"16px 0 8px", textTransform:"uppercase" }}>🔒 나만 보는 개인 데이터</div>
+            {[
+              { title:"✏️ 필기", desc:"악보에 그린 필기는 나만 볼 수 있습니다. 다른 팀원 화면에는 표시되지 않으며, 내 계정으로 로그인하면 어느 기기에서나 불러옵니다." },
+              { title:"📝 메모", desc:"악보 화면의 메모 기능도 개인 전용입니다. 내가 추가한 메모는 나만 확인할 수 있습니다." },
+              { title:"🎼 코드 전조", desc:"리더만 사용 가능합니다. 감지된 코드와 전조 설정은 내 계정에만 저장되며 다른 팀원에게는 보이지 않습니다." },
+              { title:"📖 듀얼 모드", desc:"악보 두 개를 나란히 보는 개인 뷰입니다. 악보 화면 상단의 듀얼 아이콘을 눌러 사용하세요." },
+            ].map((s, i, arr) => (
+              <div key={i} style={{ marginBottom:12, paddingBottom:12,
+                borderBottom: i < arr.length - 1 ? `1px solid ${C.bdr}` : "none" }}>
                 <div style={{ fontWeight:700, marginBottom:3 }}>{s.title}</div>
                 <div style={{ color:C.dim, fontSize:12 }}>{s.desc}</div>
               </div>
