@@ -15,6 +15,9 @@ import {
   query, orderBy, where, getDoc, getDocs, setDoc, serverTimestamp, arrayUnion, limit,
 } from "firebase/firestore";
 
+/* ── Kakao SDK ── */
+const KAKAO_JS_KEY = "YOUR_KAKAO_JS_KEY"; // ← developers.kakao.com 에서 발급한 JavaScript 키로 교체
+
 /* ══════════════════════════════════════════════════════════════════
    THEME
 ══════════════════════════════════════════════════════════════════ */
@@ -972,6 +975,25 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
     });
   };
 
+  const shareToKakao = () => {
+    const songLines = entries
+      .filter(e => e.song)
+      .map((e, idx) => `${idx + 1}. ${e.song.title}`)
+      .join("\n");
+    const text = `📋 ${svc.title}\n\n📅 ${svc.date}${svc.time ? " · " + svc.time : ""}\n${"─".repeat(20)}\n${songLines}\n${"─".repeat(20)}\nAinos 앱에서 악보를 확인하세요 🎵`;
+
+    if (window.Kakao?.isInitialized()) {
+      window.Kakao.Share.sendDefault({
+        objectType: "text",
+        text,
+        link: { mobileWebUrl: window.location.origin, webUrl: window.location.origin },
+      });
+    } else {
+      // Kakao SDK 미초기화 시 클립보드 복사로 대체
+      navigator.clipboard?.writeText(text).then(() => alert("메시지가 복사됐습니다. 카카오톡에 붙여넣기 해주세요."));
+    }
+  };
+
   const removeSong = async (idx) => {
     const newIds = (svc.songIds || []).filter((_, i) => i !== idx);
     await updateDoc(doc(db, "services", svc.id), { songIds: newIds });
@@ -1040,6 +1062,13 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
             📅 {svc.date}{svc.time ? ` · ${svc.time}` : ""}
           </div>
         </div>
+        <button onClick={shareToKakao} style={{
+          background:"#FEE500", border:"none", borderRadius:9, padding:"7px 12px",
+          display:"flex", alignItems:"center", gap:5,
+          fontWeight:700, fontSize:12, cursor:"pointer", fontFamily:"inherit", color:"#3C1E1E",
+        }}>
+          <span style={{ fontSize:14 }}>💬</span> 공유
+        </button>
         {svc.notified
           ? <Badge label="알림완료" color={C.grn} />
           : leader && (
@@ -2925,6 +2954,13 @@ export default function App() {
   const [selSongId,   setSelSongId]   = useState(null);
   const [backTo,      setBackTo]      = useState("library");
   const [pdfjsReady,  setPdfjsReady]  = useState(false);
+
+  // ── Kakao SDK 초기화
+  useEffect(() => {
+    if (window.Kakao && !window.Kakao.isInitialized()) {
+      window.Kakao.init(KAKAO_JS_KEY);
+    }
+  }, []);
 
   // ── Handle Google redirect result
   useEffect(() => {
