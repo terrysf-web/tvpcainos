@@ -1086,7 +1086,8 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   // ── Chord transposition
   const [transposeMode,  setTransposeMode]  = useState(false);
   const [transposeSteps, setTransposeSteps] = useState(0);
-  const [chordData,      setChordData]      = useState([]);   // [{chord,x,y}]
+  const [chordData,      setChordData]      = useState([]);   // [{chord,x,y}] — single / dual left
+  const [chordData2,     setChordData2]     = useState([]);   // dual right
   const [detectingChords, setDetectingChords] = useState(false);
   const [detectErr,      setDetectErr]      = useState("");
   const drawCanvas1Ref  = useRef(null);  // single mode + dual left
@@ -1180,22 +1181,42 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
     return () => el.removeEventListener("touchmove", prevent);
   }, []);
 
-  // 페이지/곡 바뀌면 코드 감지 결과 로드 (Firestore)
+  // 코드 감지 결과 로드 — 싱글 모드
   useEffect(() => {
     setChordData([]); setDetectErr("");
     if (!user?.uid || !selectedSongId || dual) return;
     getDoc(doc(db, "customSongs", `chord_${user.uid}_${selectedSongId}_p${pageNum}`))
-      .then(snap => {
-        if (snap.exists()) setChordData(snap.data().chords || []);
-      }).catch(() => {});
+      .then(snap => { if (snap.exists()) setChordData(snap.data().chords || []); })
+      .catch(() => {});
   }, [pageNum, selectedSongId, user?.uid, dual]);
 
-  const detectChords = async () => {
-    const canvas = canvas1Ref.current;
+  // 코드 감지 결과 로드 — 듀얼 왼쪽
+  useEffect(() => {
+    setChordData([]);
+    if (!user?.uid || !dualLeftSongId || !dual) return;
+    getDoc(doc(db, "customSongs", `chord_${user.uid}_${dualLeftSongId}_p1`))
+      .then(snap => { if (snap.exists()) setChordData(snap.data().chords || []); })
+      .catch(() => {});
+  }, [dualLeftSongId, user?.uid, dual]);
+
+  // 코드 감지 결과 로드 — 듀얼 오른쪽
+  useEffect(() => {
+    setChordData2([]);
+    if (!user?.uid || !dualRightSongId || !dual) return;
+    getDoc(doc(db, "customSongs", `chord_${user.uid}_${dualRightSongId}_p1`))
+      .then(snap => { if (snap.exists()) setChordData2(snap.data().chords || []); })
+      .catch(() => {});
+  }, [dualRightSongId, user?.uid, dual]);
+
+  const detectChords = async (side = 1) => {
+    const canvas = (side === 2 ? canvas2Ref : canvas1Ref).current;
     if (!canvas || !canvas.width) return;
     const key = import.meta.env.VITE_GEMINI_API_KEY;
     if (!key) { setDetectErr("VITE_GEMINI_API_KEY 없음"); return; }
-    setDetectingChords(true); setDetectErr(""); setChordData([]);
+    const setCD = side === 2 ? setChordData2 : setChordData;
+    const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
+    const page   = dual ? 1 : pageNum;
+    setDetectingChords(true); setDetectErr(""); setCD([]);
     try {
       const b64 = canvas.toDataURL("image/png").split(",")[1];
       const prompt = `Detect all chord symbols (like C, Am, G7, F#m, Bb, Dm7, etc.) in this sheet music image.
@@ -1223,22 +1244,20 @@ Return ONLY the JSON array, no other text.`;
       const match = text.match(/\[[\s\S]*\]/);
       if (!match) { setDetectErr("응답 파싱 실패"); return; }
       const raw = JSON.parse(match[0]);
-      // Convert bounding boxes to normalized center coordinates
       const chords = raw.map(item => {
         const b = item.box_2d;
-        // box_2d: [ymin, xmin, ymax, xmax] in 0-1000 scale
         const x = (b[1] + b[3]) / 2 / 1000;
         const y = (b[0] + b[2]) / 2 / 1000;
         const w = (b[3] - b[1]) / 1000;
         const h = (b[2] - b[0]) / 1000;
         return { chord: item.label, x, y, w, h };
       });
-      setChordData(chords);
+      setCD(chords);
       if (chords.length === 0) {
         setDetectErr("코드를 찾지 못했습니다");
-      } else if (user?.uid && selectedSongId) {
+      } else if (user?.uid && songId) {
         setDoc(
-          doc(db, "customSongs", `chord_${user.uid}_${selectedSongId}_p${pageNum}`),
+          doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`),
           { chords, updatedAt: serverTimestamp() }
         ).catch(() => {});
       }
@@ -1587,9 +1606,8 @@ Return ONLY the JSON array, no other text.`;
             MEDIA
           </button>
           <button onClick={() => {
-            if (dual) { showToast("싱글 모드에서만 사용 가능합니다"); return; }
             setTransposeMode(p => !p);
-            if (transposeMode) { setTransposeSteps(0); setChordData([]); setDetectErr(""); }
+            if (transposeMode) { setTransposeSteps(0); setChordData([]); setChordData2([]); setDetectErr(""); }
           }} style={{
             display:"flex", alignItems:"center", gap:5,
             padding:"5px 10px", borderRadius:8, cursor:"pointer",
@@ -1685,7 +1703,7 @@ Return ONLY the JSON array, no other text.`;
       )}
 
       {/* 전조 서브툴바 */}
-      {transposeMode && !dual && (
+      {transposeMode && (
         <div style={{
           display:"flex", alignItems:"center", gap:8, flexWrap:"wrap",
           padding:"0 14px", minHeight:46, flexShrink:0,
@@ -1698,13 +1716,8 @@ Return ONLY the JSON array, no other text.`;
               style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
                 background:"transparent", cursor:"pointer", fontWeight:700, fontSize:15, display:"flex",
                 alignItems:"center", justifyContent:"center", color:C.txt }}>−</button>
-            <div style={{ textAlign:"center", minWidth:70 }}>
-              <div style={{ fontSize:13, fontWeight:800, color: transposeSteps === 0 ? C.dim : C.grn }}>
-                {transposeSteps === 0
-                  ? `Key ${song.key}`
-                  : `${song.key} → ${keyName(song.key, transposeSteps)}`}
-              </div>
-              <div style={{ fontSize:10, color:C.dim }}>
+            <div style={{ textAlign:"center", minWidth:60 }}>
+              <div style={{ fontSize:12, fontWeight:800, color: transposeSteps === 0 ? C.dim : C.grn }}>
                 {transposeSteps === 0 ? "원본" : `${transposeSteps > 0 ? "+" : ""}${transposeSteps} 반음`}
               </div>
             </div>
@@ -1714,25 +1727,54 @@ Return ONLY the JSON array, no other text.`;
                 alignItems:"center", justifyContent:"center", color:C.txt }}>+</button>
           </div>
           <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
-          {/* AI 감지 버튼 */}
-          <button onClick={detectChords} disabled={detectingChords} style={{
-            background: detectingChords ? `${C.grn}44` : C.grn,
-            border:"none", borderRadius:7, padding:"5px 12px",
-            cursor: detectingChords ? "not-allowed" : "pointer",
-            fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
-          }}>
-            {detectingChords ? "⏳ 감지 중..." : "🎵 코드 감지 (AI)"}
-          </button>
-          {chordData.length > 0 && (
-            <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>
-              ✓ {chordData.length}개 감지됨
-            </span>
+          {/* AI 감지 버튼 — 싱글: 하나, 듀얼: 왼쪽/오른쪽 */}
+          {dual ? (
+            <>
+              <button onClick={() => detectChords(1)} disabled={detectingChords} style={{
+                background: detectingChords ? `${C.grn}44` : C.grn,
+                border:"none", borderRadius:7, padding:"5px 10px",
+                cursor: detectingChords ? "not-allowed" : "pointer",
+                fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
+              }}>
+                {detectingChords ? "⏳" : "🎵"} 왼쪽
+              </button>
+              {chordData.length > 0 && (
+                <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓{chordData.length}</span>
+              )}
+              <button onClick={() => detectChords(2)} disabled={detectingChords} style={{
+                background: detectingChords ? `${C.grn}44` : C.grn,
+                border:"none", borderRadius:7, padding:"5px 10px",
+                cursor: detectingChords ? "not-allowed" : "pointer",
+                fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
+              }}>
+                {detectingChords ? "⏳" : "🎵"} 오른쪽
+              </button>
+              {chordData2.length > 0 && (
+                <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓{chordData2.length}</span>
+              )}
+            </>
+          ) : (
+            <>
+              <button onClick={() => detectChords(1)} disabled={detectingChords} style={{
+                background: detectingChords ? `${C.grn}44` : C.grn,
+                border:"none", borderRadius:7, padding:"5px 12px",
+                cursor: detectingChords ? "not-allowed" : "pointer",
+                fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
+              }}>
+                {detectingChords ? "⏳ 감지 중..." : "🎵 코드 감지 (AI)"}
+              </button>
+              {chordData.length > 0 && (
+                <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>
+                  ✓ {chordData.length}개 감지됨
+                </span>
+              )}
+            </>
           )}
           {detectErr && (
             <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>
           )}
           <div style={{ marginLeft:"auto", flexShrink:0 }}>
-            <button onClick={() => { setTransposeSteps(0); setChordData([]); setDetectErr(""); }}
+            <button onClick={() => { setTransposeSteps(0); setChordData([]); setChordData2([]); setDetectErr(""); }}
               style={{ background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
                 padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit" }}>
               초기화
@@ -1772,6 +1814,27 @@ Return ONLY the JSON array, no other text.`;
                         onPointerUp={handleDraw1Up}
                         onPointerCancel={handleDraw1Cancel}
                       />
+                      {transposeMode && chordData.length > 0 && (() => {
+                        const cw = canvas1Ref.current?.offsetWidth || 400;
+                        const fs = Math.max(8, Math.min(14, cw / 50));
+                        return (
+                          <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
+                            {chordData.map((item, i) => (
+                              <span key={i} style={{
+                                position:"absolute",
+                                left:`${item.x * 100}%`, top:`${item.y * 100}%`,
+                                transform:"translate(-50%,-50%)",
+                                background: transposeSteps === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
+                                color: transposeSteps === 0 ? "#fff" : "#111",
+                                borderRadius:3, padding:"1px 4px",
+                                fontSize:fs, fontWeight:800, lineHeight:1.5,
+                                whiteSpace:"nowrap", fontFamily:"monospace",
+                                boxShadow:"0 1px 4px rgba(0,0,0,.3)",
+                              }}>{transposeChord(item.chord, transposeSteps)}</span>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
                   : <div style={{ textAlign:"center", color:C.dim }}>
                       <div style={{ fontSize:32, marginBottom:8 }}>🎼</div>
@@ -1800,6 +1863,27 @@ Return ONLY the JSON array, no other text.`;
                           onPointerUp={handleDraw2Up}
                           onPointerCancel={handleDraw2Cancel}
                         />
+                        {transposeMode && chordData2.length > 0 && (() => {
+                          const cw = canvas2Ref.current?.offsetWidth || 400;
+                          const fs = Math.max(8, Math.min(14, cw / 50));
+                          return (
+                            <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
+                              {chordData2.map((item, i) => (
+                                <span key={i} style={{
+                                  position:"absolute",
+                                  left:`${item.x * 100}%`, top:`${item.y * 100}%`,
+                                  transform:"translate(-50%,-50%)",
+                                  background: transposeSteps === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
+                                  color: transposeSteps === 0 ? "#fff" : "#111",
+                                  borderRadius:3, padding:"1px 4px",
+                                  fontSize:fs, fontWeight:800, lineHeight:1.5,
+                                  whiteSpace:"nowrap", fontFamily:"monospace",
+                                  boxShadow:"0 1px 4px rgba(0,0,0,.3)",
+                                }}>{transposeChord(item.chord, transposeSteps)}</span>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
                     : <div style={{ textAlign:"center", color:C.dim }}>
                         <div style={{ fontSize:32, marginBottom:8 }}>🎼</div>
