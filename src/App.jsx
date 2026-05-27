@@ -164,6 +164,9 @@ const STAMP_GROUPS = [
     { sym:"4", italic:false },
     { sym:"5", italic:false },
   ]},
+  { label:"악보", items:[
+    { sym:"staff", italic:false },
+  ]},
   { label:"기타", items:[
     { sym:"✓", italic:false },
     { sym:"★", italic:false },
@@ -225,13 +228,28 @@ function drawStrokes(canvas, strokes, cur = null) {
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
       ctx.fillStyle = s.color || "#e8383b";
-      const family = s.italic
-        ? '"Times New Roman", Georgia, serif'
-        : 'system-ui, -apple-system, sans-serif';
-      ctx.font = `${s.italic ? "italic " : ""}bold ${sz}px ${family}`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(s.symbol || "f", px, py);
+      if (s.symbol === "staff") {
+        const lineGap = Math.max(2, sz * 0.32);
+        const staffW = sz * 3.5;
+        ctx.strokeStyle = s.color || "#222";
+        ctx.lineWidth = Math.max(0.5, sz * 0.07);
+        ctx.lineCap = "butt";
+        for (let i = 0; i < 5; i++) {
+          const ly = py - lineGap * 2 + i * lineGap;
+          ctx.beginPath();
+          ctx.moveTo(px - staffW / 2, ly);
+          ctx.lineTo(px + staffW / 2, ly);
+          ctx.stroke();
+        }
+      } else {
+        const family = s.italic
+          ? '"Times New Roman", Georgia, serif'
+          : 'system-ui, -apple-system, sans-serif';
+        ctx.font = `${s.italic ? "italic " : ""}bold ${sz}px ${family}`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(s.symbol || "f", px, py);
+      }
       ctx.restore();
       continue;
     }
@@ -2469,7 +2487,7 @@ Return ONLY the JSON array, no other text.`;
 
       {/* 필기 서브툴바 */}
       {drawMode && (
-        <div style={{ flexShrink:0, background:`${C.pur}0a`, borderBottom:`1px solid ${C.bdr}` }}>
+        <div style={{ flexShrink:0, background:`${C.pur}0a`, borderBottom:`1px solid ${C.bdr}`, position:"relative" }}>
           {/* 메인 툴바 행 */}
           <div style={{ display:"flex", alignItems:"center", gap:8, padding:"0 14px", height:48, overflowX:"auto" }}>
             {/* Tool selector */}
@@ -2549,15 +2567,17 @@ Return ONLY the JSON array, no other text.`;
               </span>
             )}
           </div>
-          {/* 스탬프 팔레트 — 컴팩트 그룹 그리드 */}
+          {/* 스탬프 팔레트 — 플로팅 오버레이 (악보 공간 유지) */}
           {drawTool === "stamp" && (
             <div style={{
-              borderTop:`1px solid ${C.bdr}`, padding:"5px 10px",
-              display:"flex", flexDirection:"column", gap:3,
+              position:"absolute", top:"100%", right:10, zIndex:500,
+              background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}`,
+              boxShadow:"0 8px 32px rgba(0,0,0,0.5)",
+              padding:"8px 10px", display:"flex", flexDirection:"column", gap:3,
             }}>
               {STAMP_GROUPS.map(group => (
                 <div key={group.label} style={{ display:"flex", alignItems:"center", gap:3 }}>
-                  <span style={{ fontSize:8, color:C.dim, fontWeight:700, width:28, textAlign:"right",
+                  <span style={{ fontSize:8, color:C.dim, fontWeight:700, width:26, textAlign:"right",
                     flexShrink:0, letterSpacing:"0.04em" }}>{group.label}</span>
                   {group.items.map(st => (
                     <button key={st.sym}
@@ -2569,24 +2589,35 @@ Return ONLY the JSON array, no other text.`;
                         border:`1px solid ${stampSymbol === st.sym ? C.acc : C.bdr}`,
                         borderRadius:5, cursor:"pointer", padding:0, flexShrink:0,
                       }}>
-                      <span style={{
-                        fontSize:11, fontWeight:700,
-                        color: stampSymbol === st.sym ? C.acc : C.txt,
-                        fontStyle: st.italic ? "italic" : "normal",
-                        fontFamily: st.italic ? '"Times New Roman", Georgia, serif' : "inherit",
-                        lineHeight:1,
-                      }}>{st.sym}</span>
+                      {st.sym === "staff" ? (
+                        <svg width="20" height="12" viewBox="0 0 20 12" style={{ display:"block" }}>
+                          {[0,1,2,3,4].map(i => (
+                            <line key={i} x1="1" y1={1+i*2.5} x2="19" y2={1+i*2.5}
+                              stroke={stampSymbol === "staff" ? C.acc : C.dim} strokeWidth="0.9" />
+                          ))}
+                        </svg>
+                      ) : (
+                        <span style={{
+                          fontSize:11, fontWeight:700,
+                          color: stampSymbol === st.sym ? C.acc : C.txt,
+                          fontStyle: st.italic ? "italic" : "normal",
+                          fontFamily: st.italic ? '"Times New Roman", Georgia, serif' : "inherit",
+                          lineHeight:1,
+                        }}>{st.sym}</span>
+                      )}
                     </button>
                   ))}
                 </div>
               ))}
             </div>
           )}
-          {/* 도형 도구 서브팔레트 */}
+          {/* 도형 도구 서브팔레트 — 플로팅 오버레이 */}
           {drawTool === "shape" && (
             <div style={{
-              display:"flex", alignItems:"center", gap:4, padding:"5px 14px",
-              borderTop:`1px solid ${C.bdr}`, overflowX:"auto",
+              position:"absolute", top:"100%", right:10, zIndex:500,
+              background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}`,
+              boxShadow:"0 8px 32px rgba(0,0,0,0.5)",
+              padding:"8px 12px", display:"flex", flexDirection:"column", gap:4,
             }}>
               {[
                 { id:"slur",         icon:"slur", label:"슬러" },
@@ -2594,18 +2625,18 @@ Return ONLY the JSON array, no other text.`;
                 { id:"hairpin-dim",  icon:"dim",  label:"디크레센도" },
                 { id:"line",         icon:"line", label:"직선" },
               ].map(s => (
-                <button key={s.id} onClick={() => setShapeTool(s.id)} title={s.label} style={{
-                  display:"flex", alignItems:"center", gap:4, padding:"4px 10px",
+                <button key={s.id} onClick={() => setShapeTool(s.id)} style={{
+                  display:"flex", alignItems:"center", gap:8, padding:"5px 10px",
                   background: shapeTool === s.id ? `${C.pur}22` : "transparent",
                   border:`1px solid ${shapeTool === s.id ? C.pur : C.bdr}`,
-                  borderRadius:6, cursor:"pointer", flexShrink:0,
-                  fontSize:10, color: shapeTool === s.id ? C.pur : C.dim, fontFamily:"inherit", fontWeight:700,
+                  borderRadius:7, cursor:"pointer",
+                  fontSize:11, color: shapeTool === s.id ? C.pur : C.dim, fontFamily:"inherit", fontWeight:700,
                 }}>
-                  <Icon n={s.icon} size={14} color={shapeTool === s.id ? C.pur : C.dim} />
+                  <Icon n={s.icon} size={15} color={shapeTool === s.id ? C.pur : C.dim} />
                   {s.label}
                 </button>
               ))}
-              <span style={{ fontSize:10, color:C.dim, marginLeft:6 }}>드래그로 그리기</span>
+              <span style={{ fontSize:9, color:C.dim, textAlign:"center" }}>드래그로 그리기</span>
             </div>
           )}
         </div>
