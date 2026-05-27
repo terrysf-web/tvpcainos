@@ -3355,8 +3355,7 @@ export default function App() {
       @keyframes wSlideUp { from { opacity:0; transform:translateY(32px);} to { opacity:1; transform:translateY(0); } }
       .h-screen { height: 100vh; height: 100dvh; }
       .modal-sheet { max-height: 90vh; max-height: 90dvh; }
-      html, body { height: 100%; overflow: hidden; }
-      #root { height: 100vh; height: 100dvh; overflow-y: auto; }
+      .full-h { height: 100vh; height: 100dvh; }
     `;
     document.head.appendChild(el);
     return () => { try { document.head.removeChild(el); } catch(_) {} };
