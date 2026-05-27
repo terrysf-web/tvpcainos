@@ -1050,6 +1050,7 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   const [drawColor, setDrawColor] = useState("#e8383b");
   const [drawWidth, setDrawWidth] = useState(3);
   const [drawTool,  setDrawTool]  = useState("pen"); // "pen" | "highlighter" | "eraser"
+  const [drawSaveErr, setDrawSaveErr] = useState("");
   const drawCanvas1Ref  = useRef(null);  // single mode + dual left
   const drawCanvas2Ref  = useRef(null);  // dual right
   const isDrawing1Ref   = useRef(false);
@@ -1069,63 +1070,55 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   const dualLeftSongId  = svcSongs[dualIdx]?.id     || null;
   const dualRightSongId = svcSongs[dualIdx + 1]?.id || null;
 
-  // load strokes — single mode (canvas1)
+  // flat draw doc ID: "{uid}_{songId}_p{page}"
+  const drawDocId = (songId, page) => `${user?.uid}_${songId}_p${page}`;
+
+  const loadDrawing = (songId, page, strokesRef2, dcRef) => {
+    strokesRef2.current = [];
+    const dc = dcRef.current;
+    if (dc) dc.getContext("2d").clearRect(0, 0, dc.width, dc.height);
+    if (!user?.uid || !songId) return;
+    getDoc(doc(db, "userDrawings", drawDocId(songId, page)))
+      .then(snap => {
+        if (snap.exists()) {
+          strokesRef2.current = snap.data().strokes || [];
+          const dc2 = dcRef.current;
+          if (dc2 && dc2.width > 0) drawStrokes(dc2, strokesRef2.current);
+        }
+      }).catch(() => {});
+  };
+
+  // load strokes — single mode
   useEffect(() => {
     if (dual) return;
-    strokes1Ref.current = [];
-    const dc = drawCanvas1Ref.current;
-    if (dc) dc.getContext("2d").clearRect(0, 0, dc.width, dc.height);
-    if (!user?.uid) return;
-    getDoc(doc(db, "userDrawings", user.uid, "pages", `${selectedSongId}_p${pageNum}`))
-      .then(snap => {
-        if (snap.exists()) {
-          strokes1Ref.current = snap.data().strokes || [];
-          const dc2 = drawCanvas1Ref.current;
-          if (dc2 && dc2.width > 0) drawStrokes(dc2, strokes1Ref.current);
-        }
-      }).catch(() => {});
+    loadDrawing(selectedSongId, pageNum, strokes1Ref, drawCanvas1Ref);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSongId, pageNum, user?.uid, dual]);
 
-  // load strokes — dual left (canvas1)
+  // load strokes — dual left
   useEffect(() => {
     if (!dual) return;
-    strokes1Ref.current = [];
-    const dc = drawCanvas1Ref.current;
-    if (dc) dc.getContext("2d").clearRect(0, 0, dc.width, dc.height);
-    if (!user?.uid || !dualLeftSongId) return;
-    getDoc(doc(db, "userDrawings", user.uid, "pages", `${dualLeftSongId}_p1`))
-      .then(snap => {
-        if (snap.exists()) {
-          strokes1Ref.current = snap.data().strokes || [];
-          const dc2 = drawCanvas1Ref.current;
-          if (dc2 && dc2.width > 0) drawStrokes(dc2, strokes1Ref.current);
-        }
-      }).catch(() => {});
+    loadDrawing(dualLeftSongId, 1, strokes1Ref, drawCanvas1Ref);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dualLeftSongId, user?.uid, dual]);
 
-  // load strokes — dual right (canvas2)
+  // load strokes — dual right
   useEffect(() => {
     if (!dual) return;
-    strokes2Ref.current = [];
-    const dc = drawCanvas2Ref.current;
-    if (dc) dc.getContext("2d").clearRect(0, 0, dc.width, dc.height);
-    if (!user?.uid || !dualRightSongId) return;
-    getDoc(doc(db, "userDrawings", user.uid, "pages", `${dualRightSongId}_p1`))
-      .then(snap => {
-        if (snap.exists()) {
-          strokes2Ref.current = snap.data().strokes || [];
-          const dc2 = drawCanvas2Ref.current;
-          if (dc2 && dc2.width > 0) drawStrokes(dc2, strokes2Ref.current);
-        }
-      }).catch(() => {});
+    loadDrawing(dualRightSongId, 1, strokes2Ref, drawCanvas2Ref);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dualRightSongId, user?.uid, dual]);
 
   const saveDrawing = useCallback(async (songId, page, strokes) => {
     if (!user?.uid || !songId) return;
     try {
-      await setDoc(doc(db, "userDrawings", user.uid, "pages", `${songId}_p${page}`),
-        { strokes, updatedAt: serverTimestamp() });
-    } catch(e) { console.error("필기 저장 실패:", e); }
+      await setDoc(doc(db, "userDrawings", `${user.uid}_${songId}_p${page}`),
+        { userId: user.uid, strokes, updatedAt: serverTimestamp() });
+      setDrawSaveErr("");
+    } catch(e) {
+      console.error("필기 저장 실패:", e);
+      setDrawSaveErr("필기 저장 실패: " + (e.code === "permission-denied" ? "권한 없음" : e.message));
+    }
   }, [user?.uid]);
 
   // 컨테이너 크기 추적 (ResizeObserver)
@@ -1554,6 +1547,11 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
           }}>
             <Icon n="trash" size={16} color={C.dim} />
           </button>
+          {drawSaveErr && (
+            <span style={{ fontSize:10, color:C.red, marginLeft:4, flexShrink:0 }}>
+              ⚠ {drawSaveErr}
+            </span>
+          )}
         </div>
       )}
       </div>

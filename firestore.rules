@@ -69,8 +69,10 @@ service cloud.firestore {
       allow read, write: if isAuthed() && request.auth.uid == userId;
     }
 
-    match /userDrawings/{userId}/{document=**} {
-      allow read, write: if isAuthed() && request.auth.uid == userId;
+    // flat collection: each doc has a userId field; id = "{uid}_{songId}_p{page}"
+    match /userDrawings/{drawingId} {
+      allow read, delete: if isAuthed() && resource.data.userId == request.auth.uid;
+      allow create, update: if isAuthed() && request.resource.data.userId == request.auth.uid;
     }
 
     match /teamSettings/{document=**} {
