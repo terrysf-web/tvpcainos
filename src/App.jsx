@@ -774,13 +774,12 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           <button onClick={() => window.location.reload()} style={{
-            background:C.card, border:`1px solid ${C.bdr}`,
-            borderRadius:10, padding:8, cursor:"pointer", display:"flex",
+            background:"transparent", border:"none",
+            borderRadius:10, padding:0, cursor:"pointer", display:"flex",
+            overflow:"hidden",
           }}>
-            <svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <path d="M1 4v6h6M23 20v-6h-6" stroke={C.dim} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15" stroke={C.dim} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <img src="/ainos-logo.jpg" width={34} height={34}
+              style={{ display:"block", borderRadius:9, objectFit:"cover" }} alt="새로고침" />
           </button>
           <button onClick={() => nav("notifications")} style={{
             background:C.card, border:`1px solid ${C.bdr}`,
@@ -1134,13 +1133,12 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
           <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>악보 라이브러리</div>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
             <button onClick={() => window.location.reload()} style={{
-              background:C.card, border:`1px solid ${C.bdr}`,
-              borderRadius:10, padding:7, cursor:"pointer", display:"flex",
+              background:"transparent", border:"none",
+              borderRadius:10, padding:0, cursor:"pointer", display:"flex",
+              overflow:"hidden",
             }}>
-              <svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                <path d="M1 4v6h6M23 20v-6h-6" stroke={C.dim} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15" stroke={C.dim} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              <img src="/ainos-logo.jpg" width={32} height={32}
+                style={{ display:"block", borderRadius:8, objectFit:"cover" }} alt="새로고침" />
             </button>
             {isLeader(user.role) && (
               <Btn label="곡 추가" icon="plus" sm onClick={() => setShowAdd(true)} />
