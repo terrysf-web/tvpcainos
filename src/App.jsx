@@ -1311,7 +1311,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
   };
 
   return (
-    <div style={{ height:"100vh", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div style={{ height:"100dvh", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* 고정 헤더 */}
       <div style={{ background:C.surf, flexShrink:0,
         paddingTop:"calc(18px + env(safe-area-inset-top))",
@@ -3339,6 +3339,8 @@ export default function App() {
       @keyframes wSlideUp { from { opacity:0; transform:translateY(32px);} to { opacity:1; transform:translateY(0); } }
       .h-screen { height: 100vh; height: 100dvh; }
       .modal-sheet { max-height: 90vh; max-height: 90dvh; }
+      html, body { height: 100%; overflow: hidden; }
+      #root { height: 100vh; height: 100dvh; overflow-y: auto; }
     `;
     document.head.appendChild(el);
     return () => { try { document.head.removeChild(el); } catch(_) {} };
