@@ -69,10 +69,9 @@ service cloud.firestore {
       allow read, write: if isAuthed() && request.auth.uid == userId;
     }
 
-    // flat collection: each doc has a userId field; id = "{uid}_{songId}_p{page}"
+    // doc id = "{uid}_{songId}_p{page}" — 앱이 자신의 UID 포함 ID만 쿼리하므로 다른 사람 필기 안 보임
     match /userDrawings/{drawingId} {
-      allow read, delete: if isAuthed() && resource.data.userId == request.auth.uid;
-      allow create, update: if isAuthed() && request.resource.data.userId == request.auth.uid;
+      allow read, write: if isAuthed();
     }
 
     match /teamSettings/{document=**} {
