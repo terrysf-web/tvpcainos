@@ -988,7 +988,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       .filter(e => e.song)
       .map((e, idx) => `${idx + 1}. ${e.song.title}`)
       .join("\n");
-    const text = `📋 ${svc.title}\n\n📅 ${svc.date}${svc.time ? " · " + svc.time : ""}\n${"─".repeat(20)}\n${songLines}\n${"─".repeat(20)}\nAinos 앱에서 악보를 확인하세요 🎵`;
+    const sep = "─".repeat(9);
+    const text = `📋 ${svc.title}\n\n📅 ${svc.date}${svc.time ? " · " + svc.time : ""}\n${sep}\n${songLines}\n${sep}\n🎵 Ainos 앱에서 확인하세요`;
 
     if (window.Kakao?.isInitialized()) {
       window.Kakao.Share.sendDefault({
