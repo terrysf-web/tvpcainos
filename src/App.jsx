@@ -959,7 +959,7 @@ function SongPickerModal({ songs, currentIds, onClose, onSave }) {
   );
 }
 
-function ServiceDetailScreen({ user, services, songs, annotations, nav, selectedSvcId }) {
+function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotations, nav, selectedSvcId }) {
   const svc = services.find(s => s.id === selectedSvcId);
   const [showPicker, setShowPicker] = useState(false);
   const [drag, setDrag]           = useState(null); // {fromIdx, startY, curY}
@@ -1124,8 +1124,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
 
         {entries.map(({ id, song, i }) => {
           if (!song) return null;
-          const notes = annotations[song.id] || [];
-          const firstNote = notes[0];
+          const teamNotes = (teamAnnotations || {})[song.id] || [];
+          const firstNote = teamNotes[0];
           const isDragging = drag?.fromIdx === i;
           const dy = isDragging ? drag.curY - drag.startY : 0;
           const isDropTarget = !isDragging && dropIdx === i && drag !== null;
@@ -1195,7 +1195,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
                     <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap" }}>
                       <KeyBadge k={song.key} />
                       {song.pdfUrl && <Badge label="PDF" color={C.grn} />}
-                      {notes.length > 0 && <Badge label={`✏ ${notes.length}`} color={C.pur} />}
+                      {teamNotes.length > 0 && <Badge label={`📋 ${teamNotes.length}`} color={C.acc} />}
                     </div>
                   </div>
 
@@ -1217,17 +1217,17 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
                   )}
                 </div>
 
-                {/* 메모 미리보기 */}
+                {/* 팀 메모 미리보기 */}
                 {firstNote && (
                   <div style={{
                     marginTop:10, padding:"8px 10px", borderRadius:8,
-                    background:`${C.pur}0d`, border:`1px solid ${C.pur}22`,
+                    background:`${C.acc}0d`, border:`1px solid ${C.acc}33`,
                     fontSize:12, color:C.dim, lineHeight:1.5,
                     overflow:"hidden", display:"-webkit-box",
                     WebkitLineClamp:2, WebkitBoxOrient:"vertical",
                   }}>
-                    ✏ {firstNote.text}
-                    {notes.length > 1 && <span style={{ color:C.pur, fontWeight:700 }}> +{notes.length - 1}개</span>}
+                    📋 {firstNote.text}
+                    {teamNotes.length > 1 && <span style={{ color:C.acc, fontWeight:700 }}> +{teamNotes.length - 1}개</span>}
                   </div>
                 )}
               </div>
@@ -1507,7 +1507,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
 /* ══════════════════════════════════════════════════════════════════
    PDF VIEWER SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, backTo, pdfjsReady }) {
+function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, backTo, pdfjsReady }) {
   const song = songs.find(s => s.id === selectedSongId);
 
   // ── 예배 곡 순서
@@ -1543,6 +1543,7 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   const [media,         setMedia]         = useState(false);
   const [showNotePanel, setShowNotePanel] = useState(false);
   const [noteInput,     setNoteInput]     = useState(false);
+  const [noteShared,    setNoteShared]    = useState(false); // 팀 메모 여부
   const [noteTxt,       setNoteTxt]       = useState("");
   const [saving,        setSaving]        = useState(false);
 
@@ -1571,7 +1572,9 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   const lastSideRef     = useRef(1);     // last drawn side for undo
   const drawModeRef     = useRef(false);
 
-  const myNotes = annotations[selectedSongId] || [];
+  const myNotes   = annotations[selectedSongId]     || [];
+  const teamNotes = (teamAnnotations || {})[selectedSongId] || [];
+  const leader    = isLeader(user.role);
 
   // keep drawModeRef in sync for non-reactive listeners
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
@@ -1876,8 +1879,8 @@ Return ONLY the JSON array, no other text.`;
   const saveNote = async () => {
     if (!noteTxt.trim() || saving) return;
     setSaving(true);
-    await onAddAnnotation(selectedSongId, { text: noteTxt, page: pageNum, x: 0, y: 0 });
-    setNoteTxt(""); setNoteInput(false); setSaving(false);
+    await onAddAnnotation(selectedSongId, { text: noteTxt, page: pageNum, x: 0, y: 0, shared: noteShared });
+    setNoteTxt(""); setNoteInput(false); setNoteShared(false); setSaving(false);
   };
   const deleteNote = id => onDeleteAnnotation(selectedSongId, id);
 
@@ -2509,14 +2512,28 @@ Return ONLY the JSON array, no other text.`;
           <div style={{ background:C.surf, borderRadius:16, padding:20,
             width:"100%", maxWidth:400, border:`1px solid ${C.bdr}` }}>
             <div style={{ fontWeight:700, marginBottom:12 }}>메모 추가 (p.{pageNum})</div>
+            {leader && (
+              <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+                {[{ v:false, label:"🔒 개인 메모" }, { v:true, label:"👥 팀 메모" }].map(o => (
+                  <button key={String(o.v)} onClick={() => setNoteShared(o.v)}
+                    style={{ flex:1, padding:"7px 0", borderRadius:8, cursor:"pointer",
+                      fontFamily:"inherit", fontSize:12, fontWeight:700,
+                      background: noteShared === o.v ? (o.v ? C.acc : C.pur) : C.card,
+                      color: noteShared === o.v ? (o.v ? "#111" : "#fff") : C.dim,
+                      border: `1.5px solid ${noteShared === o.v ? (o.v ? C.acc : C.pur) : C.bdr}` }}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <textarea value={noteTxt} onChange={e => setNoteTxt(e.target.value)}
-              placeholder="예) 2절 — 건반 솔로" autoFocus
+              placeholder={noteShared ? "팀 전체에 공유할 메모..." : "나만 보이는 메모..."} autoFocus
               style={{ width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
                 color:C.txt, padding:"10px 14px", borderRadius:10,
                 fontSize:14, outline:"none", fontFamily:"inherit",
                 resize:"vertical", minHeight:80 }} />
             <div style={{ display:"flex", gap:8, marginTop:12 }}>
-              <Btn label="취소" variant="ghost" onClick={() => { setNoteInput(false); setNoteTxt(""); }} full />
+              <Btn label="취소" variant="ghost" onClick={() => { setNoteInput(false); setNoteTxt(""); setNoteShared(false); }} full />
               <Btn label={saving ? "저장 중..." : "저장"} variant="primary" onClick={saveNote} full disabled={saving} />
             </div>
           </div>
@@ -2529,7 +2546,7 @@ Return ONLY the JSON array, no other text.`;
           width:270, background:C.surf, borderLeft:`1px solid ${C.bdr}`,
           zIndex:100, overflowY:"auto", padding:16 }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
-            <div style={{ fontWeight:700 }}>내 메모</div>
+            <div style={{ fontWeight:700 }}>메모</div>
             <div style={{ display:"flex", gap:6 }}>
               <button onClick={() => { setNoteInput(true); setShowNotePanel(false); }}
                 style={{ background:C.acc, border:"none", borderRadius:6, padding:"4px 10px",
@@ -2543,14 +2560,38 @@ Return ONLY the JSON array, no other text.`;
               </button>
             </div>
           </div>
+
+          {/* 팀 메모 */}
+          <div style={{ fontSize:11, fontWeight:800, color:C.acc, letterSpacing:"0.05em", marginBottom:6 }}>👥 팀 메모</div>
+          {teamNotes.length === 0
+            ? <div style={{ color:C.dim, fontSize:12, marginBottom:14, padding:"6px 0" }}>팀 메모가 없습니다</div>
+            : teamNotes.map(n => (
+              <div key={n.id} style={{ background:`${C.acc}0d`, borderRadius:10, padding:"10px 12px",
+                marginBottom:8, border:`1px solid ${C.acc}33` }}>
+                <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
+                  <div style={{ flex:1 }}>
+                    {n.page > 0 && <span style={{ fontSize:10, color:C.acc, fontWeight:700 }}>p.{n.page} </span>}
+                    <span style={{ fontSize:13, lineHeight:1.5 }}>{n.text}</span>
+                  </div>
+                  {leader && <button onClick={() => deleteNote(n.id)}
+                    style={{ background:"none", border:"none", cursor:"pointer", padding:2, display:"flex" }}>
+                    <Icon n="trash" size={14} color={C.red} />
+                  </button>}
+                </div>
+              </div>
+            ))
+          }
+
+          {/* 개인 메모 */}
+          <div style={{ fontSize:11, fontWeight:800, color:C.pur, letterSpacing:"0.05em", margin:"10px 0 6px" }}>🔒 내 메모</div>
           {myNotes.length === 0
-            ? <div style={{ color:C.dim, fontSize:13, textAlign:"center", padding:"40px 0" }}>메모가 없습니다</div>
+            ? <div style={{ color:C.dim, fontSize:12, padding:"6px 0" }}>개인 메모가 없습니다</div>
             : myNotes.map(n => (
               <div key={n.id} style={{ background:C.card, borderRadius:10, padding:"10px 12px",
                 marginBottom:8, border:`1px solid ${C.bdr}` }}>
                 <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
                   <div style={{ flex:1 }}>
-                    {n.page > 0 && <span style={{ fontSize:10, color:C.acc, fontWeight:700 }}>p.{n.page} </span>}
+                    {n.page > 0 && <span style={{ fontSize:10, color:C.pur, fontWeight:700 }}>p.{n.page} </span>}
                     <span style={{ fontSize:13, lineHeight:1.5 }}>{n.text}</span>
                   </div>
                   <button onClick={() => deleteNote(n.id)}
@@ -3158,7 +3199,8 @@ export default function App() {
   const [songs,       setSongs]       = useState([]);
   const [services,    setServices]    = useState([]);
   const [notifs,      setNotifs]      = useState([]);
-  const [annotations, setAnnotations] = useState({});
+  const [annotations,     setAnnotations]     = useState({}); // 개인 메모
+  const [teamAnnotations, setTeamAnnotations] = useState({}); // 팀 공유 메모
   const [selSvcId,    setSelSvcId]    = useState(null);
   const [selSongId,   setSelSongId]   = useState(null);
   const [backTo,      setBackTo]      = useState("library");
@@ -3315,11 +3357,11 @@ export default function App() {
     );
   }, [user?.uid]);
 
-  // ── Firestore: annotations (per user, real-time)
+  // ── Firestore: 개인 메모 (본인만)
   useEffect(() => {
     if (!user?.uid) return;
     return onSnapshot(
-      query(collection(db, "annotations"), where("userId", "==", user.uid)),
+      query(collection(db, "annotations"), where("userId", "==", user.uid), where("shared", "==", false)),
       snap => {
         const byId = {};
         snap.docs.forEach(d => {
@@ -3328,6 +3370,23 @@ export default function App() {
           byId[data.songId].push({ id: d.id, ...data });
         });
         setAnnotations(byId);
+      }
+    );
+  }, [user?.uid]);
+
+  // ── Firestore: 팀 공유 메모 (전체)
+  useEffect(() => {
+    if (!user?.uid) return;
+    return onSnapshot(
+      query(collection(db, "annotations"), where("shared", "==", true)),
+      snap => {
+        const byId = {};
+        snap.docs.forEach(d => {
+          const data = d.data();
+          if (!byId[data.songId]) byId[data.songId] = [];
+          byId[data.songId].push({ id: d.id, ...data });
+        });
+        setTeamAnnotations(byId);
       }
     );
   }, [user?.uid]);
@@ -3395,6 +3454,7 @@ export default function App() {
       ...noteData,
       songId,
       userId: user.uid,
+      shared: noteData.shared ?? false,
       createdAt: serverTimestamp(),
     });
   };
@@ -3442,7 +3502,7 @@ export default function App() {
   const unread = notifs.filter(n => !n.read).length;
 
   const shared = {
-    user, songs, services, notifs, annotations,
+    user, songs, services, notifs, annotations, teamAnnotations,
     addSong, createService,
     onAddAnnotation: addAnnotation,
     onDeleteAnnotation: deleteAnnotation,
