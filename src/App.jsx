@@ -137,7 +137,7 @@ function drawStrokes(canvas, strokes, cur = null) {
     ctx.save();
     const isEraser     = s.tool === "eraser"     || s.eraser;
     const isHighlight  = s.tool === "highlighter";
-    const lw = Math.max(1, s.width * canvas.width / 600);
+    const lw = Math.max(0.5, s.width * canvas.width / 900);
     if (isEraser) {
       ctx.globalCompositeOperation = "destination-out";
       ctx.strokeStyle = "rgba(0,0,0,1)";
@@ -2037,7 +2037,7 @@ Return ONLY the JSON array, no other text.`;
           ))}
           <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
           {/* Width */}
-          {[2, 4, 7].map(w => (
+          {[1, 2, 4].map(w => (
             <button key={w} onClick={() => setDrawWidth(w)}
               style={{
                 width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center",
