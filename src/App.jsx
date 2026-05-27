@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { auth, db, FIREBASE_API_KEY } from "./firebase.js";
+import { auth, db } from "./firebase.js";
 import { uploadPdf } from "./supabase.js";
 import AIPanel from "./AIPanel.jsx";
 import {
-  signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
   GoogleAuthProvider,
@@ -199,26 +198,11 @@ function Modal({ title, onClose, children }) {
 const googleProvider = new GoogleAuthProvider();
 
 function LoginScreen() {
-  const [email,      setEmail]      = useState("");
-  const [pw,         setPw]         = useState("");
-  const [err,        setErr]        = useState("");
-  const [loading,    setLoading]    = useState(false);
-  const [gLoading,   setGLoading]   = useState(false);
-
-  const login = async () => {
-    if (!email || !pw) return;
-    setLoading(true);
-    setErr("");
-    try {
-      await signInWithEmailAndPassword(auth, email, pw);
-    } catch {
-      setErr("이메일 또는 비밀번호를 확인하세요.");
-      setLoading(false);
-    }
-  };
+  const [err,     setErr]     = useState("");
+  const [loading, setLoading] = useState(false);
 
   const loginWithGoogle = async () => {
-    setGLoading(true);
+    setLoading(true);
     setErr("");
     try {
       await signInWithPopup(auth, googleProvider);
@@ -226,8 +210,8 @@ function LoginScreen() {
       if (e.code === "auth/popup-blocked" || e.code === "auth/cancelled-popup-request") {
         signInWithRedirect(auth, googleProvider);
       } else {
-        setErr("Google 로그인 실패: " + e.message);
-        setGLoading(false);
+        setErr("Google 로그인에 실패했습니다. 다시 시도해주세요.");
+        setLoading(false);
       }
     }
   };
@@ -256,38 +240,28 @@ function LoginScreen() {
         background:C.surf, borderRadius:20, padding:"28px 24px",
         width:"100%", maxWidth:380, border:`1px solid ${C.bdr}`,
       }}>
-        {/* Google 로그인 */}
-        <button onClick={loginWithGoogle} disabled={gLoading} style={{
+        <button onClick={loginWithGoogle} disabled={loading} style={{
           width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
-          gap:10, padding:"11px 0", borderRadius:12, marginBottom:16,
+          gap:10, padding:"14px 0", borderRadius:12,
           background:"#fff", border:"1.5px solid #dadce0", cursor:"pointer",
-          fontFamily:"inherit", fontSize:14, fontWeight:600, color:"#3c4043",
-          opacity: gLoading ? 0.7 : 1,
+          fontFamily:"inherit", fontSize:15, fontWeight:600, color:"#3c4043",
+          opacity: loading ? 0.7 : 1,
+          boxShadow:"0 2px 8px rgba(0,0,0,.08)",
         }}>
-          <svg width="18" height="18" viewBox="0 0 48 48">
+          <svg width="20" height="20" viewBox="0 0 48 48">
             <path fill="#4285F4" d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/>
             <path fill="#34A853" d="M6.3 14.7l7 5.1C15 16.1 19.1 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.7 7.4 6.3 14.7z"/>
             <path fill="#FBBC05" d="M24 46c5.5 0 10.5-1.9 14.3-5l-6.6-5.4C29.6 37.3 27 38 24 38c-6 0-11.1-4-12.9-9.5l-7 5.4C7.5 41.8 15.2 46 24 46z"/>
             <path fill="#EA4335" d="M44.5 20H24v8.5h11.8c-.8 2.7-2.5 4.9-4.8 6.4l6.6 5.4C41.4 37.3 44.5 31.3 44.5 24c0-1.3-.2-2.7-.5-4z"/>
           </svg>
-          {gLoading ? "로그인 중..." : "Google로 로그인"}
+          {loading ? "로그인 중..." : "Google로 로그인"}
         </button>
-
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
-          <div style={{ flex:1, height:1, background:C.bdr }} />
-          <span style={{ fontSize:11, color:C.dim }}>또는</span>
-          <div style={{ flex:1, height:1, background:C.bdr }} />
-        </div>
-
-        <Input label="이메일" value={email} onChange={setEmail} type="email"
-          placeholder="your@email.com" autoFocus />
-        <Input label="비밀번호" value={pw} onChange={setPw} type="password" placeholder="••••••••" />
-        {err && <div style={{ color:C.red, fontSize:13, marginBottom:12, textAlign:"center" }}>{err}</div>}
-        <Btn label={loading ? "로그인 중..." : "이메일로 로그인"}
-          onClick={login} full disabled={loading || !email || !pw} />
-        <Divider />
-        <div style={{ fontSize:12, color:C.dim, textAlign:"center", lineHeight:1.8 }}>
-          계정이 없으시면 리더에게 문의하세요
+        {err && (
+          <div style={{ color:C.red, fontSize:13, marginTop:14, textAlign:"center" }}>{err}</div>
+        )}
+        <div style={{ fontSize:12, color:C.dim, textAlign:"center", marginTop:20, lineHeight:1.8 }}>
+          구글 계정으로 로그인하세요<br />
+          처음 로그인 시 자동으로 계정이 만들어집니다
         </div>
       </div>
     </div>
@@ -1469,80 +1443,140 @@ function NotificationsScreen({ notifs, markNotifRead, markAllNotifRead }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   ADD MEMBER MODAL
+   TEAM MANAGEMENT MODAL
 ══════════════════════════════════════════════════════════════════ */
-function AddMemberModal({ onClose }) {
-  const [name,     setName]     = useState("");
-  const [email,    setEmail]    = useState("");
-  const [password, setPassword] = useState("");
-  const [part,     setPart]     = useState("");
-  const [role,     setRole]     = useState("member");
-  const [saving,   setSaving]   = useState(false);
-  const [err,      setErr]      = useState("");
+function TeamManagementModal({ currentUserId, onClose }) {
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState(null); // uid currently being saved
+  const [editPart, setEditPart] = useState(null); // uid currently editing part
+  const [partVal,  setPartVal]  = useState("");
 
-  const handleAdd = async () => {
-    if (!name || !email || !password) return;
-    setSaving(true);
-    setErr("");
-    try {
-      // Firebase Auth REST API로 사용자 생성 (현재 세션 유지)
-      const res = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password, returnSecureToken: false }),
-        }
-      );
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-
-      // Firestore 프로필 저장
-      await setDoc(doc(db, "users", data.localId), {
-        name, email, role, part,
-        createdAt: serverTimestamp(),
+  useEffect(() => {
+    getDocs(query(collection(db, "users"), orderBy("name")))
+      .then(snap => {
+        setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setLoading(false);
       });
-      onClose();
-    } catch (e) {
-      setErr(e.message);
-      setSaving(false);
-    }
+  }, []);
+
+  const changeRole = async (uid, newRole) => {
+    setSaving(uid + newRole);
+    await updateDoc(doc(db, "users", uid), { role: newRole });
+    setMembers(p => p.map(u => u.id === uid ? { ...u, role: newRole } : u));
+    setSaving(null);
   };
 
-  return (
-    <Modal title="팀원 추가" onClose={onClose}>
-      <Input label="이름"     value={name}     onChange={setName}
-        placeholder="예) 김지훈" autoFocus />
-      <Input label="이메일"   value={email}    onChange={setEmail}
-        type="email" placeholder="worship@tvpc.kr" />
-      <Input label="초기 비밀번호" value={password} onChange={setPassword}
-        type="password" placeholder="6자 이상" />
-      <Input label="파트"     value={part}     onChange={setPart}
-        placeholder="예) 건반, 기타, 드럼" />
+  const savePart = async (uid) => {
+    await updateDoc(doc(db, "users", uid), { part: partVal });
+    setMembers(p => p.map(u => u.id === uid ? { ...u, part: partVal } : u));
+    setEditPart(null);
+  };
 
-      <div style={{ marginBottom:16 }}>
-        <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
-          textTransform:"uppercase", marginBottom:8 }}>역할</div>
-        <div style={{ display:"flex", gap:8 }}>
-          {[["member","멤버"], ["leader","리더"], ["admin","어드민"]].map(([r, label]) => (
-            <button key={r} onClick={() => setRole(r)} style={{
-              flex:1, padding:"9px 0", borderRadius:9, border:"none", cursor:"pointer",
-              fontFamily:"inherit", fontWeight:600, fontSize:13,
-              background: role === r ? C.acc : C.card,
-              color:       role === r ? "#111" : C.dim,
-            }}>{label}</button>
+  const ROLES = [["member","멤버"], ["leader","리더"], ["admin","어드민"]];
+  const roleColor = (r) => r === "admin" ? C.red : r === "leader" ? C.acc : C.grn;
+
+  return (
+    <Modal title={`팀원 관리 · ${members.length}명`} onClose={onClose}>
+      {loading ? (
+        <div style={{ textAlign:"center", padding:"30px 0", color:C.dim, fontSize:13 }}>불러오는 중...</div>
+      ) : members.length === 0 ? (
+        <div style={{ textAlign:"center", padding:"30px 0", color:C.dim, fontSize:13 }}>팀원이 없습니다</div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {members.map(m => (
+            <div key={m.id} style={{
+              background:C.card, borderRadius:12, padding:"12px 14px",
+              border:`1px solid ${m.id === currentUserId ? C.acc : C.bdr}`,
+            }}>
+              {/* 이름·이메일·파트 */}
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+                <div style={{
+                  width:36, height:36, borderRadius:9, flexShrink:0,
+                  background:`linear-gradient(135deg, ${roleColor(m.role)}33, ${C.pur}22)`,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontWeight:800, fontSize:14, color:roleColor(m.role),
+                }}>{(m.name || "?")[0]}</div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:700, fontSize:14, display:"flex", alignItems:"center", gap:6 }}>
+                    {m.name}
+                    {m.id === currentUserId && (
+                      <span style={{ fontSize:10, color:C.dim, fontWeight:400 }}>(나)</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize:11, color:C.dim, marginTop:1,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {m.email}
+                  </div>
+                </div>
+                <Badge
+                  label={m.role === "admin" ? "어드민" : m.role === "leader" ? "리더" : "멤버"}
+                  color={roleColor(m.role)} />
+              </div>
+
+              {/* 파트 편집 */}
+              {editPart === m.id ? (
+                <div style={{ display:"flex", gap:6, marginBottom:8 }}>
+                  <input
+                    value={partVal}
+                    onChange={e => setPartVal(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && savePart(m.id)}
+                    placeholder="예) 건반, 기타, 드럼"
+                    autoFocus
+                    style={{
+                      flex:1, background:C.surf, border:`1.5px solid ${C.acc}`,
+                      color:C.txt, padding:"6px 10px", borderRadius:8,
+                      fontSize:12, outline:"none", fontFamily:"inherit",
+                    }}
+                  />
+                  <button onClick={() => savePart(m.id)} style={{
+                    background:C.acc, border:"none", borderRadius:8,
+                    padding:"6px 12px", cursor:"pointer",
+                    fontSize:12, fontWeight:700, color:"#111", fontFamily:"inherit",
+                  }}>저장</button>
+                  <button onClick={() => setEditPart(null)} style={{
+                    background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:8,
+                    padding:"6px 10px", cursor:"pointer",
+                    fontSize:12, color:C.dim, fontFamily:"inherit",
+                  }}>취소</button>
+                </div>
+              ) : (
+                <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
+                  <span style={{ fontSize:12, color:C.dim, flex:1 }}>
+                    {m.part || <span style={{ color:`${C.dim}88` }}>파트 미설정</span>}
+                  </span>
+                  <button onClick={() => { setEditPart(m.id); setPartVal(m.part || ""); }} style={{
+                    background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
+                    padding:"3px 8px", cursor:"pointer",
+                    fontSize:11, color:C.dim, fontFamily:"inherit",
+                  }}>파트 수정</button>
+                </div>
+              )}
+
+              {/* 역할 변경 (자기 자신 제외) */}
+              {m.id !== currentUserId && (
+                <div style={{ display:"flex", gap:5 }}>
+                  {ROLES.map(([r, label]) => (
+                    <button key={r}
+                      onClick={() => changeRole(m.id, r)}
+                      disabled={saving === m.id + r || m.role === r}
+                      style={{
+                        flex:1, padding:"5px 0", borderRadius:7, border:"none",
+                        cursor: m.role === r ? "default" : "pointer",
+                        fontFamily:"inherit", fontWeight:600, fontSize:11,
+                        background: m.role === r ? `${roleColor(r)}22` : C.surf,
+                        color:       m.role === r ? roleColor(r)         : C.dim,
+                        border: `1px solid ${m.role === r ? roleColor(r) + "55" : C.bdr}`,
+                        opacity: saving === m.id + r ? 0.5 : 1,
+                        transition:"all .15s",
+                      }}>{label}</button>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </div>
-      </div>
-
-      {err && (
-        <div style={{ color:C.red, fontSize:12, marginBottom:10,
-          background:`${C.red}11`, padding:"8px 10px", borderRadius:8 }}>
-          {err}
-        </div>
       )}
-      <Btn label={saving ? "추가 중..." : "팀원 추가"} icon="plus"
-        onClick={handleAdd} full disabled={saving || !name || !email || !password} />
     </Modal>
   );
 }
@@ -1551,20 +1585,20 @@ function AddMemberModal({ onClose }) {
    PROFILE SCREEN
 ══════════════════════════════════════════════════════════════════ */
 function ProfileScreen({ user, onLogout, onRoleUpdate }) {
-  const [showAdd,    setShowAdd]    = useState(false);
+  const [showTeam,   setShowTeam]   = useState(false);
   const [claiming,   setClaiming]   = useState(false);
   const [noLeader,   setNoLeader]   = useState(false);
 
   useEffect(() => {
     if (isLeader(user.role)) return;
-    getDocs(query(collection(db, "users"), where("role", "==", "leader"), limit(1)))
+    getDocs(query(collection(db, "users"), where("role", "in", ["leader", "admin"]), limit(1)))
       .then(snap => setNoLeader(snap.empty));
   }, [user.role]);
 
   const claimLeader = async () => {
     setClaiming(true);
     try {
-      await updateDoc(doc(db, "users", user.uid), { role: "leader" });
+      await updateDoc(doc(db, "users", user.uid), { role: "admin" });
       onRoleUpdate();
     } catch {
       setClaiming(false);
@@ -1619,7 +1653,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
         <div style={{ marginBottom:12 }}>
           <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
             textTransform:"uppercase", marginBottom:10 }}>팀 관리</div>
-          <Btn label="팀원 추가" icon="plus" onClick={() => setShowAdd(true)}
+          <Btn label="팀원 관리" icon="user" onClick={() => setShowTeam(true)}
             full variant="outline" />
         </div>
       )}
@@ -1641,7 +1675,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
 
       <Btn label="로그아웃" icon="logout" onClick={onLogout} variant="ghost" full />
 
-      {showAdd && <AddMemberModal onClose={() => setShowAdd(false)} />}
+      {showTeam && <TeamManagementModal currentUserId={user.uid} onClose={() => setShowTeam(false)} />}
     </div>
   );
 }
@@ -1721,9 +1755,9 @@ export default function App() {
           const snap = await getDoc(uRef);
           if (!snap.exists()) {
             const leadersSnap = await getDocs(
-              query(collection(db, "users"), where("role", "==", "leader"), limit(1))
+              query(collection(db, "users"), where("role", "in", ["leader", "admin"]), limit(1))
             );
-            const autoRole = leadersSnap.empty ? "leader" : "member";
+            const autoRole = leadersSnap.empty ? "admin" : "member";
             await setDoc(uRef, {
               name:  firebaseUser.displayName || firebaseUser.email,
               email: firebaseUser.email,
