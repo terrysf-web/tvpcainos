@@ -526,6 +526,7 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
     <div style={{ minHeight:"100vh", background:C.bg }}>
       {/* 헤더 */}
       <div style={{ background:C.surf, padding:"20px 20px 16px",
+        paddingTop:"calc(20px + env(safe-area-inset-top))",
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div>
@@ -698,6 +699,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
     <div style={{ minHeight:"100vh", background:C.bg }}>
       {/* 헤더 */}
       <div style={{ background:C.surf, padding:"18px 16px",
+        paddingTop:"calc(18px + env(safe-area-inset-top))",
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", gap:12 }}>
         <button onClick={() => nav("services")}
@@ -844,6 +846,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
       <div style={{ background:C.surf, padding:"18px 16px 14px",
+        paddingTop:"calc(18px + env(safe-area-inset-top))",
         borderBottom:`1px solid ${C.bdr}` }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
           <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>악보 라이브러리</div>
@@ -1168,10 +1171,14 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
 
       {/* 상단 툴바 */}
       <div style={{
-        background:C.surf, height:52, borderBottom:`1px solid ${C.bdr}`,
-        display:"flex", alignItems:"center", gap:6,
-        padding:"0 12px", flexShrink:0,
-        boxShadow:"0 1px 0 rgba(0,0,0,.06)",
+        background:C.surf, borderBottom:`1px solid ${C.bdr}`,
+        flexShrink:0, boxShadow:"0 1px 0 rgba(0,0,0,.06)",
+      }}>
+        {/* iOS safe area spacer */}
+        <div style={{ height:"env(safe-area-inset-top)", background:C.surf }} />
+      <div style={{
+        height:52, display:"flex", alignItems:"center", gap:6,
+        padding:"0 12px",
       }}>
         <button onClick={() => nav(backTo || "library")}
           style={{ background:"none", border:"none", color:C.acc, cursor:"pointer",
@@ -1234,6 +1241,7 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
             MEDIA
           </button>
         </div>
+      </div>
       </div>
 
       {/* 콘텐츠 */}
@@ -1412,6 +1420,7 @@ function NotificationsScreen({ notifs, markNotifRead, markAllNotifRead }) {
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
       <div style={{ background:C.surf, padding:"18px 16px",
+        paddingTop:"calc(18px + env(safe-area-inset-top))",
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>알림</div>
@@ -1563,7 +1572,8 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, padding:20, paddingBottom:90 }}>
+    <div style={{ minHeight:"100vh", background:C.bg, padding:20, paddingBottom:90,
+      paddingTop:"calc(20px + env(safe-area-inset-top))" }}>
       <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em", marginBottom:20 }}>내 정보</div>
 
       {/* 내 프로필 카드 */}
@@ -1651,7 +1661,9 @@ function BottomNav({ view, nav, unread }) {
       position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)",
       width:"100%", maxWidth:640,
       background:C.surf, borderTop:`1px solid ${C.bdr}`,
-      display:"flex", alignItems:"center", padding:"8px 0 14px",
+      display:"flex", alignItems:"center",
+      padding:"8px 0",
+      paddingBottom:"calc(14px + env(safe-area-inset-bottom))",
       zIndex:500,
     }}>
       {tabs.map(t => {
