@@ -377,10 +377,48 @@ function LoginScreen({ loginErr = "", onClearErr }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   CREATE SERVICE MODAL
+   CREATE / EDIT SERVICE MODAL
 ══════════════════════════════════════════════════════════════════ */
+const SERVICE_TYPES = ["주일 2부", "주일 1부", "금요 예배", "특별 예배", "새벽 예배", "직접 입력"];
+
+function ServiceTitleField({ value, onChange }) {
+  const isCustom = !SERVICE_TYPES.slice(0, -1).includes(value);
+  const [type, setType] = useState(isCustom ? "직접 입력" : value);
+
+  const handleType = (v) => {
+    setType(v);
+    if (v !== "직접 입력") onChange(v);
+    else onChange("");
+  };
+
+  return (
+    <div style={{ marginBottom:14 }}>
+      <div style={{ fontSize:11, color:C.dim, marginBottom:5, fontWeight:700,
+        letterSpacing:"0.06em", textTransform:"uppercase" }}>예배 제목</div>
+      <select value={type} onChange={e => handleType(e.target.value)} style={{
+        width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
+        color:C.txt, padding:"10px 14px", borderRadius:10,
+        fontSize:14, fontFamily:"inherit", outline:"none", marginBottom: type === "직접 입력" ? 8 : 0,
+      }}>
+        {SERVICE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+      </select>
+      {type === "직접 입력" && (
+        <input value={value} onChange={e => onChange(e.target.value)}
+          placeholder="예배 제목 직접 입력"
+          autoFocus autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
+          style={{
+            width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
+            color:C.txt, padding:"10px 14px", borderRadius:10,
+            fontSize:14, outline:"none", fontFamily:"inherit",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
 function CreateServiceModal({ songs, onClose, onCreate }) {
-  const [title,    setTitle]    = useState("");
+  const [title,    setTitle]    = useState("주일 2부");
   const [date,     setDate]     = useState(() => new Date().toISOString().slice(0, 10));
   const [time,     setTime]     = useState("09:00");
   const [selected, setSelected] = useState([]);
@@ -399,8 +437,7 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
 
   return (
     <Modal title="새 예배 일정 만들기" onClose={onClose}>
-      <Input label="예배 제목" value={title} onChange={setTitle}
-        placeholder="예) 주일 1부 예배" autoFocus />
+      <ServiceTitleField value={title} onChange={setTitle} />
       <Input label="날짜" value={date} onChange={setDate} type="date" />
       <Input label="시간" value={time} onChange={setTime} type="time" />
 
@@ -441,6 +478,34 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
       </div>
       <Btn label={saving ? "저장 중..." : "예배 만들기"} icon="check"
         onClick={handleCreate} full disabled={saving || !title || !selected.length} />
+    </Modal>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   EDIT SERVICE MODAL
+══════════════════════════════════════════════════════════════════ */
+function EditServiceModal({ svc, onClose, onSave }) {
+  const [title, setTitle] = useState(svc.title || "주일 2부");
+  const [date,  setDate]  = useState(svc.date  || "");
+  const [time,  setTime]  = useState(svc.time  || "");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!title) return;
+    setSaving(true);
+    await onSave(svc.id, { title, date, time });
+    setSaving(false);
+    onClose();
+  };
+
+  return (
+    <Modal title="예배 정보 수정" onClose={onClose}>
+      <ServiceTitleField value={title} onChange={setTitle} />
+      <Input label="날짜" value={date} onChange={setDate} type="date" />
+      <Input label="시간" value={time} onChange={setTime} type="time" />
+      <Btn label={saving ? "저장 중..." : "저장"} icon="check"
+        onClick={handleSave} full disabled={saving || !title} />
     </Modal>
   );
 }
@@ -959,9 +1024,10 @@ function SongPickerModal({ songs, currentIds, onClose, onSave }) {
   );
 }
 
-function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotations, nav, selectedSvcId }) {
+function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotations, nav, selectedSvcId, onUpdateService }) {
   const svc = services.find(s => s.id === selectedSvcId);
   const [showPicker, setShowPicker] = useState(false);
+  const [showEdit,   setShowEdit]   = useState(false);
   const [drag, setDrag]           = useState(null); // {fromIdx, startY, curY}
   const [dropIdx, setDropIdx]     = useState(null);
   const cardRefs = useRef([]);
@@ -1071,6 +1137,15 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             📅 {svc.date}{svc.time ? ` · ${svc.time}` : ""}
           </div>
         </div>
+        {leader && (
+          <button onClick={() => setShowEdit(true)} style={{
+            background:"none", border:`1px solid ${C.bdr}`, borderRadius:9,
+            padding:"6px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:4,
+            color:C.dim, fontSize:12, fontFamily:"inherit",
+          }}>
+            <Icon n="edit" size={13} color={C.dim} /> 수정
+          </button>
+        )}
         {leader && (
           <button onClick={shareToKakao} style={{
             background:"#FEE500", border:"none", borderRadius:9, padding:"7px 12px",
@@ -1240,6 +1315,9 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       {showPicker && (
         <SongPickerModal songs={songs} currentIds={svc.songIds || []}
           onClose={() => setShowPicker(false)} onSave={saveSongs} />
+      )}
+      {showEdit && (
+        <EditServiceModal svc={svc} onClose={() => setShowEdit(false)} onSave={onUpdateService} />
       )}
     </div>
   );
@@ -3452,6 +3530,10 @@ export default function App() {
     });
   };
 
+  const updateService = async (svcId, data) => {
+    await updateDoc(doc(db, "services", svcId), data);
+  };
+
   const addAnnotation = async (songId, noteData) => {
     await addDoc(collection(db, "annotations"), {
       ...noteData,
@@ -3506,7 +3588,7 @@ export default function App() {
 
   const shared = {
     user, songs, services, notifs, annotations, teamAnnotations,
-    addSong, createService,
+    addSong, createService, updateService,
     onAddAnnotation: addAnnotation,
     onDeleteAnnotation: deleteAnnotation,
     markNotifRead, markAllNotifRead,
@@ -3525,7 +3607,7 @@ export default function App() {
         }} />
       )}
       {view === "services"      && <ServicesScreen      {...shared} />}
-      {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} />}
+      {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
       {view === "library"       && <SongLibraryScreen   {...shared} />}
       {view === "pdfViewer"     && (
         <PDFViewerScreen {...shared} selectedSongId={selSongId}
