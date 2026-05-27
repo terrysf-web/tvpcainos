@@ -1462,37 +1462,49 @@ function TeamManagementModal({ currentUserId, onClose }) {
   const [allowedEmails, setAllowedEmails] = useState([]);
   const [emailInput,    setEmailInput]    = useState("");
   const [addingEmail,   setAddingEmail]   = useState(false);
+  const [emailErr,      setEmailErr]      = useState("");
 
   useEffect(() => {
-    Promise.all([
-      getDocs(collection(db, "users")),
-      getDocs(collection(db, "allowedEmails")),
-    ]).then(([usersSnap, emailsSnap]) => {
-      const sorted = usersSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => (a.name || "").localeCompare(b.name || "", "ko"));
-      setMembers(sorted);
-      setAllowedEmails(emailsSnap.docs.map(d => d.id));
-      setLoading(false);
-    }).catch(e => {
-      console.error("팀원 로드 실패:", e);
-      setLoading(false);
-    });
+    // 팀원 목록 (1회)
+    getDocs(collection(db, "users"))
+      .then(snap => {
+        const sorted = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (a.name || "").localeCompare(b.name || "", "ko"));
+        setMembers(sorted);
+        setLoading(false);
+      })
+      .catch(e => { console.error("팀원 로드 실패:", e); setLoading(false); });
+
+    // 허용 이메일 — 실시간
+    const unsub = onSnapshot(collection(db, "allowedEmails"),
+      snap => setAllowedEmails(snap.docs.map(d => d.id)),
+      e => console.error("allowedEmails 실패:", e)
+    );
+    return unsub;
   }, []);
 
   const addEmail = async () => {
     const email = emailInput.trim().toLowerCase();
     if (!email || allowedEmails.includes(email)) return;
     setAddingEmail(true);
-    await setDoc(doc(db, "allowedEmails", email), { addedAt: serverTimestamp() });
-    setAllowedEmails(p => [...p, email]);
-    setEmailInput("");
-    setAddingEmail(false);
+    setEmailErr("");
+    try {
+      await setDoc(doc(db, "allowedEmails", email), { addedAt: serverTimestamp() });
+      setEmailInput("");
+    } catch (e) {
+      setEmailErr("추가 실패: " + (e.code === "permission-denied" ? "권한이 없습니다" : e.message));
+    } finally {
+      setAddingEmail(false);
+    }
   };
 
   const removeEmail = async (email) => {
-    await deleteDoc(doc(db, "allowedEmails", email));
-    setAllowedEmails(p => p.filter(e => e !== email));
+    try {
+      await deleteDoc(doc(db, "allowedEmails", email));
+    } catch (e) {
+      setEmailErr("삭제 실패: " + e.message);
+    }
   };
 
   const changeRole = async (uid, newRole) => {
@@ -1644,9 +1656,15 @@ function TeamManagementModal({ currentUserId, onClose }) {
             flexShrink:0,
           }}>추가</button>
         </div>
+        {emailErr && (
+          <div style={{ fontSize:12, color:C.red, marginBottom:8,
+            background:`${C.red}11`, padding:"7px 10px", borderRadius:8 }}>
+            {emailErr}
+          </div>
+        )}
 
         {/* 허용된 이메일 목록 */}
-        {loading ? null : allowedEmails.length === 0 ? (
+        {allowedEmails.length === 0 ? (
           <div style={{
             padding:"14px", borderRadius:8, textAlign:"center",
             background:C.card, border:`1px dashed ${C.bdr}`,
