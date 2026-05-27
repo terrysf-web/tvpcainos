@@ -1070,15 +1070,15 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   const dualLeftSongId  = svcSongs[dualIdx]?.id     || null;
   const dualRightSongId = svcSongs[dualIdx + 1]?.id || null;
 
-  // flat draw doc ID: "{uid}_{songId}_p{page}"
-  const drawDocId = (songId, page) => `${user?.uid}_${songId}_p${page}`;
+  // drawings stored under userAnnotations/{uid}/drawings/{songId}_p{page}
+  // — this collection already has deployed rules: authed user can only access own path
 
   const loadDrawing = (songId, page, strokesRef2, dcRef) => {
     strokesRef2.current = [];
     const dc = dcRef.current;
     if (dc) dc.getContext("2d").clearRect(0, 0, dc.width, dc.height);
     if (!user?.uid || !songId) return;
-    getDoc(doc(db, "userDrawings", drawDocId(songId, page)))
+    getDoc(doc(db, "userAnnotations", user.uid, "drawings", `${songId}_p${page}`))
       .then(snap => {
         if (snap.exists()) {
           strokesRef2.current = snap.data().strokes || [];
@@ -1112,8 +1112,10 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   const saveDrawing = useCallback(async (songId, page, strokes) => {
     if (!user?.uid || !songId) return;
     try {
-      await setDoc(doc(db, "userDrawings", `${user.uid}_${songId}_p${page}`),
-        { userId: user.uid, strokes, updatedAt: serverTimestamp() });
+      await setDoc(
+        doc(db, "userAnnotations", user.uid, "drawings", `${songId}_p${page}`),
+        { strokes, updatedAt: serverTimestamp() }
+      );
       setDrawSaveErr("");
     } catch(e) {
       console.error("필기 저장 실패:", e);
