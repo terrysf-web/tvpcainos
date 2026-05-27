@@ -1248,15 +1248,41 @@ function ServiceDetailScreen({ user, services, songs, annotations, nav, selected
    SONG LIBRARY SCREEN
 ══════════════════════════════════════════════════════════════════ */
 function SongLibraryScreen({ user, songs, addSong, nav }) {
-  const [query,       setQuery]       = useState("");
-  const [showAdd,     setShowAdd]     = useState(false);
-  const [uploading,  setUploading]  = useState(null); // songId
-  const [confirmDel, setConfirmDel] = useState(null); // songId
+  const [query,      setQuery]      = useState("");
+  const [showAdd,    setShowAdd]    = useState(false);
+  const [uploading,  setUploading]  = useState(null);
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [editSong,   setEditSong]   = useState(null);
+  const [editForm,   setEditForm]   = useState({});
+  const [consonant,  setConsonant]  = useState("");
 
-  const filtered = songs.filter(s =>
-    s.title.toLowerCase().includes(query.toLowerCase()) ||
-    (s.artist || "").toLowerCase().includes(query.toLowerCase())
-  );
+  const CONSONANTS = ["ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ","A"];
+
+  const getConsonant = (title) => {
+    if (!title) return "#";
+    const ch = title[0];
+    const code = ch.charCodeAt(0);
+    if (code >= 0xAC00 && code <= 0xD7A3) {
+      const INITIALS = ["ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ","ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+      const GROUPS   = {"ㄲ":"ㄱ","ㄸ":"ㄷ","ㅃ":"ㅂ","ㅆ":"ㅅ","ㅉ":"ㅈ"};
+      const init = INITIALS[Math.floor((code - 0xAC00) / (21 * 28))];
+      return GROUPS[init] || init;
+    }
+    if (/[A-Za-z]/.test(ch)) return "A";
+    return "#";
+  };
+
+  const filtered = songs
+    .filter(s => {
+      const q = query.toLowerCase();
+      const matchQ = !q ||
+        s.title.toLowerCase().includes(q) ||
+        (s.artist || "").toLowerCase().includes(q) ||
+        (s.key || "").toLowerCase().includes(q);
+      const matchC = !consonant || getConsonant(s.title) === consonant;
+      return matchQ && matchC;
+    })
+    .sort((a, b) => a.title.localeCompare(b.title, "ko"));
 
   const handleUpload = async (e, songId) => {
     const file = e.target.files[0];
@@ -1273,12 +1299,24 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
     }
   };
 
+  const saveEdit = async () => {
+    if (!editSong) return;
+    await updateDoc(doc(db, "songs", editSong.id), {
+      title:  editForm.title.trim(),
+      artist: editForm.artist.trim(),
+      key:    editForm.key.trim(),
+      bpm:    Number(editForm.bpm) || 0,
+    });
+    setEditSong(null);
+  };
+
   return (
-    <div style={{ minHeight:"100vh", background:C.bg }}>
-      <div style={{ background:C.surf, padding:"18px 16px 14px",
+    <div style={{ height:"100vh", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      {/* 고정 헤더 */}
+      <div style={{ background:C.surf, flexShrink:0,
         paddingTop:"calc(18px + env(safe-area-inset-top))",
         borderBottom:`1px solid ${C.bdr}` }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+        <div style={{ padding:"0 16px 10px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>악보 라이브러리</div>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
             <button onClick={() => window.location.reload()} style={{
@@ -1295,90 +1333,150 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
             )}
           </div>
         </div>
-        <div style={{ position:"relative" }}>
-          <div style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)" }}>
+        <div style={{ padding:"0 16px 12px", position:"relative" }}>
+          <div style={{ position:"absolute", left:28, top:"50%", transform:"translateY(-50%)" }}>
             <Icon n="search" size={16} color={C.dim} />
           </div>
-          <input value={query} onChange={e => setQuery(e.target.value)}
-            placeholder="곡명, 아티스트 검색..."
+          <input value={query} onChange={e => { setQuery(e.target.value); setConsonant(""); }}
+            placeholder="곡명, 아티스트, 키 검색..."
+            autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
             style={{
               width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
               color:C.txt, padding:"9px 14px 9px 38px", borderRadius:10,
-              fontSize:14, outline:"none", fontFamily:"inherit",
+              fontSize:14, outline:"none", fontFamily:"inherit", boxSizing:"border-box",
             }} />
         </div>
       </div>
 
-      <div style={{ padding:16, paddingBottom:90, overflowY:"auto", maxHeight:"calc(100vh - 130px)" }}>
-        {filtered.length === 0 && (
-          <div style={{ textAlign:"center", padding:"60px 0", color:C.dim }}>
-            <div style={{ fontSize:36, marginBottom:12 }}>🎵</div>
-            <div>{query ? "검색 결과가 없습니다" : "등록된 곡이 없습니다"}</div>
-          </div>
-        )}
-        {filtered.map(song => (
-          <div key={song.id} className="wFadeIn" style={{
-            background:C.card, borderRadius:14, padding:"13px 16px",
-            marginBottom:8, border:`1px solid ${C.bdr}`,
-            display:"flex", alignItems:"center", gap:12,
-          }}>
-            <div style={{
-              width:46, height:46, borderRadius:11, flexShrink:0,
-              background:`linear-gradient(135deg, ${keyColor(song.key)}44, ${C.pur}44)`,
-              border:`1px solid ${keyColor(song.key)}44`,
-              display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:20,
-            }}>🎵</div>
-
-            <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
-              onClick={() => nav("pdfViewer", { songId: song.id, backTo: "library" })}>
-              <div style={{ fontWeight:700, fontSize:14, letterSpacing:"-0.01em",
-                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                {song.title}
-              </div>
-              <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>{song.artist}</div>
-              <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap" }}>
-                <KeyBadge k={song.key} />
-                <Badge label={`♩ ${song.bpm}`} color={C.dim} />
-                {song.pdfUrl && <Badge label="PDF" color={C.grn} />}
-              </div>
+      {/* 리스트 + 자음 인덱스 */}
+      <div style={{ flex:1, display:"flex", overflow:"hidden", position:"relative" }}>
+        {/* 곡 목록 (스크롤) */}
+        <div style={{ flex:1, overflowY:"auto", padding:"12px 44px 90px 16px" }}>
+          {filtered.length === 0 && (
+            <div style={{ textAlign:"center", padding:"60px 0", color:C.dim }}>
+              <div style={{ fontSize:36, marginBottom:12 }}>🎵</div>
+              <div>{query || consonant ? "검색 결과가 없습니다" : "등록된 곡이 없습니다"}</div>
             </div>
+          )}
+          {filtered.map(song => (
+            <div key={song.id} className="wFadeIn" style={{
+              background:C.card, borderRadius:14, padding:"13px 16px",
+              marginBottom:8, border:`1px solid ${C.bdr}`,
+              display:"flex", alignItems:"center", gap:12,
+            }}>
+              <div style={{
+                width:46, height:46, borderRadius:11, flexShrink:0,
+                background:`linear-gradient(135deg, ${keyColor(song.key)}44, ${C.pur}44)`,
+                border:`1px solid ${keyColor(song.key)}44`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:20,
+              }}>🎵</div>
 
-            {isLeader(user.role) && (
-              <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-                {uploading === song.id ? (
-                  <div style={{ fontSize:11, color:C.acc, padding:"0 6px" }}>업로드 중...</div>
-                ) : (
-                  <>
-                    <input type="file" accept=".pdf,application/pdf"
-                      style={{ display:"none" }} id={`up-${song.id}`}
-                      onChange={e => handleUpload(e, song.id)} />
-                    <label htmlFor={`up-${song.id}`}
-                      title={song.pdfUrl ? "PDF 교체" : "PDF 업로드"}
-                      style={{
-                        display:"flex", alignItems:"center", justifyContent:"center",
-                        width:34, height:34, borderRadius:9, cursor:"pointer",
-                        background: song.pdfUrl ? `${C.grn}22` : C.surf,
-                        border:`1px solid ${song.pdfUrl ? C.grn : C.bdr}`,
-                      }}>
-                      <Icon n="upload" size={14} color={song.pdfUrl ? C.grn : C.dim} />
-                    </label>
-                    <button onClick={() => setConfirmDel(song.id)}
-                      title="곡 삭제"
-                      style={{
-                        display:"flex", alignItems:"center", justifyContent:"center",
-                        width:34, height:34, borderRadius:9, cursor:"pointer",
-                        background:`${C.red}11`, border:`1px solid ${C.red}33`,
-                      }}>
-                      <Icon n="trash" size={14} color={C.red} />
-                    </button>
-                  </>
-                )}
+              <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
+                onClick={() => nav("pdfViewer", { songId: song.id, backTo: "library" })}>
+                <div style={{ fontWeight:700, fontSize:14, letterSpacing:"-0.01em",
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {song.title}
+                </div>
+                <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>{song.artist}</div>
+                <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap" }}>
+                  <KeyBadge k={song.key} />
+                  <Badge label={`♩ ${song.bpm}`} color={C.dim} />
+                  {song.pdfUrl && <Badge label="PDF" color={C.grn} />}
+                </div>
               </div>
-            )}
-          </div>
-        ))}
+
+              {isLeader(user.role) && (
+                <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                  {uploading === song.id ? (
+                    <div style={{ fontSize:11, color:C.acc, padding:"0 6px" }}>업로드 중...</div>
+                  ) : (
+                    <>
+                      <button onClick={() => { setEditSong(song); setEditForm({ title: song.title, artist: song.artist || "", key: song.key || "", bpm: song.bpm || "" }); }}
+                        title="편집"
+                        style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                          width:34, height:34, borderRadius:9, cursor:"pointer",
+                          background:`${C.acc}22`, border:`1px solid ${C.acc}55` }}>
+                        <Icon n="pen" size={14} color={C.acc} />
+                      </button>
+                      <input type="file" accept=".pdf,application/pdf"
+                        style={{ display:"none" }} id={`up-${song.id}`}
+                        onChange={e => handleUpload(e, song.id)} />
+                      <label htmlFor={`up-${song.id}`}
+                        title={song.pdfUrl ? "PDF 교체" : "PDF 업로드"}
+                        style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                          width:34, height:34, borderRadius:9, cursor:"pointer",
+                          background: song.pdfUrl ? `${C.grn}22` : C.surf,
+                          border:`1px solid ${song.pdfUrl ? C.grn : C.bdr}` }}>
+                        <Icon n="upload" size={14} color={song.pdfUrl ? C.grn : C.dim} />
+                      </label>
+                      <button onClick={() => setConfirmDel(song.id)}
+                        title="곡 삭제"
+                        style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                          width:34, height:34, borderRadius:9, cursor:"pointer",
+                          background:`${C.red}11`, border:`1px solid ${C.red}33` }}>
+                        <Icon n="trash" size={14} color={C.red} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* 자음 인덱스 */}
+        <div style={{
+          position:"absolute", right:0, top:0, bottom:0, width:36,
+          display:"flex", flexDirection:"column", alignItems:"center",
+          justifyContent:"center", gap:1, paddingTop:4,
+        }}>
+          <button onClick={() => setConsonant("")}
+            style={{ fontSize:9, fontWeight:700, padding:"2px 0", border:"none",
+              background: !consonant ? C.acc : "transparent",
+              color: !consonant ? "#fff" : C.dim,
+              borderRadius:4, cursor:"pointer", fontFamily:"inherit", width:28 }}>전체</button>
+          {CONSONANTS.map(c => (
+            <button key={c} onClick={() => setConsonant(prev => prev === c ? "" : c)}
+              style={{ fontSize:10, fontWeight:700, padding:"2px 0", border:"none",
+                background: consonant === c ? C.acc : "transparent",
+                color: consonant === c ? "#fff" : C.dim,
+                borderRadius:4, cursor:"pointer", fontFamily:"inherit", width:28 }}>{c}</button>
+          ))}
+        </div>
       </div>
+
+      {/* 편집 모달 */}
+      {editSong && (
+        <Modal title="곡 정보 편집" onClose={() => setEditSong(null)}>
+          {[
+            { label:"곡명", key:"title", placeholder:"곡명" },
+            { label:"아티스트", key:"artist", placeholder:"아티스트" },
+            { label:"키 (Key)", key:"key", placeholder:"C, D, E, F, G, A, B..." },
+            { label:"BPM", key:"bpm", placeholder:"120", type:"number" },
+          ].map(f => (
+            <div key={f.key} style={{ marginBottom:12 }}>
+              <div style={{ fontSize:12, color:C.dim, marginBottom:4 }}>{f.label}</div>
+              <input
+                type={f.type || "text"}
+                value={editForm[f.key]}
+                onChange={e => setEditForm(p => ({ ...p, [f.key]: e.target.value }))}
+                placeholder={f.placeholder}
+                autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
+                style={{
+                  width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
+                  color:C.txt, padding:"9px 12px", borderRadius:10,
+                  fontSize:14, outline:"none", fontFamily:"inherit", boxSizing:"border-box",
+                }}
+              />
+            </div>
+          ))}
+          <div style={{ display:"flex", gap:8, marginTop:4 }}>
+            <Btn label="취소" variant="ghost" full onClick={() => setEditSong(null)} />
+            <Btn label="저장" full onClick={saveEdit} />
+          </div>
+        </Modal>
+      )}
 
       {showAdd && (
         <AddSongModal onClose={() => setShowAdd(false)} onAdd={addSong} />
