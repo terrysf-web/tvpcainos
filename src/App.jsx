@@ -909,7 +909,7 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
           <>
             <div style={{
               display:"flex", alignItems:"center", justifyContent:"space-between",
-              margin:"16px 0 10px",
+              margin:`${upcoming.length > 0 ? "28px" : "16px"} 0 10px`,
             }}>
               <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
                 textTransform:"uppercase", display:"flex", alignItems:"center", gap:6 }}>
