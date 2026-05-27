@@ -1609,22 +1609,24 @@ Return ONLY the JSON array, no other text.`;
             <Icon n="sideR" size={12} color={media ? "#fff" : C.dim} />
             MEDIA
           </button>
-          <button onClick={() => {
-            setTransposeMode(p => !p);
-            if (transposeMode) { setTransposeSteps(0); setChordData([]); setChordData2([]); setDetectErr(""); }
-          }} style={{
-            display:"flex", alignItems:"center", gap:5,
-            padding:"5px 10px", borderRadius:8, cursor:"pointer",
-            background: transposeMode ? C.grn : C.card,
-            border:`1px solid ${transposeMode ? C.grn : C.bdr}`,
-            color: transposeMode ? "#fff" : C.dim,
-            fontWeight:700, fontSize:11, fontFamily:"inherit",
-            letterSpacing:"0.06em", transition:"all .15s",
-          }}>
-            {transposeMode && transposeSteps !== 0
-              ? `${song.key}→${keyName(song.key, transposeSteps)}`
-              : "전조"}
-          </button>
+          {isLeader(user.role) && (
+            <button onClick={() => {
+              setTransposeMode(p => !p);
+              if (transposeMode) { setTransposeSteps(0); setChordData([]); setChordData2([]); setDetectErr(""); }
+            }} style={{
+              display:"flex", alignItems:"center", gap:5,
+              padding:"5px 10px", borderRadius:8, cursor:"pointer",
+              background: transposeMode ? C.grn : C.card,
+              border:`1px solid ${transposeMode ? C.grn : C.bdr}`,
+              color: transposeMode ? "#fff" : C.dim,
+              fontWeight:700, fontSize:11, fontFamily:"inherit",
+              letterSpacing:"0.06em", transition:"all .15s",
+            }}>
+              {transposeMode && transposeSteps !== 0
+                ? `${song.key}→${keyName(song.key, transposeSteps)}`
+                : "전조"}
+            </button>
+          )}
         </div>
       </div>
 
