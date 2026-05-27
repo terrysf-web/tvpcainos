@@ -1166,7 +1166,7 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   if (!song) return null;
 
   return (
-    <div style={{ height:"100vh", background:C.bg, display:"flex",
+    <div className="h-screen" style={{ background:C.bg, display:"flex",
       flexDirection:"column", overflow:"hidden" }}>
 
       {/* 상단 툴바 */}
@@ -1853,6 +1853,7 @@ export default function App() {
       .wSlideUp { animation: wSlideUp .28s cubic-bezier(.16,1,.3,1); }
       @keyframes wFadeIn  { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
       @keyframes wSlideUp { from { opacity:0; transform:translateY(32px);} to { opacity:1; transform:translateY(0); } }
+      .h-screen { height: 100vh; height: 100dvh; }
     `;
     document.head.appendChild(el);
     return () => { try { document.head.removeChild(el); } catch(_) {} };
