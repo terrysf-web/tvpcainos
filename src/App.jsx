@@ -79,6 +79,7 @@ const P = {
   tag:     "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01",
   eraser:  "M20 20H7L3 16 13 6l8 8-2.5 2.5M9 15l2 2",
   undo:    "M3 10h13a4 4 0 0 1 0 8H9M3 10l4-4M3 10l4 4",
+  highlight:"M3 20h4L19.5 8.5a2.12 2.12 0 0 0-3-3L5 17 3 20zM16 5l3 3M15 7l-8 8",
 };
 
 function Icon({ n, size = 20, color = C.txt, sw = 2 }) {
@@ -100,23 +101,36 @@ function drawStrokes(canvas, strokes, cur = null) {
   for (const s of all) {
     if (!s.points || s.points.length < 1) continue;
     ctx.save();
+    const isEraser     = s.tool === "eraser"     || s.eraser;
+    const isHighlight  = s.tool === "highlighter";
     const lw = Math.max(1, s.width * canvas.width / 600);
-    ctx.lineWidth = lw;
-    ctx.lineCap   = "round";
-    ctx.lineJoin  = "round";
-    if (s.eraser) {
+    if (isEraser) {
       ctx.globalCompositeOperation = "destination-out";
       ctx.strokeStyle = "rgba(0,0,0,1)";
       ctx.fillStyle   = "rgba(0,0,0,1)";
+      ctx.lineWidth   = lw * 2;
+      ctx.lineCap     = "round";
+      ctx.lineJoin    = "round";
+    } else if (isHighlight) {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 0.38;
+      ctx.strokeStyle = s.color;
+      ctx.fillStyle   = s.color;
+      ctx.lineWidth   = Math.max(2, s.width * canvas.width / 150);
+      ctx.lineCap     = "square";
+      ctx.lineJoin    = "round";
     } else {
       ctx.globalCompositeOperation = "source-over";
       ctx.strokeStyle = s.color;
       ctx.fillStyle   = s.color;
+      ctx.lineWidth   = lw;
+      ctx.lineCap     = "round";
+      ctx.lineJoin    = "round";
     }
     const pts = s.points.map(p => [p.x * canvas.width, p.y * canvas.height]);
     ctx.beginPath();
     if (pts.length === 1) {
-      ctx.arc(pts[0][0], pts[0][1], lw / 2, 0, Math.PI * 2);
+      ctx.arc(pts[0][0], pts[0][1], ctx.lineWidth / 2, 0, Math.PI * 2);
       ctx.fill();
     } else {
       ctx.moveTo(pts[0][0], pts[0][1]);
@@ -1035,45 +1049,84 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
   const [drawMode,  setDrawMode]  = useState(false);
   const [drawColor, setDrawColor] = useState("#e8383b");
   const [drawWidth, setDrawWidth] = useState(3);
-  const [eraser,    setEraser]    = useState(false);
-  const drawCanvasRef = useRef(null);
-  const isDrawingRef  = useRef(false);
-  const strokesRef    = useRef([]);
-  const curStrokeRef  = useRef(null);
-  const drawModeRef   = useRef(false);
+  const [drawTool,  setDrawTool]  = useState("pen"); // "pen" | "highlighter" | "eraser"
+  const drawCanvas1Ref  = useRef(null);  // single mode + dual left
+  const drawCanvas2Ref  = useRef(null);  // dual right
+  const isDrawing1Ref   = useRef(false);
+  const isDrawing2Ref   = useRef(false);
+  const strokes1Ref     = useRef([]);
+  const strokes2Ref     = useRef([]);
+  const curStroke1Ref   = useRef(null);
+  const curStroke2Ref   = useRef(null);
+  const lastSideRef     = useRef(1);     // last drawn side for undo
+  const drawModeRef     = useRef(false);
 
   const myNotes = annotations[selectedSongId] || [];
 
   // keep drawModeRef in sync for non-reactive listeners
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
 
-  // load strokes from Firestore when song/page changes
-  const drawDocId = `${selectedSongId}_p${pageNum}`;
+  const dualLeftSongId  = svcSongs[dualIdx]?.id     || null;
+  const dualRightSongId = svcSongs[dualIdx + 1]?.id || null;
+
+  // load strokes — single mode (canvas1)
   useEffect(() => {
-    strokesRef.current = [];
-    const dc = drawCanvasRef.current;
+    if (dual) return;
+    strokes1Ref.current = [];
+    const dc = drawCanvas1Ref.current;
     if (dc) dc.getContext("2d").clearRect(0, 0, dc.width, dc.height);
     if (!user?.uid) return;
-    getDoc(doc(db, "userDrawings", user.uid, "pages", drawDocId))
+    getDoc(doc(db, "userDrawings", user.uid, "pages", `${selectedSongId}_p${pageNum}`))
       .then(snap => {
         if (snap.exists()) {
-          strokesRef.current = snap.data().strokes || [];
-          const dc2 = drawCanvasRef.current;
-          if (dc2 && dc2.width > 0) drawStrokes(dc2, strokesRef.current);
+          strokes1Ref.current = snap.data().strokes || [];
+          const dc2 = drawCanvas1Ref.current;
+          if (dc2 && dc2.width > 0) drawStrokes(dc2, strokes1Ref.current);
         }
-      })
-      .catch(() => {});
-  }, [drawDocId, user?.uid]);
+      }).catch(() => {});
+  }, [selectedSongId, pageNum, user?.uid, dual]);
 
-  const saveStrokes = useCallback(async (strokes) => {
-    if (!user?.uid) return;
+  // load strokes — dual left (canvas1)
+  useEffect(() => {
+    if (!dual) return;
+    strokes1Ref.current = [];
+    const dc = drawCanvas1Ref.current;
+    if (dc) dc.getContext("2d").clearRect(0, 0, dc.width, dc.height);
+    if (!user?.uid || !dualLeftSongId) return;
+    getDoc(doc(db, "userDrawings", user.uid, "pages", `${dualLeftSongId}_p1`))
+      .then(snap => {
+        if (snap.exists()) {
+          strokes1Ref.current = snap.data().strokes || [];
+          const dc2 = drawCanvas1Ref.current;
+          if (dc2 && dc2.width > 0) drawStrokes(dc2, strokes1Ref.current);
+        }
+      }).catch(() => {});
+  }, [dualLeftSongId, user?.uid, dual]);
+
+  // load strokes — dual right (canvas2)
+  useEffect(() => {
+    if (!dual) return;
+    strokes2Ref.current = [];
+    const dc = drawCanvas2Ref.current;
+    if (dc) dc.getContext("2d").clearRect(0, 0, dc.width, dc.height);
+    if (!user?.uid || !dualRightSongId) return;
+    getDoc(doc(db, "userDrawings", user.uid, "pages", `${dualRightSongId}_p1`))
+      .then(snap => {
+        if (snap.exists()) {
+          strokes2Ref.current = snap.data().strokes || [];
+          const dc2 = drawCanvas2Ref.current;
+          if (dc2 && dc2.width > 0) drawStrokes(dc2, strokes2Ref.current);
+        }
+      }).catch(() => {});
+  }, [dualRightSongId, user?.uid, dual]);
+
+  const saveDrawing = useCallback(async (songId, page, strokes) => {
+    if (!user?.uid || !songId) return;
     try {
-      await setDoc(
-        doc(db, "userDrawings", user.uid, "pages", `${selectedSongId}_p${pageNum}`),
-        { strokes, updatedAt: serverTimestamp() }
-      );
+      await setDoc(doc(db, "userDrawings", user.uid, "pages", `${songId}_p${page}`),
+        { strokes, updatedAt: serverTimestamp() });
     } catch(e) { console.error("필기 저장 실패:", e); }
-  }, [user?.uid, selectedSongId, pageNum]);
+  }, [user?.uid]);
 
   // 컨테이너 크기 추적 (ResizeObserver)
   useEffect(() => {
@@ -1131,7 +1184,7 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
         // 듀얼: 좌우 두 곡 (각자의 PDF 첫 페이지)
         const halfW  = Math.floor(cSize.w / 2) - pad * 2;
         const availH = cSize.h - pad * 2;
-        const renderTo = async (ref, pdfDoc) => {
+        const renderTo = async (ref, drawRef, strokesRef2, pdfDoc) => {
           if (!ref.current) return;
           if (!pdfDoc) { ref.current.width = 0; ref.current.height = 0; return; }
           const page = await pdfDoc.getPage(1);
@@ -1141,9 +1194,14 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
           ref.current.width  = vp.width;
           ref.current.height = vp.height;
           await page.render({ canvasContext: ref.current.getContext("2d"), viewport: vp }).promise;
+          if (drawRef.current) {
+            drawRef.current.width  = vp.width;
+            drawRef.current.height = vp.height;
+            drawStrokes(drawRef.current, strokesRef2.current);
+          }
         };
-        await renderTo(canvas1Ref, dualPdf1Ref.current);
-        await renderTo(canvas2Ref, dualPdf2Ref.current);
+        await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, dualPdf1Ref.current);
+        await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, dualPdf2Ref.current);
       } else {
         // 싱글: 한 페이지 꽉 맞춤
         if (!pdfDocRef.current || !canvas1Ref.current) return;
@@ -1154,10 +1212,10 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
         canvas1Ref.current.width  = vp.width;
         canvas1Ref.current.height = vp.height;
         await page.render({ canvasContext: canvas1Ref.current.getContext("2d"), viewport: vp }).promise;
-        if (drawCanvasRef.current) {
-          drawCanvasRef.current.width  = vp.width;
-          drawCanvasRef.current.height = vp.height;
-          drawStrokes(drawCanvasRef.current, strokesRef.current);
+        if (drawCanvas1Ref.current) {
+          drawCanvas1Ref.current.width  = vp.width;
+          drawCanvas1Ref.current.height = vp.height;
+          drawStrokes(drawCanvas1Ref.current, strokes1Ref.current);
         }
       }
     } catch(e) { console.error(e); }
@@ -1220,63 +1278,106 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
     return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
   };
 
-  const handleDrawDown = (e) => {
-    const canvas = drawCanvasRef.current;
+  const makeStroke = () => ({ color: drawColor, width: drawWidth, tool: drawTool, points: [] });
+
+  // ── Canvas 1 handlers (single mode + dual left)
+  const handleDraw1Down = (e) => {
+    const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     e.target.setPointerCapture(e.pointerId);
-    isDrawingRef.current = true;
-    const pt = getCanvasPt(e, canvas);
-    curStrokeRef.current = { color: drawColor, width: drawWidth, eraser, points: [pt] };
-    drawStrokes(canvas, strokesRef.current, curStrokeRef.current);
+    isDrawing1Ref.current = true;
+    lastSideRef.current = 1;
+    curStroke1Ref.current = { ...makeStroke(), points: [getCanvasPt(e, canvas)] };
+    drawStrokes(canvas, strokes1Ref.current, curStroke1Ref.current);
   };
-
-  const handleDrawMove = (e) => {
-    if (!isDrawingRef.current || !curStrokeRef.current) return;
-    const canvas = drawCanvasRef.current;
+  const handleDraw1Move = (e) => {
+    if (!isDrawing1Ref.current || !curStroke1Ref.current) return;
+    const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
     e.preventDefault();
-    const pt = getCanvasPt(e, canvas);
-    curStrokeRef.current.points.push(pt);
-    drawStrokes(canvas, strokesRef.current, curStrokeRef.current);
+    curStroke1Ref.current.points.push(getCanvasPt(e, canvas));
+    drawStrokes(canvas, strokes1Ref.current, curStroke1Ref.current);
   };
-
-  const handleDrawUp = async () => {
-    if (!isDrawingRef.current || !curStrokeRef.current) return;
-    isDrawingRef.current = false;
-    const stroke = curStrokeRef.current;
-    curStrokeRef.current = null;
+  const handleDraw1Up = async () => {
+    if (!isDrawing1Ref.current || !curStroke1Ref.current) return;
+    isDrawing1Ref.current = false;
+    const stroke = curStroke1Ref.current;
+    curStroke1Ref.current = null;
     if (stroke.points.length > 0) {
-      const next = [...strokesRef.current, stroke];
-      strokesRef.current = next;
-      await saveStrokes(next);
+      const next = [...strokes1Ref.current, stroke];
+      strokes1Ref.current = next;
+      const songId = dual ? dualLeftSongId : selectedSongId;
+      await saveDrawing(songId, dual ? 1 : pageNum, next);
     }
-    const canvas = drawCanvasRef.current;
-    if (canvas) drawStrokes(canvas, strokesRef.current);
+    const canvas = drawCanvas1Ref.current;
+    if (canvas) drawStrokes(canvas, strokes1Ref.current);
+  };
+  const handleDraw1Cancel = () => {
+    isDrawing1Ref.current = false; curStroke1Ref.current = null;
+    const canvas = drawCanvas1Ref.current;
+    if (canvas) drawStrokes(canvas, strokes1Ref.current);
   };
 
-  const handleDrawCancel = () => {
-    isDrawingRef.current = false;
-    curStrokeRef.current = null;
-    const canvas = drawCanvasRef.current;
-    if (canvas) drawStrokes(canvas, strokesRef.current);
+  // ── Canvas 2 handlers (dual right)
+  const handleDraw2Down = (e) => {
+    const canvas = drawCanvas2Ref.current;
+    if (!canvas) return;
+    e.preventDefault(); e.stopPropagation();
+    e.target.setPointerCapture(e.pointerId);
+    isDrawing2Ref.current = true;
+    lastSideRef.current = 2;
+    curStroke2Ref.current = { ...makeStroke(), points: [getCanvasPt(e, canvas)] };
+    drawStrokes(canvas, strokes2Ref.current, curStroke2Ref.current);
+  };
+  const handleDraw2Move = (e) => {
+    if (!isDrawing2Ref.current || !curStroke2Ref.current) return;
+    const canvas = drawCanvas2Ref.current;
+    if (!canvas) return;
+    e.preventDefault();
+    curStroke2Ref.current.points.push(getCanvasPt(e, canvas));
+    drawStrokes(canvas, strokes2Ref.current, curStroke2Ref.current);
+  };
+  const handleDraw2Up = async () => {
+    if (!isDrawing2Ref.current || !curStroke2Ref.current) return;
+    isDrawing2Ref.current = false;
+    const stroke = curStroke2Ref.current;
+    curStroke2Ref.current = null;
+    if (stroke.points.length > 0) {
+      const next = [...strokes2Ref.current, stroke];
+      strokes2Ref.current = next;
+      await saveDrawing(dualRightSongId, 1, next);
+    }
+    const canvas = drawCanvas2Ref.current;
+    if (canvas) drawStrokes(canvas, strokes2Ref.current);
+  };
+  const handleDraw2Cancel = () => {
+    isDrawing2Ref.current = false; curStroke2Ref.current = null;
+    const canvas = drawCanvas2Ref.current;
+    if (canvas) drawStrokes(canvas, strokes2Ref.current);
   };
 
+  // ── Undo: acts on the last-drawn side
   const handleUndo = async () => {
-    if (strokesRef.current.length === 0) return;
-    const next = strokesRef.current.slice(0, -1);
-    strokesRef.current = next;
-    await saveStrokes(next);
-    const canvas = drawCanvasRef.current;
-    if (canvas) drawStrokes(canvas, next);
+    const side = lastSideRef.current;
+    const sRef = side === 2 ? strokes2Ref : strokes1Ref;
+    const dcRef = side === 2 ? drawCanvas2Ref : drawCanvas1Ref;
+    const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
+    if (sRef.current.length === 0) return;
+    const next = sRef.current.slice(0, -1);
+    sRef.current = next;
+    await saveDrawing(songId, dual ? 1 : pageNum, next);
+    if (dcRef.current) drawStrokes(dcRef.current, next);
   };
 
   const handleClearPage = async () => {
-    strokesRef.current = [];
-    await saveStrokes([]);
-    const canvas = drawCanvasRef.current;
-    if (canvas) canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+    const side = lastSideRef.current;
+    const sRef = side === 2 ? strokes2Ref : strokes1Ref;
+    const dcRef = side === 2 ? drawCanvas2Ref : drawCanvas1Ref;
+    const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
+    sRef.current = [];
+    await saveDrawing(songId, dual ? 1 : pageNum, []);
+    if (dcRef.current) dcRef.current.getContext("2d").clearRect(0, 0, dcRef.current.width, dcRef.current.height);
   };
 
   const toolBtn = (name, active, onClick, ttl) => (
@@ -1350,7 +1451,7 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
             <Icon n="zoomIn" size={18} color={C.dim} />
           </button>
           <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
-          {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setEraser(false); }, "필기 모드")}
+          {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
           {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
           <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
           <button onClick={() => setDual(p => !p)} style={{
@@ -1384,52 +1485,70 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
       </div>
 
       {/* 필기 서브툴바 */}
-      {drawMode && !dual && (
+      {drawMode && (
         <div style={{
           display:"flex", alignItems:"center", gap:8,
-          padding:"0 14px", height:46, flexShrink:0,
+          padding:"0 14px", height:48, flexShrink:0,
           background:`${C.pur}0a`, borderBottom:`1px solid ${C.bdr}`,
           overflowX:"auto",
         }}>
-          {["#e8383b","#1a73e8","#1c1c1e","#34c759","#e8a93e"].map(clr => (
-            <button key={clr} onClick={() => { setDrawColor(clr); setEraser(false); }}
+          {/* Tool selector */}
+          {[
+            { id:"pen",         icon:"pen",       label:"펜"   },
+            { id:"highlighter", icon:"highlight",  label:"형광" },
+            { id:"eraser",      icon:"eraser",     label:"지우개" },
+          ].map(t => (
+            <button key={t.id} onClick={() => setDrawTool(t.id)} title={t.label} style={{
+              display:"flex", alignItems:"center", gap:3, padding:"4px 8px",
+              background: drawTool === t.id ? `${C.pur}22` : "transparent",
+              border:`1px solid ${drawTool === t.id ? C.pur : C.bdr}`,
+              borderRadius:6, cursor:"pointer", flexShrink:0,
+            }}>
+              <Icon n={t.icon} size={15} color={drawTool === t.id ? C.pur : C.dim} />
+            </button>
+          ))}
+          <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+          {/* Colors — pen/highlighter colors */}
+          {(drawTool === "highlighter"
+            ? ["#ffe034","#7dff6b","#5df4ff","#ff7de9","#ffac30"]
+            : ["#e8383b","#1a73e8","#1c1c1e","#34c759","#e8a93e"]
+          ).map(clr => (
+            <button key={clr} onClick={() => setDrawColor(clr)}
               style={{
                 width:22, height:22, borderRadius:"50%", background:clr,
-                border: drawColor === clr && !eraser ? "3px solid #fff" : "2px solid transparent",
-                outline: drawColor === clr && !eraser ? `2px solid ${clr}` : "none",
+                border: drawColor === clr && drawTool !== "eraser" ? "3px solid #fff" : "2px solid transparent",
+                outline: drawColor === clr && drawTool !== "eraser" ? `2px solid ${clr}` : "none",
                 cursor:"pointer", flexShrink:0, padding:0,
+                opacity: drawTool === "eraser" ? 0.35 : 1,
               }} />
           ))}
           <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+          {/* Width */}
           {[2, 4, 7].map(w => (
-            <button key={w} onClick={() => { setDrawWidth(w); setEraser(false); }}
+            <button key={w} onClick={() => setDrawWidth(w)}
               style={{
                 width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center",
-                background: drawWidth === w && !eraser ? `${C.pur}22` : "transparent",
-                border:`1px solid ${drawWidth === w && !eraser ? C.pur : C.bdr}`,
+                background: drawWidth === w ? `${C.pur}22` : "transparent",
+                border:`1px solid ${drawWidth === w ? C.pur : C.bdr}`,
                 borderRadius:6, cursor:"pointer", flexShrink:0,
               }}>
               <div style={{
-                width:w + 2, height:w + 2, borderRadius:"50%",
-                background: eraser ? C.dim : drawColor,
+                width: drawTool === "highlighter" ? w * 2 + 1 : w + 2,
+                height: drawTool === "highlighter" ? Math.max(6, w) : w + 2,
+                borderRadius: drawTool === "highlighter" ? 2 : "50%",
+                background: drawTool === "eraser" ? C.dim : drawColor,
+                opacity: drawTool === "eraser" ? 0.4 : 0.8,
               }} />
             </button>
           ))}
           <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
-          <button onClick={() => setEraser(p => !p)} title="지우개" style={{
-            background: eraser ? `${C.red}22` : "transparent",
-            border:`1px solid ${eraser ? C.red : C.bdr}`,
-            borderRadius:6, padding:5, cursor:"pointer", display:"flex", flexShrink:0,
-          }}>
-            <Icon n="eraser" size={16} color={eraser ? C.red : C.dim} />
-          </button>
           <button onClick={handleUndo} title="실행 취소" style={{
             background:"transparent", border:`1px solid ${C.bdr}`,
             borderRadius:6, padding:5, cursor:"pointer", display:"flex", flexShrink:0,
           }}>
             <Icon n="undo" size={16} color={C.dim} />
           </button>
-          <button onClick={handleClearPage} title="페이지 지우기" style={{
+          <button onClick={handleClearPage} title="현재 페이지 지우기" style={{
             background:"transparent", border:`1px solid ${C.bdr}`,
             borderRadius:6, padding:5, cursor:"pointer", display:"flex", flexShrink:0,
           }}>
@@ -1455,8 +1574,21 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
                 alignItems:"center", justifyContent:"center",
                 borderRight:`1px solid ${C.bdr}`, overflow:"hidden", padding:8 }}>
                 {svcSongs[dualIdx]?.pdfUrl
-                  ? <canvas ref={canvas1Ref} style={{ display:"block",
-                      borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
+                  ? <div style={{ position:"relative", display:"inline-block", lineHeight:0 }}>
+                      <canvas ref={canvas1Ref} style={{ display:"block",
+                        borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
+                      <canvas ref={drawCanvas1Ref} style={{
+                        position:"absolute", top:0, left:0, width:"100%", height:"100%",
+                        borderRadius:4, touchAction:"none",
+                        cursor: drawMode ? (drawTool === "eraser" ? "cell" : "crosshair") : "default",
+                        pointerEvents: drawMode ? "auto" : "none",
+                      }}
+                        onPointerDown={handleDraw1Down}
+                        onPointerMove={handleDraw1Move}
+                        onPointerUp={handleDraw1Up}
+                        onPointerCancel={handleDraw1Cancel}
+                      />
+                    </div>
                   : <div style={{ textAlign:"center", color:C.dim }}>
                       <div style={{ fontSize:32, marginBottom:8 }}>🎼</div>
                       <div style={{ fontWeight:600, fontSize:13 }}>{svcSongs[dualIdx]?.title || ""}</div>
@@ -1470,8 +1602,21 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
                 overflow:"hidden", padding:8 }}>
                 {svcSongs[dualIdx + 1]
                   ? svcSongs[dualIdx + 1].pdfUrl
-                    ? <canvas ref={canvas2Ref} style={{ display:"block",
-                        borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
+                    ? <div style={{ position:"relative", display:"inline-block", lineHeight:0 }}>
+                        <canvas ref={canvas2Ref} style={{ display:"block",
+                          borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
+                        <canvas ref={drawCanvas2Ref} style={{
+                          position:"absolute", top:0, left:0, width:"100%", height:"100%",
+                          borderRadius:4, touchAction:"none",
+                          cursor: drawMode ? (drawTool === "eraser" ? "cell" : "crosshair") : "default",
+                          pointerEvents: drawMode ? "auto" : "none",
+                        }}
+                          onPointerDown={handleDraw2Down}
+                          onPointerMove={handleDraw2Move}
+                          onPointerUp={handleDraw2Up}
+                          onPointerCancel={handleDraw2Cancel}
+                        />
+                      </div>
                     : <div style={{ textAlign:"center", color:C.dim }}>
                         <div style={{ fontSize:32, marginBottom:8 }}>🎼</div>
                         <div style={{ fontWeight:600, fontSize:13 }}>{svcSongs[dualIdx + 1].title}</div>
@@ -1513,17 +1658,17 @@ function PDFViewerScreen({ user, songs, services, annotations, onAddAnnotation, 
                   : <div style={{ position:"relative", display:"inline-block", lineHeight:0, flexShrink:0 }}>
                       <canvas ref={canvas1Ref} style={{ display:"block",
                         borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
-                      <canvas ref={drawCanvasRef} style={{
+                      <canvas ref={drawCanvas1Ref} style={{
                         position:"absolute", top:0, left:0, width:"100%", height:"100%",
                         borderRadius:4,
-                        cursor: drawMode ? (eraser ? "cell" : "crosshair") : "default",
+                        cursor: drawMode ? (drawTool === "eraser" ? "cell" : "crosshair") : "default",
                         touchAction:"none",
                         pointerEvents: drawMode ? "auto" : "none",
                       }}
-                        onPointerDown={handleDrawDown}
-                        onPointerMove={handleDrawMove}
-                        onPointerUp={handleDrawUp}
-                        onPointerCancel={handleDrawCancel}
+                        onPointerDown={handleDraw1Down}
+                        onPointerMove={handleDraw1Move}
+                        onPointerUp={handleDraw1Up}
+                        onPointerCancel={handleDraw1Cancel}
                       />
                     </div>
               ) : (
