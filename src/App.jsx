@@ -2035,9 +2035,9 @@ Return ONLY the JSON array, no other text.`;
         {/* iOS safe area spacer */}
         <div style={{ height:"env(safe-area-inset-top)", background:C.surf }} />
 
-        {/* Row 1: Back · Title · Zoom */}
+        {/* Row 1: Back · Title */}
         <div style={{
-          height:48, display:"flex", alignItems:"center", gap:6,
+          height:44, display:"flex", alignItems:"center", gap:6,
           padding:"0 10px",
         }}>
           <button onClick={() => nav(backTo || "library")}
@@ -2050,41 +2050,42 @@ Return ONLY the JSON array, no other text.`;
           <div style={{ flex:1, minWidth:0, textAlign:"center" }}>
             <div style={{ fontWeight:700, fontSize:14, overflow:"hidden",
               textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
-            <div style={{ fontSize:11, color:C.dim }}>
+            <div style={{ fontSize:11, color:C.dim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
               Key {transposeMode && transposeSteps !== 0
-                ? `${song.key} → ${keyName(song.key, transposeSteps)}`
+                ? `${song.key}→${keyName(song.key, transposeSteps)}`
                 : song.key}
               {song.bpm ? ` · ♩${song.bpm}` : ""}
               {numPages > 0 ? ` · ${pageNum}/${numPages}p` : ""}
-              {svcSongs.length > 1 ? ` · 곡 ${songIdx + 1}/${svcSongs.length}` : ""}
+              {svcSongs.length > 1 ? ` · ${songIdx + 1}/${svcSongs.length}` : ""}
             </div>
-          </div>
-
-          <div style={{ display:"flex", gap:0, alignItems:"center", flexShrink:0 }}>
-            <button onClick={() => setZoomMul(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
-              style={{ background:"none", border:"none", cursor:"pointer", padding:6, display:"flex", borderRadius:8 }}>
-              <Icon n="zoomOut" size={18} color={C.dim} />
-            </button>
-            <span style={{ fontSize:11, color:C.dim, minWidth:30, textAlign:"center", fontWeight:600 }}>
-              {Math.round(zoomMul * 100)}%
-            </span>
-            <button onClick={() => setZoomMul(z => Math.min(2.5, +(z + 0.15).toFixed(2)))}
-              style={{ background:"none", border:"none", cursor:"pointer", padding:6, display:"flex", borderRadius:8 }}>
-              <Icon n="zoomIn" size={18} color={C.dim} />
-            </button>
           </div>
         </div>
 
-        {/* Row 2: Tool buttons */}
-        <div style={{
-          height:38, display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-          padding:"0 10px", borderTop:`1px solid ${C.bdr}`,
+        {/* Row 2: Tools (scrollable) */}
+        <div className="toolbar-scroll" style={{
+          height:38, display:"flex", alignItems:"center",
+          borderTop:`1px solid ${C.bdr}`,
+          overflowX:"auto", overflowY:"hidden",
+          scrollbarWidth:"none", msOverflowStyle:"none",
+          padding:"0 10px", gap:6,
         }}>
+          <button onClick={() => setZoomMul(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
+            style={{ background:"none", border:"none", cursor:"pointer", padding:"5px 4px", display:"flex", borderRadius:8, flexShrink:0 }}>
+            <Icon n="zoomOut" size={18} color={C.dim} />
+          </button>
+          <span style={{ fontSize:11, color:C.dim, minWidth:28, textAlign:"center", fontWeight:600, flexShrink:0 }}>
+            {Math.round(zoomMul * 100)}%
+          </span>
+          <button onClick={() => setZoomMul(z => Math.min(2.5, +(z + 0.15).toFixed(2)))}
+            style={{ background:"none", border:"none", cursor:"pointer", padding:"5px 4px", display:"flex", borderRadius:8, flexShrink:0 }}>
+            <Icon n="zoomIn" size={18} color={C.dim} />
+          </button>
+          <div style={{ width:1, height:18, background:C.bdr, flexShrink:0 }} />
           {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
           {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
-          <div style={{ width:1, height:18, background:C.bdr }} />
+          <div style={{ width:1, height:18, background:C.bdr, flexShrink:0 }} />
           <button onClick={() => setDual(p => !p)} style={{
-            display:"flex", alignItems:"center", gap:4,
+            display:"flex", alignItems:"center", gap:4, flexShrink:0,
             padding:"4px 9px", borderRadius:8, cursor:"pointer",
             background: dual ? C.pur : C.card,
             border:`1px solid ${dual ? C.pur : C.bdr}`,
@@ -2099,7 +2100,7 @@ Return ONLY the JSON array, no other text.`;
             if (dual) { showToast("싱글 모드에서만 사용 가능합니다"); return; }
             setMedia(p => !p);
           }} style={{
-            display:"flex", alignItems:"center", gap:4,
+            display:"flex", alignItems:"center", gap:4, flexShrink:0,
             padding:"4px 9px", borderRadius:8, cursor:"pointer",
             background: media ? C.acc : C.card,
             border:`1px solid ${media ? C.acc : C.bdr}`,
@@ -2115,7 +2116,7 @@ Return ONLY the JSON array, no other text.`;
               setTransposeMode(p => !p);
               if (transposeMode) { setTransposeSteps(0); setChordData([]); setChordData2([]); setDetectErr(""); }
             }} style={{
-              display:"flex", alignItems:"center", gap:4,
+              display:"flex", alignItems:"center", gap:4, flexShrink:0,
               padding:"4px 9px", borderRadius:8, cursor:"pointer",
               background: transposeMode ? C.grn : C.card,
               border:`1px solid ${transposeMode ? C.grn : C.bdr}`,
@@ -3426,6 +3427,7 @@ export default function App() {
              background: ${C.bg}; color: ${C.txt}; -webkit-tap-highlight-color: transparent; }
       ::-webkit-scrollbar { width: 4px; height: 4px; }
       ::-webkit-scrollbar-thumb { background: #c8cfe0; border-radius: 2px; }
+      .toolbar-scroll::-webkit-scrollbar { display: none; }
       input, textarea { font-family: inherit; }
       .wFadeIn  { animation: wFadeIn  .22s ease; }
       .wSlideUp { animation: wSlideUp .28s cubic-bezier(.16,1,.3,1); }
