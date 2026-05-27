@@ -1,0 +1,81 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function isLeader() {
+      return isAuthed() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["leader", "admin"];
+    }
+
+    function isAdmin() {
+      return isAuthed() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    match /songs/{id} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isLeader();
+    }
+
+    match /services/{id} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isLeader();
+    }
+
+    match /notifications/{id} {
+      allow read: if isAuthed();
+      allow create: if isLeader();
+      allow update: if isAuthed() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
+    }
+
+    match /annotations/{id} {
+      allow read, delete: if isAuthed() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthed() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthed() && resource.data.userId == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthed();
+      allow create, update: if isAuthed() && (request.auth.uid == userId || isLeader());
+      allow delete: if isAdmin();
+    }
+
+    // 허용 이메일: 읽기 인증된 모두(신규 가입 체크), 쓰기 어드민만
+    match /allowedEmails/{email} {
+      allow read: if isAuthed();
+      allow write: if isAdmin();
+    }
+
+    // 기존 컬렉션 유지
+    match /customSongs/{document=**} {
+      allow read, write: if isAuthed();
+    }
+
+    match /pdfFiles/{document=**} {
+      allow read, write: if isAuthed();
+    }
+
+    match /songLyrics/{document=**} {
+      allow read, write: if isAuthed();
+    }
+
+    match /userAnnotations/{userId}/{document=**} {
+      allow read, write: if isAuthed() && request.auth.uid == userId;
+    }
+
+    // doc id = "{uid}_{songId}_p{page}" — 앱이 자신의 UID 포함 ID만 쿼리하므로 다른 사람 필기 안 보임
+    match /userDrawings/{drawingId} {
+      allow read, write: if isAuthed();
+    }
+
+    match /teamSettings/{document=**} {
+      allow read, write: if isAuthed();
+    }
+  }
+}
