@@ -4904,6 +4904,51 @@ export default function App() {
     );
   };
 
+  // ── KakaoTalk 인앱 브라우저 감지 → 외부 브라우저 유도
+  const ua = navigator.userAgent || "";
+  const isKakao   = /KAKAOTALK/i.test(ua);
+  const isAndroid = /Android/i.test(ua);
+  if (isKakao) {
+    const currentUrl = window.location.href;
+    const openExternal = () => {
+      if (isAndroid) {
+        // Android: Chrome Intent URI로 강제 오픈
+        window.location.href =
+          `intent://${currentUrl.replace(/^https?:\/\//, "")}#Intent;scheme=https;package=com.android.chrome;end`;
+      } else {
+        // iOS: safari- 스킴으로 Safari 강제 오픈
+        window.location.href = currentUrl.replace(/^https/, "safari-https").replace(/^http:/, "safari-http:");
+      }
+    };
+    return (
+      <div style={{ minHeight:"100vh", background:C.bg, display:"flex",
+        flexDirection:"column", alignItems:"center", justifyContent:"center",
+        padding:32, fontFamily:"'Noto Sans KR', -apple-system, sans-serif" }}>
+        <div style={{ fontSize:48, marginBottom:20 }}>🌐</div>
+        <div style={{ fontWeight:800, fontSize:20, color:C.txt, marginBottom:8, textAlign:"center" }}>
+          외부 브라우저에서 열어주세요
+        </div>
+        <div style={{ fontSize:14, color:C.dim, textAlign:"center", lineHeight:1.7, marginBottom:28 }}>
+          카카오톡 인앱 브라우저에서는<br />
+          일부 기능이 정상 동작하지 않습니다.<br />
+          Safari 또는 Chrome으로 열어 사용해주세요.
+        </div>
+        <button onClick={openExternal} style={{
+          background: C.acc, border:"none", borderRadius:12, color:"#fff",
+          fontWeight:700, fontSize:15, padding:"13px 28px", cursor:"pointer",
+          fontFamily:"inherit", marginBottom:16 }}>
+          외부 브라우저로 열기
+        </button>
+        {!isAndroid && (
+          <div style={{ fontSize:12, color:C.dim, textAlign:"center", lineHeight:1.8 }}>
+            버튼이 작동하지 않으면<br />
+            우측 하단 <b>···</b> → <b>Safari로 열기</b>를 탭해주세요
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // ── Loading screen
   if (user === undefined) return (
     <div style={{ minHeight:"100vh", background:C.bg, display:"flex",
