@@ -264,7 +264,7 @@ function drawStrokes(canvas, strokes, cur = null) {
       const pt = s.points[0];
       const px = pt.x * canvas.width;
       const py = pt.y * canvas.height;
-      const sz = Math.max(10, (s.size || 14) * canvas.width / 450);
+      const sz = Math.max(5, (s.size || 14) * canvas.width / 450);
       ctx.globalCompositeOperation = "source-over";
       ctx.globalAlpha = 1;
       ctx.fillStyle = s.color || "#1c1c1e";
@@ -2183,7 +2183,7 @@ Return ONLY the JSON array, no other text.`;
     const page = isC1 ? (dual ? 1 : pageNum) : (dual ? 2 : pageNum);
     const textStroke = {
       tool: "text", text: textInput.value.trim(),
-      color: drawColor, size: drawWidth * 5 + 10,
+      color: drawColor, size: ({ 1: 8, 2: 15, 4: 28 })[drawWidth] || 15,
       points: [{ x: textInput.x, y: textInput.y }],
     };
     const next = [...strokesRef.current, textStroke];
