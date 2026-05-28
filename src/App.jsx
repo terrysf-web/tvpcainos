@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.59";
+const APP_VERSION = "3.60";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2719,7 +2719,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setChordData([]); setDetectErr("");
     if (!user?.uid || !selectedSongId || dual) return;
     getDoc(doc(db, "customSongs", `chord_${user.uid}_${selectedSongId}_p${pageNum}`))
-      .then(snap => { if (snap.exists()) setChordData(snap.data().chords || []); })
+      .then(snap => {
+        if (snap.exists()) {
+          setChordData(snap.data().chords || []);
+          setTransposeSteps(snap.data().transposeSteps ?? 0);
+        } else {
+          setTransposeSteps(0);
+        }
+      })
       .catch(() => {});
   }, [pageNum, selectedSongId, user?.uid, dual]);
 
@@ -2728,7 +2735,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setChordData([]);
     if (!user?.uid || !dualLeftSongId || !dual) return;
     getDoc(doc(db, "customSongs", `chord_${user.uid}_${dualLeftSongId}_p1`))
-      .then(snap => { if (snap.exists()) setChordData(snap.data().chords || []); })
+      .then(snap => {
+        if (snap.exists()) {
+          setChordData(snap.data().chords || []);
+          setTransposeSteps(snap.data().transposeSteps ?? 0);
+        } else {
+          setTransposeSteps(0);
+        }
+      })
       .catch(() => {});
   }, [dualLeftSongId, user?.uid, dual]);
 
@@ -2816,7 +2830,7 @@ Be precise about the position of each chord label. Return [] if no chords found.
       } else if (user?.uid && songId) {
         setDoc(
           doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`),
-          { chords, updatedAt: serverTimestamp() }
+          { chords, transposeSteps, updatedAt: serverTimestamp() }
         ).catch(() => {});
       }
     } catch(e) {
@@ -2824,6 +2838,19 @@ Be precise about the position of each chord label. Return [] if no chords found.
     } finally {
       setDetectingChords(false);
     }
+  };
+
+  const saveTransposeSteps = (newSteps) => {
+    setTransposeSteps(newSteps);
+    if (!user?.uid) return;
+    const songId = dual ? dualLeftSongId : selectedSongId;
+    const page   = dual ? 1 : pageNum;
+    if (!songId) return;
+    setDoc(
+      doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`),
+      { transposeSteps: newSteps, updatedAt: serverTimestamp() },
+      { merge: true }
+    ).catch(() => {});
   };
 
   // PDF 로드 (싱글 모드)
@@ -3754,7 +3781,7 @@ Be precise about the position of each chord label. Return [] if no chords found.
         }}>
           {/* 반음 조절 */}
           <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
-            <button onClick={() => setTransposeSteps(s => Math.max(-6, s - 1))}
+            <button onClick={() => saveTransposeSteps(Math.max(-6, transposeSteps - 1))}
               style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
                 background:"transparent", cursor:"pointer", fontWeight:700, fontSize:15, display:"flex",
                 alignItems:"center", justifyContent:"center", color:C.txt }}>−</button>
@@ -3763,7 +3790,7 @@ Be precise about the position of each chord label. Return [] if no chords found.
                 {transposeSteps === 0 ? "원본" : `${transposeSteps > 0 ? "+" : ""}${transposeSteps} 반음`}
               </div>
             </div>
-            <button onClick={() => setTransposeSteps(s => Math.min(6, s + 1))}
+            <button onClick={() => saveTransposeSteps(Math.min(6, transposeSteps + 1))}
               style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
                 background:"transparent", cursor:"pointer", fontWeight:700, fontSize:15, display:"flex",
                 alignItems:"center", justifyContent:"center", color:C.txt }}>+</button>
