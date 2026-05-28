@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.60";
+const APP_VERSION = "3.61";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3796,48 +3796,37 @@ Be precise about the position of each chord label. Return [] if no chords found.
                 alignItems:"center", justifyContent:"center", color:C.txt }}>+</button>
           </div>
           <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
-          {/* AI 감지 버튼 — 싱글: 하나, 듀얼: 왼쪽/오른쪽 */}
+          {/* AI 감지 버튼 — 코드가 이미 있으면 숨기고 개수만 표시 */}
           {dual ? (
             <>
-              <button onClick={() => detectChords(1)} disabled={detectingChords} style={{
-                background: detectingChords ? `${C.grn}44` : C.grn,
-                border:"none", borderRadius:7, padding:"5px 10px",
-                cursor: detectingChords ? "not-allowed" : "pointer",
-                fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
-              }}>
-                {detectingChords ? "⏳" : "🎵"} 왼쪽
-              </button>
-              {chordData.length > 0 && (
-                <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓{chordData.length}</span>
-              )}
-              <button onClick={() => detectChords(2)} disabled={detectingChords} style={{
-                background: detectingChords ? `${C.grn}44` : C.grn,
-                border:"none", borderRadius:7, padding:"5px 10px",
-                cursor: detectingChords ? "not-allowed" : "pointer",
-                fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
-              }}>
-                {detectingChords ? "⏳" : "🎵"} 오른쪽
-              </button>
-              {chordData2.length > 0 && (
-                <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓{chordData2.length}</span>
-              )}
+              {chordData.length === 0
+                ? <button onClick={() => detectChords(1)} disabled={detectingChords} style={{
+                    background: detectingChords ? `${C.grn}44` : C.grn,
+                    border:"none", borderRadius:7, padding:"5px 10px",
+                    cursor: detectingChords ? "not-allowed" : "pointer",
+                    fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
+                  }}>{detectingChords ? "⏳" : "🎵"} 왼쪽</button>
+                : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 왼쪽 {chordData.length}개</span>
+              }
+              {chordData2.length === 0
+                ? <button onClick={() => detectChords(2)} disabled={detectingChords} style={{
+                    background: detectingChords ? `${C.grn}44` : C.grn,
+                    border:"none", borderRadius:7, padding:"5px 10px",
+                    cursor: detectingChords ? "not-allowed" : "pointer",
+                    fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
+                  }}>{detectingChords ? "⏳" : "🎵"} 오른쪽</button>
+                : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 오른쪽 {chordData2.length}개</span>
+              }
             </>
           ) : (
-            <>
-              <button onClick={() => detectChords(1)} disabled={detectingChords} style={{
-                background: detectingChords ? `${C.grn}44` : C.grn,
-                border:"none", borderRadius:7, padding:"5px 12px",
-                cursor: detectingChords ? "not-allowed" : "pointer",
-                fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
-              }}>
-                {detectingChords ? "⏳ 감지 중..." : "🎵 코드 감지 (AI)"}
-              </button>
-              {chordData.length > 0 && (
-                <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>
-                  ✓ {chordData.length}개 감지됨
-                </span>
-              )}
-            </>
+            chordData.length === 0
+              ? <button onClick={() => detectChords(1)} disabled={detectingChords} style={{
+                  background: detectingChords ? `${C.grn}44` : C.grn,
+                  border:"none", borderRadius:7, padding:"5px 12px",
+                  cursor: detectingChords ? "not-allowed" : "pointer",
+                  fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
+                }}>{detectingChords ? "⏳ 감지 중..." : "🎵 코드 감지 (AI)"}</button>
+              : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ {chordData.length}개 감지됨</span>
           )}
           {detectErr && (
             <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>
