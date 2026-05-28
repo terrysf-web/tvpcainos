@@ -887,7 +887,9 @@ function AddSongModal({ onClose, onAdd }) {
   const [pdfPageCount, setPdfPageCount] = useState(0);
   const [splitMode,    setSplitMode]    = useState(false);
   const [splitEntries, setSplitEntries] = useState([]);
-  const [savingPage,   setSavingPage]   = useState(""); // "2/5" progress
+  const [savingPage,   setSavingPage]   = useState("");
+  const [cropBox,      setCropBox]      = useState(null);
+  const [showCrop,     setShowCrop]     = useState(false);
   const fileRef = useRef(null);
   const KEYS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
@@ -896,6 +898,7 @@ function AddSongModal({ onClose, onAdd }) {
     setSplitMode(false);
     setPdfPageCount(0);
     setSplitEntries([]);
+    setCropBox(null);
     if (!file || !window.pdfjsLib) return;
     try {
       const buf = await file.arrayBuffer();
@@ -937,7 +940,9 @@ function AddSongModal({ onClose, onAdd }) {
         let sharedUrl = null;
         if (pdfFile && firstRef?.id) {
           sharedUrl = await uploadPdf(pdfFile, firstRef.id);
-          await updateDoc(doc(db, "songs", firstRef.id), { pdfUrl: sharedUrl });
+          const extra = { pdfUrl: sharedUrl };
+          if (cropBox) extra.cropBox = cropBox;
+          await updateDoc(doc(db, "songs", firstRef.id), extra);
         }
         for (let i = 1; i < splitEntries.length; i++) {
           const e = splitEntries[i];
@@ -947,14 +952,18 @@ function AddSongModal({ onClose, onAdd }) {
             key: e.key, bpm: Number(e.bpm) || 80, pdfPage: i + 1,
           });
           if (sharedUrl && ref?.id) {
-            await updateDoc(doc(db, "songs", ref.id), { pdfUrl: sharedUrl });
+            const extra = { pdfUrl: sharedUrl };
+            if (cropBox) extra.cropBox = cropBox;
+            await updateDoc(doc(db, "songs", ref.id), extra);
           }
         }
       } else {
         const docRef = await onAdd({ title, artist, key, bpm: Number(bpm) || 80, timeSig: timeSig || "4/4", youtubeUrl: youtubeUrl.trim() || "" });
         if (pdfFile && docRef?.id) {
           const url = await uploadPdf(pdfFile, docRef.id);
-          await updateDoc(doc(db, "songs", docRef.id), { pdfUrl: url });
+          const extra = { pdfUrl: url };
+          if (cropBox) extra.cropBox = cropBox;
+          await updateDoc(doc(db, "songs", docRef.id), extra);
         }
       }
       onClose();
@@ -971,7 +980,7 @@ function AddSongModal({ onClose, onAdd }) {
     : !!title.trim();
 
   return (
-    <Modal title="새 곡 추가" onClose={onClose} noBackdrop>
+    <><Modal title="새 곡 추가" onClose={onClose} noBackdrop>
       {!splitMode && (
         <>
           <Input label="곡 제목"  value={title}  onChange={setTitle}
@@ -1044,27 +1053,36 @@ function AddSongModal({ onClose, onAdd }) {
           style={{ display:"none" }}
           onChange={e => { handleFileSelect(e.target.files[0] || null); e.target.value = ""; }} />
         {pdfFile ? (
-          <div style={{
-            display:"flex", alignItems:"center", gap:10, padding:"12px 14px",
-            background:`${C.grn}12`, border:`1.5px solid ${C.grn}55`, borderRadius:10,
-          }}>
-            <span style={{ fontSize:20 }}>📄</span>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:13, color:C.grn, fontWeight:600,
-                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                {pdfFile.name}
-              </div>
-              {pdfPageCount > 0 && (
-                <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>
-                  {pdfPageCount}페이지
+          <>
+            <div style={{
+              display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
+              background:`${C.grn}12`, border:`1.5px solid ${C.grn}55`, borderRadius:10, marginBottom:6,
+            }}>
+              <span style={{ fontSize:20 }}>📄</span>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, color:C.grn, fontWeight:600,
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {pdfFile.name}
                 </div>
-              )}
+                <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>
+                  {pdfPageCount > 0 ? `${pdfPageCount}페이지` : ""}
+                  {cropBox && <span style={{ color:C.acc, marginLeft:6, fontWeight:700 }}>✓ 크롭 설정됨</span>}
+                </div>
+              </div>
+              <button onClick={() => setShowCrop(true)}
+                title="크롭 설정"
+                style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                  width:30, height:30, borderRadius:8, cursor:"pointer", border:"none",
+                  background: cropBox ? `${C.acc}22` : `${C.pur}15`,
+                  color: cropBox ? C.acc : C.pur }}>
+                <Icon n="fitCrop" size={15} color={cropBox ? C.acc : C.pur} />
+              </button>
+              <button onClick={() => { setPdfFile(null); setSplitMode(false); setPdfPageCount(0); setCropBox(null); }}
+                style={{ background:"none", border:"none", cursor:"pointer", padding:2, display:"flex" }}>
+                <Icon n="xmark" size={16} color={C.dim} />
+              </button>
             </div>
-            <button onClick={() => { setPdfFile(null); setSplitMode(false); setPdfPageCount(0); }}
-              style={{ background:"none", border:"none", cursor:"pointer", padding:2, display:"flex" }}>
-              <Icon n="xmark" size={16} color={C.dim} />
-            </button>
-          </div>
+          </>
         ) : (
           <button onClick={() => fileRef.current.click()} style={{
             width:"100%", padding:"16px", borderRadius:12, cursor:"pointer",
@@ -1175,6 +1193,171 @@ function AddSongModal({ onClose, onAdd }) {
         icon="plus" onClick={handleAdd} full disabled={saving || !canAdd}
       />
     </Modal>
+    {showCrop && (
+      <CropModal
+        pdfFile={pdfFile}
+        initialCrop={cropBox}
+        onClose={() => setShowCrop(false)}
+        onConfirm={box => { setCropBox(box); setShowCrop(false); }}
+      />
+    )}
+    </>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   CROP MODAL
+══════════════════════════════════════════════════════════════════ */
+function CropModal({ pdfFile, pdfUrl, onClose, onConfirm, initialCrop = null }) {
+  const canvasRef    = useRef(null);
+  const containerRef = useRef(null);
+  const dragRef      = useRef(null);
+  const [cropBox,   setCropBox]   = useState(initialCrop || { left:0.02, top:0.02, right:0.98, bottom:0.98 });
+  const [rendering, setRendering] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const render = async (arrayBuf) => {
+      if (!window.pdfjsLib) { setRendering(false); return; }
+      try {
+        const pdf  = await window.pdfjsLib.getDocument({ data: arrayBuf }).promise;
+        const page = await pdf.getPage(1);
+        const vp0  = page.getViewport({ scale: 1 });
+        const maxW = Math.min(window.innerWidth - 48, 460);
+        const sc   = maxW / vp0.width;
+        const vp   = page.getViewport({ scale: sc });
+        if (cancelled || !canvasRef.current) return;
+        canvasRef.current.width  = vp.width;
+        canvasRef.current.height = vp.height;
+        await page.render({ canvasContext: canvasRef.current.getContext("2d"), viewport: vp }).promise;
+      } catch(e) { console.error(e); }
+      finally { if (!cancelled) setRendering(false); }
+    };
+    if (pdfFile) {
+      pdfFile.arrayBuffer().then(buf => { if (!cancelled) render(buf); });
+    } else if (pdfUrl) {
+      fetch(pdfUrl).then(r => r.arrayBuffer()).then(buf => { if (!cancelled) render(buf); }).catch(() => setRendering(false));
+    } else {
+      setRendering(false);
+    }
+    return () => { cancelled = true; };
+  }, [pdfFile, pdfUrl]);
+
+  const autoDetect = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !canvas.width) return;
+    const W = canvas.width, H = canvas.height;
+    const d = canvas.getContext("2d").getImageData(0, 0, W, H).data;
+    const THR = 230;
+    let x0 = W, x1 = 0, y0 = H, y1 = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      if (d[i+3] > 10 && (d[i] < THR || d[i+1] < THR || d[i+2] < THR)) {
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    }
+    if (x0 < x1 && y0 < y1) {
+      const p = 0.008;
+      setCropBox({ left: Math.max(0, x0/W - p), top: Math.max(0, y0/H - p), right: Math.min(1, x1/W + p), bottom: Math.min(1, y1/H + p) });
+    }
+  };
+
+  const startDrag = (e, handle) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { handle, startX: e.clientX, startY: e.clientY, startBox: { ...cropBox } };
+  };
+  const moveDrag = (e) => {
+    if (!dragRef.current || !containerRef.current) return;
+    const { handle, startX, startY, startBox } = dragRef.current;
+    const rect = containerRef.current.getBoundingClientRect();
+    const dx = (e.clientX - startX) / rect.width;
+    const dy = (e.clientY - startY) / rect.height;
+    const b = { ...startBox };
+    const MIN = 0.05;
+    if (handle.includes("l")) b.left   = Math.max(0, Math.min(startBox.right  - MIN, startBox.left   + dx));
+    if (handle.includes("r")) b.right  = Math.min(1, Math.max(startBox.left   + MIN, startBox.right  + dx));
+    if (handle.includes("t")) b.top    = Math.max(0, Math.min(startBox.bottom - MIN, startBox.top    + dy));
+    if (handle.includes("b")) b.bottom = Math.min(1, Math.max(startBox.top    + MIN, startBox.bottom + dy));
+    setCropBox(b);
+  };
+  const endDrag = () => { dragRef.current = null; };
+
+  const cb = cropBox;
+  const handles = [
+    { id:"tl", x:cb.left,                   y:cb.top,                    cur:"nw-resize" },
+    { id:"tr", x:cb.right,                  y:cb.top,                    cur:"ne-resize" },
+    { id:"bl", x:cb.left,                   y:cb.bottom,                 cur:"sw-resize" },
+    { id:"br", x:cb.right,                  y:cb.bottom,                 cur:"se-resize" },
+    { id:"tm", x:(cb.left+cb.right)/2,      y:cb.top,                    cur:"n-resize"  },
+    { id:"bm", x:(cb.left+cb.right)/2,      y:cb.bottom,                 cur:"s-resize"  },
+    { id:"lm", x:cb.left,                   y:(cb.top+cb.bottom)/2,      cur:"w-resize"  },
+    { id:"rm", x:cb.right,                  y:(cb.top+cb.bottom)/2,      cur:"e-resize"  },
+  ];
+
+  const hasCrop = cb.left > 0.005 || cb.top > 0.005 || cb.right < 0.995 || cb.bottom < 0.995;
+
+  return (
+    <div style={{
+      position:"fixed", inset:0, background:"rgba(0,0,0,.92)",
+      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+      zIndex:1000, padding:16, gap:10,
+    }}>
+      {/* 툴바 */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, width:"100%", maxWidth:520, flexShrink:0 }}>
+        <div style={{ flex:1, color:"#fff", fontWeight:700, fontSize:15 }}>✂️ 악보 크롭</div>
+        <button onClick={autoDetect} disabled={rendering}
+          style={{ padding:"7px 13px", borderRadius:8, border:"none", cursor:rendering?"default":"pointer",
+            background:C.pur, color:"#fff", fontSize:13, fontWeight:700, fontFamily:"inherit", opacity:rendering?.5:1 }}>
+          자동 감지
+        </button>
+        <button onClick={() => setCropBox({ left:0, top:0, right:1, bottom:1 })}
+          style={{ padding:"7px 11px", borderRadius:8, border:"1px solid rgba(255,255,255,.3)",
+            background:"transparent", color:"#ccc", fontSize:12, fontFamily:"inherit", cursor:"pointer" }}>
+          초기화
+        </button>
+        <button onClick={() => onConfirm(hasCrop ? cropBox : null)}
+          style={{ padding:"7px 16px", borderRadius:8, border:"none", cursor:"pointer",
+            background:C.acc, color:"#111", fontSize:13, fontWeight:700, fontFamily:"inherit" }}>
+          적용
+        </button>
+        <button onClick={onClose}
+          style={{ background:"none", border:"none", cursor:"pointer", color:"#fff", padding:"4px", display:"flex" }}>
+          <Icon n="xmark" size={20} color="#fff" />
+        </button>
+      </div>
+
+      {/* 캔버스 + 오버레이 */}
+      <div ref={containerRef} style={{ position:"relative", display:"inline-block", userSelect:"none", touchAction:"none", maxWidth:"100%", flexShrink:1 }}>
+        {rendering && (
+          <div style={{ width:280, height:180, display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,.5)", fontSize:14 }}>
+            렌더링 중...
+          </div>
+        )}
+        <canvas ref={canvasRef} style={{ display:rendering?"none":"block", maxWidth:"100%", maxHeight:"calc(100dvh - 160px)" }} />
+        {!rendering && <>
+          <div style={{ position:"absolute", inset:0, top:0, height:`${cb.top*100}%`, background:"rgba(0,0,0,.55)", pointerEvents:"none" }} />
+          <div style={{ position:"absolute", inset:0, top:`${cb.bottom*100}%`, background:"rgba(0,0,0,.55)", pointerEvents:"none" }} />
+          <div style={{ position:"absolute", left:0, top:`${cb.top*100}%`, width:`${cb.left*100}%`, height:`${(cb.bottom-cb.top)*100}%`, background:"rgba(0,0,0,.55)", pointerEvents:"none" }} />
+          <div style={{ position:"absolute", right:0, top:`${cb.top*100}%`, width:`${(1-cb.right)*100}%`, height:`${(cb.bottom-cb.top)*100}%`, background:"rgba(0,0,0,.55)", pointerEvents:"none" }} />
+          <div style={{ position:"absolute", left:`${cb.left*100}%`, top:`${cb.top*100}%`, width:`${(cb.right-cb.left)*100}%`, height:`${(cb.bottom-cb.top)*100}%`, border:`2px solid ${C.acc}`, boxSizing:"border-box", pointerEvents:"none" }} />
+          {handles.map(h => (
+            <div key={h.id}
+              onPointerDown={e => startDrag(e, h.id)}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              style={{ position:"absolute", left:`${h.x*100}%`, top:`${h.y*100}%`, width:14, height:14,
+                background:C.acc, border:"2px solid #fff", borderRadius:3, transform:"translate(-50%,-50%)",
+                cursor:h.cur, touchAction:"none", zIndex:2 }} />
+          ))}
+        </>}
+      </div>
+
+      <div style={{ color:"rgba(255,255,255,.45)", fontSize:12, textAlign:"center", flexShrink:0 }}>
+        핸들을 드래그하여 크롭 영역 조정 · "자동 감지"로 여백 자동 제거
+      </div>
+    </div>
   );
 }
 
@@ -1862,8 +2045,9 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
   const [confirmDel,    setConfirmDel]    = useState(null);
   const [editSong,      setEditSong]      = useState(null);
   const [editForm,      setEditForm]      = useState({});
-  const [pagePicker,    setPagePicker]    = useState(null); // { songId, file }
-  const [consonant,  setConsonant]  = useState("");
+  const [pagePicker,    setPagePicker]    = useState(null);
+  const [cropSong,      setCropSong]      = useState(null); // { id, pdfUrl, cropBox }
+  const [consonant,     setConsonant]     = useState("");
 
   const CONSONANTS = ["ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ","A"];
 
@@ -2025,6 +2209,16 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
                           background:`${C.acc}22`, border:`1px solid ${C.acc}55` }}>
                         <Icon n="pen" size={14} color={C.acc} />
                       </button>
+                      {song.pdfUrl && (
+                        <button onClick={() => setCropSong({ id: song.id, pdfUrl: song.pdfUrl, cropBox: song.cropBox || null })}
+                          title="크롭 설정"
+                          style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                            width:34, height:34, borderRadius:9, cursor:"pointer",
+                            background: song.cropBox ? `${C.acc}22` : `${C.pur}12`,
+                            border:`1px solid ${song.cropBox ? C.acc+"55" : C.pur+"33"}` }}>
+                          <Icon n="fitCrop" size={14} color={song.cropBox ? C.acc : C.pur} />
+                        </button>
+                      )}
                       <input type="file" accept=".pdf,application/pdf"
                         style={{ display:"none" }} id={`up-${song.id}`}
                         onChange={e => handleUpload(e, song.id)} />
@@ -2145,6 +2339,19 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
           </Modal>
         );
       })()}
+
+      {cropSong && (
+        <CropModal
+          pdfUrl={cropSong.pdfUrl}
+          initialCrop={cropSong.cropBox}
+          onClose={() => setCropSong(null)}
+          onConfirm={async (box) => {
+            const songId = cropSong.id;
+            setCropSong(null);
+            await updateDoc(doc(db, "songs", songId), { cropBox: box || null });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -2583,33 +2790,63 @@ Return ONLY the JSON array, no other text.`;
     });
   }, [dual, dualIdx, dualLeftUrl, dualRightUrl, pdfjsReady]);
 
+  // cropBox를 적용해 캔버스에 렌더링하는 헬퍼
+  const renderWithCrop = async (canvas, pdfDoc, pdfPageNum, cropBox, availW, availH) => {
+    const page = await pdfDoc.getPage(pdfPageNum);
+    const base = page.getViewport({ scale: 1 });
+    const cb = (cropBox && (cropBox.left > 0.001 || cropBox.top > 0.001 || cropBox.right < 0.999 || cropBox.bottom < 0.999))
+      ? cropBox : null;
+    let sc, dW, dH;
+    if (cb) {
+      const cw = (cb.right - cb.left) * base.width;
+      const ch = (cb.bottom - cb.top) * base.height;
+      sc = Math.min(availW / cw, availH / ch) * zoomMul;
+      dW = Math.round(cw * sc);
+      dH = Math.round(ch * sc);
+    } else {
+      sc = Math.min(availW / base.width, availH / base.height) * zoomMul;
+      dW = Math.round(base.width * sc);
+      dH = Math.round(base.height * sc);
+    }
+    const vp = page.getViewport({ scale: sc });
+    if (cb) {
+      const off = document.createElement("canvas");
+      off.width  = Math.round(vp.width);
+      off.height = Math.round(vp.height);
+      await page.render({ canvasContext: off.getContext("2d"), viewport: vp }).promise;
+      canvas.width  = dW;
+      canvas.height = dH;
+      canvas.getContext("2d").drawImage(off, cb.left * vp.width, cb.top * vp.height, dW, dH, 0, 0, dW, dH);
+    } else {
+      canvas.width  = Math.round(vp.width);
+      canvas.height = Math.round(vp.height);
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+    }
+  };
+
   // 페이지 렌더링 — 컨테이너에 꼭 맞게
   const renderPage = useCallback(async () => {
     if (!cSize.w || !cSize.h) return;
     const pad = 8;
+    const dualLeftCrop  = svcSongs[dualIdx]?.cropBox     || null;
+    const dualRightCrop = svcSongs[dualIdx + 1]?.cropBox || null;
     try {
       if (dual) {
         // 듀얼: 좌우 두 곡 (각 곡의 pdfPage 기준 페이지)
         const halfW  = Math.floor(cSize.w / 2) - pad * 2;
         const availH = cSize.h - pad * 2;
-        const renderTo = async (ref, drawRef, strokesRef2, pdfDoc, pdfPageNum = 1) => {
+        const renderTo = async (ref, drawRef, strokesRef2, pdfDoc, pdfPageNum = 1, cropBox = null) => {
           if (!ref.current) return;
           if (!pdfDoc) { ref.current.width = 0; ref.current.height = 0; return; }
-          const page = await pdfDoc.getPage(pdfPageNum);
-          const base = page.getViewport({ scale: 1 });
-          const sc   = Math.min(halfW / base.width, availH / base.height) * zoomMul;
-          const vp   = page.getViewport({ scale: sc });
-          ref.current.width  = vp.width;
-          ref.current.height = vp.height;
-          await page.render({ canvasContext: ref.current.getContext("2d"), viewport: vp }).promise;
+          await renderWithCrop(ref.current, pdfDoc, pdfPageNum, cropBox, halfW, availH);
           if (drawRef.current) {
-            drawRef.current.width  = vp.width;
-            drawRef.current.height = vp.height;
+            drawRef.current.width  = ref.current.width;
+            drawRef.current.height = ref.current.height;
             drawStrokes(drawRef.current, strokesRef2.current);
           }
         };
-        await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, dualPdf1Ref.current, dualLeftPage);
-        await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, dualPdf2Ref.current, dualRightPage);
+        await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, dualPdf1Ref.current, dualLeftPage,  dualLeftCrop);
+        await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, dualPdf2Ref.current, dualRightPage, dualRightCrop);
         // 듀얼 FIT 모드: 새 곡 쌍이 렌더된 직후 좌/우 양쪽 분석 후 재적용
         if (needsFitRef.current) {
           needsFitRef.current = false;
@@ -2634,16 +2871,12 @@ Return ONLY the JSON array, no other text.`;
       } else {
         // 싱글: 한 페이지 꽉 맞춤
         if (!pdfDocRef.current || !canvas1Ref.current) return;
-        const page = await pdfDocRef.current.getPage(pageNum);
-        const base = page.getViewport({ scale: 1 });
-        const sc   = Math.min((cSize.w - pad * 2) / base.width, (cSize.h - pad * 2) / base.height) * zoomMul;
-        const vp   = page.getViewport({ scale: sc });
-        canvas1Ref.current.width  = vp.width;
-        canvas1Ref.current.height = vp.height;
-        await page.render({ canvasContext: canvas1Ref.current.getContext("2d"), viewport: vp }).promise;
+        const availW = cSize.w - pad * 2;
+        const availH = cSize.h - pad * 2;
+        await renderWithCrop(canvas1Ref.current, pdfDocRef.current, pageNum, song?.cropBox || null, availW, availH);
         if (drawCanvas1Ref.current) {
-          drawCanvas1Ref.current.width  = vp.width;
-          drawCanvas1Ref.current.height = vp.height;
+          drawCanvas1Ref.current.width  = canvas1Ref.current.width;
+          drawCanvas1Ref.current.height = canvas1Ref.current.height;
           drawStrokes(drawCanvas1Ref.current, strokes1Ref.current);
         }
         // 싱글 FIT 모드: 새 페이지/곡 렌더 직후 콘텐츠 자동 맞춤
@@ -2667,7 +2900,7 @@ Return ONLY the JSON array, no other text.`;
         }
       }
     } catch(e) { console.error(e); }
-  }, [pageNum, zoomMul, dual, numPages, cSize, dualKey]);
+  }, [pageNum, zoomMul, dual, numPages, cSize, dualKey, song]);
 
   useEffect(() => { renderPage(); }, [renderPage, numPages]);
 
