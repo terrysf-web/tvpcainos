@@ -2295,6 +2295,24 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     clearInterval(panIntervalRef.current);
   }, []);
 
+  // 듀얼 모드: 좌/우 캔버스 양쪽 분석 → 두 곡 모두 맞는 최솟값 비율 반환
+  const dualFitRatio = useCallback(() => {
+    const PAD = 16;
+    const fw = Math.floor(cSize.w / 2) - 16;
+    const fh = cSize.h - 16;
+    let best = Infinity;
+    for (const [pc, dc] of [
+      [canvas1Ref.current, drawCanvas1Ref.current],
+      [canvas2Ref.current, drawCanvas2Ref.current],
+    ]) {
+      const b = detectContentBounds(pc, dc);
+      if (!b) continue;
+      const r = Math.min(fw / (b.x1 - b.x0 + PAD * 2), fh / (b.y1 - b.y0 + PAD * 2));
+      if (r < best) best = r;
+    }
+    return isFinite(best) ? best : null;
+  }, [cSize]);
+
   const resetZoom = useCallback(() => {
     dualFitModeRef.current = false;
     needsFitRef.current    = false;
@@ -2304,24 +2322,21 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // 여백 자동 감지 → 악보 콘텐츠만 꽉 채우는 줌+패닝 적용
   const autoFit = useCallback(() => {
-    const refCanvas = canvas1Ref.current;
-    const refDraw   = drawCanvas1Ref.current;
-    if (!refCanvas) return;
-    const b = detectContentBounds(refCanvas, refDraw);
-    if (!b) return;
-    const PAD = dual ? 16 : 24;
-    const cw = b.x1 - b.x0 + PAD * 2;
-    const ch = b.y1 - b.y0 + PAD * 2;
-    const availW = dual ? Math.floor(cSize.w / 2) - 16 : cSize.w - 16;
-    const availH = cSize.h - 16;
-    const ratio = Math.min(availW / cw, availH / ch);
-    const newZoom = Math.min(3.0, Math.max(0.5, parseFloat((zoomMul * ratio).toFixed(2))));
     if (dual) {
+      const ratio = dualFitRatio();
+      if (ratio == null) return;
+      const newZoom = Math.min(3.0, Math.max(0.5, parseFloat((zoomMul * ratio).toFixed(2))));
       dualFitModeRef.current = true; // 이후 페이지 이동 시 자동 재적용
       setZoomMul(newZoom);
       setPanOffset({ x: 0, y: 0 });
     } else {
-      // 싱글: 콘텐츠 중심을 화면 중심으로 패닝
+      const b = detectContentBounds(canvas1Ref.current, drawCanvas1Ref.current);
+      if (!b) return;
+      const PAD = 24;
+      const cw = b.x1 - b.x0 + PAD * 2;
+      const ch = b.y1 - b.y0 + PAD * 2;
+      const ratio = Math.min((cSize.w - 16) / cw, (cSize.h - 16) / ch);
+      const newZoom = Math.min(3.0, Math.max(0.5, parseFloat((zoomMul * ratio).toFixed(2))));
       const r = newZoom / zoomMul;
       const cx = (b.x0 + b.x1) / 2;
       const cy = (b.y0 + b.y1) / 2;
@@ -2329,7 +2344,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       setPanOffset({ x: r * (b.W / 2 - cx), y: r * (b.H / 2 - cy) });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dual, zoomMul, cSize]);
+  }, [dual, zoomMul, cSize, dualFitRatio]);
 
   const dualLeftSongId  = svcSongs[dualIdx]?.id     || null;
   const dualRightSongId = svcSongs[dualIdx + 1]?.id || null;
@@ -2566,18 +2581,24 @@ Return ONLY the JSON array, no other text.`;
         };
         await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, dualPdf1Ref.current);
         await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, dualPdf2Ref.current);
-        // 듀얼 FIT 모드: 새 곡 쌍이 렌더된 직후 여백 자동 감지 재적용
+        // 듀얼 FIT 모드: 새 곡 쌍이 렌더된 직후 좌/우 양쪽 분석 후 재적용
         if (needsFitRef.current) {
           needsFitRef.current = false;
-          const b = detectContentBounds(canvas1Ref.current, drawCanvas1Ref.current);
-          if (b) {
-            const PAD = 16;
-            const cw = b.x1 - b.x0 + PAD * 2;
-            const ch = b.y1 - b.y0 + PAD * 2;
-            const fw = Math.floor(cSize.w / 2) - 16;
-            const fh = cSize.h - 16;
-            const ratio = Math.min(fw / cw, fh / ch);
-            const newZoom = Math.min(3.0, Math.max(0.5, parseFloat((zoomMul * ratio).toFixed(2))));
+          const PAD = 16;
+          const fw = Math.floor(cSize.w / 2) - 16;
+          const fh = cSize.h - 16;
+          let best = Infinity;
+          for (const [pc, dc] of [
+            [canvas1Ref.current, drawCanvas1Ref.current],
+            [canvas2Ref.current, drawCanvas2Ref.current],
+          ]) {
+            const b = detectContentBounds(pc, dc);
+            if (!b) continue;
+            const r = Math.min(fw / (b.x1 - b.x0 + PAD * 2), fh / (b.y1 - b.y0 + PAD * 2));
+            if (r < best) best = r;
+          }
+          if (isFinite(best)) {
+            const newZoom = Math.min(3.0, Math.max(0.5, parseFloat((zoomMul * best).toFixed(2))));
             if (Math.abs(newZoom - zoomMul) > 0.02) setZoomMul(newZoom);
           }
         }
@@ -4379,7 +4400,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.43)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.44)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
