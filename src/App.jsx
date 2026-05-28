@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.64";
+const APP_VERSION = "3.65";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2766,8 +2766,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const detectChords = async (side = 1) => {
     const canvas = (side === 2 ? canvas2Ref : canvas1Ref).current;
     if (!canvas || !canvas.width) return;
-    const key = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!key) { setDetectErr("VITE_GEMINI_API_KEY 없음"); return; }
+    const key = user?.geminiKey || import.meta.env.VITE_GEMINI_API_KEY;
+    if (!key) { setDetectErr("API 키 없음 — 프로필에서 Gemini 키를 설정해주세요"); return; }
     const setCD = side === 2 ? setChordData2 : setChordData;
     const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
     const page   = dual ? 1 : pageNum;
@@ -2785,7 +2785,7 @@ Return ONLY a JSON array, no other text:
 - "cy": vertical center of the chord label (0.0=top edge, 1.0=bottom edge)
 
 Be precise about the position of each chord label. Return [] if no chords found.`;
-      const MODELS = ["gemini-1.5-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-8b"];
+      const MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-8b"];
       const body = JSON.stringify({ contents: [{ parts: [
         { inlineData: { mimeType: "image/png", data: b64 } },
         { text: prompt },
@@ -4866,6 +4866,19 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
   const [showInfo,    setShowInfo]    = useState(false);
   const [showHelp,    setShowHelp]    = useState(false);
   const [showContact, setShowContact] = useState(false);
+  const [showApiKey,  setShowApiKey]  = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState(user?.geminiKey || "");
+  const [apiKeySaving, setApiKeySaving] = useState(false);
+
+  const saveApiKey = async () => {
+    setApiKeySaving(true);
+    try {
+      await updateDoc(doc(db, "users", user.uid), { geminiKey: apiKeyInput.trim() });
+    } finally {
+      setApiKeySaving(false);
+      setShowApiKey(false);
+    }
+  };
 
   useEffect(() => {
     if (isLeader(user.role)) return;
@@ -4940,6 +4953,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
           { label:`앱 정보 (v${APP_VERSION})`, action: () => setShowInfo(true) },
+          { label: user?.geminiKey ? "AI 코드 감지 키 (설정됨 ✓)" : "AI 코드 감지 키 설정", action: () => { setApiKeyInput(user?.geminiKey || ""); setShowApiKey(true); } },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
@@ -4958,6 +4972,44 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <Btn label="로그아웃" icon="logout" onClick={onLogout} variant="ghost" full />
 
       {showTeam && <TeamManagementModal currentUserId={user.uid} onClose={() => setShowTeam(false)} />}
+
+      {/* Gemini API 키 설정 */}
+      {showApiKey && (
+        <Modal title="AI 코드 감지 키 설정" onClose={() => setShowApiKey(false)}>
+          <div style={{ padding:"4px 0 8px" }}>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:12, lineHeight:1.6 }}>
+              개인 Gemini API 키를 설정하면 쿼터 초과 없이 코드 감지를 사용할 수 있습니다.<br />
+              <span style={{ color:C.acc, fontWeight:600 }}>aistudio.google.com</span>에서 무료로 발급받을 수 있습니다.
+            </div>
+            <input
+              value={apiKeyInput}
+              onChange={e => setApiKeyInput(e.target.value)}
+              placeholder="AIza..."
+              style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:`1px solid ${C.bdr}`,
+                background:C.surf, color:C.txt, fontSize:13, fontFamily:"monospace",
+                boxSizing:"border-box", marginBottom:12, outline:"none" }}
+            />
+            {user?.geminiKey && (
+              <div style={{ fontSize:11, color:C.grn, marginBottom:12 }}>
+                ✓ 현재 개인 키 사용 중
+              </div>
+            )}
+            <div style={{ display:"flex", gap:8 }}>
+              <Btn label={apiKeySaving ? "저장 중..." : "저장"} onClick={saveApiKey}
+                disabled={apiKeySaving || !apiKeyInput.trim()} full />
+              {user?.geminiKey && (
+                <button onClick={async () => {
+                  await updateDoc(doc(db, "users", user.uid), { geminiKey: "" });
+                  setApiKeyInput("");
+                  setShowApiKey(false);
+                }} style={{ padding:"10px 16px", borderRadius:8, border:`1px solid ${C.bdr}`,
+                  background:"transparent", color:C.red, fontSize:13, cursor:"pointer",
+                  fontFamily:"inherit", whiteSpace:"nowrap" }}>삭제</button>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* 앱 정보 */}
       {showInfo && (
@@ -5230,6 +5282,7 @@ export default function App() {
           name: d.name || u.name,
           role: d.role || "member",
           part: d.part || "",
+          geminiKey: d.geminiKey || "",
         }));
       }
     });
