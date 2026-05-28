@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { doc, updateDoc } from "firebase/firestore";
+import { useState, useEffect } from "react";
+import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase.js";
 
 const C = {
@@ -27,7 +27,6 @@ function parseYtId(url) {
   return null;
 }
 
-// PDF 캔버스를 JPEG base64로 변환 (최대 1280px 너비로 리사이즈)
 function canvasToBase64(canvas, maxW = 1280) {
   if (!canvas || !canvas.width || !canvas.height) return null;
   const scale = Math.min(1, maxW / canvas.width);
@@ -35,8 +34,18 @@ function canvasToBase64(canvas, maxW = 1280) {
   oc.width  = Math.round(canvas.width  * scale);
   oc.height = Math.round(canvas.height * scale);
   oc.getContext("2d").drawImage(canvas, 0, 0, oc.width, oc.height);
-  const dataUrl = oc.toDataURL("image/jpeg", 0.88);
-  return dataUrl.split(",")[1]; // base64 부분만
+  return oc.toDataURL("image/jpeg", 0.88).split(",")[1];
+}
+
+function fmtDate(ts) {
+  if (!ts?.toDate) return "";
+  const d = ts.toDate();
+  const now = new Date();
+  const diffDays = Math.floor((now - d) / 86400000);
+  if (diffDays === 0) return "오늘";
+  if (diffDays === 1) return "어제";
+  if (diffDays < 7)  return `${diffDays}일 전`;
+  return d.toLocaleDateString("ko-KR", { month:"short", day:"numeric" });
 }
 
 function Markdown({ text }) {
@@ -66,10 +75,21 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
   const [analysis,  setAnalysis]  = useState("");
   const [loading,   setLoading]   = useState(false);
   const [aiErr,     setAiErr]     = useState("");
-  const [usedImage, setUsedImage] = useState(false); // 이번 분석에 이미지 사용 여부
+  const [usedImage, setUsedImage] = useState(false);
 
   const isLeader = user?.role === "leader" || user?.role === "admin";
   const ytId = song?.youtubeId;
+
+  // 저장된 분석 결과 불러오기
+  useEffect(() => {
+    if (song?.aiAnalysis) {
+      setAnalysis(song.aiAnalysis);
+      setUsedImage(!!song.aiAnalysisImage);
+    } else {
+      setAnalysis("");
+    }
+    setAiErr("");
+  }, [song?.id]);
 
   const saveYtId = async () => {
     const id = parseYtId(ytInput);
@@ -88,7 +108,6 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
     setLoading(true);
     if (attempt === 0) { setAnalysis(""); setAiErr(""); setUsedImage(false); }
 
-    // PDF 캔버스 이미지 추출
     const imageB64 = canvasToBase64(pdfCanvasRef?.current);
 
     const prompt = imageB64
@@ -117,11 +136,8 @@ BPM: ${song.bpm || "미상"}
 3. **파트별 조언** — 기타, 건반, 드럼, 베이스 각각
 4. **예배 흐름** — 곡 분위기와 예배에서의 역할`;
 
-    // Gemini API parts: 이미지가 있으면 이미지 먼저, 그 다음 텍스트
     const parts = [];
-    if (imageB64) {
-      parts.push({ inlineData: { mimeType: "image/jpeg", data: imageB64 } });
-    }
+    if (imageB64) parts.push({ inlineData: { mimeType: "image/jpeg", data: imageB64 } });
     parts.push({ text: prompt });
 
     try {
@@ -149,15 +165,24 @@ BPM: ${song.bpm || "미상"}
           ? "서버가 혼잡합니다. 잠시 후 다시 시도해주세요."
           : data.error.message);
       }
-      setAnalysis(data.candidates[0].content.parts[0].text);
+      const text = data.candidates[0].content.parts[0].text;
+      setAnalysis(text);
       setUsedImage(!!imageB64);
       setAiErr("");
+      // Firestore에 저장 — 곡 문서에 바로 저장해서 팀 전체 공유
+      await updateDoc(doc(db, "songs", song.id), {
+        aiAnalysis: text,
+        aiAnalysisAt: serverTimestamp(),
+        aiAnalysisImage: !!imageB64,
+      });
     } catch (e) {
       setAiErr(e.message);
     } finally {
       setLoading(false);
     }
   };
+
+  const savedAt = song?.aiAnalysisAt;
 
   return (
     <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.surf, overflow:"hidden" }}>
@@ -278,37 +303,59 @@ BPM: ${song.bpm || "미상"}
 
         {/* ── AI Analysis Section */}
         <div style={{ padding:"0 12px 20px" }}>
-          <button onClick={() => analyze(0)} disabled={loading} style={{
-            width:"100%",
-            background: loading ? `${C.pur}55` : `linear-gradient(135deg, ${C.pur}, #5a4fd6)`,
-            border:"none", borderRadius:10, padding:"10px 0",
-            cursor: loading ? "not-allowed" : "pointer",
-            fontWeight:700, fontSize:13, color:"#fff", fontFamily:"inherit",
-            display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-            marginBottom:8, boxShadow: loading ? "none" : `0 4px 14px ${C.pur}44`,
-            transition:"all .2s",
-          }}>
-            {loading ? "⏳ 분석 중..." : "✨ AI 분석하기"}
-          </button>
 
-          {/* 분석 방식 안내 */}
-          {!loading && !analysis && !aiErr && (
-            <div style={{ fontSize:10, color:C.dim, textAlign:"center", marginBottom:12, lineHeight:1.6 }}>
-              {pdfCanvasRef?.current?.width
-                ? "📄 현재 페이지 악보 이미지를 AI가 직접 읽어 분석합니다"
-                : "ℹ️ 곡 메타데이터 기반으로 분석합니다"}
+          {/* 분석 결과가 있을 때: 상단에 메타 + 다시 분석 버튼 */}
+          {analysis ? (
+            <div style={{ marginBottom:10 }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  {usedImage
+                    ? <span style={{ fontSize:10, color:C.grn }}>📄 악보 이미지 분석</span>
+                    : <span style={{ fontSize:10, color:C.dim }}>ℹ️ 메타데이터 분석</span>
+                  }
+                  {savedAt && (
+                    <span style={{ fontSize:10, color:C.dim }}>· {fmtDate(savedAt)}</span>
+                  )}
+                </div>
+                <button onClick={() => analyze(0)} disabled={loading} style={{
+                  background:"transparent", border:`1px solid ${C.pur}`,
+                  borderRadius:7, padding:"3px 10px", cursor:"pointer",
+                  fontSize:11, color:C.pur, fontFamily:"inherit", fontWeight:600,
+                  opacity: loading ? 0.5 : 1,
+                }}>
+                  {loading ? "분석 중..." : "↺ 다시 분석"}
+                </button>
+              </div>
+              <div style={{ background:C.card, borderRadius:10, padding:"12px 14px", border:`1px solid ${C.bdr}` }}>
+                <Markdown text={analysis} />
+              </div>
             </div>
-          )}
-
-          {usedImage && analysis && (
-            <div style={{ fontSize:10, color:C.grn, marginBottom:8,
-              display:"flex", alignItems:"center", gap:4 }}>
-              <span>📄</span> 악보 이미지 기반 분석
-            </div>
+          ) : (
+            /* 분석 결과 없을 때: 큰 분석하기 버튼 */
+            <>
+              <button onClick={() => analyze(0)} disabled={loading} style={{
+                width:"100%",
+                background: loading ? `${C.pur}55` : `linear-gradient(135deg, ${C.pur}, #5a4fd6)`,
+                border:"none", borderRadius:10, padding:"10px 0",
+                cursor: loading ? "not-allowed" : "pointer",
+                fontWeight:700, fontSize:13, color:"#fff", fontFamily:"inherit",
+                display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                marginBottom:8, boxShadow: loading ? "none" : `0 4px 14px ${C.pur}44`,
+                transition:"all .2s",
+              }}>
+                {loading ? "⏳ 분석 중..." : "✨ AI 분석하기"}
+              </button>
+              <div style={{ fontSize:10, color:C.dim, textAlign:"center", marginBottom:8, lineHeight:1.6 }}>
+                {pdfCanvasRef?.current?.width
+                  ? "📄 현재 페이지 악보 이미지를 AI가 직접 읽어 분석합니다"
+                  : "ℹ️ 곡 메타데이터 기반으로 분석합니다"}
+                <br />분석 결과는 저장되어 팀 전체가 공유합니다
+              </div>
+            </>
           )}
 
           {aiErr && (
-            <div style={{ fontSize:12, marginBottom:8,
+            <div style={{ fontSize:12, marginTop:6,
               background: aiErr.startsWith("⏳") ? `${C.acc}11` : `${C.red}11`,
               color: aiErr.startsWith("⏳") ? C.acc : C.red,
               padding:"10px 12px", borderRadius:8,
@@ -322,12 +369,6 @@ BPM: ${song.bpm || "미상"}
                   fontSize:11, color:C.red, fontFamily:"inherit", fontWeight:600,
                 }}>다시 시도</button>
               )}
-            </div>
-          )}
-
-          {analysis && (
-            <div style={{ background:C.card, borderRadius:10, padding:"12px 14px", border:`1px solid ${C.bdr}` }}>
-              <Markdown text={analysis} />
             </div>
           )}
         </div>
