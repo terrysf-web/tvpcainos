@@ -3096,93 +3096,99 @@ Return ONLY the JSON array, no other text.`;
             </div>
           </div>
 
-          <div style={{ display:"flex", gap:4, alignItems:"center", flexShrink:0 }}>
-            <button onClick={() => setZoomMul(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
-              style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
-              <Icon n="zoomOut" size={18} color={C.dim} />
-            </button>
-            <button onClick={resetZoom}
-              style={{
-                background: zoomMul !== 1.0 ? `${C.acc}22` : "none",
-                border: zoomMul !== 1.0 ? `1px solid ${C.acc}` : "1px solid transparent",
-                borderRadius:6, cursor:"pointer", padding:"2px 6px",
-                fontSize:11, color: zoomMul !== 1.0 ? C.acc : C.dim,
-                fontWeight:700, fontFamily:"inherit", minWidth:36,
-              }}>
-              {Math.round(zoomMul * 100)}%
-            </button>
-            <button onClick={() => setZoomMul(z => Math.min(3.0, +(z + 0.15).toFixed(2)))}
-              style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
-              <Icon n="zoomIn" size={18} color={C.dim} />
-            </button>
-            {/* 여백 자동 제거 + 맞춤 줌 (싱글·듀얼 공통) */}
-            <button onClick={autoFit} title="여백 자동 제거 후 악보 꽉 채우기 (토글)"
-              style={{ display:"flex", alignItems:"center", gap:4,
-                padding:"4px 8px", borderRadius:7, cursor:"pointer",
-                background: fitActive ? C.acc : C.card,
-                border:`1px solid ${fitActive ? C.acc : C.bdr}`,
-                color: fitActive ? "#fff" : C.txt,
-                fontWeight:700, fontSize:11, fontFamily:"inherit",
-                letterSpacing:"0.04em", transition:"all .15s" }}>
-              <Icon n="fitCrop" size={14} color={fitActive ? "#fff" : C.txt} />
-              FIT
-            </button>
-            <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
-            {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
-            {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
-            <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
-            <button onClick={() => setDual(p => !p)} style={{
-              display:"flex", alignItems:"center", gap:5,
-              padding:"5px 10px", borderRadius:8, cursor:"pointer",
-              background: dual ? C.pur : C.card,
-              border:`1px solid ${dual ? C.pur : C.bdr}`,
-              color: dual ? "#fff" : C.dim,
-              fontWeight:700, fontSize:11, fontFamily:"inherit",
-              letterSpacing:"0.06em", transition:"all .15s",
-            }}>
-              <Icon n="dual" size={12} color={dual ? "#fff" : C.dim} />
-              DUAL
-            </button>
-            <button onClick={() => {
-              if (dual) { showToast("싱글 모드에서만 사용 가능합니다"); return; }
-              setMedia(p => !p);
-            }} style={{
-              display:"flex", alignItems:"center", gap:5,
-              padding:"5px 10px", borderRadius:8, cursor:"pointer",
-              background: media ? C.acc : C.card,
-              border:`1px solid ${media ? C.acc : C.bdr}`,
-              color: media ? "#fff" : C.dim,
-              fontWeight:700, fontSize:11, fontFamily:"inherit",
-              letterSpacing:"0.06em", transition:"all .15s",
-            }}>
-              <Icon n="sideR" size={12} color={media ? "#fff" : C.dim} />
-              MEDIA
-              {getYoutubeId(song?.youtubeUrl) && (
-                <span style={{
-                  fontSize:9, background: media ? "rgba(255,255,255,0.3)" : `${C.red}33`,
-                  color: media ? "#fff" : C.red,
-                  borderRadius:4, padding:"1px 4px", fontWeight:800,
-                }}>YT</span>
-              )}
-            </button>
-            {isLeader(user.role) && (
-              <button onClick={() => {
-                setTransposeMode(p => !p);
-                if (transposeMode) { setTransposeSteps(0); setChordData([]); setChordData2([]); setDetectErr(""); }
-              }} style={{
-                display:"flex", alignItems:"center", gap:5,
-                padding:"5px 10px", borderRadius:8, cursor:"pointer",
-                background: transposeMode ? C.grn : C.card,
-                border:`1px solid ${transposeMode ? C.grn : C.bdr}`,
-                color: transposeMode ? "#fff" : C.dim,
-                fontWeight:700, fontSize:11, fontFamily:"inherit",
-                letterSpacing:"0.06em", transition:"all .15s",
-              }}>
-                {transposeMode && transposeSteps !== 0
-                  ? `${song.key}→${keyName(song.key, transposeSteps)}`
-                  : "전조"}
+          {/* 오른쪽 버튼 그룹 — 폰에서 스크롤 가능 */}
+          <div className="toolbar-scroll" style={{
+            display:"flex", alignItems:"center", overflowX:"auto",
+            flexShrink:1, minWidth:0,
+          }}>
+            <div style={{ display:"flex", gap:3, alignItems:"center", flexShrink:0, paddingRight:4 }}>
+              <button onClick={() => setZoomMul(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
+                style={{ background:"none", border:"none", cursor:"pointer", padding:6, display:"flex", borderRadius:8 }}>
+                <Icon n="zoomOut" size={17} color={C.dim} />
               </button>
-            )}
+              <button onClick={resetZoom}
+                style={{
+                  background: zoomMul !== 1.0 ? `${C.acc}22` : "none",
+                  border: zoomMul !== 1.0 ? `1px solid ${C.acc}` : "1px solid transparent",
+                  borderRadius:6, cursor:"pointer", padding:"2px 5px",
+                  fontSize:10, color: zoomMul !== 1.0 ? C.acc : C.dim,
+                  fontWeight:700, fontFamily:"inherit", minWidth:32,
+                }}>
+                {Math.round(zoomMul * 100)}%
+              </button>
+              <button onClick={() => setZoomMul(z => Math.min(3.0, +(z + 0.15).toFixed(2)))}
+                style={{ background:"none", border:"none", cursor:"pointer", padding:6, display:"flex", borderRadius:8 }}>
+                <Icon n="zoomIn" size={17} color={C.dim} />
+              </button>
+              {/* FIT 토글 */}
+              <button onClick={autoFit} title="여백 자동 제거 후 악보 꽉 채우기 (토글)"
+                style={{ display:"flex", alignItems:"center", gap:3,
+                  padding:"4px 7px", borderRadius:7, cursor:"pointer",
+                  background: fitActive ? C.acc : C.card,
+                  border:`1px solid ${fitActive ? C.acc : C.bdr}`,
+                  color: fitActive ? "#fff" : C.txt,
+                  fontWeight:700, fontSize:10, fontFamily:"inherit",
+                  letterSpacing:"0.04em", transition:"all .15s" }}>
+                <Icon n="fitCrop" size={13} color={fitActive ? "#fff" : C.txt} />
+                FIT
+              </button>
+              <div style={{ width:1, height:18, background:C.bdr, margin:"0 1px" }} />
+              {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
+              {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
+              <div style={{ width:1, height:18, background:C.bdr, margin:"0 1px" }} />
+              {/* DUAL — 아이콘만 */}
+              <button onClick={() => setDual(p => !p)} title="듀얼 모드" style={{
+                background: dual ? `${C.pur}33` : "transparent",
+                border:`1px solid ${dual ? C.pur : C.bdr}`,
+                borderRadius:8, padding:6, cursor:"pointer", display:"flex", alignItems:"center",
+                transition:"all .15s",
+              }}>
+                <Icon n="dual" size={17} color={dual ? C.pur : C.dim} />
+              </button>
+              {/* MEDIA — 아이콘 + YT 뱃지 */}
+              <button onClick={() => {
+                if (dual) { showToast("싱글 모드에서만 사용 가능합니다"); return; }
+                setMedia(p => !p);
+              }} title="미디어 패널" style={{
+                position:"relative",
+                background: media ? `${C.acc}33` : "transparent",
+                border:`1px solid ${media ? C.acc : C.bdr}`,
+                borderRadius:8, padding:6, cursor:"pointer", display:"flex", alignItems:"center",
+                transition:"all .15s",
+              }}>
+                <Icon n="sideR" size={17} color={media ? C.acc : C.dim} />
+                {getYoutubeId(song?.youtubeUrl) && (
+                  <span style={{
+                    position:"absolute", top:2, right:2, lineHeight:1,
+                    fontSize:7, fontWeight:800, borderRadius:3, padding:"1px 2px",
+                    background: media ? C.acc : `${C.red}33`,
+                    color: media ? "#fff" : C.red,
+                  }}>YT</span>
+                )}
+              </button>
+              {/* 전조 — 아이콘 + 반음 뱃지 */}
+              {isLeader(user.role) && (
+                <button onClick={() => {
+                  setTransposeMode(p => !p);
+                  if (transposeMode) { setTransposeSteps(0); setChordData([]); setChordData2([]); setDetectErr(""); }
+                }} title="전조" style={{
+                  position:"relative",
+                  background: transposeMode ? `${C.grn}33` : "transparent",
+                  border:`1px solid ${transposeMode ? C.grn : C.bdr}`,
+                  borderRadius:8, padding:6, cursor:"pointer", display:"flex", alignItems:"center",
+                  transition:"all .15s",
+                }}>
+                  <Icon n="music" size={17} color={transposeMode ? C.grn : C.dim} />
+                  {transposeMode && transposeSteps !== 0 && (
+                    <span style={{
+                      position:"absolute", top:2, right:2, lineHeight:1,
+                      fontSize:7, fontWeight:800, borderRadius:3, padding:"1px 2px",
+                      background:C.grn, color:"#fff",
+                    }}>{transposeSteps > 0 ? `+${transposeSteps}` : transposeSteps}</span>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
