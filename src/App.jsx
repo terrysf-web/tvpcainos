@@ -2210,10 +2210,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const touchStartX = useRef(null);
   const toastTimer  = useRef(null);
   const penDownRef  = useRef(false); // 애플펜슬 터치 중 여부
-  const dualFitModeRef = useRef(false); // 듀얼 FIT 모드: 페이지 이동마다 자동 재적용
-  const needsFitRef    = useRef(false); // 다음 렌더 후 FIT 실행 예약
+  const dualFitModeRef   = useRef(false); // 듀얼 FIT 모드: 페이지 이동마다 자동 재적용
+  const needsFitRef      = useRef(false); // 다음 렌더 후 FIT 실행 예약 (듀얼)
+  const singleFitModeRef = useRef(false); // 싱글 FIT 모드: 페이지 이동마다 자동 재적용
+  const singleNeedsFitRef = useRef(false); // 다음 렌더 후 FIT 실행 예약 (싱글)
 
   // ── UI
+  const [fitActive,     setFitActive]     = useState(false);
   const [dual,          setDual]          = useState(false);
   const [media,         setMedia]         = useState(false);
   const [showNotePanel, setShowNotePanel] = useState(false);
@@ -2314,34 +2317,52 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   }, [cSize]);
 
   const resetZoom = useCallback(() => {
-    dualFitModeRef.current = false;
-    needsFitRef.current    = false;
+    dualFitModeRef.current   = false;
+    needsFitRef.current      = false;
+    singleFitModeRef.current = false;
+    singleNeedsFitRef.current = false;
+    setFitActive(false);
     setZoomMul(1.0);
     setPanOffset({ x: 0, y: 0 });
   }, []);
 
-  // 여백 자동 감지 → 악보 콘텐츠만 꽉 채우는 줌+패닝 적용
+  // 여백 자동 감지 → 악보 콘텐츠만 꽉 채우는 줌+패닝 적용 (토글)
   const autoFit = useCallback(() => {
     if (dual) {
-      const ratio = dualFitRatio();
-      if (ratio == null) return;
-      const newZoom = Math.min(3.0, Math.max(0.5, parseFloat((zoomMul * ratio).toFixed(2))));
-      dualFitModeRef.current = true; // 이후 페이지 이동 시 자동 재적용
-      setZoomMul(newZoom);
-      setPanOffset({ x: 0, y: 0 });
+      if (dualFitModeRef.current) {
+        dualFitModeRef.current = false;
+        needsFitRef.current    = false;
+        setFitActive(false);
+      } else {
+        const ratio = dualFitRatio();
+        if (ratio == null) return;
+        const newZoom = Math.min(3.0, Math.max(0.5, parseFloat((zoomMul * ratio).toFixed(2))));
+        dualFitModeRef.current = true;
+        setFitActive(true);
+        setZoomMul(newZoom);
+        setPanOffset({ x: 0, y: 0 });
+      }
     } else {
-      const b = detectContentBounds(canvas1Ref.current, drawCanvas1Ref.current);
-      if (!b) return;
-      const PAD = 24;
-      const cw = b.x1 - b.x0 + PAD * 2;
-      const ch = b.y1 - b.y0 + PAD * 2;
-      const ratio = Math.min((cSize.w - 16) / cw, (cSize.h - 16) / ch);
-      const newZoom = Math.min(3.0, Math.max(0.5, parseFloat((zoomMul * ratio).toFixed(2))));
-      const r = newZoom / zoomMul;
-      const cx = (b.x0 + b.x1) / 2;
-      const cy = (b.y0 + b.y1) / 2;
-      setZoomMul(newZoom);
-      setPanOffset({ x: r * (b.W / 2 - cx), y: r * (b.H / 2 - cy) });
+      if (singleFitModeRef.current) {
+        singleFitModeRef.current  = false;
+        singleNeedsFitRef.current = false;
+        setFitActive(false);
+      } else {
+        const b = detectContentBounds(canvas1Ref.current, drawCanvas1Ref.current);
+        if (!b) return;
+        const PAD = 24;
+        const cw = b.x1 - b.x0 + PAD * 2;
+        const ch = b.y1 - b.y0 + PAD * 2;
+        const ratio = Math.min((cSize.w - 16) / cw, (cSize.h - 16) / ch);
+        const newZoom = Math.min(3.0, Math.max(0.5, parseFloat((zoomMul * ratio).toFixed(2))));
+        const r = newZoom / zoomMul;
+        const cx = (b.x0 + b.x1) / 2;
+        const cy = (b.y0 + b.y1) / 2;
+        singleFitModeRef.current = true;
+        setFitActive(true);
+        setZoomMul(newZoom);
+        setPanOffset({ x: r * (b.W / 2 - cx), y: r * (b.H / 2 - cy) });
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dual, zoomMul, cSize, dualFitRatio]);
@@ -2617,6 +2638,25 @@ Return ONLY the JSON array, no other text.`;
           drawCanvas1Ref.current.height = vp.height;
           drawStrokes(drawCanvas1Ref.current, strokes1Ref.current);
         }
+        // 싱글 FIT 모드: 새 페이지/곡 렌더 직후 콘텐츠 자동 맞춤
+        if (singleNeedsFitRef.current) {
+          singleNeedsFitRef.current = false;
+          const b = detectContentBounds(canvas1Ref.current, drawCanvas1Ref.current);
+          if (b) {
+            const PAD = 24;
+            const cw = b.x1 - b.x0 + PAD * 2;
+            const ch = b.y1 - b.y0 + PAD * 2;
+            const ratio = Math.min((cSize.w - 16) / cw, (cSize.h - 16) / ch);
+            const newZoom = Math.min(3.0, Math.max(0.5, parseFloat((zoomMul * ratio).toFixed(2))));
+            if (Math.abs(newZoom - zoomMul) > 0.02) {
+              const r = newZoom / zoomMul;
+              const cx = (b.x0 + b.x1) / 2;
+              const cy = (b.y0 + b.y1) / 2;
+              setZoomMul(newZoom);
+              setPanOffset({ x: r * (b.W / 2 - cx), y: r * (b.H / 2 - cy) });
+            }
+          }
+        }
       }
     } catch(e) { console.error(e); }
   }, [pageNum, zoomMul, dual, numPages, cSize, dualKey]);
@@ -2627,6 +2667,11 @@ Return ONLY the JSON array, no other text.`;
   useEffect(() => {
     if (dual && dualFitModeRef.current) needsFitRef.current = true;
   }, [dualIdx, dual]);
+
+  // 싱글 FIT 모드: 페이지/곡 변경 시 다음 렌더 후 자동 맞춤 예약
+  useEffect(() => {
+    if (!dual && singleFitModeRef.current) singleNeedsFitRef.current = true;
+  }, [selectedSongId, pageNum, dual]);
 
   const showToast = useCallback((msg) => {
     setDualToast(msg);
@@ -3069,13 +3114,15 @@ Return ONLY the JSON array, no other text.`;
               <Icon n="zoomIn" size={18} color={C.dim} />
             </button>
             {/* 여백 자동 제거 + 맞춤 줌 (싱글·듀얼 공통) */}
-            <button onClick={autoFit} title="여백 자동 제거 후 악보 꽉 채우기"
+            <button onClick={autoFit} title="여백 자동 제거 후 악보 꽉 채우기 (토글)"
               style={{ display:"flex", alignItems:"center", gap:4,
                 padding:"4px 8px", borderRadius:7, cursor:"pointer",
-                background: C.card, border:`1px solid ${C.bdr}`,
-                color: C.txt, fontWeight:700, fontSize:11, fontFamily:"inherit",
-                letterSpacing:"0.04em" }}>
-              <Icon n="fitCrop" size={14} color={C.txt} />
+                background: fitActive ? C.acc : C.card,
+                border:`1px solid ${fitActive ? C.acc : C.bdr}`,
+                color: fitActive ? "#fff" : C.txt,
+                fontWeight:700, fontSize:11, fontFamily:"inherit",
+                letterSpacing:"0.04em", transition:"all .15s" }}>
+              <Icon n="fitCrop" size={14} color={fitActive ? "#fff" : C.txt} />
               FIT
             </button>
             <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
