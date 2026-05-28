@@ -2559,8 +2559,10 @@ Return ONLY the JSON array, no other text.`;
   }, [song?.pdfUrl, pdfjsReady, selectedSongId, dual]);
 
   // PDF 로드 (듀얼 모드) — Promise.all로 두 곡 동시 로드, 완료 후 한 번만 렌더 트리거
-  const dualLeftUrl  = svcSongs[dualIdx]?.pdfUrl     || null;
-  const dualRightUrl = svcSongs[dualIdx + 1]?.pdfUrl || null;
+  const dualLeftUrl   = svcSongs[dualIdx]?.pdfUrl      || null;
+  const dualRightUrl  = svcSongs[dualIdx + 1]?.pdfUrl  || null;
+  const dualLeftPage  = svcSongs[dualIdx]?.pdfPage      || 1;
+  const dualRightPage = svcSongs[dualIdx + 1]?.pdfPage  || 1;
   useEffect(() => {
     if (!dual || !pdfjsReady || !window.pdfjsLib) return;
     dualPdf1Ref.current = null;
@@ -2581,13 +2583,13 @@ Return ONLY the JSON array, no other text.`;
     const pad = 8;
     try {
       if (dual) {
-        // 듀얼: 좌우 두 곡 (각자의 PDF 첫 페이지)
+        // 듀얼: 좌우 두 곡 (각 곡의 pdfPage 기준 페이지)
         const halfW  = Math.floor(cSize.w / 2) - pad * 2;
         const availH = cSize.h - pad * 2;
-        const renderTo = async (ref, drawRef, strokesRef2, pdfDoc) => {
+        const renderTo = async (ref, drawRef, strokesRef2, pdfDoc, pdfPageNum = 1) => {
           if (!ref.current) return;
           if (!pdfDoc) { ref.current.width = 0; ref.current.height = 0; return; }
-          const page = await pdfDoc.getPage(1);
+          const page = await pdfDoc.getPage(pdfPageNum);
           const base = page.getViewport({ scale: 1 });
           const sc   = Math.min(halfW / base.width, availH / base.height) * zoomMul;
           const vp   = page.getViewport({ scale: sc });
@@ -2600,8 +2602,8 @@ Return ONLY the JSON array, no other text.`;
             drawStrokes(drawRef.current, strokesRef2.current);
           }
         };
-        await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, dualPdf1Ref.current);
-        await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, dualPdf2Ref.current);
+        await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, dualPdf1Ref.current, dualLeftPage);
+        await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, dualPdf2Ref.current, dualRightPage);
         // 듀얼 FIT 모드: 새 곡 쌍이 렌더된 직후 좌/우 양쪽 분석 후 재적용
         if (needsFitRef.current) {
           needsFitRef.current = false;
