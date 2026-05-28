@@ -85,6 +85,7 @@ const P = {
   chevR2:  "M9 18l6-6-6-6",
   trash:   "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6",
   tag:     "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01",
+  textT:   "M4 6h16M12 6v13M8 19h8",
   eraser:  "M20 20H7L3 16 13 6l8 8-2.5 2.5M9 15l2 2",
   undo:    "M3 10h13a4 4 0 0 1 0 8H9M3 10l4-4M3 10l4 4",
   highlight:"M3 20h4L19.5 8.5a2.12 2.12 0 0 0-3-3L5 17 3 20zM16 5l3 3M15 7l-8 8",
@@ -259,6 +260,20 @@ function drawStrokes(canvas, strokes, cur = null) {
       ctx.restore(); continue;
     }
     if (!s.points || s.points.length < 1) { ctx.restore(); continue; }
+    if (s.tool === "text") {
+      const pt = s.points[0];
+      const px = pt.x * canvas.width;
+      const py = pt.y * canvas.height;
+      const sz = Math.max(10, (s.size || 14) * canvas.width / 450);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = s.color || "#1c1c1e";
+      ctx.font = `${s.bold ? "bold " : ""}${sz}px system-ui, -apple-system, sans-serif`;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      ctx.fillText(s.text || "", px, py);
+      ctx.restore(); continue;
+    }
     if (s.tool === "stamp") {
       const pt = s.points[0];
       const px = pt.x * canvas.width;
@@ -1779,6 +1794,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [drawTool,  setDrawTool]  = useState("pen"); // "pen" | "highlighter" | "eraser" | "stamp"
   const [drawSaveErr, setDrawSaveErr] = useState("");
 
+  // ── Text tool
+  const [textInput, setTextInput] = useState(null); // { x, y, value, canvasNum }
+
   // ── Stamp + loupe
   const [stampSymbol, setStampSymbol] = useState("f");
   const [stampItalic, setStampItalic] = useState(true);
@@ -2153,6 +2171,28 @@ Return ONLY the JSON array, no other text.`;
   };
   const deleteNote = id => onDeleteAnnotation(selectedSongId, id);
 
+  // ── Text tool confirm
+  const confirmText = useCallback(async () => {
+    if (!textInput || !textInput.value.trim()) { setTextInput(null); return; }
+    const isC1 = textInput.canvasNum === 1;
+    const canvas = isC1 ? drawCanvas1Ref.current : drawCanvas2Ref.current;
+    const strokesRef = isC1 ? strokes1Ref : strokes2Ref;
+    const songId = isC1
+      ? (dual ? dualLeftSongId : selectedSongId)
+      : (dual ? dualRightSongId : selectedSongId);
+    const page = isC1 ? (dual ? 1 : pageNum) : (dual ? 2 : pageNum);
+    const textStroke = {
+      tool: "text", text: textInput.value.trim(),
+      color: drawColor, size: drawWidth * 5 + 10,
+      points: [{ x: textInput.x, y: textInput.y }],
+    };
+    const next = [...strokesRef.current, textStroke];
+    strokesRef.current = next;
+    if (canvas) drawStrokes(canvas, next);
+    await saveDrawing(songId, page, next);
+    setTextInput(null);
+  }, [textInput, drawColor, drawWidth, dual, dualLeftSongId, dualRightSongId, selectedSongId, pageNum, saveDrawing]);
+
   // ── Loupe update (stamp mode)
   const updateLoupe = useCallback((e, pdfCanvas, drawCanvas, sym, italic, color) => {
     const lc = loupeCanvasRef.current;
@@ -2218,6 +2258,11 @@ Return ONLY the JSON array, no other text.`;
     e.preventDefault(); e.stopPropagation();
     e.target.setPointerCapture(e.pointerId);
     lastSideRef.current = 1;
+    if (drawTool === "text") {
+      const pt = getCanvasPt(e, canvas);
+      setTextInput({ x: pt.x, y: pt.y, value: "", canvasNum: 1 });
+      return;
+    }
     if (drawTool === "stamp") {
       const pt = getCanvasPt(e, canvas);
       lastPt1Ref.current = pt;
@@ -2317,6 +2362,11 @@ Return ONLY the JSON array, no other text.`;
     e.preventDefault(); e.stopPropagation();
     e.target.setPointerCapture(e.pointerId);
     lastSideRef.current = 2;
+    if (drawTool === "text") {
+      const pt = getCanvasPt(e, canvas);
+      setTextInput({ x: pt.x, y: pt.y, value: "", canvasNum: 2 });
+      return;
+    }
     if (drawTool === "stamp") {
       const pt = getCanvasPt(e, canvas);
       lastPt2Ref.current = pt;
@@ -2572,6 +2622,7 @@ Return ONLY the JSON array, no other text.`;
               { id:"pen",         icon:"pen",      label:"펜"    },
               { id:"highlighter", icon:"highlight", label:"마커"  },
               { id:"eraser",      icon:"eraser",    label:"지우개" },
+              { id:"text",        icon:"textT",     label:"텍스트" },
               { id:"stamp",       icon:"stamp",     label:"스탬프" },
               { id:"shape",       icon:"slur",      label:"도형"  },
             ].map(t => (
@@ -2824,6 +2875,48 @@ Return ONLY the JSON array, no other text.`;
           display: loupePos ? "block" : "none",
         }}
       />
+
+      {/* 텍스트 입력 오버레이 */}
+      {textInput && (
+        <div style={{
+          position:"fixed", inset:0, zIndex:1100,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          background:"rgba(0,0,0,0.45)",
+        }} onClick={() => setTextInput(null)}>
+          <div style={{
+            background:C.surf, borderRadius:16, padding:"18px 18px 14px",
+            border:`1px solid ${C.bdr}`, boxShadow:"0 12px 40px rgba(0,0,0,0.5)",
+            width:280, display:"flex", flexDirection:"column", gap:10,
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontWeight:700, fontSize:14, color:C.txt }}>텍스트 입력</div>
+            <input
+              autoFocus
+              value={textInput.value}
+              onChange={e => setTextInput(p => ({ ...p, value: e.target.value }))}
+              onKeyDown={e => { if (e.key === "Enter") confirmText(); if (e.key === "Escape") setTextInput(null); }}
+              placeholder="악보에 넣을 텍스트"
+              style={{
+                width:"100%", fontSize:15, padding:"9px 12px",
+                border:`1.5px solid ${C.bdr}`, borderRadius:10, outline:"none",
+                background:C.bg, color:C.txt, fontFamily:"inherit",
+                boxSizing:"border-box",
+              }}
+            />
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={() => setTextInput(null)} style={{
+                flex:1, padding:"9px 0", borderRadius:10, border:`1px solid ${C.bdr}`,
+                background:"transparent", cursor:"pointer", fontSize:13,
+                color:C.dim, fontFamily:"inherit", fontWeight:600,
+              }}>취소</button>
+              <button onClick={confirmText} style={{
+                flex:2, padding:"9px 0", borderRadius:10, border:"none",
+                background:C.pur, cursor:"pointer", fontSize:13,
+                color:"#fff", fontFamily:"inherit", fontWeight:700,
+              }}>확인</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* D-패드 (줌인 시에만 표시) */}
       {zoomMul > 1.0 && (
