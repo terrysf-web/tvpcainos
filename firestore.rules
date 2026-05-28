@@ -77,5 +77,10 @@ service cloud.firestore {
     match /teamSettings/{document=**} {
       allow read, write: if isAuthed();
     }
+
+    // AI 분석 결과 — 인증된 모든 팀원이 읽기/쓰기 가능
+    match /songAnalysis/{songId} {
+      allow read, write: if isAuthed();
+    }
   }
 }

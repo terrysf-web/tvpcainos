@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase.js";
 
 const C = {
@@ -75,20 +75,24 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
   const [analysis,  setAnalysis]  = useState("");
   const [loading,   setLoading]   = useState(false);
   const [aiErr,     setAiErr]     = useState("");
-  const [usedImage, setUsedImage] = useState(false);
+  const [usedImage,  setUsedImage]  = useState(false);
+  const [savedMeta,  setSavedMeta]  = useState(null); // { at, usedImage }
 
   const isLeader = user?.role === "leader" || user?.role === "admin";
   const ytId = song?.youtubeId;
 
-  // 저장된 분석 결과 불러오기
+  // songAnalysis 컬렉션에서 저장된 분석 결과 불러오기
   useEffect(() => {
-    if (song?.aiAnalysis) {
-      setAnalysis(song.aiAnalysis);
-      setUsedImage(!!song.aiAnalysisImage);
-    } else {
-      setAnalysis("");
-    }
-    setAiErr("");
+    if (!song?.id) return;
+    setAnalysis(""); setAiErr(""); setUsedImage(false);
+    getDoc(doc(db, "songAnalysis", song.id)).then(snap => {
+      if (snap.exists()) {
+        const d = snap.data();
+        setAnalysis(d.text || "");
+        setUsedImage(!!d.usedImage);
+        setSavedMeta({ at: d.savedAt, usedImage: !!d.usedImage });
+      }
+    });
   }, [song?.id]);
 
   const saveYtId = async () => {
@@ -176,12 +180,13 @@ BPM: ${song.bpm || "미상"}
       setAnalysis(text);
       setUsedImage(!!imageB64);
       setAiErr("");
-      // Firestore에 저장 — 곡 문서에 바로 저장해서 팀 전체 공유
-      await updateDoc(doc(db, "songs", song.id), {
-        aiAnalysis: text,
-        aiAnalysisAt: serverTimestamp(),
-        aiAnalysisImage: !!imageB64,
+      // songAnalysis 컬렉션에 저장 — 모든 팀원 읽기/쓰기 가능
+      const now = serverTimestamp();
+      await setDoc(doc(db, "songAnalysis", song.id), {
+        text, usedImage: !!imageB64, savedAt: now,
+        songTitle: song.title,
       });
+      setSavedMeta({ at: { toDate: () => new Date() }, usedImage: !!imageB64 });
     } catch (e) {
       setAiErr(e.message);
     } finally {
@@ -189,7 +194,7 @@ BPM: ${song.bpm || "미상"}
     }
   };
 
-  const savedAt = song?.aiAnalysisAt;
+  const savedAt = savedMeta?.at;
 
   return (
     <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.surf, overflow:"hidden" }}>
