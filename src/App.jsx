@@ -208,7 +208,7 @@ function getStampBaseline(_sym) {
 }
 
 /* ── Canvas drawing utility (module-level, pure) */
-function drawStrokes(canvas, strokes, cur = null, showTextDots = false) {
+function drawStrokes(canvas, strokes, cur = null) {
   if (!canvas || !canvas.width || !canvas.height) return;
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -350,27 +350,6 @@ function drawStrokes(canvas, strokes, cur = null, showTextDots = false) {
       ctx.stroke();
     }
     ctx.restore();
-  }
-  // 텍스트 툴 모드: 기존 텍스트 위치에 노란 점 표시 (왼쪽 하단 기준점)
-  if (showTextDots) {
-    const ctx2 = canvas.getContext("2d");
-    for (const s of strokes) {
-      if (s.tool === "text" && s.points?.length > 0) {
-        const px = s.points[0].x * canvas.width;
-        const py = s.points[0].y * canvas.height;
-        const r = Math.max(5, canvas.width / 120);
-        ctx2.save();
-        ctx2.beginPath();
-        ctx2.arc(px, py, r, 0, Math.PI * 2);
-        ctx2.fillStyle = "#FFD600";
-        ctx2.globalAlpha = 0.92;
-        ctx2.fill();
-        ctx2.strokeStyle = "rgba(0,0,0,0.35)";
-        ctx2.lineWidth = 1.2;
-        ctx2.stroke();
-        ctx2.restore();
-      }
-    }
   }
 }
 
@@ -1817,6 +1796,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // ── Text tool
   const [textInput, setTextInput] = useState(null); // { x, y, value, canvasNum }
+  const [textDot,   setTextDot]   = useState(null); // { sx, sy } 화면 좌표 — 임시 인디케이터
 
   // ── Stamp + loupe
   const [stampSymbol, setStampSymbol] = useState("f");
@@ -1855,14 +1835,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // keep drawModeRef in sync for non-reactive listeners
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
-
-  // 텍스트 툴 전환 시 노란 점 표시/숨김을 위해 캔버스 리드로우
-  useEffect(() => {
-    const c1 = drawCanvas1Ref.current;
-    if (c1) drawStrokes(c1, strokes1Ref.current, null, drawTool === "text");
-    const c2 = drawCanvas2Ref.current;
-    if (c2) drawStrokes(c2, strokes2Ref.current, null, drawTool === "text");
-  }, [drawTool]);
 
   // pan helpers
   const PAN_STEP = 70;
@@ -2202,6 +2174,7 @@ Return ONLY the JSON array, no other text.`;
 
   // ── Text tool confirm
   const confirmText = useCallback(async () => {
+    setTextDot(null);
     if (!textInput || !textInput.value.trim()) { setTextInput(null); return; }
     const isC1 = textInput.canvasNum === 1;
     const canvas = isC1 ? drawCanvas1Ref.current : drawCanvas2Ref.current;
@@ -2217,7 +2190,7 @@ Return ONLY the JSON array, no other text.`;
     };
     const next = [...strokesRef.current, textStroke];
     strokesRef.current = next;
-    if (canvas) drawStrokes(canvas, next, null, true);
+    if (canvas) drawStrokes(canvas, next);
     await saveDrawing(songId, page, next);
     setTextInput(null);
   }, [textInput, drawColor, drawWidth, dual, dualLeftSongId, dualRightSongId, selectedSongId, pageNum, saveDrawing]);
@@ -2289,6 +2262,7 @@ Return ONLY the JSON array, no other text.`;
     lastSideRef.current = 1;
     if (drawTool === "text") {
       const pt = getCanvasPt(e, canvas);
+      setTextDot({ sx: e.clientX, sy: e.clientY });
       setTextInput({ x: pt.x, y: pt.y, value: "", canvasNum: 1 });
       return;
     }
@@ -2393,6 +2367,7 @@ Return ONLY the JSON array, no other text.`;
     lastSideRef.current = 2;
     if (drawTool === "text") {
       const pt = getCanvasPt(e, canvas);
+      setTextDot({ sx: e.clientX, sy: e.clientY });
       setTextInput({ x: pt.x, y: pt.y, value: "", canvasNum: 2 });
       return;
     }
@@ -2906,12 +2881,23 @@ Return ONLY the JSON array, no other text.`;
       />
 
       {/* 텍스트 입력 오버레이 */}
+      {textDot && (
+        <div style={{
+          position:"fixed",
+          left: textDot.sx - 4, top: textDot.sy - 4,
+          width:8, height:8, borderRadius:"50%",
+          background:"#FFD600", opacity:0.9,
+          boxShadow:"0 0 0 2px rgba(0,0,0,0.25)",
+          pointerEvents:"none", zIndex:1200,
+        }} />
+      )}
+
       {textInput && (
         <div style={{
           position:"fixed", inset:0, zIndex:1100,
           display:"flex", alignItems:"center", justifyContent:"center",
           background:"rgba(0,0,0,0.45)",
-        }} onClick={() => setTextInput(null)}>
+        }} onClick={() => { setTextDot(null); setTextInput(null); }}>
           <div style={{
             background:C.surf, borderRadius:16, padding:"18px 18px 14px",
             border:`1px solid ${C.bdr}`, boxShadow:"0 12px 40px rgba(0,0,0,0.5)",
@@ -2932,7 +2918,7 @@ Return ONLY the JSON array, no other text.`;
               }}
             />
             <div style={{ display:"flex", gap:8 }}>
-              <button onClick={() => setTextInput(null)} style={{
+              <button onClick={() => { setTextDot(null); setTextInput(null); }} style={{
                 flex:1, padding:"9px 0", borderRadius:10, border:`1px solid ${C.bdr}`,
                 background:"transparent", cursor:"pointer", fontSize:13,
                 color:C.dim, fontFamily:"inherit", fontWeight:600,
