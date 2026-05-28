@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.54";
+const APP_VERSION = "3.55";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1441,11 +1441,11 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           {isLeader(user.role) && (
             <button onClick={() => setShowCreate(true)} style={{
-              background:C.acc, border:"none", borderRadius:9,
+              background:`${C.acc}18`, border:`1px solid ${C.acc}66`, borderRadius:9,
               padding:"7px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:5,
-              color:"#111", fontSize:12, fontFamily:"inherit", fontWeight:700,
+              color:C.acc, fontSize:12, fontFamily:"inherit", fontWeight:700,
             }}>
-              <Icon n="plus" size={14} color="#111" /> 새예배
+              <Icon n="plus" size={14} color={C.acc} /> 새예배
             </button>
           )}
           <button onClick={() => window.location.reload()} style={{
@@ -1727,11 +1727,11 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
         </div>
         {leader && (
           <button onClick={() => setShowPicker(true)} style={{
-            background:C.acc, border:"none", borderRadius:9,
+            background:`${C.acc}18`, border:`1px solid ${C.acc}66`, borderRadius:9,
             padding:"7px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:5,
-            color:"#111", fontSize:12, fontFamily:"inherit", fontWeight:700,
+            color:C.acc, fontSize:12, fontFamily:"inherit", fontWeight:700,
           }}>
-            <Icon n="plus" size={14} color="#111" /> 곡추가
+            <Icon n="plus" size={14} color={C.acc} /> 곡추가
           </button>
         )}
         {leader && (
@@ -2131,15 +2131,20 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
             <button onClick={() => window.location.reload()} style={{
               background:C.card, border:`1px solid ${C.bdr}`,
-              borderRadius:10, padding:8, cursor:"pointer",
-              display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+              borderRadius:9, padding:"7px 12px", cursor:"pointer",
+              display:"flex", alignItems:"center", gap:5,
             }}>
-              <img src="/icon-192.png" width={18} height={18}
-                style={{ display:"block", borderRadius:4, objectFit:"cover" }} alt="새로고침" />
-              <span style={{ fontSize:9, color:C.dim, fontWeight:600, letterSpacing:"0.02em" }}>새로고침</span>
+              <Icon n="refresh" size={14} color={C.dim} />
+              <span style={{ fontSize:12, color:C.dim, fontWeight:600 }}>새로고침</span>
             </button>
             {isLeader(user.role) && (
-              <Btn label="곡 추가" icon="plus" sm onClick={() => setShowAdd(true)} />
+              <button onClick={() => setShowAdd(true)} style={{
+                background:`${C.acc}18`, border:`1px solid ${C.acc}66`, borderRadius:9,
+                padding:"7px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:5,
+                color:C.acc, fontSize:12, fontFamily:"inherit", fontWeight:700,
+              }}>
+                <Icon n="plus" size={14} color={C.acc} /> 곡추가
+              </button>
             )}
           </div>
         </div>
