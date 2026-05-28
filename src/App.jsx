@@ -1716,15 +1716,117 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   PDF PAGE PICKER MODAL  (편집 중 멀티페이지 PDF에서 페이지 선택)
+══════════════════════════════════════════════════════════════════ */
+function PdfPagePickerModal({ file, songTitle, onConfirm, onClose }) {
+  const [thumbnails, setThumbnails] = useState([]); // data URLs
+  const [selected,   setSelected]   = useState(1);
+  const [rendering,  setRendering]  = useState(true);
+  const [numPages,   setNumPages]   = useState(0);
+
+  useEffect(() => {
+    if (!file || !window.pdfjsLib) return;
+    let cancelled = false;
+    (async () => {
+      const buf = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      const n = pdf.numPages;
+      if (!cancelled) setNumPages(n);
+      const thumbs = [];
+      for (let i = 1; i <= n; i++) {
+        const page = await pdf.getPage(i);
+        const vp   = page.getViewport({ scale: 0.35 });
+        const cvs  = document.createElement("canvas");
+        cvs.width  = vp.width;
+        cvs.height = vp.height;
+        await page.render({ canvasContext: cvs.getContext("2d"), viewport: vp }).promise;
+        thumbs.push(cvs.toDataURL("image/jpeg", 0.7));
+        if (!cancelled) setThumbnails([...thumbs]);
+      }
+      if (!cancelled) setRendering(false);
+    })().catch(e => { console.error(e); if (!cancelled) setRendering(false); });
+    return () => { cancelled = true; };
+  }, [file]);
+
+  return (
+    <Modal title="페이지 선택" onClose={onClose}>
+      <div style={{ fontSize:13, color:C.dim, marginBottom:12, lineHeight:1.6 }}>
+        <strong>"{songTitle}"</strong>에 사용할 페이지를 선택하세요.
+        {numPages > 0 && <span style={{ marginLeft:6, color:C.dim }}>({numPages}페이지)</span>}
+      </div>
+
+      {rendering && thumbnails.length === 0 ? (
+        <div style={{ textAlign:"center", padding:"30px 0", color:C.dim, fontSize:13 }}>
+          미리보기 생성 중...
+        </div>
+      ) : (
+        <div style={{
+          display:"grid",
+          gridTemplateColumns:"repeat(auto-fill, minmax(90px, 1fr))",
+          gap:10, maxHeight:380, overflowY:"auto",
+          padding:"4px 2px",
+        }}>
+          {thumbnails.map((src, i) => {
+            const pg = i + 1;
+            const isSelected = selected === pg;
+            return (
+              <div key={i} onClick={() => setSelected(pg)} style={{
+                borderRadius:10, overflow:"hidden", cursor:"pointer",
+                border:`2px solid ${isSelected ? C.acc : C.bdr}`,
+                background: isSelected ? `${C.acc}11` : C.card,
+                transition:"all .15s",
+              }}>
+                <img src={src} alt={`p.${pg}`}
+                  style={{ width:"100%", display:"block", borderRadius:"8px 8px 0 0" }} />
+                <div style={{
+                  textAlign:"center", fontSize:11, padding:"5px 0",
+                  color: isSelected ? C.acc : C.dim,
+                  fontWeight: isSelected ? 700 : 400,
+                  background: isSelected ? `${C.acc}11` : "transparent",
+                }}>
+                  {pg}페이지 {isSelected && "✓"}
+                </div>
+              </div>
+            );
+          })}
+          {/* 아직 렌더링 중인 나머지 페이지 플레이스홀더 */}
+          {rendering && Array.from({ length: numPages - thumbnails.length }, (_, i) => (
+            <div key={`ph-${i}`} style={{
+              borderRadius:10, background:C.card,
+              border:`2px solid ${C.bdr}`,
+              aspectRatio:"0.7", display:"flex", alignItems:"center",
+              justifyContent:"center", color:C.dim, fontSize:11,
+            }}>
+              {thumbnails.length + i + 1}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display:"flex", gap:8, marginTop:16 }}>
+        <Btn label="취소" variant="ghost" full onClick={onClose} />
+        <Btn
+          label={selected ? `${selected}페이지 사용` : "선택하세요"}
+          full
+          disabled={!selected || rendering}
+          onClick={() => onConfirm(selected)}
+        />
+      </div>
+    </Modal>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
    SONG LIBRARY SCREEN
 ══════════════════════════════════════════════════════════════════ */
 function SongLibraryScreen({ user, songs, addSong, nav }) {
   const [query,      setQuery]      = useState("");
   const [showAdd,    setShowAdd]    = useState(false);
-  const [uploading,  setUploading]  = useState(null);
-  const [confirmDel, setConfirmDel] = useState(null);
-  const [editSong,   setEditSong]   = useState(null);
-  const [editForm,   setEditForm]   = useState({});
+  const [uploading,     setUploading]     = useState(null);
+  const [confirmDel,    setConfirmDel]    = useState(null);
+  const [editSong,      setEditSong]      = useState(null);
+  const [editForm,      setEditForm]      = useState({});
+  const [pagePicker,    setPagePicker]    = useState(null); // { songId, file }
   const [consonant,  setConsonant]  = useState("");
 
   const CONSONANTS = ["ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ","A"];
@@ -1759,10 +1861,25 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = "";
+    // 멀티페이지 PDF이면 페이지 선택 모달
+    if (window.pdfjsLib) {
+      try {
+        const buf = await file.arrayBuffer();
+        const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+        if (pdf.numPages > 1) {
+          setPagePicker({ songId, file });
+          return;
+        }
+      } catch { /* pdfjsLib 오류 → 그냥 업로드 */ }
+    }
+    await doUpload(songId, file, 1);
+  };
+
+  const doUpload = async (songId, file, pageNum) => {
     setUploading(songId);
     try {
       const url = await uploadPdf(file, songId);
-      await updateDoc(doc(db, "songs", songId), { pdfUrl: url });
+      await updateDoc(doc(db, "songs", songId), { pdfUrl: url, pdfPage: pageNum });
     } catch (err) {
       alert("업로드 실패: " + err.message);
     } finally {
@@ -1959,6 +2076,19 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
 
       {showAdd && (
         <AddSongModal onClose={() => setShowAdd(false)} onAdd={addSong} />
+      )}
+
+      {pagePicker && (
+        <PdfPagePickerModal
+          file={pagePicker.file}
+          songTitle={songs.find(s => s.id === pagePicker.songId)?.title || ""}
+          onClose={() => setPagePicker(null)}
+          onConfirm={async (pageNum) => {
+            const { songId, file } = pagePicker;
+            setPagePicker(null);
+            await doUpload(songId, file, pageNum);
+          }}
+        />
       )}
 
       {confirmDel && (() => {
@@ -4140,7 +4270,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.29)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.30)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
@@ -4167,7 +4297,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             <img src="/icon-192.png" width={64} height={64}
               style={{ borderRadius:16, marginBottom:12 }} alt="Ainos" />
             <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>TVPC Worship</div>
-            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.29</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.30</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
               찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />
               악보 업로드, 필기, 코드 전조, 예배 일정 관리 등<br />
