@@ -2210,6 +2210,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const touchStartX = useRef(null);
   const toastTimer  = useRef(null);
   const penDownRef  = useRef(false); // 애플펜슬 터치 중 여부
+  const dualFitModeRef = useRef(false); // 듀얼 FIT 모드: 페이지 이동마다 자동 재적용
+  const needsFitRef    = useRef(false); // 다음 렌더 후 FIT 실행 예약
 
   // ── UI
   const [dual,          setDual]          = useState(false);
@@ -2294,13 +2296,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   }, []);
 
   const resetZoom = useCallback(() => {
+    dualFitModeRef.current = false;
+    needsFitRef.current    = false;
     setZoomMul(1.0);
     setPanOffset({ x: 0, y: 0 });
   }, []);
 
   // 여백 자동 감지 → 악보 콘텐츠만 꽉 채우는 줌+패닝 적용
   const autoFit = useCallback(() => {
-    // 듀얼: 좌측 악보 기준으로 최적 줌 계산 (공통 zoomMul 사용)
     const refCanvas = canvas1Ref.current;
     const refDraw   = drawCanvas1Ref.current;
     if (!refCanvas) return;
@@ -2313,15 +2316,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const availH = cSize.h - 16;
     const ratio = Math.min(availW / cw, availH / ch);
     const newZoom = Math.min(3.0, Math.max(0.5, parseFloat((zoomMul * ratio).toFixed(2))));
-    setZoomMul(newZoom);
-    if (!dual) {
+    if (dual) {
+      dualFitModeRef.current = true; // 이후 페이지 이동 시 자동 재적용
+      setZoomMul(newZoom);
+      setPanOffset({ x: 0, y: 0 });
+    } else {
       // 싱글: 콘텐츠 중심을 화면 중심으로 패닝
       const r = newZoom / zoomMul;
       const cx = (b.x0 + b.x1) / 2;
       const cy = (b.y0 + b.y1) / 2;
+      setZoomMul(newZoom);
       setPanOffset({ x: r * (b.W / 2 - cx), y: r * (b.H / 2 - cy) });
-    } else {
-      setPanOffset({ x: 0, y: 0 });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dual, zoomMul, cSize]);
@@ -2561,6 +2566,21 @@ Return ONLY the JSON array, no other text.`;
         };
         await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, dualPdf1Ref.current);
         await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, dualPdf2Ref.current);
+        // 듀얼 FIT 모드: 새 곡 쌍이 렌더된 직후 여백 자동 감지 재적용
+        if (needsFitRef.current) {
+          needsFitRef.current = false;
+          const b = detectContentBounds(canvas1Ref.current, drawCanvas1Ref.current);
+          if (b) {
+            const PAD = 16;
+            const cw = b.x1 - b.x0 + PAD * 2;
+            const ch = b.y1 - b.y0 + PAD * 2;
+            const fw = Math.floor(cSize.w / 2) - 16;
+            const fh = cSize.h - 16;
+            const ratio = Math.min(fw / cw, fh / ch);
+            const newZoom = Math.min(3.0, Math.max(0.5, parseFloat((zoomMul * ratio).toFixed(2))));
+            if (Math.abs(newZoom - zoomMul) > 0.02) setZoomMul(newZoom);
+          }
+        }
       } else {
         // 싱글: 한 페이지 꽉 맞춤
         if (!pdfDocRef.current || !canvas1Ref.current) return;
@@ -2582,6 +2602,11 @@ Return ONLY the JSON array, no other text.`;
 
   useEffect(() => { renderPage(); }, [renderPage, numPages]);
 
+  // 듀얼 FIT 모드: dualIdx 변경(새 곡 쌍으로 이동)시 다음 렌더 후 재적용 예약
+  useEffect(() => {
+    if (dual && dualFitModeRef.current) needsFitRef.current = true;
+  }, [dualIdx, dual]);
+
   const showToast = useCallback((msg) => {
     setDualToast(msg);
     clearTimeout(toastTimer.current);
@@ -2601,13 +2626,11 @@ Return ONLY the JSON array, no other text.`;
   const handleTouchStart = (e) => {
     if (drawModeRef.current) return;
     if (penDownRef.current) return;
-    if (!dual && zoomMul > 1.0) return; // 싱글 줌인 상태에서는 D-패드로 이동
     touchStartX.current = e.touches[0].clientX;
   };
 
   const handleTouchEnd = (e) => {
     if (drawModeRef.current) return;
-    if (!dual && zoomMul > 1.0) return;
     if (touchStartX.current === null) return;
     const delta = e.changedTouches[0].clientX - touchStartX.current;
     touchStartX.current = null;
@@ -4356,7 +4379,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.42)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.43)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
