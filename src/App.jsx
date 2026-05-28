@@ -1441,32 +1441,32 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           {isLeader(user.role) && (
             <button onClick={() => setShowCreate(true)} style={{
-              background:C.card, border:`1px solid ${C.acc}`, borderRadius:9,
-              padding:"6px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:4,
-              color:C.acc, fontSize:12, fontFamily:"inherit", fontWeight:600,
+              background:C.acc, border:"none", borderRadius:9,
+              padding:"7px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:5,
+              color:"#111", fontSize:12, fontFamily:"inherit", fontWeight:700,
             }}>
-              <Icon n="plus" size={13} color={C.acc} /> 새 예배 일정 만들기
+              <Icon n="plus" size={14} color="#111" /> 새예배
             </button>
           )}
           <button onClick={() => window.location.reload()} style={{
             background:C.card, border:`1px solid ${C.bdr}`,
-            borderRadius:10, padding:"6px 8px", cursor:"pointer",
-            display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+            borderRadius:9, padding:"7px 12px", cursor:"pointer",
+            display:"flex", alignItems:"center", gap:5,
           }}>
-            <Icon n="refresh" size={18} color={C.dim} />
-            <span style={{ fontSize:9, color:C.dim, fontWeight:600 }}>새로고침</span>
+            <Icon n="refresh" size={14} color={C.dim} />
+            <span style={{ fontSize:12, color:C.dim, fontWeight:600 }}>새로고침</span>
           </button>
           <button onClick={() => nav("notifications")} style={{
-            background:C.card, border:`1px solid ${C.bdr}`,
-            borderRadius:10, padding:"6px 8px", position:"relative",
-            cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+            background:C.card, border:`1px solid ${unread > 0 ? C.acc : C.bdr}`,
+            borderRadius:9, padding:"7px 12px", position:"relative",
+            cursor:"pointer", display:"flex", alignItems:"center", gap:5,
           }}>
-            <Icon n="bell" size={18} color={unread > 0 ? C.acc : C.dim} />
-            <span style={{ fontSize:9, color:unread > 0 ? C.acc : C.dim, fontWeight:600 }}>알림</span>
+            <Icon n="bell" size={14} color={unread > 0 ? C.acc : C.dim} />
+            <span style={{ fontSize:12, color:unread > 0 ? C.acc : C.dim, fontWeight:600 }}>알림</span>
             {unread > 0 && (
               <span style={{
                 position:"absolute", top:4, right:4,
-                width:8, height:8, background:C.red,
+                width:7, height:7, background:C.red,
                 borderRadius:"50%", border:`2px solid ${C.surf}`,
               }} />
             )}
@@ -1727,20 +1727,20 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
         </div>
         {leader && (
           <button onClick={() => setShowPicker(true)} style={{
-            background:C.card, border:`1px solid ${C.acc}`, borderRadius:9,
-            padding:"6px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:4,
-            color:C.acc, fontSize:12, fontFamily:"inherit", fontWeight:600,
+            background:C.acc, border:"none", borderRadius:9,
+            padding:"7px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:5,
+            color:"#111", fontSize:12, fontFamily:"inherit", fontWeight:700,
           }}>
-            <Icon n="plus" size={13} color={C.acc} /> 라이브러리에서 곡 추가
+            <Icon n="plus" size={14} color="#111" /> 곡추가
           </button>
         )}
         {leader && (
           <button onClick={() => setShowEdit(true)} style={{
             background:C.card, border:`1px solid ${C.bdr}`, borderRadius:9,
-            padding:"6px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:4,
-            color:C.txt, fontSize:12, fontFamily:"inherit",
+            padding:"7px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:5,
+            color:C.dim, fontSize:12, fontFamily:"inherit", fontWeight:600,
           }}>
-            <Icon n="edit" size={13} color={C.txt} /> 수정
+            <Icon n="pen" size={14} color={C.dim} /> 수정
           </button>
         )}
         {leader && (
@@ -1760,7 +1760,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
               display:"flex", alignItems:"center", gap:5, color:"#fff",
               fontWeight:600, fontSize:12, cursor:"pointer", fontFamily:"inherit",
             }}>
-              <Icon n="send" size={13} color="#fff" /> 알림
+              <Icon n="send" size={14} color="#fff" /> 알림
             </button>
           )
         }
