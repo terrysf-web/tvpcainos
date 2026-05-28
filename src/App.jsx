@@ -3622,12 +3622,18 @@ Return ONLY the JSON array, no other text.`;
 
           {/* 토스트 메시지 (싱글/듀얼 공통) */}
           {dualToast && (
-            <div style={{ position:"absolute", top:"50%", left:"50%",
-              transform:"translate(-50%,-50%)",
-              background:"rgba(0,0,0,.78)", color:"#fff",
-              padding:"14px 30px", borderRadius:14, fontSize:15,
-              fontWeight:700, zIndex:50, pointerEvents:"none", textAlign:"center",
-              boxShadow:"0 4px 20px rgba(0,0,0,.3)" }}>
+            <div style={{
+              position:"absolute", top:16, left:"50%",
+              transform:"translateX(-50%)",
+              background:"rgba(255,255,255,0.15)",
+              backdropFilter:"blur(6px)",
+              color:"#fff",
+              padding:"7px 20px", borderRadius:20, fontSize:13,
+              fontWeight:600, zIndex:50, pointerEvents:"none",
+              textAlign:"center", whiteSpace:"nowrap",
+              border:"1px solid rgba(255,255,255,0.25)",
+              textShadow:"0 1px 4px rgba(0,0,0,.5)",
+            }}>
               {dualToast}
             </div>
           )}
@@ -4305,7 +4311,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.35)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.36)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
@@ -4332,7 +4338,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             <img src="/icon-192.png" width={64} height={64}
               style={{ borderRadius:16, marginBottom:12 }} alt="Ainos" />
             <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>TVPC Worship</div>
-            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.35</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.36</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
               찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />
               악보 업로드, 필기, 코드 전조, 예배 일정 관리 등<br />
