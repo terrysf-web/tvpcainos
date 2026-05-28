@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.57";
+const APP_VERSION = "3.58";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2775,15 +2775,28 @@ Be precise about the position of each chord label. Return [] if no chords found.
         }
       );
       const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      const text = data.candidates[0].content.parts[0].text;
-      // Strip markdown code fences if present, then find JSON array
-      const cleaned = text.replace(/```[a-z]*\n?/gi, "").trim();
-      const match = cleaned.match(/\[[\s\S]*\]/);
-      if (!match) { setDetectErr("응답 파싱 실패"); return; }
-      let raw;
-      try { raw = JSON.parse(match[0]); }
-      catch { setDetectErr("JSON 파싱 실패 — 재시도 해보세요"); return; }
+      if (data.error) {
+        const msg = data.error.message || "";
+        if (data.error.code === 429 || /quota|resource_exhausted|rate/i.test(msg))
+          throw new Error("API 쿼터 초과 — 잠시 후 재시도 해주세요");
+        throw new Error(msg || "Gemini API 오류");
+      }
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      // Remove <think>...</think> blocks, markdown fences, then extract JSON array
+      const cleaned = rawText
+        .replace(/<think>[\s\S]*?<\/think>/gi, "")
+        .replace(/```[a-z]*\n?/gi, "")
+        .trim();
+      let raw = null;
+      // Try direct parse first
+      try { const p = JSON.parse(cleaned); raw = Array.isArray(p) ? p : (p?.chords || p?.items || p?.result || null); } catch {}
+      // Try extracting outermost [...] from the text
+      if (!raw) {
+        const m = cleaned.match(/\[[\s\S]*\]/);
+        if (m) try { raw = JSON.parse(m[0]); } catch {}
+      }
+      if (!raw) { setDetectErr("응답 파싱 실패 — 재시도 해주세요"); return; }
+      if (!Array.isArray(raw)) { setDetectErr("응답 형식 오류 — 재시도 해주세요"); return; }
       const chords = raw.map(item => ({
         chord: item.label,
         x: typeof item.cx === "number" ? item.cx : (typeof item.x === "number" ? item.x : 0.5),
