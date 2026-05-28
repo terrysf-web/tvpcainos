@@ -463,9 +463,21 @@ function Modal({ title, onClose, children, noBackdrop = false }) {
 ══════════════════════════════════════════════════════════════════ */
 const googleProvider = new GoogleAuthProvider();
 
-function LoginScreen({ loginErr = "", onClearErr }) {
-  const [err,     setErr]     = useState("");
-  const [loading, setLoading] = useState(false);
+function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
+  const [err,          setErr]          = useState("");
+  const [loading,      setLoading]      = useState(false);
+  const [showReqForm,  setShowReqForm]  = useState(false);
+  const [reqName,      setReqName]      = useState("");
+  const [reqPart,      setReqPart]      = useState("");
+  const [reqMsg,       setReqMsg]       = useState("");
+  const [reqSending,   setReqSending]   = useState(false);
+  const [reqDone,      setReqDone]      = useState(false);
+  const [reqErr,       setReqErr]       = useState("");
+
+  // blockedUser 바뀌면 이름 자동 채우기
+  useEffect(() => {
+    if (blockedUser?.name) setReqName(blockedUser.name);
+  }, [blockedUser]);
 
   const loginWithGoogle = async () => {
     setLoading(true);
@@ -482,6 +494,164 @@ function LoginScreen({ loginErr = "", onClearErr }) {
       }
     }
   };
+
+  const submitRequest = async () => {
+    if (!blockedUser?.email || !reqName.trim()) return;
+    setReqSending(true);
+    setReqErr("");
+    try {
+      await setDoc(doc(db, "accessRequests", blockedUser.email), {
+        email: blockedUser.email,
+        name:  reqName.trim(),
+        part:  reqPart.trim(),
+        message: reqMsg.trim(),
+        requestedAt: serverTimestamp(),
+        status: "pending",
+      });
+      setReqDone(true);
+    } catch (e) {
+      setReqErr("신청 실패: " + e.message);
+    } finally {
+      setReqSending(false);
+    }
+  };
+
+  const isNotAllowed = loginErr === "not_allowed";
+
+  // ── 신청 완료 화면
+  if (reqDone) return (
+    <div style={{
+      minHeight:"100vh", background:C.bg,
+      display:"flex", flexDirection:"column",
+      alignItems:"center", justifyContent:"center", padding:24,
+    }}>
+      <div className="wFadeIn" style={{
+        background:C.surf, borderRadius:20, padding:"36px 24px",
+        width:"100%", maxWidth:380, border:`1px solid ${C.bdr}`,
+        textAlign:"center",
+      }}>
+        <div style={{
+          width:64, height:64, borderRadius:"50%",
+          background:`${C.grn}22`, border:`1px solid ${C.grn}44`,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize:28, margin:"0 auto 16px",
+        }}>✓</div>
+        <div style={{ fontWeight:800, fontSize:18, marginBottom:8 }}>신청이 접수되었습니다</div>
+        <div style={{ fontSize:13, color:C.dim, lineHeight:1.8, marginBottom:24 }}>
+          관리자가 승인하면 로그인할 수 있습니다.<br/>승인까지 잠시 기다려주세요.
+        </div>
+        <button onClick={() => { setReqDone(false); setShowReqForm(false); onClearErr?.(); }} style={{
+          padding:"11px 28px", borderRadius:10, border:`1px solid ${C.bdr}`,
+          background:"transparent", color:C.dim, fontSize:14,
+          cursor:"pointer", fontFamily:"inherit",
+        }}>확인</button>
+      </div>
+    </div>
+  );
+
+  // ── 신청 폼 화면
+  if (showReqForm && isNotAllowed) return (
+    <div style={{
+      minHeight:"100vh", background:C.bg,
+      display:"flex", flexDirection:"column",
+      alignItems:"center", justifyContent:"center", padding:24,
+    }}>
+      <div className="wFadeIn" style={{
+        background:C.surf, borderRadius:20, padding:"28px 24px",
+        width:"100%", maxWidth:380, border:`1px solid ${C.bdr}`,
+      }}>
+        <div style={{ fontWeight:800, fontSize:17, marginBottom:4, display:"flex", alignItems:"center", gap:8 }}>
+          <span>🙋</span> 액세스 신청
+        </div>
+        <div style={{ fontSize:13, color:C.dim, marginBottom:20, lineHeight:1.6 }}>
+          찬양팀 관리자에게 액세스 요청을 보냅니다.<br/>승인 후 로그인이 가능합니다.
+        </div>
+
+        {/* 이메일 (읽기전용) */}
+        <div style={{ fontSize:12, fontWeight:600, color:C.dim, marginBottom:6, letterSpacing:".03em" }}>
+          Google 계정 이메일
+        </div>
+        <div style={{
+          display:"flex", alignItems:"center", gap:8,
+          background:C.card, border:`1px solid ${C.bdr}`, borderRadius:10,
+          padding:"10px 12px", marginBottom:14,
+        }}>
+          <div style={{
+            width:20, height:20, borderRadius:"50%", background:C.bdr,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontSize:10, fontWeight:700, color:C.dim, flexShrink:0,
+          }}>G</div>
+          <span style={{ fontSize:13, color:C.dim, flex:1 }}>{blockedUser?.email}</span>
+          <span style={{ fontSize:10, color:`${C.dim}77` }}>자동입력</span>
+        </div>
+
+        {/* 이름 */}
+        <div style={{ fontSize:12, fontWeight:600, color:C.dim, marginBottom:6, letterSpacing:".03em" }}>
+          이름 (팀 내 호칭) <span style={{ color:C.red, fontSize:10 }}>*</span>
+        </div>
+        <input value={reqName} onChange={e => setReqName(e.target.value)}
+          placeholder="예: 홍길동"
+          style={{
+            width:"100%", boxSizing:"border-box",
+            background:C.card, border:`1px solid ${C.bdr}`, borderRadius:10,
+            padding:"10px 12px", color:C.txt, fontSize:14,
+            outline:"none", fontFamily:"inherit", marginBottom:14,
+          }} />
+
+        {/* 파트 */}
+        <div style={{ fontSize:12, fontWeight:600, color:C.dim, marginBottom:6, letterSpacing:".03em" }}>
+          소속 파트 <span style={{ color:`${C.dim}88`, fontWeight:400 }}>(선택)</span>
+        </div>
+        <input value={reqPart} onChange={e => setReqPart(e.target.value)}
+          placeholder="예: 보컬, 기타, 건반..."
+          style={{
+            width:"100%", boxSizing:"border-box",
+            background:C.card, border:`1px solid ${C.bdr}`, borderRadius:10,
+            padding:"10px 12px", color:C.txt, fontSize:14,
+            outline:"none", fontFamily:"inherit", marginBottom:14,
+          }} />
+
+        {/* 메시지 */}
+        <div style={{ fontSize:12, fontWeight:600, color:C.dim, marginBottom:6, letterSpacing:".03em" }}>
+          신청 메시지 <span style={{ color:`${C.dim}88`, fontWeight:400 }}>(선택)</span>
+        </div>
+        <textarea value={reqMsg} onChange={e => setReqMsg(e.target.value)}
+          placeholder="관리자에게 전하고 싶은 말을 입력해주세요"
+          rows={3}
+          style={{
+            width:"100%", boxSizing:"border-box", resize:"none",
+            background:C.card, border:`1px solid ${C.bdr}`, borderRadius:10,
+            padding:"10px 12px", color:C.txt, fontSize:14, lineHeight:1.5,
+            outline:"none", fontFamily:"inherit", marginBottom:16,
+          }} />
+
+        {reqErr && (
+          <div style={{
+            marginBottom:12, padding:"8px 12px", borderRadius:8,
+            background:`${C.red}11`, border:`1px solid ${C.red}33`,
+            color:C.red, fontSize:12,
+          }}>{reqErr}</div>
+        )}
+
+        <button onClick={submitRequest}
+          disabled={reqSending || !reqName.trim()}
+          style={{
+            width:"100%", padding:"14px 0", borderRadius:12, border:"none",
+            background: (!reqName.trim() || reqSending) ? C.bdr : C.acc,
+            color: (!reqName.trim() || reqSending) ? C.dim : "#111",
+            fontSize:15, fontWeight:700, cursor: reqName.trim() && !reqSending ? "pointer" : "default",
+            fontFamily:"inherit", marginBottom:10, transition:"all .15s",
+          }}>
+          {reqSending ? "전송 중..." : "신청 보내기"}
+        </button>
+        <button onClick={() => setShowReqForm(false)} style={{
+          width:"100%", padding:"11px 0", borderRadius:12,
+          background:"transparent", border:`1px solid ${C.bdr}`,
+          color:C.dim, fontSize:14, cursor:"pointer", fontFamily:"inherit",
+        }}>← 로그인으로 돌아가기</button>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{
@@ -524,12 +694,25 @@ function LoginScreen({ loginErr = "", onClearErr }) {
           {loading ? "로그인 중..." : "Google로 로그인"}
         </button>
         {(err || loginErr) && (
-          <div style={{
-            marginTop:14, padding:"10px 14px", borderRadius:10,
-            background:`${C.red}11`, border:`1px solid ${C.red}33`,
-            color:C.red, fontSize:13, textAlign:"center", lineHeight:1.6,
-          }}>
-            {err || loginErr}
+          <div style={{ marginTop:14 }}>
+            <div style={{
+              padding:"10px 14px", borderRadius:10,
+              background:`${C.red}11`, border:`1px solid ${C.red}33`,
+              color:C.red, fontSize:13, textAlign:"center", lineHeight:1.6,
+              marginBottom: isNotAllowed ? 10 : 0,
+            }}>
+              {isNotAllowed
+                ? "등록되지 않은 이메일입니다. 관리자에게 문의하거나 액세스를 신청하세요."
+                : (err || loginErr)}
+            </div>
+            {isNotAllowed && (
+              <button onClick={() => setShowReqForm(true)} style={{
+                width:"100%", padding:"11px 0", borderRadius:10,
+                background:`${C.acc}15`, border:`1px solid ${C.acc}44`,
+                color:C.acc, fontSize:14, fontWeight:600,
+                cursor:"pointer", fontFamily:"inherit",
+              }}>→ 액세스 신청하기</button>
+            )}
           </div>
         )}
         <div style={{ fontSize:12, color:C.dim, textAlign:"center", marginTop:20, lineHeight:1.8 }}>
@@ -3409,17 +3592,19 @@ function NotificationsScreen({ notifs, markNotifRead, markAllNotifRead }) {
    TEAM MANAGEMENT MODAL
 ══════════════════════════════════════════════════════════════════ */
 function TeamManagementModal({ currentUserId, onClose }) {
-  const [members,       setMembers]       = useState([]);
-  const [loading,       setLoading]       = useState(true);
-  const [saving,        setSaving]        = useState(null);
-  const [editPart,      setEditPart]      = useState(null);
-  const [partVal,       setPartVal]       = useState("");
-  const [allowedEmails, setAllowedEmails] = useState([]); // [{email, role, part}]
-  const [emailInput,    setEmailInput]    = useState("");
-  const [newRole,       setNewRole]       = useState("member");
-  const [newPart,       setNewPart]       = useState("");
-  const [addingEmail,   setAddingEmail]   = useState(false);
-  const [emailErr,      setEmailErr]      = useState("");
+  const [members,        setMembers]        = useState([]);
+  const [loading,        setLoading]        = useState(true);
+  const [saving,         setSaving]         = useState(null);
+  const [editPart,       setEditPart]       = useState(null);
+  const [partVal,        setPartVal]        = useState("");
+  const [allowedEmails,  setAllowedEmails]  = useState([]); // [{email, role, part}]
+  const [emailInput,     setEmailInput]     = useState("");
+  const [newRole,        setNewRole]        = useState("member");
+  const [newPart,        setNewPart]        = useState("");
+  const [addingEmail,    setAddingEmail]    = useState(false);
+  const [emailErr,       setEmailErr]       = useState("");
+  const [accessRequests, setAccessRequests] = useState([]); // [{email, name, part, message, ...}]
+  const [approvingReq,   setApprovingReq]   = useState(null);
 
   useEffect(() => {
     // 팀원 목록 (1회)
@@ -3438,8 +3623,40 @@ function TeamManagementModal({ currentUserId, onClose }) {
       snap => setAllowedEmails(snap.docs.map(d => ({ email: d.id, ...d.data() }))),
       e => console.error("allowedEmails 실패:", e)
     );
-    return unsub;
+
+    // 액세스 신청 대기 — 실시간
+    const unsubReq = onSnapshot(
+      query(collection(db, "accessRequests"), where("status", "==", "pending")),
+      snap => setAccessRequests(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      e => console.error("accessRequests 실패:", e)
+    );
+
+    return () => { unsub(); unsubReq(); };
   }, []);
+
+  const approveRequest = async (req) => {
+    setApprovingReq(req.email);
+    try {
+      await setDoc(doc(db, "allowedEmails", req.email), {
+        addedAt: serverTimestamp(),
+        role: "member",
+        part: req.part || "",
+      });
+      await deleteDoc(doc(db, "accessRequests", req.email));
+    } catch (e) {
+      setEmailErr("승인 실패: " + e.message);
+    } finally {
+      setApprovingReq(null);
+    }
+  };
+
+  const rejectRequest = async (email) => {
+    try {
+      await deleteDoc(doc(db, "accessRequests", email));
+    } catch (e) {
+      setEmailErr("거절 실패: " + e.message);
+    }
+  };
 
   const addEmail = async () => {
     const email = emailInput.trim().toLowerCase();
@@ -3488,6 +3705,75 @@ function TeamManagementModal({ currentUserId, onClose }) {
 
   return (
     <Modal title={`팀원 관리 · ${members.length}명`} onClose={onClose}>
+
+      {/* ── 액세스 신청 대기 */}
+      {accessRequests.length > 0 && (
+        <div style={{ marginBottom:20 }}>
+          <div style={{
+            display:"flex", alignItems:"center", gap:8,
+            fontSize:11, fontWeight:700, color:C.dim,
+            letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:10,
+          }}>
+            액세스 신청 대기
+            <span style={{
+              background:"#ff9f0a", color:"#000",
+              fontSize:10, fontWeight:800, borderRadius:10,
+              padding:"1px 7px",
+            }}>{accessRequests.length}</span>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {accessRequests.map(req => (
+              <div key={req.email} style={{
+                background:C.card, borderRadius:12, padding:"12px 14px",
+                border:`1px solid #ff9f0a44`,
+              }}>
+                <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+                  <div style={{
+                    width:36, height:36, borderRadius:9, flexShrink:0,
+                    background:`linear-gradient(135deg, #ff9f0a33, ${C.pur}22)`,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontWeight:800, fontSize:14, color:"#ff9f0a",
+                  }}>{(req.name || "?")[0]}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontWeight:700, fontSize:14 }}>{req.name}</div>
+                    <div style={{ fontSize:11, color:C.dim, marginTop:1,
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {req.email}
+                    </div>
+                    {req.part && (
+                      <div style={{ fontSize:11, color:C.dim, marginTop:1 }}>파트: {req.part}</div>
+                    )}
+                    {req.message && (
+                      <div style={{ fontSize:12, color:`${C.dim}cc`, marginTop:4,
+                        fontStyle:"italic", lineHeight:1.5 }}>
+                        "{req.message}"
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:6, marginTop:10 }}>
+                  <button onClick={() => approveRequest(req)}
+                    disabled={approvingReq === req.email}
+                    style={{
+                      flex:1, padding:"7px 0", borderRadius:8, border:"none",
+                      background:`${C.grn}22`, color:C.grn,
+                      fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                      opacity: approvingReq === req.email ? 0.5 : 1,
+                    }}>
+                    {approvingReq === req.email ? "처리 중..." : "✓ 승인"}
+                  </button>
+                  <button onClick={() => rejectRequest(req.email)} style={{
+                    flex:1, padding:"7px 0", borderRadius:8, border:"none",
+                    background:`${C.red}11`, color:C.red,
+                    fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                  }}>✕ 거절</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div style={{ textAlign:"center", padding:"30px 0", color:C.dim, fontSize:13 }}>불러오는 중...</div>
       ) : members.length === 0 ? (
@@ -3788,7 +4074,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.24)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.25)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
@@ -3815,7 +4101,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             <img src="/icon-192.png" width={64} height={64}
               style={{ borderRadius:16, marginBottom:12 }} alt="Ainos" />
             <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>TVPC Worship</div>
-            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.24</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.25</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
               찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />
               악보 업로드, 필기, 코드 전조, 예배 일정 관리 등<br />
@@ -3953,7 +4239,8 @@ function BottomNav({ view, nav, unread }) {
 ══════════════════════════════════════════════════════════════════ */
 export default function App() {
   const [user,        setUser]        = useState(undefined); // undefined = loading
-  const [loginErr,    setLoginErr]    = useState("");
+  const [loginErr,        setLoginErr]        = useState("");
+  const [loginBlockedUser,setLoginBlockedUser] = useState(null); // { email, name } 미등록 로그인 시도
   const [view,        setView]        = useState("services");
   const [songs,       setSongs]       = useState([]);
   const [services,    setServices]    = useState([]);
@@ -4027,8 +4314,9 @@ export default function App() {
               // 어드민이 이미 있으면 허용 목록 확인
               const allowedSnap = await getDoc(doc(db, "allowedEmails", firebaseUser.email));
               if (!allowedSnap.exists()) {
+                setLoginBlockedUser({ email: firebaseUser.email, name: firebaseUser.displayName || "" });
                 await signOut(auth);
-                setLoginErr("등록되지 않은 이메일입니다. 관리자에게 문의하세요.");
+                setLoginErr("not_allowed");
                 return;
               }
               allowed = allowedSnap;
@@ -4254,7 +4542,8 @@ export default function App() {
     </div>
   );
 
-  if (!user) return <LoginScreen loginErr={loginErr} onClearErr={() => setLoginErr("")} />;
+  if (!user) return <LoginScreen loginErr={loginErr} blockedUser={loginBlockedUser}
+    onClearErr={() => { setLoginErr(""); setLoginBlockedUser(null); }} />;
 
   const nav = (newView, params = {}) => {
     if (params.svcId  !== undefined) setSelSvcId(params.svcId);

@@ -82,5 +82,11 @@ service cloud.firestore {
     match /songAnalysis/{songId} {
       allow read, write: if isAuthed();
     }
+
+    // 액세스 신청 — 누구나 create, 리더/어드민만 read·delete
+    match /accessRequests/{email} {
+      allow create: if true;
+      allow read, delete: if isLeader();
+    }
   }
 }
