@@ -39,14 +39,16 @@ jobs:
   # ── Job 2: Supabase Edge Function (SUPABASE_ACCESS_TOKEN 있을 때만)
   supabase:
     runs-on: ubuntu-latest
-    if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
       - name: Supabase CLI 설치
+        if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
         run: npm install -g supabase@latest --silent
 
       - name: Edge Function 배포
+        if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
@@ -55,6 +57,7 @@ jobs:
             --no-verify-jwt
 
       - name: Firebase 서비스 계정을 Supabase 시크릿으로 등록
+        if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
