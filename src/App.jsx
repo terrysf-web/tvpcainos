@@ -2171,6 +2171,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [numPages, setNumPages] = useState(0);
   const [pageNum,  setPageNum]  = useState(1);
   const [zoomMul,  setZoomMul]  = useState(1.0);
+  const [zoomMulL, setZoomMulL] = useState(1.0); // dual left
+  const [zoomMulR, setZoomMulR] = useState(1.0); // dual right
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const panIntervalRef = useRef(null);
   const [loadErr,  setLoadErr]  = useState("");
@@ -2268,6 +2270,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   const resetZoom = useCallback(() => {
     setZoomMul(1.0);
+    setZoomMulL(1.0);
+    setZoomMulR(1.0);
     setPanOffset({ x: 0, y: 0 });
   }, []);
 
@@ -2488,12 +2492,12 @@ Return ONLY the JSON array, no other text.`;
         // 듀얼: 좌우 두 곡 (각자의 PDF 첫 페이지)
         const halfW  = Math.floor(cSize.w / 2) - pad * 2;
         const availH = cSize.h - pad * 2;
-        const renderTo = async (ref, drawRef, strokesRef2, pdfDoc) => {
+        const renderTo = async (ref, drawRef, strokesRef2, pdfDoc, zm) => {
           if (!ref.current) return;
           if (!pdfDoc) { ref.current.width = 0; ref.current.height = 0; return; }
           const page = await pdfDoc.getPage(1);
           const base = page.getViewport({ scale: 1 });
-          const sc   = Math.min(halfW / base.width, availH / base.height) * zoomMul;
+          const sc   = Math.min(halfW / base.width, availH / base.height) * zm;
           const vp   = page.getViewport({ scale: sc });
           ref.current.width  = vp.width;
           ref.current.height = vp.height;
@@ -2504,8 +2508,8 @@ Return ONLY the JSON array, no other text.`;
             drawStrokes(drawRef.current, strokesRef2.current);
           }
         };
-        await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, dualPdf1Ref.current);
-        await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, dualPdf2Ref.current);
+        await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, dualPdf1Ref.current, zoomMulL);
+        await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, dualPdf2Ref.current, zoomMulR);
       } else {
         // 싱글: 한 페이지 꽉 맞춤
         if (!pdfDocRef.current || !canvas1Ref.current) return;
@@ -2523,7 +2527,7 @@ Return ONLY the JSON array, no other text.`;
         }
       }
     } catch(e) { console.error(e); }
-  }, [pageNum, zoomMul, dual, numPages, cSize, dualKey]);
+  }, [pageNum, zoomMul, zoomMulL, zoomMulR, dual, numPages, cSize, dualKey]);
 
   useEffect(() => { renderPage(); }, [renderPage, numPages]);
 
@@ -2546,13 +2550,13 @@ Return ONLY the JSON array, no other text.`;
   const handleTouchStart = (e) => {
     if (drawModeRef.current) return;
     if (penDownRef.current) return;
-    if (zoomMul > 1.0) return; // 줌인 상태에서는 D-패드로 이동
+    if (!dual && zoomMul > 1.0) return; // 싱글 줌인 상태에서는 D-패드로 이동
     touchStartX.current = e.touches[0].clientX;
   };
 
   const handleTouchEnd = (e) => {
     if (drawModeRef.current) return;
-    if (zoomMul > 1.0) return;
+    if (!dual && zoomMul > 1.0) return;
     if (touchStartX.current === null) return;
     const delta = e.changedTouches[0].clientX - touchStartX.current;
     touchStartX.current = null;
@@ -2951,6 +2955,7 @@ Return ONLY the JSON array, no other text.`;
           </div>
 
           <div style={{ display:"flex", gap:4, alignItems:"center", flexShrink:0 }}>
+            {!dual && (<>
             <button onClick={() => setZoomMul(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
               style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
               <Icon n="zoomOut" size={18} color={C.dim} />
@@ -2970,6 +2975,7 @@ Return ONLY the JSON array, no other text.`;
               <Icon n="zoomIn" size={18} color={C.dim} />
             </button>
             <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
+            </>)}
             {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
             {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
             <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
@@ -3359,8 +3365,8 @@ Return ONLY the JSON array, no other text.`;
         </div>
       )}
 
-      {/* D-패드 (줌인 시에만 표시) */}
-      {zoomMul > 1.0 && (
+      {/* D-패드 (싱글 모드, 쓰기 모드, 줌인 시에만 표시) */}
+      {zoomMul > 1.0 && drawMode && !dual && (
         <div style={{
           position:"fixed", right:14, top:"50%", transform:"translateY(-50%)",
           zIndex:700, display:"flex", flexDirection:"column", alignItems:"center", gap:4,
@@ -3527,22 +3533,53 @@ Return ONLY the JSON array, no other text.`;
                     </div>
                 }
               </div>
-              {/* 곡 제목 레이블 */}
+              {/* 좌측 곡 제목 + 줌 컨트롤 */}
               <div style={{ position:"absolute", bottom:10, left:0, width:"50%",
-                display:"flex", justifyContent:"center", pointerEvents:"none" }}>
+                display:"flex", flexDirection:"column", alignItems:"center", gap:4, pointerEvents:"none" }}>
                 <div style={{ background:"rgba(0,0,0,.6)", color:"#fff",
                   padding:"4px 14px", borderRadius:20, fontSize:11, fontWeight:700,
-                  maxWidth:"80%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  maxWidth:"70%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                   {svcSongs[dualIdx]?.title}
                 </div>
+                <div style={{ display:"flex", gap:3, alignItems:"center", pointerEvents:"auto" }}>
+                  <button onClick={() => setZoomMulL(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
+                    style={{ background:"rgba(0,0,0,0.6)", border:"none", color:"#fff",
+                      borderRadius:6, width:26, height:26, fontSize:16, lineHeight:1,
+                      cursor:"pointer", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
+                  <button onClick={() => setZoomMulL(1.0)}
+                    style={{ background: zoomMulL !== 1.0 ? `${C.acc}cc` : "rgba(0,0,0,0.6)",
+                      border:"none", color:"#fff", borderRadius:6, minWidth:38, height:26,
+                      fontSize:10, cursor:"pointer", fontWeight:700, fontFamily:"inherit" }}>
+                    {Math.round(zoomMulL * 100)}%</button>
+                  <button onClick={() => setZoomMulL(z => Math.min(3.0, +(z + 0.15).toFixed(2)))}
+                    style={{ background:"rgba(0,0,0,0.6)", border:"none", color:"#fff",
+                      borderRadius:6, width:26, height:26, fontSize:16, lineHeight:1,
+                      cursor:"pointer", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
+                </div>
               </div>
+              {/* 우측 곡 제목 + 줌 컨트롤 */}
               {svcSongs[dualIdx + 1] && (
                 <div style={{ position:"absolute", bottom:10, right:0, width:"50%",
-                  display:"flex", justifyContent:"center", pointerEvents:"none" }}>
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:4, pointerEvents:"none" }}>
                   <div style={{ background:"rgba(0,0,0,.6)", color:"#fff",
                     padding:"4px 14px", borderRadius:20, fontSize:11, fontWeight:700,
-                    maxWidth:"80%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    maxWidth:"70%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                     {svcSongs[dualIdx + 1].title}
+                  </div>
+                  <div style={{ display:"flex", gap:3, alignItems:"center", pointerEvents:"auto" }}>
+                    <button onClick={() => setZoomMulR(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
+                      style={{ background:"rgba(0,0,0,0.6)", border:"none", color:"#fff",
+                        borderRadius:6, width:26, height:26, fontSize:16, lineHeight:1,
+                        cursor:"pointer", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
+                    <button onClick={() => setZoomMulR(1.0)}
+                      style={{ background: zoomMulR !== 1.0 ? `${C.acc}cc` : "rgba(0,0,0,0.6)",
+                        border:"none", color:"#fff", borderRadius:6, minWidth:38, height:26,
+                        fontSize:10, cursor:"pointer", fontWeight:700, fontFamily:"inherit" }}>
+                      {Math.round(zoomMulR * 100)}%</button>
+                    <button onClick={() => setZoomMulR(z => Math.min(3.0, +(z + 0.15).toFixed(2)))}
+                      style={{ background:"rgba(0,0,0,0.6)", border:"none", color:"#fff",
+                        borderRadius:6, width:26, height:26, fontSize:16, lineHeight:1,
+                        cursor:"pointer", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
                   </div>
                 </div>
               )}
@@ -4310,7 +4347,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.38)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.39)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
