@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { auth, db } from "./firebase.js";
+import { auth, db, messagingPromise, firebaseConfigObj } from "./firebase.js";
+import { getToken, onMessage } from "firebase/messaging";
 import { uploadPdf } from "./supabase.js";
 import AIPanel from "./AIPanel.jsx";
 import {
@@ -3987,6 +3988,12 @@ Return ONLY the JSON array, no other text.`;
    NOTIFICATIONS SCREEN
 ══════════════════════════════════════════════════════════════════ */
 function NotificationsScreen({ notifs, markNotifRead, markAllNotifRead }) {
+  const [perm, setPerm] = useState(typeof Notification !== "undefined" ? Notification.permission : "unsupported");
+
+  const requestPerm = () => {
+    Notification.requestPermission().then(p => setPerm(p));
+  };
+
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
       <div style={{ background:C.surf, padding:"18px 16px",
@@ -4000,6 +4007,36 @@ function NotificationsScreen({ notifs, markNotifRead, markAllNotifRead }) {
           모두 읽음
         </button>
       </div>
+      {/* 알림 권한 배너 */}
+      {perm === "default" && (
+        <div style={{ margin:"12px 16px 0", padding:"12px 14px", borderRadius:12,
+          background:`${C.acc}18`, border:`1px solid ${C.acc}44`,
+          display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:20 }}>🔔</span>
+          <div style={{ flex:1 }}>
+            <div style={{ fontWeight:700, fontSize:13, color:C.txt }}>브라우저 알림 허용</div>
+            <div style={{ fontSize:12, color:C.dim }}>새 알림을 팝업으로 받으려면 허용해주세요</div>
+          </div>
+          <button onClick={requestPerm} style={{
+            background:C.acc, border:"none", borderRadius:8, color:"#fff",
+            fontSize:12, fontWeight:700, padding:"6px 12px", cursor:"pointer", fontFamily:"inherit",
+          }}>허용</button>
+        </div>
+      )}
+      {perm === "denied" && (
+        <div style={{ margin:"12px 16px 0", padding:"10px 14px", borderRadius:12,
+          background:`${C.red}10`, border:`1px solid ${C.red}33`,
+          fontSize:12, color:C.dim }}>
+          🚫 알림이 차단됨 — 브라우저 설정에서 이 사이트 알림을 허용해주세요
+        </div>
+      )}
+      {perm === "granted" && (
+        <div style={{ margin:"12px 16px 0", padding:"8px 14px", borderRadius:10,
+          background:`${C.grn}10`, border:`1px solid ${C.grn}33`,
+          fontSize:12, color:C.grn, fontWeight:600 }}>
+          ✓ 브라우저 알림 활성화됨
+        </div>
+      )}
       <div style={{ padding:16, paddingBottom:90 }}>
         {notifs.length === 0 && (
           <div style={{ textAlign:"center", padding:"60px 0", color:C.dim }}>
@@ -4838,20 +4875,63 @@ export default function App() {
     );
   }, [user?.uid]);
 
-  // ── Firestore: notifications (per user, real-time)
+  // ── FCM 권한 요청 + 토큰 등록 + 포그라운드 메시지 핸들러
+  useEffect(() => {
+    if (!user?.uid) return;
+    let unsubMsg = null;
+    messagingPromise.then(m => {
+      if (!m) return;
+      // 권한 요청
+      Notification.requestPermission().then(perm => {
+        if (perm !== "granted") return;
+        // 서비스 워커 등록 후 FCM 토큰 획득
+        navigator.serviceWorker?.register("/firebase-messaging-sw.js")
+          .then(reg => getToken(m, {
+            vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+            serviceWorkerRegistration: reg,
+          }))
+          .then(token => {
+            if (token) {
+              setDoc(doc(db, "fcmTokens", user.uid), {
+                token, uid: user.uid, updatedAt: serverTimestamp(),
+              }, { merge: true }).catch(() => {});
+            }
+          })
+          .catch(() => {});
+      });
+      // 앱이 포그라운드일 때 FCM 메시지 수신
+      unsubMsg = onMessage(m, payload => {
+        const title = payload.notification?.title || "TVPC Worship";
+        const body  = payload.notification?.body  || "";
+        if (Notification.permission === "granted") {
+          new Notification(title, { body, icon: "/icon-192.png" });
+        }
+      });
+    });
+    return () => { if (unsubMsg) unsubMsg(); };
+  }, [user?.uid]);
+
+  // ── Firestore: notifications (per user, real-time) + 새 알림 브라우저 팝업
+  const knownNotifIdsRef = useRef(null);
   useEffect(() => {
     if (!user?.uid) return;
     return onSnapshot(
       query(collection(db, "notifications"), orderBy("createdAt", "desc")),
-      snap => setNotifs(snap.docs.map(d => {
-        const data = d.data();
-        return {
-          id: d.id,
-          ...data,
-          read: (data.readBy || []).includes(user.uid),
-          time: fmtTime(data.createdAt),
-        };
-      }))
+      snap => {
+        const docs = snap.docs.map(d => {
+          const data = d.data();
+          return { id: d.id, ...data, read: (data.readBy || []).includes(user.uid), time: fmtTime(data.createdAt) };
+        });
+        // 새로 도착한 읽지 않은 알림 → 브라우저 팝업
+        if (knownNotifIdsRef.current !== null && Notification.permission === "granted") {
+          docs.filter(n => !n.read && !knownNotifIdsRef.current.has(n.id))
+            .forEach(n => new Notification(n.title || "TVPC Worship", {
+              body: n.body || "", icon: "/icon-192.png", tag: n.id,
+            }));
+        }
+        knownNotifIdsRef.current = new Set(docs.map(d => d.id));
+        setNotifs(docs);
+      }
     );
   }, [user?.uid]);
 
