@@ -27,6 +27,18 @@ function parseYtId(url) {
   return null;
 }
 
+// PDF 캔버스를 JPEG base64로 변환 (최대 1280px 너비로 리사이즈)
+function canvasToBase64(canvas, maxW = 1280) {
+  if (!canvas || !canvas.width || !canvas.height) return null;
+  const scale = Math.min(1, maxW / canvas.width);
+  const oc = document.createElement("canvas");
+  oc.width  = Math.round(canvas.width  * scale);
+  oc.height = Math.round(canvas.height * scale);
+  oc.getContext("2d").drawImage(canvas, 0, 0, oc.width, oc.height);
+  const dataUrl = oc.toDataURL("image/jpeg", 0.88);
+  return dataUrl.split(",")[1]; // base64 부분만
+}
+
 function Markdown({ text }) {
   return (
     <div style={{ fontSize:12, lineHeight:1.8, color:C.txt }}>
@@ -47,13 +59,14 @@ function Markdown({ text }) {
   );
 }
 
-export default function AIPanel({ song, user }) {
+export default function AIPanel({ song, user, pdfCanvasRef }) {
   const [ytInput,   setYtInput]   = useState("");
   const [editYt,    setEditYt]    = useState(false);
   const [ytErr,     setYtErr]     = useState("");
   const [analysis,  setAnalysis]  = useState("");
   const [loading,   setLoading]   = useState(false);
   const [aiErr,     setAiErr]     = useState("");
+  const [usedImage, setUsedImage] = useState(false); // 이번 분석에 이미지 사용 여부
 
   const isLeader = user?.role === "leader" || user?.role === "admin";
   const ytId = song?.youtubeId;
@@ -62,9 +75,7 @@ export default function AIPanel({ song, user }) {
     const id = parseYtId(ytInput);
     if (!id) { setYtErr("올바른 YouTube URL을 입력하세요."); return; }
     await updateDoc(doc(db, "songs", song.id), { youtubeId: id });
-    setEditYt(false);
-    setYtInput("");
-    setYtErr("");
+    setEditYt(false); setYtInput(""); setYtErr("");
   };
 
   const removeYtId = async () => {
@@ -73,13 +84,28 @@ export default function AIPanel({ song, user }) {
 
   const analyze = async (attempt = 0) => {
     const key = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!key) {
-      setAiErr("⚠️ .env 파일에 VITE_GEMINI_API_KEY를 설정하세요.");
-      return;
-    }
+    if (!key) { setAiErr("⚠️ .env 파일에 VITE_GEMINI_API_KEY를 설정하세요."); return; }
     setLoading(true);
-    if (attempt === 0) { setAnalysis(""); setAiErr(""); }
-    const prompt = `찬양 악보를 분석해주세요:
+    if (attempt === 0) { setAnalysis(""); setAiErr(""); setUsedImage(false); }
+
+    // PDF 캔버스 이미지 추출
+    const imageB64 = canvasToBase64(pdfCanvasRef?.current);
+
+    const prompt = imageB64
+      ? `첨부된 악보 이미지와 아래 곡 정보를 함께 참고해서 분석해주세요.
+
+곡 정보:
+제목: ${song.title}
+아티스트: ${song.artist || "미상"}
+Key: ${song.key}
+BPM: ${song.bpm || "미상"}
+
+악보 이미지를 직접 보고 한국어로 분석해주세요:
+1. **코드 진행** — 악보에 실제로 표시된 코드 패턴과 진행 특징
+2. **섹션별 포인트** — 악보에서 확인되는 섹션(Verse/Pre-Chorus/Chorus 등) 연습 팁
+3. **파트별 조언** — 기타, 건반, 드럼, 베이스 각각
+4. **예배 흐름** — 곡 분위기와 예배에서의 역할`
+      : `찬양 악보를 분석해주세요:
 제목: ${song.title}
 아티스트: ${song.artist || "미상"}
 Key: ${song.key}
@@ -90,13 +116,21 @@ BPM: ${song.bpm || "미상"}
 2. **섹션별 포인트** — Verse / Pre-Chorus / Chorus 연습 팁
 3. **파트별 조언** — 기타, 건반, 드럼, 베이스 각각
 4. **예배 흐름** — 곡 분위기와 예배에서의 역할`;
+
+    // Gemini API parts: 이미지가 있으면 이미지 먼저, 그 다음 텍스트
+    const parts = [];
+    if (imageB64) {
+      parts.push({ inlineData: { mimeType: "image/jpeg", data: imageB64 } });
+    }
+    parts.push({ text: prompt });
+
     try {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+          body: JSON.stringify({ contents: [{ parts }] }),
         }
       );
       const data = await res.json();
@@ -116,6 +150,7 @@ BPM: ${song.bpm || "미상"}
           : data.error.message);
       }
       setAnalysis(data.candidates[0].content.parts[0].text);
+      setUsedImage(!!imageB64);
       setAiErr("");
     } catch (e) {
       setAiErr(e.message);
@@ -125,10 +160,7 @@ BPM: ${song.bpm || "미상"}
   };
 
   return (
-    <div style={{
-      height:"100%", display:"flex", flexDirection:"column",
-      background:C.surf, overflow:"hidden",
-    }}>
+    <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.surf, overflow:"hidden" }}>
       {/* Header */}
       <div style={{
         padding:"10px 14px", borderBottom:`1px solid ${C.bdr}`,
@@ -136,9 +168,7 @@ BPM: ${song.bpm || "미상"}
         background:C.card, flexShrink:0,
       }}>
         <span style={{ fontSize:14 }}>🎵</span>
-        <span style={{ fontWeight:800, fontSize:13, color:C.acc, letterSpacing:"-0.01em" }}>
-          AI 도움
-        </span>
+        <span style={{ fontWeight:800, fontSize:13, color:C.acc, letterSpacing:"-0.01em" }}>AI 도움</span>
         <span style={{ fontSize:10, color:`${C.dim}88`, marginLeft:2 }}>고정 영역</span>
         <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6 }}>
           <span style={{
@@ -146,9 +176,7 @@ BPM: ${song.bpm || "미상"}
             border:`1px solid ${keyColor(song.key)}44`,
             padding:"2px 7px", borderRadius:5, fontSize:10, fontWeight:700,
           }}>Key {song.key}</span>
-          {song.bpm && (
-            <span style={{ fontSize:10, color:C.dim }}>♩{song.bpm}</span>
-          )}
+          {song.bpm && <span style={{ fontSize:10, color:C.dim }}>♩{song.bpm}</span>}
         </div>
       </div>
 
@@ -163,8 +191,7 @@ BPM: ${song.bpm || "미상"}
           {ytId && !editYt ? (
             <div>
               <div style={{ position:"relative", paddingBottom:"56.25%",
-                height:0, borderRadius:8, overflow:"hidden",
-                border:`1px solid ${C.bdr}` }}>
+                height:0, borderRadius:8, overflow:"hidden", border:`1px solid ${C.bdr}` }}>
                 <iframe
                   src={`https://www.youtube-nocookie.com/embed/${ytId}`}
                   style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", border:"none" }}
@@ -172,51 +199,44 @@ BPM: ${song.bpm || "미상"}
                   allowFullScreen
                 />
               </div>
-              {/* 곡 정보 카드 */}
-          <div style={{
-            display:"flex", alignItems:"center", gap:9, marginTop:8,
-            padding:"8px 10px", background:C.card, borderRadius:9,
-            border:`1px solid ${C.bdr}`,
-          }}>
-            <div style={{
-              width:34, height:34, borderRadius:8, flexShrink:0,
-              background:`linear-gradient(135deg, ${keyColor(song.key)}33, ${C.pur}33)`,
-              border:`1px solid ${keyColor(song.key)}33`,
-              display:"flex", alignItems:"center", justifyContent:"center", fontSize:15,
-            }}>🎵</div>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontWeight:700, fontSize:12, overflow:"hidden",
-                textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
-              <div style={{ fontSize:11, color:C.dim, marginTop:2,
-                display:"flex", alignItems:"center", gap:5 }}>
-                <span>{song.artist || "미상"}</span>
-                <span style={{
-                  background:`${C.grn}22`, color:C.grn,
-                  padding:"1px 5px", borderRadius:4, fontSize:9, fontWeight:700,
-                }}>Live</span>
-              </div>
-            </div>
-            <a href={`https://www.youtube.com/watch?v=${ytId}`}
-              target="_blank" rel="noopener noreferrer"
-              style={{
-                display:"flex", alignItems:"center", justifyContent:"center",
-                width:26, height:26, borderRadius:6,
-                background:C.surf, border:`1px solid ${C.bdr}`,
-                textDecoration:"none", flexShrink:0,
+              <div style={{
+                display:"flex", alignItems:"center", gap:9, marginTop:8,
+                padding:"8px 10px", background:C.card, borderRadius:9, border:`1px solid ${C.bdr}`,
               }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"
-                  stroke={C.dim} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </a>
-          </div>
-
-          {isLeader && (
-            <div style={{ display:"flex", gap:6, marginTop:6 }}>
-              <button onClick={() => setEditYt(true)} style={ghostBtnStyle}>영상 변경</button>
-              <button onClick={removeYtId}            style={ghostBtnStyle}>삭제</button>
-            </div>
-          )}
+                <div style={{
+                  width:34, height:34, borderRadius:8, flexShrink:0,
+                  background:`linear-gradient(135deg, ${keyColor(song.key)}33, ${C.pur}33)`,
+                  border:`1px solid ${keyColor(song.key)}33`,
+                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:15,
+                }}>🎵</div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:700, fontSize:12, overflow:"hidden",
+                    textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
+                  <div style={{ fontSize:11, color:C.dim, marginTop:2,
+                    display:"flex", alignItems:"center", gap:5 }}>
+                    <span>{song.artist || "미상"}</span>
+                    <span style={{ background:`${C.grn}22`, color:C.grn,
+                      padding:"1px 5px", borderRadius:4, fontSize:9, fontWeight:700 }}>Live</span>
+                  </div>
+                </div>
+                <a href={`https://www.youtube.com/watch?v=${ytId}`}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                    width:26, height:26, borderRadius:6,
+                    background:C.surf, border:`1px solid ${C.bdr}`,
+                    textDecoration:"none", flexShrink:0 }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"
+                      stroke={C.dim} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </a>
+              </div>
+              {isLeader && (
+                <div style={{ display:"flex", gap:6, marginTop:6 }}>
+                  <button onClick={() => setEditYt(true)} style={ghostBtnStyle}>영상 변경</button>
+                  <button onClick={removeYtId}            style={ghostBtnStyle}>삭제</button>
+                </div>
+              )}
             </div>
           ) : (
             <div>
@@ -244,11 +264,8 @@ BPM: ${song.bpm || "미상"}
                   </div>
                 </>
               ) : (
-                <div style={{
-                  background:C.card, borderRadius:8, padding:"20px 0",
-                  textAlign:"center", color:C.dim, fontSize:12,
-                  border:`1px dashed ${C.bdr}`,
-                }}>
+                <div style={{ background:C.card, borderRadius:8, padding:"20px 0",
+                  textAlign:"center", color:C.dim, fontSize:12, border:`1px dashed ${C.bdr}` }}>
                   영상이 등록되지 않았습니다
                 </div>
               )}
@@ -261,19 +278,34 @@ BPM: ${song.bpm || "미상"}
 
         {/* ── AI Analysis Section */}
         <div style={{ padding:"0 12px 20px" }}>
-          <button onClick={analyze} disabled={loading} style={{
+          <button onClick={() => analyze(0)} disabled={loading} style={{
             width:"100%",
             background: loading ? `${C.pur}55` : `linear-gradient(135deg, ${C.pur}, #5a4fd6)`,
             border:"none", borderRadius:10, padding:"10px 0",
             cursor: loading ? "not-allowed" : "pointer",
-            fontWeight:700, fontSize:13, color:"#fff",
-            fontFamily:"inherit",
+            fontWeight:700, fontSize:13, color:"#fff", fontFamily:"inherit",
             display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-            marginBottom:12, boxShadow: loading ? "none" : `0 4px 14px ${C.pur}44`,
+            marginBottom:8, boxShadow: loading ? "none" : `0 4px 14px ${C.pur}44`,
             transition:"all .2s",
           }}>
             {loading ? "⏳ 분석 중..." : "✨ AI 분석하기"}
           </button>
+
+          {/* 분석 방식 안내 */}
+          {!loading && !analysis && !aiErr && (
+            <div style={{ fontSize:10, color:C.dim, textAlign:"center", marginBottom:12, lineHeight:1.6 }}>
+              {pdfCanvasRef?.current?.width
+                ? "📄 현재 페이지 악보 이미지를 AI가 직접 읽어 분석합니다"
+                : "ℹ️ 곡 메타데이터 기반으로 분석합니다"}
+            </div>
+          )}
+
+          {usedImage && analysis && (
+            <div style={{ fontSize:10, color:C.grn, marginBottom:8,
+              display:"flex", alignItems:"center", gap:4 }}>
+              <span>📄</span> 악보 이미지 기반 분석
+            </div>
+          )}
 
           {aiErr && (
             <div style={{ fontSize:12, marginBottom:8,
@@ -288,25 +320,14 @@ BPM: ${song.bpm || "미상"}
                   border:`1px solid ${C.red}55`, borderRadius:6,
                   padding:"4px 12px", cursor:"pointer",
                   fontSize:11, color:C.red, fontFamily:"inherit", fontWeight:600,
-                }}>
-                  다시 시도
-                </button>
+                }}>다시 시도</button>
               )}
             </div>
           )}
 
-          {analysis ? (
-            <div style={{
-              background:C.card, borderRadius:10, padding:"12px 14px",
-              border:`1px solid ${C.bdr}`,
-            }}>
+          {analysis && (
+            <div style={{ background:C.card, borderRadius:10, padding:"12px 14px", border:`1px solid ${C.bdr}` }}>
               <Markdown text={analysis} />
-            </div>
-          ) : !loading && !aiErr && (
-            <div style={{ textAlign:"center", padding:"24px 0", color:C.dim, fontSize:12, lineHeight:1.8 }}>
-              AI 분석하기를 누르면<br />
-              코드 진행 · 연습 팁 · 파트별 조언을<br />
-              확인할 수 있어요
             </div>
           )}
         </div>

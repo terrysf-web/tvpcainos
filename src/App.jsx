@@ -3211,7 +3211,7 @@ Return ONLY the JSON array, no other text.`;
         {media && !dual && (
           <div style={{ width:320, flexShrink:0, overflow:"hidden",
             borderLeft:`1px solid ${C.bdr}`, background:C.surf }}>
-            <AIPanel song={song} user={user} />
+            <AIPanel song={song} user={user} pdfCanvasRef={canvas1Ref} />
           </div>
         )}
       </div>
