@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.58";
+const APP_VERSION = "3.59";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2763,24 +2763,31 @@ Return ONLY a JSON array, no other text:
 - "cy": vertical center of the chord label (0.0=top edge, 1.0=bottom edge)
 
 Be precise about the position of each chord label. Return [] if no chords found.`;
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [
-            { inlineData: { mimeType: "image/png", data: b64 } },
-            { text: prompt },
-          ]}]}),
+      const MODELS = ["gemini-1.5-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-8b"];
+      const body = JSON.stringify({ contents: [{ parts: [
+        { inlineData: { mimeType: "image/png", data: b64 } },
+        { text: prompt },
+      ]}]});
+      let data = null;
+      let lastErr = "";
+      for (const model of MODELS) {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+          { method: "POST", headers: { "content-type": "application/json" }, body }
+        );
+        const d = await res.json();
+        if (d.error) {
+          const msg = d.error.message || "";
+          if (d.error.code === 429 || /quota|resource_exhausted|rate/i.test(msg)) {
+            lastErr = `${model} 쿼터 초과`;
+            continue; // try next model
+          }
+          throw new Error(msg || "Gemini API 오류");
         }
-      );
-      const data = await res.json();
-      if (data.error) {
-        const msg = data.error.message || "";
-        if (data.error.code === 429 || /quota|resource_exhausted|rate/i.test(msg))
-          throw new Error("API 쿼터 초과 — 잠시 후 재시도 해주세요");
-        throw new Error(msg || "Gemini API 오류");
+        data = d;
+        break;
       }
+      if (!data) throw new Error("모든 모델 쿼터 초과 — 내일 다시 시도하거나 API 키 쿼터를 확인해주세요");
       const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
       // Remove <think>...</think> blocks, markdown fences, then extract JSON array
       const cleaned = rawText
