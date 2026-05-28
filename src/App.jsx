@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.66";
+const APP_VERSION = "3.67";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2773,7 +2773,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const page   = dual ? 1 : pageNum;
     setDetectingChords(true); setDetectErr(""); setCD([]);
     try {
-      const b64 = canvas.toDataURL("image/png").split(",")[1];
+      // 이미지 축소 (최대 1200px) + JPEG 압축 → 토큰 사용량 대폭 절감
+      const MAX_DIM = 1200;
+      const ratio = Math.min(MAX_DIM / canvas.width, MAX_DIM / canvas.height, 1);
+      const small = document.createElement("canvas");
+      small.width  = Math.round(canvas.width  * ratio);
+      small.height = Math.round(canvas.height * ratio);
+      small.getContext("2d").drawImage(canvas, 0, 0, small.width, small.height);
+      const b64 = small.toDataURL("image/jpeg", 0.80).split(",")[1];
       const prompt = `You are analyzing a sheet music image. Find every chord symbol printed above the staff (like C, Am, G7, F#m, Bb, Dm7, Cadd9, etc.).
 For each chord symbol, provide its center position as a fraction of the total image dimensions.
 
@@ -2791,25 +2798,22 @@ Be precise about the position of each chord label. Return [] if no chords found.
         { text: prompt },
       ]}]});
       let data = null;
-      let lastErr = "";
-      for (const model of MODELS) {
+      for (let mi = 0; mi < MODELS.length; mi++) {
+        if (mi > 0) await new Promise(r => setTimeout(r, 1500)); // 모델 전환 전 잠시 대기
         const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${MODELS[mi]}:generateContent?key=${key}`,
           { method: "POST", headers: { "content-type": "application/json" }, body }
         );
         const d = await res.json();
         if (d.error) {
           const msg = d.error.message || "";
-          if (d.error.code === 429 || /quota|resource_exhausted|rate/i.test(msg)) {
-            lastErr = `${model} 쿼터 초과`;
-            continue; // try next model
-          }
+          if (d.error.code === 429 || /quota|resource_exhausted|rate/i.test(msg)) continue;
           throw new Error(msg || "Gemini API 오류");
         }
         data = d;
         break;
       }
-      if (!data) throw new Error("모든 모델 쿼터 초과 — 내일 다시 시도하거나 API 키 쿼터를 확인해주세요");
+      if (!data) throw new Error("쿼터 초과 — 프로필에서 개인 Gemini API 키를 확인하거나 잠시 후 재시도해주세요");
       const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
       // Remove <think>...</think> blocks, markdown fences, then extract JSON array
       const cleaned = rawText
