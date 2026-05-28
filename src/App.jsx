@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.55";
+const APP_VERSION = "3.56";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2366,6 +2366,46 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
 ══════════════════════════════════════════════════════════════════ */
 
 // 악보 캔버스에서 실제 콘텐츠 영역(여백 제외)의 픽셀 바운드를 반환
+// 코드 라벨 겹침 해소: 같은 행(y 근사) 내에서 좌우로 밀어 최소 간격 확보
+function resolveChordOverlaps(chords, containerW, containerH, fontSize) {
+  if (chords.length < 2) return chords;
+  const GAP     = 4;  // 라벨 간 최소 간격 px
+  const charW   = fontSize * 0.62; // monospace 글자폭 추정
+  const padX    = 8;  // padding 양쪽 합
+  const labelH  = fontSize * 1.6;
+  const rowThr  = labelH * 1.8; // 이 범위 내 y 차이 → 같은 행
+
+  const items = chords.map(c => ({
+    ...c,
+    px: c.x * containerW,
+    py: c.y * containerH,
+    lw: c.chord.length * charW + padX,
+  }));
+
+  // y 기준 정렬 후 같은 행에서 x 기준 정렬
+  items.sort((a, b) => (Math.abs(a.py - b.py) < rowThr ? a.px - b.px : a.py - b.py));
+
+  // 최대 8 패스로 수렴
+  for (let pass = 0; pass < 8; pass++) {
+    let moved = false;
+    for (let i = 0; i < items.length - 1; i++) {
+      const a = items[i], b = items[i + 1];
+      if (Math.abs(b.py - a.py) > rowThr) continue;
+      const need = a.lw / 2 + b.lw / 2 + GAP;
+      const dist = b.px - a.px;
+      if (dist < need) {
+        const push = (need - dist) / 2;
+        a.px = Math.max(a.lw / 2, a.px - push);
+        b.px = Math.min(containerW - b.lw / 2, b.px + push);
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+
+  return items.map(c => ({ ...c, x: c.px / containerW, y: c.py / containerH }));
+}
+
 function detectContentBounds(pdfCanvas, drawCanvas) {
   if (!pdfCanvas || !pdfCanvas.width || !pdfCanvas.height) return null;
   const W = pdfCanvas.width, H = pdfCanvas.height;
@@ -3920,11 +3960,13 @@ Return ONLY the JSON array, no other text.`;
                         onPointerCancel={handleDraw1Cancel}
                       />
                       {transposeMode && chordData.length > 0 && (() => {
-                        const cw = canvas1Ref.current?.offsetWidth || 400;
+                        const cw = canvas1Ref.current?.offsetWidth  || 400;
+                        const ch = canvas1Ref.current?.offsetHeight || 600;
                         const fs = Math.max(8, Math.min(14, cw / 50));
+                        const placed = resolveChordOverlaps(chordData, cw, ch, fs);
                         return (
                           <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
-                            {chordData.map((item, i) => (
+                            {placed.map((item, i) => (
                               <span key={i} style={{
                                 position:"absolute",
                                 left:`${item.x * 100}%`, top:`${item.y * 100}%`,
@@ -3969,11 +4011,13 @@ Return ONLY the JSON array, no other text.`;
                           onPointerCancel={handleDraw2Cancel}
                         />
                         {transposeMode && chordData2.length > 0 && (() => {
-                          const cw = canvas2Ref.current?.offsetWidth || 400;
+                          const cw = canvas2Ref.current?.offsetWidth  || 400;
+                          const ch = canvas2Ref.current?.offsetHeight || 600;
                           const fs = Math.max(8, Math.min(14, cw / 50));
+                          const placed = resolveChordOverlaps(chordData2, cw, ch, fs);
                           return (
                             <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
-                              {chordData2.map((item, i) => (
+                              {placed.map((item, i) => (
                                 <span key={i} style={{
                                   position:"absolute",
                                   left:`${item.x * 100}%`, top:`${item.y * 100}%`,
@@ -4030,11 +4074,13 @@ Return ONLY the JSON array, no other text.`;
                       />
                       {/* 전조 코드 오버레이 */}
                       {transposeMode && chordData.length > 0 && (() => {
-                        const cw = canvas1Ref.current?.offsetWidth || 600;
+                        const cw = canvas1Ref.current?.offsetWidth  || 600;
+                        const ch = canvas1Ref.current?.offsetHeight || 800;
                         const fs = Math.max(10, Math.min(16, cw / 50));
+                        const placed = resolveChordOverlaps(chordData, cw, ch, fs);
                         return (
                           <div style={{ position:"absolute", inset:0, pointerEvents:"none", borderRadius:4 }}>
-                            {chordData.map((item, i) => (
+                            {placed.map((item, i) => (
                               <span key={i} style={{
                                 position:"absolute",
                                 left:`${item.x * 100}%`,
