@@ -81,6 +81,16 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
   const isLeader = user?.role === "leader" || user?.role === "admin";
 
   const [ytId, setYtId] = useState(song?.youtubeId || null);
+  const [ytMeta, setYtMeta] = useState(null); // { title, author }
+
+  // ytId 바뀌면 YouTube oEmbed로 영상 제목/채널명 가져오기
+  useEffect(() => {
+    if (!ytId) { setYtMeta(null); return; }
+    fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${ytId}&format=json`)
+      .then(r => r.json())
+      .then(d => setYtMeta({ title: d.title, author: d.author_name }))
+      .catch(() => setYtMeta(null));
+  }, [ytId]);
 
   // songAnalysis 컬렉션에서 저장된 분석 결과 불러오기
   useEffect(() => {
@@ -260,12 +270,14 @@ BPM: ${song.bpm || "미상"}
                 }}>🎵</div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontWeight:700, fontSize:12, overflow:"hidden",
-                    textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
+                    textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {ytMeta?.title || song.title}
+                  </div>
                   <div style={{ fontSize:11, color:C.dim, marginTop:2,
                     display:"flex", alignItems:"center", gap:5 }}>
-                    <span>{song.artist || "미상"}</span>
+                    {ytMeta?.author && <span>{ytMeta.author}</span>}
                     <span style={{ background:`${C.grn}22`, color:C.grn,
-                      padding:"1px 5px", borderRadius:4, fontSize:9, fontWeight:700 }}>Live</span>
+                      padding:"1px 5px", borderRadius:4, fontSize:9, fontWeight:700 }}>YouTube</span>
                   </div>
                 </div>
                 <a href={`https://www.youtube.com/watch?v=${ytId}`}
