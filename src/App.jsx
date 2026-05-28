@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.65";
+const APP_VERSION = "3.66";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -4866,17 +4866,20 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
   const [showInfo,    setShowInfo]    = useState(false);
   const [showHelp,    setShowHelp]    = useState(false);
   const [showContact, setShowContact] = useState(false);
-  const [showApiKey,  setShowApiKey]  = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState(user?.geminiKey || "");
+  const [showApiKey,   setShowApiKey]   = useState(false);
+  const [apiKeyInput,  setApiKeyInput]  = useState(user?.geminiKey || "");
   const [apiKeySaving, setApiKeySaving] = useState(false);
+  const [apiKeyErr,    setApiKeyErr]    = useState("");
 
   const saveApiKey = async () => {
-    setApiKeySaving(true);
+    setApiKeySaving(true); setApiKeyErr("");
     try {
-      await updateDoc(doc(db, "users", user.uid), { geminiKey: apiKeyInput.trim() });
+      await setDoc(doc(db, "users", user.uid), { geminiKey: apiKeyInput.trim() }, { merge: true });
+      setShowApiKey(false);
+    } catch(e) {
+      setApiKeyErr("저장 실패: " + e.message);
     } finally {
       setApiKeySaving(false);
-      setShowApiKey(false);
     }
   };
 
@@ -4993,6 +4996,9 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
               <div style={{ fontSize:11, color:C.grn, marginBottom:12 }}>
                 ✓ 현재 개인 키 사용 중
               </div>
+            )}
+            {apiKeyErr && (
+              <div style={{ fontSize:11, color:C.red, marginBottom:12 }}>{apiKeyErr}</div>
             )}
             <div style={{ display:"flex", gap:8 }}>
               <Btn label={apiKeySaving ? "저장 중..." : "저장"} onClick={saveApiKey}
