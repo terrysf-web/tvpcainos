@@ -75,6 +75,7 @@ const P = {
   sideR:   "M3 3h18v18H3zM14 3v18",
   zoomIn:  "M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM11 8v6M8 11h6",
   zoomOut: "M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM8 11h6",
+  fitCrop: "M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4",
   prev:    "M15 18l-6-6 6-6",
   next:    "M9 18l6-6-6-6",
   back:    "M19 12H5M12 5l-7 7 7 7",
@@ -2145,6 +2146,32 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
 /* ══════════════════════════════════════════════════════════════════
    PDF VIEWER SCREEN
 ══════════════════════════════════════════════════════════════════ */
+
+// 악보 캔버스에서 실제 콘텐츠 영역(여백 제외)의 픽셀 바운드를 반환
+function detectContentBounds(pdfCanvas, drawCanvas) {
+  if (!pdfCanvas || !pdfCanvas.width || !pdfCanvas.height) return null;
+  const W = pdfCanvas.width, H = pdfCanvas.height;
+  const tmp = document.createElement("canvas");
+  tmp.width = W; tmp.height = H;
+  const ctx = tmp.getContext("2d");
+  ctx.drawImage(pdfCanvas, 0, 0);
+  if (drawCanvas && drawCanvas.width === W && drawCanvas.height === H)
+    ctx.drawImage(drawCanvas, 0, 0);
+  const d = ctx.getImageData(0, 0, W, H).data;
+  const THR = 230; // 이 값보다 밝으면 여백으로 간주
+  let x0 = W, x1 = 0, y0 = H, y1 = 0;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      if (d[i+3] > 10 && (d[i] < THR || d[i+1] < THR || d[i+2] < THR)) {
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    }
+  }
+  return x0 < x1 && y0 < y1 ? { x0, y0, x1, y1, W, H } : null;
+}
+
 function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady }) {
   const song = songs.find(s => s.id === selectedSongId);
 
@@ -2274,6 +2301,42 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setZoomMulR(1.0);
     setPanOffset({ x: 0, y: 0 });
   }, []);
+
+  // 여백 자동 감지 → 악보 콘텐츠만 꽉 채우는 줌+패닝 적용
+  const autoFit = useCallback(() => {
+    if (dual) {
+      // 듀얼: 좌/우 각각 독립적으로 컨텐츠 줌
+      const fitSide = (pdfCvs, drwCvs, zm, setZM) => {
+        const b = detectContentBounds(pdfCvs, drwCvs);
+        if (!b) return;
+        const PAD = 20;
+        const cw = b.x1 - b.x0 + PAD * 2;
+        const ch = b.y1 - b.y0 + PAD * 2;
+        const halfW = Math.floor(cSize.w / 2) - 16;
+        const availH = cSize.h - 16;
+        const ratio = Math.min(halfW / cw, availH / ch);
+        setZM(Math.min(3.0, Math.max(0.5, parseFloat((zm * ratio).toFixed(2)))));
+      };
+      fitSide(canvas1Ref.current, drawCanvas1Ref.current, zoomMulL, setZoomMulL);
+      fitSide(canvas2Ref.current, drawCanvas2Ref.current, zoomMulR, setZoomMulR);
+    } else {
+      const c = canvas1Ref.current;
+      const b = detectContentBounds(c, drawCanvas1Ref.current);
+      if (!b) return;
+      const PAD = 24;
+      const cw = b.x1 - b.x0 + PAD * 2;
+      const ch = b.y1 - b.y0 + PAD * 2;
+      const ratio = Math.min((cSize.w - 16) / cw, (cSize.h - 16) / ch);
+      const newZoom = Math.min(3.0, Math.max(0.5, parseFloat((zoomMul * ratio).toFixed(2))));
+      const r = newZoom / zoomMul;
+      // 콘텐츠 중심을 화면 중심으로 패닝
+      const cx = (b.x0 + b.x1) / 2;
+      const cy = (b.y0 + b.y1) / 2;
+      setZoomMul(newZoom);
+      setPanOffset({ x: r * (b.W / 2 - cx), y: r * (b.H / 2 - cy) });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dual, zoomMul, zoomMulL, zoomMulR, cSize]);
 
   const dualLeftSongId  = svcSongs[dualIdx]?.id     || null;
   const dualRightSongId = svcSongs[dualIdx + 1]?.id || null;
@@ -2955,6 +3018,7 @@ Return ONLY the JSON array, no other text.`;
           </div>
 
           <div style={{ display:"flex", gap:4, alignItems:"center", flexShrink:0 }}>
+            {/* 싱글 모드: 수동 줌 컨트롤 */}
             {!dual && (<>
             <button onClick={() => setZoomMul(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
               style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
@@ -2974,8 +3038,18 @@ Return ONLY the JSON array, no other text.`;
               style={{ background:"none", border:"none", cursor:"pointer", padding:7, display:"flex", borderRadius:8 }}>
               <Icon n="zoomIn" size={18} color={C.dim} />
             </button>
-            <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
             </>)}
+            {/* 여백 자동 제거 + 맞춤 줌 (싱글·듀얼 공통) */}
+            <button onClick={autoFit} title="여백 자동 제거 후 악보 꽉 채우기"
+              style={{ display:"flex", alignItems:"center", gap:4,
+                padding:"4px 8px", borderRadius:7, cursor:"pointer",
+                background: C.card, border:`1px solid ${C.bdr}`,
+                color: C.txt, fontWeight:700, fontSize:11, fontFamily:"inherit",
+                letterSpacing:"0.04em" }}>
+              <Icon n="fitCrop" size={14} color={C.txt} />
+              FIT
+            </button>
+            <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
             {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
             {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
             <div style={{ width:1, height:20, background:C.bdr, margin:"0 2px" }} />
@@ -3433,7 +3507,7 @@ Return ONLY the JSON array, no other text.`;
             // ── 듀얼 모드: 두 곡 나란히 (정확히 50/50)
             <>
               {/* 왼쪽 곡 */}
-              <div style={{ width:"50%", height:"100%", display:"flex",
+              <div style={{ position:"relative", width:"50%", height:"100%", display:"flex",
                 alignItems:"center", justifyContent:"center",
                 borderRight:`1px solid ${C.bdr}`, overflow:"hidden", padding:8 }}>
                 {svcSongs[dualIdx]?.pdfUrl
@@ -3472,35 +3546,6 @@ Return ONLY the JSON array, no other text.`;
                           </div>
                         );
                       })()}
-                      {/* 좌측 제목 + 줌 컨트롤 — 악보 위에 배치 */}
-                      <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)",
-                        display:"flex", flexDirection:"column", alignItems:"center", gap:4,
-                        pointerEvents:"none", zIndex:10, whiteSpace:"nowrap" }}>
-                        <div style={{ background:"rgba(0,0,0,.65)", color:"#fff",
-                          padding:"3px 12px", borderRadius:16, fontSize:11, fontWeight:700,
-                          maxWidth:200, overflow:"hidden", textOverflow:"ellipsis" }}>
-                          {svcSongs[dualIdx]?.title}
-                        </div>
-                        <div style={{ display:"flex", gap:3, alignItems:"center", pointerEvents:"auto" }}>
-                          <button onClick={() => setZoomMulL(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
-                            style={{ background:"rgba(20,20,30,0.72)", border:"1px solid rgba(255,255,255,0.15)",
-                              color:"#fff", borderRadius:7, width:28, height:28, fontSize:16,
-                              cursor:"pointer", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center",
-                              backdropFilter:"blur(6px)" }}>−</button>
-                          <button onClick={() => setZoomMulL(1.0)}
-                            style={{ background: zoomMulL !== 1.0 ? `${C.acc}dd` : "rgba(20,20,30,0.72)",
-                              border:`1px solid ${zoomMulL !== 1.0 ? C.acc : "rgba(255,255,255,0.15)"}`,
-                              color:"#fff", borderRadius:7, minWidth:42, height:28,
-                              fontSize:10, cursor:"pointer", fontWeight:700, fontFamily:"inherit",
-                              backdropFilter:"blur(6px)" }}>
-                            {Math.round(zoomMulL * 100)}%</button>
-                          <button onClick={() => setZoomMulL(z => Math.min(3.0, +(z + 0.15).toFixed(2)))}
-                            style={{ background:"rgba(20,20,30,0.72)", border:"1px solid rgba(255,255,255,0.15)",
-                              color:"#fff", borderRadius:7, width:28, height:28, fontSize:16,
-                              cursor:"pointer", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center",
-                              backdropFilter:"blur(6px)" }}>+</button>
-                        </div>
-                      </div>
                     </div>
                   : <div style={{ textAlign:"center", color:C.dim }}>
                       <div style={{ fontSize:32, marginBottom:8 }}>🎼</div>
@@ -3508,9 +3553,34 @@ Return ONLY the JSON array, no other text.`;
                       <div style={{ fontSize:11, marginTop:4 }}>PDF 없음</div>
                     </div>
                 }
+                {/* 좌측 패널 고정 오버레이: 제목 + 줌 */}
+                <div style={{ position:"absolute", bottom:10, left:0, right:0,
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:4, pointerEvents:"none" }}>
+                  <div style={{ background:"rgba(0,0,0,.6)", color:"#fff",
+                    padding:"3px 12px", borderRadius:16, fontSize:11, fontWeight:700,
+                    maxWidth:"70%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {svcSongs[dualIdx]?.title}
+                  </div>
+                  <div style={{ display:"flex", gap:3, alignItems:"center", pointerEvents:"auto" }}>
+                    <button onClick={() => setZoomMulL(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
+                      style={{ background:"rgba(20,20,35,0.7)", border:"1px solid rgba(255,255,255,0.15)",
+                        color:"#fff", borderRadius:7, width:28, height:28, fontSize:16,
+                        cursor:"pointer", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
+                    <button onClick={() => setZoomMulL(1.0)}
+                      style={{ background: zoomMulL !== 1.0 ? `${C.acc}dd` : "rgba(20,20,35,0.7)",
+                        border:`1px solid ${zoomMulL !== 1.0 ? C.acc : "rgba(255,255,255,0.15)"}`,
+                        color:"#fff", borderRadius:7, minWidth:40, height:28,
+                        fontSize:10, cursor:"pointer", fontWeight:700, fontFamily:"inherit" }}>
+                      {Math.round(zoomMulL * 100)}%</button>
+                    <button onClick={() => setZoomMulL(z => Math.min(3.0, +(z + 0.15).toFixed(2)))}
+                      style={{ background:"rgba(20,20,35,0.7)", border:"1px solid rgba(255,255,255,0.15)",
+                        color:"#fff", borderRadius:7, width:28, height:28, fontSize:16,
+                        cursor:"pointer", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
+                  </div>
+                </div>
               </div>
               {/* 오른쪽 곡 */}
-              <div style={{ width:"50%", height:"100%", display:"flex",
+              <div style={{ position:"relative", width:"50%", height:"100%", display:"flex",
                 alignItems:"center", justifyContent:"center",
                 overflow:"hidden", padding:8 }}>
                 {svcSongs[dualIdx + 1]
@@ -3550,35 +3620,6 @@ Return ONLY the JSON array, no other text.`;
                             </div>
                           );
                         })()}
-                        {/* 우측 제목 + 줌 컨트롤 — 악보 위에 배치 */}
-                        <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)",
-                          display:"flex", flexDirection:"column", alignItems:"center", gap:4,
-                          pointerEvents:"none", zIndex:10, whiteSpace:"nowrap" }}>
-                          <div style={{ background:"rgba(0,0,0,.65)", color:"#fff",
-                            padding:"3px 12px", borderRadius:16, fontSize:11, fontWeight:700,
-                            maxWidth:200, overflow:"hidden", textOverflow:"ellipsis" }}>
-                            {svcSongs[dualIdx + 1].title}
-                          </div>
-                          <div style={{ display:"flex", gap:3, alignItems:"center", pointerEvents:"auto" }}>
-                            <button onClick={() => setZoomMulR(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
-                              style={{ background:"rgba(20,20,30,0.72)", border:"1px solid rgba(255,255,255,0.15)",
-                                color:"#fff", borderRadius:7, width:28, height:28, fontSize:16,
-                                cursor:"pointer", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center",
-                                backdropFilter:"blur(6px)" }}>−</button>
-                            <button onClick={() => setZoomMulR(1.0)}
-                              style={{ background: zoomMulR !== 1.0 ? `${C.acc}dd` : "rgba(20,20,30,0.72)",
-                                border:`1px solid ${zoomMulR !== 1.0 ? C.acc : "rgba(255,255,255,0.15)"}`,
-                                color:"#fff", borderRadius:7, minWidth:42, height:28,
-                                fontSize:10, cursor:"pointer", fontWeight:700, fontFamily:"inherit",
-                                backdropFilter:"blur(6px)" }}>
-                              {Math.round(zoomMulR * 100)}%</button>
-                            <button onClick={() => setZoomMulR(z => Math.min(3.0, +(z + 0.15).toFixed(2)))}
-                              style={{ background:"rgba(20,20,30,0.72)", border:"1px solid rgba(255,255,255,0.15)",
-                                color:"#fff", borderRadius:7, width:28, height:28, fontSize:16,
-                                cursor:"pointer", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center",
-                                backdropFilter:"blur(6px)" }}>+</button>
-                          </div>
-                        </div>
                       </div>
                     : <div style={{ textAlign:"center", color:C.dim }}>
                         <div style={{ fontSize:32, marginBottom:8 }}>🎼</div>
@@ -3590,6 +3631,33 @@ Return ONLY the JSON array, no other text.`;
                       <div style={{ fontSize:13 }}>마지막 곡</div>
                     </div>
                 }
+                {/* 우측 패널 고정 오버레이: 제목 + 줌 */}
+                {svcSongs[dualIdx + 1] && (
+                  <div style={{ position:"absolute", bottom:10, left:0, right:0,
+                    display:"flex", flexDirection:"column", alignItems:"center", gap:4, pointerEvents:"none" }}>
+                    <div style={{ background:"rgba(0,0,0,.6)", color:"#fff",
+                      padding:"3px 12px", borderRadius:16, fontSize:11, fontWeight:700,
+                      maxWidth:"70%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {svcSongs[dualIdx + 1].title}
+                    </div>
+                    <div style={{ display:"flex", gap:3, alignItems:"center", pointerEvents:"auto" }}>
+                      <button onClick={() => setZoomMulR(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
+                        style={{ background:"rgba(20,20,35,0.7)", border:"1px solid rgba(255,255,255,0.15)",
+                          color:"#fff", borderRadius:7, width:28, height:28, fontSize:16,
+                          cursor:"pointer", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
+                      <button onClick={() => setZoomMulR(1.0)}
+                        style={{ background: zoomMulR !== 1.0 ? `${C.acc}dd` : "rgba(20,20,35,0.7)",
+                          border:`1px solid ${zoomMulR !== 1.0 ? C.acc : "rgba(255,255,255,0.15)"}`,
+                          color:"#fff", borderRadius:7, minWidth:40, height:28,
+                          fontSize:10, cursor:"pointer", fontWeight:700, fontFamily:"inherit" }}>
+                        {Math.round(zoomMulR * 100)}%</button>
+                      <button onClick={() => setZoomMulR(z => Math.min(3.0, +(z + 0.15).toFixed(2)))}
+                        style={{ background:"rgba(20,20,35,0.7)", border:"1px solid rgba(255,255,255,0.15)",
+                          color:"#fff", borderRadius:7, width:28, height:28, fontSize:16,
+                          cursor:"pointer", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -3647,28 +3715,6 @@ Return ONLY the JSON array, no other text.`;
                           </div>
                         );
                       })()}
-                      {/* 싱글 모드 줌 컨트롤 — 악보 위에 배치, 패닝 따라감 */}
-                      <div style={{ position:"absolute", bottom:10, left:"50%", transform:"translateX(-50%)",
-                        display:"flex", gap:3, alignItems:"center",
-                        zIndex:10, pointerEvents:"auto", whiteSpace:"nowrap" }}>
-                        <button onClick={() => setZoomMul(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
-                          style={{ background:"rgba(20,20,30,0.72)", border:"1px solid rgba(255,255,255,0.15)",
-                            color:"#fff", borderRadius:7, width:30, height:30, fontSize:17,
-                            cursor:"pointer", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center",
-                            backdropFilter:"blur(6px)" }}>−</button>
-                        <button onClick={resetZoom}
-                          style={{ background: zoomMul !== 1.0 ? `${C.acc}dd` : "rgba(20,20,30,0.72)",
-                            border:`1px solid ${zoomMul !== 1.0 ? C.acc : "rgba(255,255,255,0.15)"}`,
-                            color:"#fff", borderRadius:7, minWidth:46, height:30,
-                            fontSize:11, cursor:"pointer", fontWeight:700, fontFamily:"inherit",
-                            backdropFilter:"blur(6px)" }}>
-                          {Math.round(zoomMul * 100)}%</button>
-                        <button onClick={() => setZoomMul(z => Math.min(3.0, +(z + 0.15).toFixed(2)))}
-                          style={{ background:"rgba(20,20,30,0.72)", border:"1px solid rgba(255,255,255,0.15)",
-                            color:"#fff", borderRadius:7, width:30, height:30, fontSize:17,
-                            cursor:"pointer", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center",
-                            backdropFilter:"blur(6px)" }}>+</button>
-                      </div>
                     </div>
               ) : (
                 <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
@@ -4377,7 +4423,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.40)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.41)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
