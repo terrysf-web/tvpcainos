@@ -43,12 +43,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: 토큰 확인
+        id: check
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then
+            echo "has_token=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_token=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Supabase CLI 설치
-        if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
+        if: steps.check.outputs.has_token == 'true'
         run: npm install -g supabase@latest --silent
 
       - name: Edge Function 배포
-        if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
+        if: steps.check.outputs.has_token == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
@@ -57,7 +68,7 @@ jobs:
             --no-verify-jwt
 
       - name: Firebase 서비스 계정을 Supabase 시크릿으로 등록
-        if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
+        if: steps.check.outputs.has_token == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
