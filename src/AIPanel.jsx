@@ -110,6 +110,7 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
 
     const imageB64 = canvasToBase64(pdfCanvasRef?.current);
 
+    const timeSig = song.timeSig || "미상";
     const prompt = imageB64
       ? `첨부된 악보 이미지와 아래 곡 정보를 함께 참고해서 분석해주세요.
 
@@ -118,23 +119,29 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
 아티스트: ${song.artist || "미상"}
 Key: ${song.key}
 BPM: ${song.bpm || "미상"}
+박자: ${timeSig}
+
+중요: 박자표(time signature)는 악보 이미지 왼쪽 상단에서 직접 확인하세요. 위 박자 정보가 "미상"이거나 이미지와 다르면 이미지를 우선합니다.
 
 악보 이미지를 직접 보고 한국어로 분석해주세요:
-1. **코드 진행** — 악보에 실제로 표시된 코드 패턴과 진행 특징
-2. **섹션별 포인트** — 악보에서 확인되는 섹션(Verse/Pre-Chorus/Chorus 등) 연습 팁
-3. **파트별 조언** — 기타, 건반, 드럼, 베이스 각각
-4. **예배 흐름** — 곡 분위기와 예배에서의 역할`
+1. **박자 & 리듬** — 악보에서 확인한 박자표와 리듬 특징 (6/8이면 흔들리는 느낌, 3/4이면 왈츠 등)
+2. **코드 진행** — 악보에 실제로 표시된 코드 패턴과 진행 특징
+3. **섹션별 포인트** — 악보에서 확인되는 섹션(Verse/Pre-Chorus/Chorus 등) 연습 팁
+4. **파트별 조언** — 기타, 건반, 드럼, 베이스 각각
+5. **예배 흐름** — 곡 분위기와 예배에서의 역할`
       : `찬양 악보를 분석해주세요:
 제목: ${song.title}
 아티스트: ${song.artist || "미상"}
 Key: ${song.key}
 BPM: ${song.bpm || "미상"}
+박자: ${timeSig}
 
 한국어로 간결하게 분석해주세요:
-1. **코드 진행** — 이 Key에서 주요 코드 패턴과 특징
-2. **섹션별 포인트** — Verse / Pre-Chorus / Chorus 연습 팁
-3. **파트별 조언** — 기타, 건반, 드럼, 베이스 각각
-4. **예배 흐름** — 곡 분위기와 예배에서의 역할`;
+1. **박자 & 리듬** — ${timeSig} 박자의 특징과 연주 시 주의점
+2. **코드 진행** — 이 Key에서 주요 코드 패턴과 특징
+3. **섹션별 포인트** — Verse / Pre-Chorus / Chorus 연습 팁
+4. **파트별 조언** — 기타, 건반, 드럼, 베이스 각각
+5. **예배 흐름** — 곡 분위기와 예배에서의 역할`;
 
     const parts = [];
     if (imageB64) parts.push({ inlineData: { mimeType: "image/jpeg", data: imageB64 } });

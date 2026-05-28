@@ -683,6 +683,7 @@ function AddSongModal({ onClose, onAdd }) {
   const [artist,       setArtist]       = useState("");
   const [key,          setKey]          = useState("C");
   const [bpm,          setBpm]          = useState("80");
+  const [timeSig,      setTimeSig]      = useState("4/4");
   const [pdfFile,      setPdfFile]      = useState(null);
   const [saving,       setSaving]       = useState(false);
   const [pdfPageCount, setPdfPageCount] = useState(0);
@@ -752,7 +753,7 @@ function AddSongModal({ onClose, onAdd }) {
           }
         }
       } else {
-        const docRef = await onAdd({ title, artist, key, bpm: Number(bpm) || 80 });
+        const docRef = await onAdd({ title, artist, key, bpm: Number(bpm) || 80, timeSig: timeSig || "4/4" });
         if (pdfFile && docRef?.id) {
           const url = await uploadPdf(pdfFile, docRef.id);
           await updateDoc(doc(db, "songs", docRef.id), { pdfUrl: url });
@@ -795,6 +796,21 @@ function AddSongModal({ onClose, onAdd }) {
             </div>
           </div>
           <Input label="BPM" value={bpm} onChange={setBpm} type="number" placeholder="80" />
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+              textTransform:"uppercase", marginBottom:8 }}>박자</div>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              {["4/4","3/4","6/8","2/4","12/8"].map(t => (
+                <button key={t} onClick={() => setTimeSig(t)} style={{
+                  padding:"5px 12px", borderRadius:7, border:"none", cursor:"pointer",
+                  fontSize:13, fontFamily:"inherit",
+                  background: timeSig===t ? C.pur : C.card,
+                  color:      timeSig===t ? "#fff" : C.dim,
+                  fontWeight: timeSig===t ? 700   : 400,
+                }}>{t}</button>
+              ))}
+            </div>
+          </div>
         </>
       )}
 
@@ -1540,10 +1556,11 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
   const saveEdit = async () => {
     if (!editSong) return;
     await updateDoc(doc(db, "songs", editSong.id), {
-      title:  editForm.title.trim(),
-      artist: editForm.artist.trim(),
-      key:    editForm.key.trim(),
-      bpm:    Number(editForm.bpm) || 0,
+      title:   editForm.title.trim(),
+      artist:  editForm.artist.trim(),
+      key:     editForm.key.trim(),
+      bpm:     Number(editForm.bpm) || 0,
+      timeSig: editForm.timeSig?.trim() || "4/4",
     });
     setEditSong(null);
   };
@@ -1630,7 +1647,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
                     <div style={{ fontSize:11, color:C.acc, padding:"0 6px" }}>업로드 중...</div>
                   ) : (
                     <>
-                      <button onClick={() => { setEditSong(song); setEditForm({ title: song.title, artist: song.artist || "", key: song.key || "", bpm: song.bpm || "" }); }}
+                      <button onClick={() => { setEditSong(song); setEditForm({ title: song.title, artist: song.artist || "", key: song.key || "", bpm: song.bpm || "", timeSig: song.timeSig || "4/4" }); }}
                         title="편집"
                         style={{ display:"flex", alignItems:"center", justifyContent:"center",
                           width:34, height:34, borderRadius:9, cursor:"pointer",
@@ -1692,6 +1709,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
             { label:"아티스트", key:"artist", placeholder:"아티스트" },
             { label:"키 (Key)", key:"key", placeholder:"C, D, E, F, G, A, B..." },
             { label:"BPM", key:"bpm", placeholder:"120", type:"number" },
+            { label:"박자", key:"timeSig", placeholder:"4/4, 3/4, 6/8..." },
           ].map(f => (
             <div key={f.key} style={{ marginBottom:12 }}>
               <div style={{ fontSize:12, color:C.dim, marginBottom:4 }}>{f.label}</div>
@@ -3757,7 +3775,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.18)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.19)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
@@ -3784,7 +3802,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             <img src="/icon-192.png" width={64} height={64}
               style={{ borderRadius:16, marginBottom:12 }} alt="Ainos" />
             <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>TVPC Worship</div>
-            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.18</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.19</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
               찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />
               악보 업로드, 필기, 코드 전조, 예배 일정 관리 등<br />
