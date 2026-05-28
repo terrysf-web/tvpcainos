@@ -208,7 +208,7 @@ function getStampBaseline(_sym) {
 }
 
 /* ── Canvas drawing utility (module-level, pure) */
-function drawStrokes(canvas, strokes, cur = null) {
+function drawStrokes(canvas, strokes, cur = null, showTextDots = false) {
   if (!canvas || !canvas.width || !canvas.height) return;
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -350,6 +350,27 @@ function drawStrokes(canvas, strokes, cur = null) {
       ctx.stroke();
     }
     ctx.restore();
+  }
+  // 텍스트 툴 모드: 기존 텍스트 위치에 노란 점 표시 (왼쪽 하단 기준점)
+  if (showTextDots) {
+    const ctx2 = canvas.getContext("2d");
+    for (const s of strokes) {
+      if (s.tool === "text" && s.points?.length > 0) {
+        const px = s.points[0].x * canvas.width;
+        const py = s.points[0].y * canvas.height;
+        const r = Math.max(5, canvas.width / 120);
+        ctx2.save();
+        ctx2.beginPath();
+        ctx2.arc(px, py, r, 0, Math.PI * 2);
+        ctx2.fillStyle = "#FFD600";
+        ctx2.globalAlpha = 0.92;
+        ctx2.fill();
+        ctx2.strokeStyle = "rgba(0,0,0,0.35)";
+        ctx2.lineWidth = 1.2;
+        ctx2.stroke();
+        ctx2.restore();
+      }
+    }
   }
 }
 
@@ -1835,6 +1856,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // keep drawModeRef in sync for non-reactive listeners
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
 
+  // 텍스트 툴 전환 시 노란 점 표시/숨김을 위해 캔버스 리드로우
+  useEffect(() => {
+    const c1 = drawCanvas1Ref.current;
+    if (c1) drawStrokes(c1, strokes1Ref.current, null, drawTool === "text");
+    const c2 = drawCanvas2Ref.current;
+    if (c2) drawStrokes(c2, strokes2Ref.current, null, drawTool === "text");
+  }, [drawTool]);
+
   // pan helpers
   const PAN_STEP = 70;
   const doPan = useCallback((dx, dy) => {
@@ -2188,7 +2217,7 @@ Return ONLY the JSON array, no other text.`;
     };
     const next = [...strokesRef.current, textStroke];
     strokesRef.current = next;
-    if (canvas) drawStrokes(canvas, next);
+    if (canvas) drawStrokes(canvas, next, null, true);
     await saveDrawing(songId, page, next);
     setTextInput(null);
   }, [textInput, drawColor, drawWidth, dual, dualLeftSongId, dualRightSongId, selectedSongId, pageNum, saveDrawing]);
