@@ -1662,7 +1662,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                     </div>
                     <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap" }}>
                       <KeyBadge k={song.key} />
-                      {song.pdfUrl && <Badge label="PDF" color={C.grn} />}
+                      {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF · 페이지${song.pdfPage}` : "PDF"} color={C.grn} />}
                       {teamNotes.length > 0 && <Badge label={`📋 ${teamNotes.length}`} color={C.acc} />}
                     </div>
                   </div>
@@ -1995,7 +1995,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
                 <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap" }}>
                   <KeyBadge k={song.key} />
                   <Badge label={`♩ ${song.bpm}`} color={C.dim} />
-                  {song.pdfUrl && <Badge label="PDF" color={C.grn} />}
+                  {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF · 페이지${song.pdfPage}` : "PDF"} color={C.grn} />}
                 </div>
               </div>
 
@@ -4293,7 +4293,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.31)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.32)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
@@ -4320,7 +4320,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             <img src="/icon-192.png" width={64} height={64}
               style={{ borderRadius:16, marginBottom:12 }} alt="Ainos" />
             <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>TVPC Worship</div>
-            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.31</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.32</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
               찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />
               악보 업로드, 필기, 코드 전조, 예배 일정 관리 등<br />
