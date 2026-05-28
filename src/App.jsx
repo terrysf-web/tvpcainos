@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.68";
+const APP_VERSION = "3.69";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -4872,10 +4872,32 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
   const [showInfo,    setShowInfo]    = useState(false);
   const [showHelp,    setShowHelp]    = useState(false);
   const [showContact, setShowContact] = useState(false);
-  const [showApiKey,   setShowApiKey]   = useState(false);
-  const [apiKeyInput,  setApiKeyInput]  = useState(user?.geminiKey || "");
-  const [apiKeySaving, setApiKeySaving] = useState(false);
-  const [apiKeyErr,    setApiKeyErr]    = useState("");
+  const [showApiKey,    setShowApiKey]    = useState(false);
+  const [apiKeyInput,   setApiKeyInput]   = useState(user?.geminiKey || "");
+  const [apiKeySaving,  setApiKeySaving]  = useState(false);
+  const [apiKeyErr,     setApiKeyErr]     = useState("");
+  const [apiKeyTesting, setApiKeyTesting] = useState(false);
+  const [apiKeyOk,      setApiKeyOk]      = useState(false);
+
+  const testApiKey = async () => {
+    const k = apiKeyInput.trim();
+    if (!k) return;
+    setApiKeyTesting(true); setApiKeyErr(""); setApiKeyOk(false);
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${k}`,
+        { method:"POST", headers:{"content-type":"application/json"},
+          body: JSON.stringify({ contents:[{ parts:[{ text:"Hi" }] }] }) }
+      );
+      const d = await res.json();
+      if (d.error) throw new Error(d.error.message || "오류");
+      setApiKeyOk(true);
+    } catch(e) {
+      setApiKeyErr("키 오류: " + e.message);
+    } finally {
+      setApiKeyTesting(false);
+    }
+  };
 
   const saveApiKey = async () => {
     setApiKeySaving(true); setApiKeyErr("");
@@ -4990,22 +5012,31 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
               개인 Gemini API 키를 설정하면 쿼터 초과 없이 코드 감지를 사용할 수 있습니다.<br />
               <span style={{ color:C.acc, fontWeight:600 }}>aistudio.google.com</span>에서 무료로 발급받을 수 있습니다.
             </div>
-            <input
-              value={apiKeyInput}
-              onChange={e => setApiKeyInput(e.target.value)}
-              placeholder="AIza..."
-              style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:`1px solid ${C.bdr}`,
-                background:C.surf, color:C.txt, fontSize:13, fontFamily:"monospace",
-                boxSizing:"border-box", marginBottom:12, outline:"none" }}
-            />
             {user?.geminiKey && (
-              <div style={{ fontSize:11, color:C.grn, marginBottom:12 }}>
-                ✓ 현재 개인 키 사용 중
+              <div style={{ fontSize:11, color:C.dim, marginBottom:8, fontFamily:"monospace",
+                background:C.surf, borderRadius:6, padding:"6px 10px" }}>
+                저장된 키: {user.geminiKey.slice(0,8)}••••{user.geminiKey.slice(-4)}
               </div>
             )}
-            {apiKeyErr && (
-              <div style={{ fontSize:11, color:C.red, marginBottom:12 }}>{apiKeyErr}</div>
-            )}
+            <input
+              value={apiKeyInput}
+              onChange={e => { setApiKeyInput(e.target.value); setApiKeyOk(false); setApiKeyErr(""); }}
+              placeholder="AIza..."
+              style={{ width:"100%", padding:"10px 12px", borderRadius:8,
+                border:`1px solid ${apiKeyOk ? C.grn : apiKeyErr ? C.red : C.bdr}`,
+                background:C.surf, color:C.txt, fontSize:13, fontFamily:"monospace",
+                boxSizing:"border-box", marginBottom:8, outline:"none" }}
+            />
+            {apiKeyOk && <div style={{ fontSize:11, color:C.grn, marginBottom:8 }}>✓ 키 정상 작동 확인됨</div>}
+            {apiKeyErr && <div style={{ fontSize:11, color:C.red, marginBottom:8 }}>{apiKeyErr}</div>}
+            <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+              <button onClick={testApiKey} disabled={apiKeyTesting || !apiKeyInput.trim()}
+                style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${C.bdr}`,
+                  background:"transparent", color:C.dim, fontSize:12, cursor:"pointer",
+                  fontFamily:"inherit", opacity: apiKeyTesting || !apiKeyInput.trim() ? 0.5 : 1 }}>
+                {apiKeyTesting ? "테스트 중..." : "키 테스트"}
+              </button>
+            </div>
             <div style={{ display:"flex", gap:8 }}>
               <Btn label={apiKeySaving ? "저장 중..." : "저장"} onClick={saveApiKey}
                 disabled={apiKeySaving || !apiKeyInput.trim()} full />
