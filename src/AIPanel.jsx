@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase.js";
 
 const C = {
@@ -80,22 +80,19 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
 
   const isLeader = user?.role === "leader" || user?.role === "admin";
 
-  // ytId는 songAnalysis에서 로드 (songs 컬렉션 write 권한 불필요)
   const [ytId, setYtId] = useState(song?.youtubeId || null);
 
-  // songAnalysis 컬렉션에서 저장된 분석 결과 + youtubeId 불러오기
+  // songAnalysis 컬렉션에서 저장된 분석 결과 불러오기
   useEffect(() => {
     if (!song?.id) return;
     setAnalysis(""); setAiErr(""); setUsedImage(false);
-    setYtId(song?.youtubeId || null); // songs 컬렉션 기존값 fallback
+    setYtId(song?.youtubeId || null);
     getDoc(doc(db, "songAnalysis", song.id)).then(snap => {
       if (snap.exists()) {
         const d = snap.data();
         setAnalysis(d.text || "");
         setUsedImage(!!d.usedImage);
         setSavedMeta({ at: d.savedAt, usedImage: !!d.usedImage });
-        // songAnalysis에 youtubeId 있으면 우선 사용
-        if (d.youtubeId) setYtId(d.youtubeId);
       }
     });
   }, [song?.id]);
@@ -104,7 +101,7 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
     const id = parseYtId(ytInput);
     if (!id) { setYtErr("올바른 YouTube URL을 입력하세요."); return; }
     try {
-      await setDoc(doc(db, "songAnalysis", song.id), { youtubeId: id }, { merge: true });
+      await updateDoc(doc(db, "songs", song.id), { youtubeId: id });
       setYtId(id);
       setEditYt(false); setYtInput(""); setYtErr("");
     } catch (e) {
@@ -114,7 +111,7 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
 
   const removeYtId = async () => {
     try {
-      await setDoc(doc(db, "songAnalysis", song.id), { youtubeId: null }, { merge: true });
+      await updateDoc(doc(db, "songs", song.id), { youtubeId: null });
       setYtId(null);
     } catch (e) {
       setYtErr("삭제 실패: " + e.message);
