@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.61";
+const APP_VERSION = "3.62";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2509,7 +2509,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // ── Chord transposition
   const [transposeMode,  setTransposeMode]  = useState(false);
-  const [transposeSteps, setTransposeSteps] = useState(0);
+  const [transposeSteps,  setTransposeSteps]  = useState(0);  // single / dual left
+  const [transposeSteps2, setTransposeSteps2] = useState(0);  // dual right
   const [chordData,      setChordData]      = useState([]);   // [{chord,x,y}] — single / dual left
   const [chordData2,     setChordData2]     = useState([]);   // dual right
   const [detectingChords, setDetectingChords] = useState(false);
@@ -2751,7 +2752,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setChordData2([]);
     if (!user?.uid || !dualRightSongId || !dual) return;
     getDoc(doc(db, "customSongs", `chord_${user.uid}_${dualRightSongId}_p1`))
-      .then(snap => { if (snap.exists()) setChordData2(snap.data().chords || []); })
+      .then(snap => {
+        if (snap.exists()) {
+          setChordData2(snap.data().chords || []);
+          setTransposeSteps2(snap.data().transposeSteps ?? 0);
+        } else {
+          setTransposeSteps2(0);
+        }
+      })
       .catch(() => {});
   }, [dualRightSongId, user?.uid, dual]);
 
@@ -2848,6 +2856,16 @@ Be precise about the position of each chord label. Return [] if no chords found.
     if (!songId) return;
     setDoc(
       doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`),
+      { transposeSteps: newSteps, updatedAt: serverTimestamp() },
+      { merge: true }
+    ).catch(() => {});
+  };
+
+  const saveTransposeSteps2 = (newSteps) => {
+    setTransposeSteps2(newSteps);
+    if (!user?.uid || !dualRightSongId) return;
+    setDoc(
+      doc(db, "customSongs", `chord_${user.uid}_${dualRightSongId}_p1`),
       { transposeSteps: newSteps, updatedAt: serverTimestamp() },
       { merge: true }
     ).catch(() => {});
@@ -3779,22 +3797,61 @@ Be precise about the position of each chord label. Return [] if no chords found.
           background:`${C.grn}0a`, borderBottom:`1px solid ${C.bdr}`,
           overflowX:"auto",
         }}>
-          {/* 반음 조절 */}
-          <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
-            <button onClick={() => saveTransposeSteps(Math.max(-6, transposeSteps - 1))}
-              style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
-                background:"transparent", cursor:"pointer", fontWeight:700, fontSize:15, display:"flex",
-                alignItems:"center", justifyContent:"center", color:C.txt }}>−</button>
-            <div style={{ textAlign:"center", minWidth:60 }}>
-              <div style={{ fontSize:12, fontWeight:800, color: transposeSteps === 0 ? C.dim : C.grn }}>
-                {transposeSteps === 0 ? "원본" : `${transposeSteps > 0 ? "+" : ""}${transposeSteps} 반음`}
+          {dual ? (
+            /* 듀얼 모드: 왼쪽 / 오른쪽 독립 반음 조절 */
+            <>
+              <span style={{ fontSize:10, color:C.dim, fontWeight:700, flexShrink:0 }}>왼</span>
+              <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                <button onClick={() => saveTransposeSteps(Math.max(-6, transposeSteps - 1))}
+                  style={{ width:24, height:24, borderRadius:5, border:`1px solid ${C.bdr}`,
+                    background:"transparent", cursor:"pointer", fontWeight:700, fontSize:14, display:"flex",
+                    alignItems:"center", justifyContent:"center", color:C.txt }}>−</button>
+                <div style={{ textAlign:"center", minWidth:44 }}>
+                  <div style={{ fontSize:11, fontWeight:800, color: transposeSteps === 0 ? C.dim : C.grn }}>
+                    {transposeSteps === 0 ? "원본" : `${transposeSteps > 0 ? "+" : ""}${transposeSteps}`}
+                  </div>
+                </div>
+                <button onClick={() => saveTransposeSteps(Math.min(6, transposeSteps + 1))}
+                  style={{ width:24, height:24, borderRadius:5, border:`1px solid ${C.bdr}`,
+                    background:"transparent", cursor:"pointer", fontWeight:700, fontSize:14, display:"flex",
+                    alignItems:"center", justifyContent:"center", color:C.txt }}>+</button>
               </div>
+              <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+              <span style={{ fontSize:10, color:C.dim, fontWeight:700, flexShrink:0 }}>오</span>
+              <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                <button onClick={() => saveTransposeSteps2(Math.max(-6, transposeSteps2 - 1))}
+                  style={{ width:24, height:24, borderRadius:5, border:`1px solid ${C.bdr}`,
+                    background:"transparent", cursor:"pointer", fontWeight:700, fontSize:14, display:"flex",
+                    alignItems:"center", justifyContent:"center", color:C.txt }}>−</button>
+                <div style={{ textAlign:"center", minWidth:44 }}>
+                  <div style={{ fontSize:11, fontWeight:800, color: transposeSteps2 === 0 ? C.dim : C.grn }}>
+                    {transposeSteps2 === 0 ? "원본" : `${transposeSteps2 > 0 ? "+" : ""}${transposeSteps2}`}
+                  </div>
+                </div>
+                <button onClick={() => saveTransposeSteps2(Math.min(6, transposeSteps2 + 1))}
+                  style={{ width:24, height:24, borderRadius:5, border:`1px solid ${C.bdr}`,
+                    background:"transparent", cursor:"pointer", fontWeight:700, fontSize:14, display:"flex",
+                    alignItems:"center", justifyContent:"center", color:C.txt }}>+</button>
+              </div>
+            </>
+          ) : (
+            /* 싱글 모드: 기존 단일 반음 조절 */
+            <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+              <button onClick={() => saveTransposeSteps(Math.max(-6, transposeSteps - 1))}
+                style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
+                  background:"transparent", cursor:"pointer", fontWeight:700, fontSize:15, display:"flex",
+                  alignItems:"center", justifyContent:"center", color:C.txt }}>−</button>
+              <div style={{ textAlign:"center", minWidth:60 }}>
+                <div style={{ fontSize:12, fontWeight:800, color: transposeSteps === 0 ? C.dim : C.grn }}>
+                  {transposeSteps === 0 ? "원본" : `${transposeSteps > 0 ? "+" : ""}${transposeSteps} 반음`}
+                </div>
+              </div>
+              <button onClick={() => saveTransposeSteps(Math.min(6, transposeSteps + 1))}
+                style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
+                  background:"transparent", cursor:"pointer", fontWeight:700, fontSize:15, display:"flex",
+                  alignItems:"center", justifyContent:"center", color:C.txt }}>+</button>
             </div>
-            <button onClick={() => saveTransposeSteps(Math.min(6, transposeSteps + 1))}
-              style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
-                background:"transparent", cursor:"pointer", fontWeight:700, fontSize:15, display:"flex",
-                alignItems:"center", justifyContent:"center", color:C.txt }}>+</button>
-          </div>
+          )}
           <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
           {/* AI 감지 버튼 — 코드가 이미 있으면 숨기고 개수만 표시 */}
           {dual ? (
@@ -3832,7 +3889,7 @@ Be precise about the position of each chord label. Return [] if no chords found.
             <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>
           )}
           <div style={{ marginLeft:"auto", flexShrink:0 }}>
-            <button onClick={() => { setTransposeSteps(0); setChordData([]); setChordData2([]); setDetectErr(""); }}
+            <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setChordData([]); setChordData2([]); setDetectErr(""); }}
               style={{ background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
                 padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit" }}>
               초기화
@@ -4059,13 +4116,13 @@ Be precise about the position of each chord label. Return [] if no chords found.
                                   position:"absolute",
                                   left:`${item.x * 100}%`, top:`${item.y * 100}%`,
                                   transform:"translate(-50%,-50%)",
-                                  background: transposeSteps === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
-                                  color: transposeSteps === 0 ? "#fff" : "#111",
+                                  background: transposeSteps2 === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
+                                  color: transposeSteps2 === 0 ? "#fff" : "#111",
                                   borderRadius:3, padding:"1px 4px",
                                   fontSize:fs, fontWeight:800, lineHeight:1.5,
                                   whiteSpace:"nowrap", fontFamily:"monospace",
                                   boxShadow:"0 1px 4px rgba(0,0,0,.3)",
-                                }}>{transposeChord(item.chord, transposeSteps)}</span>
+                                }}>{transposeChord(item.chord, transposeSteps2)}</span>
                               ))}
                             </div>
                           );
