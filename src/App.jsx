@@ -1430,9 +1430,11 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
   if (!svc) return null;
 
-  // Map directly from svc.songIds to keep indices aligned (no filter shift)
+  // Map from svc.songIds — keep raw index (i) for duplicate support
   const entries = (svc.songIds || []).map((id, i) => ({ id, song: songs.find(s => s.id === id) || null, i }));
   const totalCount = entries.filter(e => e.song).length;
+  // valid-only list — index here = what PDFViewerScreen uses for navigation
+  const validEntries = entries.filter(e => e.song);
 
   const leader = isLeader(user.role);
 
@@ -1654,7 +1656,11 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
                   {/* 곡 정보 */}
                   <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
-                    onClick={() => !drag && nav("pdfViewer", { songId: song.id, svcSongIdx: i, backTo:"svcDetail" })}>
+                    onClick={() => !drag && nav("pdfViewer", {
+                      songId: song.id,
+                      svcSongIdx: validEntries.findIndex(e => e.i === i),
+                      backTo: "svcDetail",
+                    })}>
                     <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
                       textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
                     <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>
@@ -2144,9 +2150,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // ── 예배 곡 순서
   const svc      = selectedSvcId ? services.find(s => s.id === selectedSvcId) : null;
-  // songIds 그대로 유지 — 중복 ID 허용 (복사된 곡 대응)
-  const svcSongs = svc ? (svc.songIds || []).map(id => songs.find(s => s.id === id)) : [];
-  // 전달된 인덱스 우선 사용, 없으면 findIndex fallback
+  // 유효 곡만 포함 — 삭제된 ID 제외, 중복 ID(복사) 허용
+  const svcSongs = svc
+    ? (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean)
+    : [];
+  // 전달된 인덱스 우선(복사 곡 정확한 위치), 없으면 findIndex fallback
   const songIdx  = (selectedSvcSongIdx >= 0 && selectedSvcSongIdx < svcSongs.length)
     ? selectedSvcSongIdx
     : svcSongs.findIndex(s => s?.id === selectedSongId);
@@ -4297,7 +4305,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.34)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.35)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
@@ -4324,7 +4332,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             <img src="/icon-192.png" width={64} height={64}
               style={{ borderRadius:16, marginBottom:12 }} alt="Ainos" />
             <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>TVPC Worship</div>
-            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.34</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.35</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
               찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />
               악보 업로드, 필기, 코드 전조, 예배 일정 관리 등<br />
