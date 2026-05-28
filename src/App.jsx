@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.56";
+const APP_VERSION = "3.57";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2752,14 +2752,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setDetectingChords(true); setDetectErr(""); setCD([]);
     try {
       const b64 = canvas.toDataURL("image/png").split(",")[1];
-      const prompt = `Detect all chord symbols (like C, Am, G7, F#m, Bb, Dm7, etc.) in this sheet music image.
-Return ONLY a JSON array. Each item must have:
-- "label": the chord symbol text exactly as shown
-- "box_2d": bounding box as [ymin, xmin, ymax, xmax] where values are 0-1000 (0=top/left, 1000=bottom/right)
+      const prompt = `You are analyzing a sheet music image. Find every chord symbol printed above the staff (like C, Am, G7, F#m, Bb, Dm7, Cadd9, etc.).
+For each chord symbol, provide its center position as a fraction of the total image dimensions.
 
-Example: [{"label":"C","box_2d":[45,120,75,160]},{"label":"Am","box_2d":[45,340,75,390]}]
-If no chords found, return [].
-Return ONLY the JSON array, no other text.`;
+Return ONLY a JSON array, no other text:
+[{"label":"C","cx":0.15,"cy":0.08},{"label":"Am","cx":0.35,"cy":0.08}]
+
+- "label": the chord symbol exactly as printed
+- "cx": horizontal center of the chord label (0.0=left edge, 1.0=right edge)
+- "cy": vertical center of the chord label (0.0=top edge, 1.0=bottom edge)
+
+Be precise about the position of each chord label. Return [] if no chords found.`;
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
         {
@@ -2781,14 +2784,12 @@ Return ONLY the JSON array, no other text.`;
       let raw;
       try { raw = JSON.parse(match[0]); }
       catch { setDetectErr("JSON 파싱 실패 — 재시도 해보세요"); return; }
-      const chords = raw.map(item => {
-        const b = item.box_2d;
-        const x = (b[1] + b[3]) / 2 / 1000;
-        const y = (b[0] + b[2]) / 2 / 1000;
-        const w = (b[3] - b[1]) / 1000;
-        const h = (b[2] - b[0]) / 1000;
-        return { chord: item.label, x, y, w, h };
-      });
+      const chords = raw.map(item => ({
+        chord: item.label,
+        x: typeof item.cx === "number" ? item.cx : (typeof item.x === "number" ? item.x : 0.5),
+        y: typeof item.cy === "number" ? item.cy : (typeof item.y === "number" ? item.y : 0.5),
+        w: 0.02, h: 0.02,
+      }));
       setCD(chords);
       if (chords.length === 0) {
         setDetectErr("코드를 찾지 못했습니다");
