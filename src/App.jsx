@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.67";
+const APP_VERSION = "3.68";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2808,6 +2808,8 @@ Be precise about the position of each chord label. Return [] if no chords found.
         if (d.error) {
           const msg = d.error.message || "";
           if (d.error.code === 429 || /quota|resource_exhausted|rate/i.test(msg)) continue;
+          if (/expired|invalid.*key|api.*key/i.test(msg))
+            throw new Error("API 키 만료 또는 오류 — 프로필에서 키를 새로 발급·교체해주세요");
           throw new Error(msg || "Gemini API 오류");
         }
         data = d;
