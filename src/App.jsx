@@ -89,7 +89,7 @@ const P = {
   eraser:  "M20 20H7L3 16 13 6l8 8-2.5 2.5M9 15l2 2",
   undo:    "M3 10h13a4 4 0 0 1 0 8H9M3 10l4-4M3 10l4 4",
   highlight:"M3 20h4L19.5 8.5a2.12 2.12 0 0 0-3-3L5 17 3 20zM16 5l3 3M15 7l-8 8",
-  stamp:   "M9 2h6v3H9zM5 7h14v2a3 3 0 0 0-3 3v8a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-8a3 3 0 0 0-3-3V7z",
+  stamp:   "M9 2h6v3H9zM7 5h10v2H7zM3 7h18v11H3zM2 21h20",
   slur:    "M4 17 Q12 7 20 17",
   cresc:   "M4 12 L20 7 M4 12 L20 17",
   dim:     "M4 7 L20 12 M4 17 L20 12",
@@ -3775,7 +3775,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.20)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.21)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
@@ -3802,7 +3802,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             <img src="/icon-192.png" width={64} height={64}
               style={{ borderRadius:16, marginBottom:12 }} alt="Ainos" />
             <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>TVPC Worship</div>
-            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.20</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.21</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
               찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />
               악보 업로드, 필기, 코드 전조, 예배 일정 관리 등<br />
