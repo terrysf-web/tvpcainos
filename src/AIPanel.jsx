@@ -79,18 +79,23 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
   const [savedMeta,  setSavedMeta]  = useState(null); // { at, usedImage }
 
   const isLeader = user?.role === "leader" || user?.role === "admin";
-  const ytId = song?.youtubeId;
 
-  // songAnalysis 컬렉션에서 저장된 분석 결과 불러오기
+  // ytId는 songAnalysis에서 로드 (songs 컬렉션 write 권한 불필요)
+  const [ytId, setYtId] = useState(song?.youtubeId || null);
+
+  // songAnalysis 컬렉션에서 저장된 분석 결과 + youtubeId 불러오기
   useEffect(() => {
     if (!song?.id) return;
     setAnalysis(""); setAiErr(""); setUsedImage(false);
+    setYtId(song?.youtubeId || null); // songs 컬렉션 기존값 fallback
     getDoc(doc(db, "songAnalysis", song.id)).then(snap => {
       if (snap.exists()) {
         const d = snap.data();
         setAnalysis(d.text || "");
         setUsedImage(!!d.usedImage);
         setSavedMeta({ at: d.savedAt, usedImage: !!d.usedImage });
+        // songAnalysis에 youtubeId 있으면 우선 사용
+        if (d.youtubeId) setYtId(d.youtubeId);
       }
     });
   }, [song?.id]);
@@ -98,12 +103,22 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
   const saveYtId = async () => {
     const id = parseYtId(ytInput);
     if (!id) { setYtErr("올바른 YouTube URL을 입력하세요."); return; }
-    await updateDoc(doc(db, "songs", song.id), { youtubeId: id });
-    setEditYt(false); setYtInput(""); setYtErr("");
+    try {
+      await setDoc(doc(db, "songAnalysis", song.id), { youtubeId: id }, { merge: true });
+      setYtId(id);
+      setEditYt(false); setYtInput(""); setYtErr("");
+    } catch (e) {
+      setYtErr("저장 실패: " + (e.code === "permission-denied" ? "권한이 없습니다" : e.message));
+    }
   };
 
   const removeYtId = async () => {
-    await updateDoc(doc(db, "songs", song.id), { youtubeId: null });
+    try {
+      await setDoc(doc(db, "songAnalysis", song.id), { youtubeId: null }, { merge: true });
+      setYtId(null);
+    } catch (e) {
+      setYtErr("삭제 실패: " + e.message);
+    }
   };
 
   const analyze = async (attempt = 0) => {
