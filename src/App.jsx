@@ -1654,7 +1654,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
                   {/* 곡 정보 */}
                   <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
-                    onClick={() => !drag && nav("pdfViewer", { songId: song.id, backTo:"svcDetail" })}>
+                    onClick={() => !drag && nav("pdfViewer", { songId: song.id, svcSongIdx: i, backTo:"svcDetail" })}>
                     <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
                       textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
                     <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>
@@ -2139,16 +2139,20 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
 /* ══════════════════════════════════════════════════════════════════
    PDF VIEWER SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, backTo, pdfjsReady }) {
+function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady }) {
   const song = songs.find(s => s.id === selectedSongId);
 
   // ── 예배 곡 순서
   const svc      = selectedSvcId ? services.find(s => s.id === selectedSvcId) : null;
-  const svcSongs = svc ? (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean) : [];
-  const songIdx  = svcSongs.findIndex(s => s?.id === selectedSongId);
+  // songIds 그대로 유지 — 중복 ID 허용 (복사된 곡 대응)
+  const svcSongs = svc ? (svc.songIds || []).map(id => songs.find(s => s.id === id)) : [];
+  // 전달된 인덱스 우선 사용, 없으면 findIndex fallback
+  const songIdx  = (selectedSvcSongIdx >= 0 && selectedSvcSongIdx < svcSongs.length)
+    ? selectedSvcSongIdx
+    : svcSongs.findIndex(s => s?.id === selectedSongId);
   const goToSong = (idx) => {
-    if (idx < 0 || idx >= svcSongs.length) return;
-    nav("pdfViewer", { songId: svcSongs[idx].id, backTo });
+    if (idx < 0 || idx >= svcSongs.length || !svcSongs[idx]) return;
+    nav("pdfViewer", { songId: svcSongs[idx].id, svcSongIdx: idx, backTo });
   };
 
   // ── PDF.js refs / state
@@ -2550,10 +2554,10 @@ Return ONLY the JSON array, no other text.`;
     } else if (svcSongs.length > 1 && songIdx >= 0) {
       if (delta < 0) {
         if (songIdx >= svcSongs.length - 1) showToast("마지막 곡입니다");
-        else nav("pdfViewer", { songId: svcSongs[songIdx + 1].id, backTo });
+        else nav("pdfViewer", { songId: svcSongs[songIdx + 1].id, svcSongIdx: songIdx + 1, backTo });
       } else {
         if (songIdx <= 0) showToast("첫번째 곡입니다");
-        else nav("pdfViewer", { songId: svcSongs[songIdx - 1].id, backTo });
+        else nav("pdfViewer", { songId: svcSongs[songIdx - 1].id, svcSongIdx: songIdx - 1, backTo });
       }
     }
   };
@@ -4293,7 +4297,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.33)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.34)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
@@ -4320,7 +4324,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             <img src="/icon-192.png" width={64} height={64}
               style={{ borderRadius:16, marginBottom:12 }} alt="Ainos" />
             <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>TVPC Worship</div>
-            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.33</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.34</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
               찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />
               악보 업로드, 필기, 코드 전조, 예배 일정 관리 등<br />
@@ -4466,10 +4470,11 @@ export default function App() {
   const [notifs,      setNotifs]      = useState([]);
   const [annotations,     setAnnotations]     = useState({}); // 개인 메모
   const [teamAnnotations, setTeamAnnotations] = useState({}); // 팀 공유 메모
-  const [selSvcId,    setSelSvcId]    = useState(null);
-  const [selSongId,   setSelSongId]   = useState(null);
-  const [backTo,      setBackTo]      = useState("library");
-  const [pdfjsReady,  setPdfjsReady]  = useState(false);
+  const [selSvcId,      setSelSvcId]      = useState(null);
+  const [selSongId,     setSelSongId]     = useState(null);
+  const [selSvcSongIdx, setSelSvcSongIdx] = useState(-1); // 서비스 내 곡 인덱스 (복사 곡 대응)
+  const [backTo,        setBackTo]        = useState("library");
+  const [pdfjsReady,    setPdfjsReady]    = useState(false);
 
   // ── Kakao SDK 초기화
   useEffect(() => {
@@ -4765,9 +4770,10 @@ export default function App() {
     onClearErr={() => { setLoginErr(""); setLoginBlockedUser(null); }} />;
 
   const nav = (newView, params = {}) => {
-    if (params.svcId  !== undefined) setSelSvcId(params.svcId);
-    if (params.songId !== undefined) setSelSongId(params.songId);
-    if (params.backTo !== undefined) setBackTo(params.backTo);
+    if (params.svcId       !== undefined) setSelSvcId(params.svcId);
+    if (params.songId      !== undefined) setSelSongId(params.songId);
+    if (params.svcSongIdx  !== undefined) setSelSvcSongIdx(params.svcSongIdx);
+    if (params.backTo      !== undefined) setBackTo(params.backTo);
     setView(newView);
   };
 
@@ -4798,7 +4804,8 @@ export default function App() {
       {view === "library"       && <SongLibraryScreen   {...shared} />}
       {view === "pdfViewer"     && (
         <PDFViewerScreen {...shared} selectedSongId={selSongId}
-          selectedSvcId={selSvcId} backTo={backTo} pdfjsReady={pdfjsReady} />
+          selectedSvcId={selSvcId} selectedSvcSongIdx={selSvcSongIdx}
+          backTo={backTo} pdfjsReady={pdfjsReady} />
       )}
       {view === "notifications" && (
         <NotificationsScreen
