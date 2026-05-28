@@ -2272,7 +2272,7 @@ Return ONLY the JSON array, no other text.`;
 
   // ── Canvas 1 handlers (single mode + dual left)
   const handleDraw1Down = (e) => {
-    if (e.pointerType === "touch" && drawTool !== "text") return;
+    if (e.pointerType === "touch" && drawTool !== "text" && drawTool !== "stamp") return;
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
     e.preventDefault(); e.stopPropagation();
@@ -2377,7 +2377,7 @@ Return ONLY the JSON array, no other text.`;
 
   // ── Canvas 2 handlers (dual right)
   const handleDraw2Down = (e) => {
-    if (e.pointerType === "touch" && drawTool !== "text") return;
+    if (e.pointerType === "touch" && drawTool !== "text" && drawTool !== "stamp") return;
     const canvas = drawCanvas2Ref.current;
     if (!canvas) return;
     e.preventDefault(); e.stopPropagation();
@@ -2723,6 +2723,28 @@ Return ONLY the JSON array, no other text.`;
                 ⚠ {drawSaveErr}
               </span>
             )}
+            {/* 손가락 사용 가능 안내 */}
+            <div style={{
+              marginLeft:"auto", flexShrink:0,
+              display:"flex", flexDirection:"column", alignItems:"center",
+              padding:"0 10px", borderLeft:`1px solid ${C.bdr}`,
+              gap:3,
+            }}>
+              <span style={{ fontSize:11 }}>👆</span>
+              <div style={{ display:"flex", flexDirection:"column", gap:1, alignItems:"center" }}>
+                {[
+                  { id:"text",  label:"텍스트" },
+                  { id:"stamp", label:"스탬프" },
+                ].map(t => (
+                  <span key={t.id} style={{
+                    fontSize:8, fontWeight:700, fontFamily:"inherit", lineHeight:1.3,
+                    color: drawTool === t.id ? C.acc : C.dim,
+                    background: drawTool === t.id ? `${C.acc}18` : "transparent",
+                    borderRadius:3, padding:"1px 4px",
+                  }}>{t.label}</span>
+                ))}
+              </div>
+            </div>
           </div>
           {/* 스탬프 팔레트 — 플로팅 오버레이 (악보 공간 유지) */}
           {drawTool === "stamp" && (
@@ -3775,7 +3797,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.22)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.23)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
@@ -3802,7 +3824,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             <img src="/icon-192.png" width={64} height={64}
               style={{ borderRadius:16, marginBottom:12 }} alt="Ainos" />
             <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>TVPC Worship</div>
-            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.22</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.23</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
               찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />
               악보 업로드, 필기, 코드 전조, 예배 일정 관리 등<br />
