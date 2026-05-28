@@ -1761,9 +1761,8 @@ function PdfPagePickerModal({ file, songTitle, onConfirm, onClose }) {
         </div>
       ) : (
         <div style={{
-          display:"grid",
-          gridTemplateColumns:"repeat(auto-fill, minmax(90px, 1fr))",
-          gap:10, maxHeight:380, overflowY:"auto",
+          display:"flex", flexDirection:"column",
+          gap:10, maxHeight:420, overflowY:"auto",
           padding:"4px 2px",
         }}>
           {thumbnails.map((src, i) => {
@@ -1771,33 +1770,57 @@ function PdfPagePickerModal({ file, songTitle, onConfirm, onClose }) {
             const isSelected = selected === pg;
             return (
               <div key={i} onClick={() => setSelected(pg)} style={{
-                borderRadius:10, overflow:"hidden", cursor:"pointer",
+                display:"flex", alignItems:"center", gap:12,
+                borderRadius:12, cursor:"pointer", padding:"10px 12px",
                 border:`2px solid ${isSelected ? C.acc : C.bdr}`,
-                background: isSelected ? `${C.acc}11` : C.card,
+                background: isSelected ? `${C.acc}0d` : C.card,
                 transition:"all .15s",
               }}>
-                <img src={src} alt={`p.${pg}`}
-                  style={{ width:"100%", display:"block", borderRadius:"8px 8px 0 0" }} />
+                {/* 썸네일 */}
                 <div style={{
-                  textAlign:"center", fontSize:11, padding:"5px 0",
-                  color: isSelected ? C.acc : C.dim,
-                  fontWeight: isSelected ? 700 : 400,
-                  background: isSelected ? `${C.acc}11` : "transparent",
+                  flexShrink:0, width:60,
+                  borderRadius:6, overflow:"hidden",
+                  border:`1px solid ${C.bdr}`,
+                  boxShadow:"0 2px 6px rgba(0,0,0,.12)",
                 }}>
-                  {pg}페이지 {isSelected && "✓"}
+                  <img src={src} alt={`p.${pg}`} style={{ width:"100%", display:"block" }} />
+                </div>
+                {/* 페이지 번호 */}
+                <div style={{ flex:1 }}>
+                  <div style={{
+                    fontSize:14, fontWeight: isSelected ? 700 : 500,
+                    color: isSelected ? C.acc : C.txt,
+                  }}>페이지 {pg}</div>
+                  {isSelected && (
+                    <div style={{ fontSize:11, color:C.acc, marginTop:2 }}>✓ 선택됨</div>
+                  )}
+                </div>
+                {/* 라디오 */}
+                <div style={{
+                  width:20, height:20, borderRadius:"50%", flexShrink:0,
+                  border:`2px solid ${isSelected ? C.acc : C.bdr}`,
+                  background: isSelected ? C.acc : "transparent",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                }}>
+                  {isSelected && <div style={{ width:8, height:8, borderRadius:"50%", background:"#fff" }} />}
                 </div>
               </div>
             );
           })}
-          {/* 아직 렌더링 중인 나머지 페이지 플레이스홀더 */}
+          {/* 렌더링 중 플레이스홀더 */}
           {rendering && Array.from({ length: numPages - thumbnails.length }, (_, i) => (
             <div key={`ph-${i}`} style={{
-              borderRadius:10, background:C.card,
-              border:`2px solid ${C.bdr}`,
-              aspectRatio:"0.7", display:"flex", alignItems:"center",
-              justifyContent:"center", color:C.dim, fontSize:11,
+              display:"flex", alignItems:"center", gap:12,
+              borderRadius:12, padding:"10px 12px",
+              border:`2px solid ${C.bdr}`, background:C.card, opacity:0.5,
             }}>
-              {thumbnails.length + i + 1}
+              <div style={{
+                flexShrink:0, width:60, aspectRatio:"0.7",
+                borderRadius:6, background:C.bdr,
+              }} />
+              <div style={{ fontSize:14, color:C.dim }}>
+                페이지 {thumbnails.length + i + 1}
+              </div>
             </div>
           ))}
         </div>
@@ -4270,7 +4293,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.30)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.31)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
@@ -4297,7 +4320,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             <img src="/icon-192.png" width={64} height={64}
               style={{ borderRadius:16, marginBottom:12 }} alt="Ainos" />
             <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>TVPC Worship</div>
-            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.30</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.31</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
               찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />
               악보 업로드, 필기, 코드 전조, 예배 일정 관리 등<br />
