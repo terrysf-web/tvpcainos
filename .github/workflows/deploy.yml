@@ -7,7 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  # ── Job 1: Firebase Hosting (항상 실행)
+  firebase:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,31 +36,39 @@ jobs:
             --project tvpcainos \
             --non-interactive
 
-      - name: Supabase Edge Function 배포 + 시크릿 설정
-        if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
+  # ── Job 2: Supabase Edge Function (SUPABASE_ACCESS_TOKEN 있을 때만)
+  supabase:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Supabase CLI 설치
+        run: npm install -g supabase@latest --silent
+
+      - name: Edge Function 배포
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          # Supabase CLI 설치
-          npm install -g supabase@latest --silent
-
-          # Edge Function 배포
           supabase functions deploy send-fcm \
             --project-ref byvbrsuvporwhlapecja \
             --no-verify-jwt
 
-          # Firebase 서비스 계정을 Supabase 시크릿으로 등록 (Management API)
-          python3 -c "
-          import json, sys, urllib.request
-          sa  = sys.argv[1]
-          tok = sys.argv[2]
+      - name: Firebase 서비스 계정을 Supabase 시크릿으로 등록
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          python3 - <<'EOF'
+          import json, sys, os, urllib.request
+          sa  = os.environ["FIREBASE_SA"]
+          tok = os.environ["SUPABASE_ACCESS_TOKEN"]
           req = urllib.request.Request(
-            'https://api.supabase.com/v1/projects/byvbrsuvporwhlapecja/secrets',
-            data=json.dumps([{'name':'FIREBASE_SERVICE_ACCOUNT','value':sa}]).encode(),
-            headers={'Authorization':'Bearer '+tok,'Content-Type':'application/json'},
-            method='POST'
+            "https://api.supabase.com/v1/projects/byvbrsuvporwhlapecja/secrets",
+            data=json.dumps([{"name": "FIREBASE_SERVICE_ACCOUNT", "value": sa}]).encode(),
+            headers={"Authorization": "Bearer " + tok, "Content-Type": "application/json"},
+            method="POST",
           )
           urllib.request.urlopen(req)
-          print('시크릿 설정 완료')
-          " "$FIREBASE_SA" "$SUPABASE_ACCESS_TOKEN"
+          print("✓ Supabase 시크릿 설정 완료")
+          EOF
