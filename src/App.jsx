@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { auth, db, messagingPromise, firebaseConfigObj } from "./firebase.js";
 import { getToken, onMessage } from "firebase/messaging";
-import { uploadPdf } from "./supabase.js";
+import { uploadPdf, sendFcmPush } from "./supabase.js";
 import AIPanel from "./AIPanel.jsx";
 import {
   signOut,
@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.51";
+const APP_VERSION = "3.52";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1444,12 +1444,14 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const leader = isLeader(user.role);
 
   const sendNotif = async () => {
+    const title = `${svc.title} 악보 등록`;
+    const body  = `${svc.date} ${svc.title} 악보가 등록되었습니다. 연습 준비해주세요!`;
     await updateDoc(doc(db, "services", svc.id), { notified: true });
     await addDoc(collection(db, "notifications"), {
-      title: `${svc.title} 악보 등록`,
-      body: `${svc.date} ${svc.title} 악보가 등록되었습니다. 연습 준비해주세요!`,
-      createdAt: serverTimestamp(), readBy: [], serviceId: svc.id,
+      title, body, createdAt: serverTimestamp(), readBy: [], serviceId: svc.id,
     });
+    // FCM 푸시 — 앱이 닫혀있는 팀원에게도 전송
+    sendFcmPush(title, body);
   };
 
   const shareToKakao = () => {
