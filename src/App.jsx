@@ -4887,7 +4887,7 @@ export default function App() {
         // 서비스 워커 등록 후 FCM 토큰 획득
         navigator.serviceWorker?.register("/firebase-messaging-sw.js")
           .then(reg => getToken(m, {
-            vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+            vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY || "Pk5FUSGxYoTCY40-i_PliaICVLUOBxFTS_3ALuWJV5o",
             serviceWorkerRegistration: reg,
           }))
           .then(token => {
