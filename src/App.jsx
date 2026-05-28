@@ -459,6 +459,15 @@ function Modal({ title, onClose, children, noBackdrop = false }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   YOUTUBE HELPERS
+══════════════════════════════════════════════════════════════════ */
+function getYoutubeId(url) {
+  if (!url) return null;
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+/* ══════════════════════════════════════════════════════════════════
    LOGIN SCREEN
 ══════════════════════════════════════════════════════════════════ */
 const googleProvider = new GoogleAuthProvider();
@@ -867,6 +876,7 @@ function AddSongModal({ onClose, onAdd }) {
   const [key,          setKey]          = useState("C");
   const [bpm,          setBpm]          = useState("80");
   const [timeSig,      setTimeSig]      = useState("4/4");
+  const [youtubeUrl,   setYoutubeUrl]   = useState("");
   const [pdfFile,      setPdfFile]      = useState(null);
   const [saving,       setSaving]       = useState(false);
   const [pdfPageCount, setPdfPageCount] = useState(0);
@@ -936,7 +946,7 @@ function AddSongModal({ onClose, onAdd }) {
           }
         }
       } else {
-        const docRef = await onAdd({ title, artist, key, bpm: Number(bpm) || 80, timeSig: timeSig || "4/4" });
+        const docRef = await onAdd({ title, artist, key, bpm: Number(bpm) || 80, timeSig: timeSig || "4/4", youtubeUrl: youtubeUrl.trim() || "" });
         if (pdfFile && docRef?.id) {
           const url = await uploadPdf(pdfFile, docRef.id);
           await updateDoc(doc(db, "songs", docRef.id), { pdfUrl: url });
@@ -995,6 +1005,30 @@ function AddSongModal({ onClose, onAdd }) {
             </div>
           </div>
         </>
+      )}
+
+      {/* YouTube URL */}
+      {!splitMode && (
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+            textTransform:"uppercase", marginBottom:8 }}>YouTube 링크 (선택)</div>
+          <input
+            value={youtubeUrl}
+            onChange={e => setYoutubeUrl(e.target.value)}
+            placeholder="https://youtu.be/..."
+            autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
+            style={{
+              width:"100%", background:C.card, border:`1.5px solid ${getYoutubeId(youtubeUrl) ? C.grn : C.bdr}`,
+              color:C.txt, padding:"9px 12px", borderRadius:10,
+              fontSize:13, outline:"none", fontFamily:"inherit", boxSizing:"border-box",
+            }}
+          />
+          {getYoutubeId(youtubeUrl) && (
+            <div style={{ fontSize:11, color:C.grn, marginTop:4 }}>
+              ✓ 유효한 YouTube 링크
+            </div>
+          )}
+        </div>
       )}
 
       {/* PDF 업로드 */}
@@ -1739,11 +1773,12 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
   const saveEdit = async () => {
     if (!editSong) return;
     await updateDoc(doc(db, "songs", editSong.id), {
-      title:   editForm.title.trim(),
-      artist:  editForm.artist.trim(),
-      key:     editForm.key.trim(),
-      bpm:     Number(editForm.bpm) || 0,
-      timeSig: editForm.timeSig?.trim() || "4/4",
+      title:      editForm.title.trim(),
+      artist:     editForm.artist.trim(),
+      key:        editForm.key.trim(),
+      bpm:        Number(editForm.bpm) || 0,
+      timeSig:    editForm.timeSig?.trim() || "4/4",
+      youtubeUrl: editForm.youtubeUrl?.trim() || "",
     });
     setEditSong(null);
   };
@@ -1830,7 +1865,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
                     <div style={{ fontSize:11, color:C.acc, padding:"0 6px" }}>업로드 중...</div>
                   ) : (
                     <>
-                      <button onClick={() => { setEditSong(song); setEditForm({ title: song.title, artist: song.artist || "", key: song.key || "", bpm: song.bpm || "", timeSig: song.timeSig || "4/4" }); }}
+                      <button onClick={() => { setEditSong(song); setEditForm({ title: song.title, artist: song.artist || "", key: song.key || "", bpm: song.bpm || "", timeSig: song.timeSig || "4/4", youtubeUrl: song.youtubeUrl || "" }); }}
                         title="편집"
                         style={{ display:"flex", alignItems:"center", justifyContent:"center",
                           width:34, height:34, borderRadius:9, cursor:"pointer",
@@ -1893,21 +1928,26 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
             { label:"키 (Key)", key:"key", placeholder:"C, D, E, F, G, A, B..." },
             { label:"BPM", key:"bpm", placeholder:"120", type:"number" },
             { label:"박자", key:"timeSig", placeholder:"4/4, 3/4, 6/8..." },
+            { label:"YouTube 링크", key:"youtubeUrl", placeholder:"https://youtu.be/..." },
           ].map(f => (
             <div key={f.key} style={{ marginBottom:12 }}>
               <div style={{ fontSize:12, color:C.dim, marginBottom:4 }}>{f.label}</div>
               <input
                 type={f.type || "text"}
-                value={editForm[f.key]}
+                value={editForm[f.key] ?? ""}
                 onChange={e => setEditForm(p => ({ ...p, [f.key]: e.target.value }))}
                 placeholder={f.placeholder}
                 autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
                 style={{
-                  width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
+                  width:"100%", background:C.card,
+                  border:`1.5px solid ${f.key === "youtubeUrl" && getYoutubeId(editForm.youtubeUrl) ? C.grn : C.bdr}`,
                   color:C.txt, padding:"9px 12px", borderRadius:10,
                   fontSize:14, outline:"none", fontFamily:"inherit", boxSizing:"border-box",
                 }}
               />
+              {f.key === "youtubeUrl" && getYoutubeId(editForm.youtubeUrl) && (
+                <div style={{ fontSize:11, color:C.grn, marginTop:3 }}>✓ 유효한 YouTube 링크</div>
+              )}
             </div>
           ))}
           <div style={{ display:"flex", gap:8, marginTop:4 }}>
@@ -2794,6 +2834,13 @@ Return ONLY the JSON array, no other text.`;
             }}>
               <Icon n="sideR" size={12} color={media ? "#fff" : C.dim} />
               MEDIA
+              {getYoutubeId(song?.youtubeUrl) && (
+                <span style={{
+                  fontSize:9, background: media ? "rgba(255,255,255,0.3)" : `${C.red}33`,
+                  color: media ? "#fff" : C.red,
+                  borderRadius:4, padding:"1px 4px", fontWeight:800,
+                }}>YT</span>
+              )}
             </button>
             {isLeader(user.role) && (
               <button onClick={() => {
@@ -3424,8 +3471,27 @@ Return ONLY the JSON array, no other text.`;
         {/* AI 패널 (MEDIA 모드, 듀얼 아닐 때만) */}
         {media && !dual && (
           <div style={{ width:320, flexShrink:0, overflow:"hidden",
-            borderLeft:`1px solid ${C.bdr}`, background:C.surf }}>
-            <AIPanel song={song} user={user} pdfCanvasRef={canvas1Ref} />
+            borderLeft:`1px solid ${C.bdr}`, background:C.surf,
+            display:"flex", flexDirection:"column" }}>
+            {/* YouTube 플레이어 */}
+            {getYoutubeId(song?.youtubeUrl) && (
+              <div style={{ flexShrink:0 }}>
+                <iframe
+                  src={`https://www.youtube.com/embed/${getYoutubeId(song.youtubeUrl)}?rel=0`}
+                  style={{ width:"100%", aspectRatio:"16/9", border:"none", display:"block" }}
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  title="YouTube"
+                />
+                <div style={{ fontSize:11, color:C.dim, padding:"4px 10px 6px",
+                  borderBottom:`1px solid ${C.bdr}` }}>
+                  🎵 {song.title}
+                </div>
+              </div>
+            )}
+            <div style={{ flex:1, overflow:"auto" }}>
+              <AIPanel song={song} user={user} pdfCanvasRef={canvas1Ref} />
+            </div>
           </div>
         )}
       </div>
@@ -4074,7 +4140,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
-          { label:"앱 정보 (v3.25)", action: () => setShowInfo(true) },
+          { label:"앱 정보 (v3.26)", action: () => setShowInfo(true) },
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
@@ -4101,7 +4167,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             <img src="/icon-192.png" width={64} height={64}
               style={{ borderRadius:16, marginBottom:12 }} alt="Ainos" />
             <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>TVPC Worship</div>
-            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.25</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 3.26</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
               찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />
               악보 업로드, 필기, 코드 전조, 예배 일정 관리 등<br />
