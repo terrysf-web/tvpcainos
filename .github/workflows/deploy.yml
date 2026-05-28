@@ -35,19 +35,31 @@ jobs:
             --project tvpcainos \
             --non-interactive
 
-      - name: Supabase Edge Function 배포
+      - name: Supabase Edge Function 배포 + 시크릿 설정
+        if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          npx supabase functions deploy send-fcm \
+          # Supabase CLI 설치
+          npm install -g supabase@latest --silent
+
+          # Edge Function 배포
+          supabase functions deploy send-fcm \
             --project-ref byvbrsuvporwhlapecja \
             --no-verify-jwt
 
-      - name: Supabase Edge Function 시크릿 설정
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: |
-          echo "$FIREBASE_SERVICE_ACCOUNT" | \
-            npx supabase secrets set FIREBASE_SERVICE_ACCOUNT \
-              --project-ref byvbrsuvporwhlapecja
+          # Firebase 서비스 계정을 Supabase 시크릿으로 등록 (Management API)
+          python3 -c "
+          import json, sys, urllib.request
+          sa  = sys.argv[1]
+          tok = sys.argv[2]
+          req = urllib.request.Request(
+            'https://api.supabase.com/v1/projects/byvbrsuvporwhlapecja/secrets',
+            data=json.dumps([{'name':'FIREBASE_SERVICE_ACCOUNT','value':sa}]).encode(),
+            headers={'Authorization':'Bearer '+tok,'Content-Type':'application/json'},
+            method='POST'
+          )
+          urllib.request.urlopen(req)
+          print('시크릿 설정 완료')
+          " "$FIREBASE_SA" "$SUPABASE_ACCESS_TOKEN"
