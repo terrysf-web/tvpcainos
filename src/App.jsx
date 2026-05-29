@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.91";
+const APP_VERSION = "3.92";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -117,13 +117,13 @@ const HELP_ITEMS = [
   // ㄷ
   { icon:"next",      name:"다음 페이지",       eng:"Next Page",     ini:"ㄷ", desc:"악보의 다음 페이지로 이동합니다. ⚠️ 그리기·형광펜·도형 등 쓰기 모드가 켜진 상태에서는 이 버튼 외 스와이프 페이지 이동은 불가합니다." },
   { icon:"xmark",     name:"닫기",              eng:"Close",         ini:"ㄷ", desc:"현재 화면이나 모달을 닫습니다." },
-  { icon:"dual",      name:"두 화면(Dual)",     eng:"Dual View",     ini:"ㄷ", desc:"두 악보를 화면 좌우에 나란히 표시합니다. 예배 중 두 곡을 동시에 볼 때 유용합니다. ⚠️ 두 화면 모드에서는 ① 미디어 패널(유튜브·AI 코드 감지) 사용 불가, ② 각 악보의 1페이지만 표시, ③ 스와이프가 페이지 이동 대신 곡 전환으로 동작합니다." },
+  { icon:"dual",      name:"두 화면(Dual)",     eng:"Dual View",     ini:"ㄷ", desc:"두 악보를 화면 좌우에 나란히 표시합니다. 예배 중 두 곡을 동시에 볼 때 유용합니다. ⚠️ 두 화면 모드에서는 ① 미디어 패널(유튜브·AI 분석) 사용 불가, ② 각 악보의 1페이지만 표시, ③ 스와이프가 페이지 이동 대신 곡 전환으로 동작합니다. 코드 감지·전조는 전조 툴바에서 왼쪽/오른쪽 각각 사용 가능합니다." },
   { icon:"dim",       name:"디미누엔도",        eng:"Diminuendo",    ini:"ㄷ", desc:"악보에 디미누엔도(점점 여리게 >) 기호를 스탬프로 찍습니다. 스탬프 모드 중에는 스와이프 페이지 이동이 불가합니다." },
   // ㅁ
   { icon:"note",      name:"메모 목록",         eng:"Memo / Notes",  ini:"ㅁ", desc:"악보에 추가된 메모 패널을 엽니다. 팀 전체가 보는 공유 메모(👥)와 나만 보는 개인 메모(🔒)를 함께 확인하고, 페이지 번호를 탭하면 해당 페이지로 바로 이동합니다." },
   // ㅅ
   { icon:"rect",      name:"사각형",            eng:"Rectangle",     ini:"ㅅ", desc:"악보 위에 사각형 도형을 그립니다. 시작점 터치 후 끝점까지 드래그하세요. ⚠️ 도형 그리기 모드 중에는 스와이프 페이지 이동이 불가합니다." },
-  { icon:"sideR",     name:"미디어 패널",       eng:"Media Panel",   ini:"ㅅ", desc:"화면 오른쪽에 미디어 패널을 펼칩니다. 유튜브 영상 재생, AI 코드 감지(Gemini/Groq) 실행, AI 분석 결과 확인이 가능합니다. ⚠️ 두 화면(Dual) 모드에서는 사용할 수 없습니다." },
+  { icon:"sideR",     name:"미디어 패널",       eng:"Media Panel",   ini:"ㅅ", desc:"화면 오른쪽에 미디어 패널을 펼칩니다. 유튜브 영상 재생과 AI 악보 분석을 제공합니다. ⚠️ 두 화면(Dual) 모드에서는 사용할 수 없습니다. 두 화면 모드에서 코드 감지는 미디어 패널 없이 전조(🎵) 버튼에서 직접 실행합니다." },
   { icon:"trash",     name:"삭제",              eng:"Delete",        ini:"ㅅ", desc:"선택한 악보, 예배, 또는 항목을 삭제합니다. 삭제 후 복구할 수 없습니다." },
   { icon:"line",      name:"선",                eng:"Line",          ini:"ㅅ", desc:"악보 위에 직선을 그립니다. 시작점 터치 후 끝점까지 드래그하세요. ⚠️ 도형 그리기 모드 중에는 스와이프 페이지 이동이 불가합니다." },
   { icon:"slur",      name:"슬러",              eng:"Slur",          ini:"ㅅ", desc:"악보에 슬러(연결선 ⌢) 기호를 스탬프로 찍습니다. 스탬프 모드 중에는 스와이프 페이지 이동이 불가합니다." },
@@ -145,7 +145,7 @@ const HELP_ITEMS = [
   // ㅊ
   { icon:"plus",      name:"추가",              eng:"Add",           ini:"ㅊ", desc:"새 악보, 예배, 또는 항목을 추가합니다." },
   // ㅋ
-  { icon:"music",     name:"코드 감지(AI)",     eng:"Chord Detect",  ini:"ㅋ", desc:"AI(Gemini 또는 Groq)가 악보 이미지에서 코드 기호를 자동 인식합니다. 미디어 패널에서 실행하며, API 키가 없으면 서버 키를 사용합니다. 감지된 코드는 전조 기능과 연동됩니다. ⚠️ 두 화면 모드에서는 사용할 수 없습니다." },
+  { icon:"music",     name:"코드 감지(AI)",     eng:"Chord Detect",  ini:"ㅋ", desc:"AI(Gemini 또는 Groq)가 악보 이미지에서 코드 기호를 자동 인식합니다. 싱글 모드에서는 미디어 패널에서, 두 화면(Dual) 모드에서는 전조 서브툴바에서 왼쪽·오른쪽 각각 실행합니다. API 키가 없으면 서버 키를 우선 사용합니다." },
   { icon:"cresc",     name:"크레센도",          eng:"Crescendo",     ini:"ㅋ", desc:"악보에 크레센도(점점 세게 <) 기호를 스탬프로 찍습니다. 스탬프 모드 중에는 스와이프 페이지 이동이 불가합니다." },
   // ㅌ
   { icon:"textT",     name:"텍스트",            eng:"Text",          ini:"ㅌ", desc:"악보 위에 텍스트를 입력합니다. 원하는 위치를 탭하면 입력 커서가 생깁니다. ⚠️ 텍스트 입력 모드 중에는 스와이프 페이지 이동이 불가합니다." },
@@ -3307,6 +3307,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
     e.preventDefault();
+    if (drawTool === "text") {
+      if (!textInput) setTextDot({ sx: e.clientX, sy: e.clientY });
+      return;
+    }
     if (drawTool === "stamp") {
       lastPt1Ref.current = getCanvasPt(e, canvas);
       updateLoupe(e, canvas1Ref.current, canvas, stampSymbol, stampItalic, drawColor);
@@ -3412,6 +3416,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const canvas = drawCanvas2Ref.current;
     if (!canvas) return;
     e.preventDefault();
+    if (drawTool === "text") {
+      if (!textInput) setTextDot({ sx: e.clientX, sy: e.clientY });
+      return;
+    }
     if (drawTool === "stamp") {
       lastPt2Ref.current = getCanvasPt(e, canvas);
       updateLoupe(e, canvas2Ref.current, canvas, stampSymbol, stampItalic, drawColor);
@@ -4033,12 +4041,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       {textDot && (
         <div style={{
           position:"fixed",
-          left: textDot.sx - 4, top: textDot.sy - 4,
-          width:8, height:8, borderRadius:"50%",
-          background:"#FFD600", opacity:0.9,
-          boxShadow:"0 0 0 2px rgba(0,0,0,0.25)",
-          pointerEvents:"none", zIndex:1200,
-        }} />
+          left: textDot.sx - 18, top: textDot.sy - 18,
+          width:36, height:36, borderRadius:"50%",
+          background:"rgba(255,214,0,0.85)",
+          boxShadow:"0 0 0 3px rgba(255,214,0,0.4), 0 2px 8px rgba(0,0,0,0.3)",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          pointerEvents:"none", zIndex:1210,
+          transition:"left 0.05s, top 0.05s",
+        }}>
+          <span style={{ fontSize:16, fontWeight:900, color:"rgba(0,0,0,0.7)", lineHeight:1, userSelect:"none" }}>T</span>
+        </div>
       )}
 
       {textInput && (
@@ -4167,6 +4179,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         onPointerMove={handleDraw1Move}
                         onPointerUp={handleDraw1Up}
                         onPointerCancel={handleDraw1Cancel}
+                        onPointerLeave={() => { if (drawTool === "text" && !textInput) setTextDot(null); }}
                       />
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 400;
@@ -4218,6 +4231,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           onPointerMove={handleDraw2Move}
                           onPointerUp={handleDraw2Up}
                           onPointerCancel={handleDraw2Cancel}
+                          onPointerLeave={() => { if (drawTool === "text" && !textInput) setTextDot(null); }}
                         />
                         {transposeMode && chordData2.length > 0 && (() => {
                           const cw = canvas2Ref.current?.offsetWidth  || 400;
@@ -4280,6 +4294,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         onPointerMove={handleDraw1Move}
                         onPointerUp={handleDraw1Up}
                         onPointerCancel={handleDraw1Cancel}
+                        onPointerLeave={() => { if (drawTool === "text" && !textInput) setTextDot(null); }}
                       />
                       {/* 전조 코드 오버레이 */}
                       {transposeMode && chordData.length > 0 && (() => {
