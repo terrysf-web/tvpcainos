@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.118";
+const APP_VERSION = "3.119";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -6035,7 +6035,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ width:"100%", minHeight:"100vh", background:C.bg, position:"relative" }}>
+    <div style={{ width:"100%", height:"var(--app-h, 100dvh)", background:C.bg, position:"relative", overflow:"hidden" }}>
       {pencilCursor && (
         <div style={{
           position:"fixed", pointerEvents:"none", zIndex:9999,
