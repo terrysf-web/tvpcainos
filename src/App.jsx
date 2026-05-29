@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.114";
+const APP_VERSION = "3.115";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2760,6 +2760,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [deletingChord,  setDeletingChord]  = useState(null); // {side,idx} long-press pending
   const longPressTimer   = useRef(null);
   const longPressOrigin  = useRef(null); // {x,y} to detect move
+  const pointerDownTimeRef = useRef(0);
+  const didDragRef         = useRef(false);
+  const lastTapRef         = useRef({ side: null, idx: null, time: 0 });
   const chordOverlay1Ref = useRef(null);
   const chordOverlay2Ref = useRef(null);
   const drawCanvas1Ref  = useRef(null);  // single mode + dual left
@@ -2975,16 +2978,20 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       if (shared.exists()) {
         setChordData(shared.data().chords || []);
         setTransposeSteps(shared.data().transposeSteps ?? 0);
+        if (shared.data().chordFontScale) setChordFontScale(shared.data().chordFontScale);
       } else if (personal.exists()) {
         setChordData(personal.data().chords || []);
         setTransposeSteps(personal.data().transposeSteps ?? 0);
+        if (personal.data().chordFontScale) setChordFontScale(personal.data().chordFontScale);
         return;
       } else {
-        setTransposeSteps(0); return;
+        setTransposeSteps(0); setChordFontScale(1.0); return;
       }
-      // 멤버 개인 전조 덮어쓰기
-      if (personal.exists() && personal.data().transposeSteps !== undefined)
-        setTransposeSteps(personal.data().transposeSteps);
+      // 멤버 개인 전조/크기 덮어쓰기
+      if (personal.exists()) {
+        if (personal.data().transposeSteps !== undefined) setTransposeSteps(personal.data().transposeSteps);
+        if (personal.data().chordFontScale)               setChordFontScale(personal.data().chordFontScale);
+      }
     }).catch(() => {});
   }, [pageNum, selectedSongId, user?.uid, dual]);
 
@@ -3001,13 +3008,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       if (shared.exists()) {
         setChordData(shared.data().chords || []);
         setTransposeSteps(shared.data().transposeSteps ?? 0);
+        if (shared.data().chordFontScale) setChordFontScale(shared.data().chordFontScale);
       } else if (personal.exists()) {
         setChordData(personal.data().chords || []);
         setTransposeSteps(personal.data().transposeSteps ?? 0);
+        if (personal.data().chordFontScale) setChordFontScale(personal.data().chordFontScale);
         return;
-      } else { setTransposeSteps(0); return; }
-      if (personal.exists() && personal.data().transposeSteps !== undefined)
-        setTransposeSteps(personal.data().transposeSteps);
+      } else { setTransposeSteps(0); setChordFontScale(1.0); return; }
+      if (personal.exists()) {
+        if (personal.data().transposeSteps !== undefined) setTransposeSteps(personal.data().transposeSteps);
+        if (personal.data().chordFontScale)               setChordFontScale(personal.data().chordFontScale);
+      }
     }).catch(() => {});
   }, [dualLeftSongId, user?.uid, dual]);
 
@@ -3090,9 +3101,29 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setDoc(doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`), data, { merge: true }).catch(() => {});
   };
 
+  const saveChordFontScale = (scale) => {
+    if (!user?.uid) return;
+    const songId = dual ? dualLeftSongId : selectedSongId;
+    const page   = dual ? 1 : pageNum;
+    if (!songId) return;
+    const data = { chordFontScale: scale, updatedAt: serverTimestamp() };
+    if (isLeader(user.role))
+      setDoc(doc(db, "customSongs", `chord_shared_${songId}_p${page}`), data, { merge: true }).catch(() => {});
+    setDoc(doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`), data, { merge: true }).catch(() => {});
+  };
+
   const deleteChord = (side, idx) => {
     const current = side === 2 ? chordData2 : chordData;
     const updated = current.filter((_, i) => i !== idx);
+    (side === 2 ? setChordData2 : setChordData)(updated);
+    saveChordPositions(updated, side);
+  };
+
+  const duplicateChord = (side, idx) => {
+    const current = side === 2 ? chordData2 : chordData;
+    const orig = current[idx];
+    const copy = { ...orig, x: Math.min(0.97, orig.x + 0.06) };
+    const updated = [...current, copy];
     (side === 2 ? setChordData2 : setChordData)(updated);
     saveChordPositions(updated, side);
   };
@@ -3102,6 +3133,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     e.currentTarget.setPointerCapture(e.pointerId);
     setDragChord({ side, idx, pointerId: e.pointerId });
     longPressOrigin.current = { x: e.clientX, y: e.clientY };
+    pointerDownTimeRef.current = Date.now();
+    didDragRef.current = false;
     setDeletingChord({ side, idx });
     longPressTimer.current = setTimeout(() => {
       deleteChord(side, idx);
@@ -3120,6 +3153,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         clearTimeout(longPressTimer.current);
         setDeletingChord(null);
         longPressOrigin.current = null;
+        didDragRef.current = true;
       }
     }
     if (!dragChord || dragChord.side !== side) return;
@@ -3137,6 +3171,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setDeletingChord(null);
     longPressOrigin.current = null;
     if (!dragChord || dragChord.side !== side) return;
+
+    const elapsed = Date.now() - pointerDownTimeRef.current;
+    const wasTap = !didDragRef.current && elapsed < 350;
+    if (wasTap) {
+      const { idx } = dragChord;
+      const now = Date.now();
+      const last = lastTapRef.current;
+      if (last.side === side && last.idx === idx && now - last.time < 500) {
+        // double-tap → duplicate
+        duplicateChord(side, idx);
+        lastTapRef.current = { side: null, idx: null, time: 0 };
+        setDragChord(null);
+        return;
+      }
+      lastTapRef.current = { side, idx, time: now };
+    }
+
     const chords = side === 2 ? chordData2 : chordData;
     saveChordPositions(chords, side);
     setDragChord(null);
@@ -4135,6 +4186,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
               {/* 오른쪽 전조 + 초기화 */}
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                {(chordData.length > 0 || chordData2.length > 0) && (
+                  <span style={{ fontSize:9, color:C.dim, whiteSpace:"nowrap" }}>더블탭: 복사 · 꾹: 삭제</span>
+                )}
                 <span style={{ fontSize:10, color:C.dim, fontWeight:700 }}>오른쪽</span>
                 <button onClick={() => saveTransposeSteps2(Math.max(-6, transposeSteps2 - 1))}
                   style={{ width:26, height:26, borderRadius:6, border:`1px solid ${C.bdr}`,
@@ -4149,13 +4203,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     background:"transparent", cursor:"pointer", fontWeight:700, fontSize:14, display:"flex",
                     alignItems:"center", justifyContent:"center", color:C.txt }}>+</button>
                 <div style={{ width:1, height:20, background:C.bdr }} />
-                <button onClick={() => setChordFontScale(s => Math.max(0.4, Math.round((s - 0.2) * 10) / 10))}
+                <button onClick={() => { const v = Math.max(0.4, Math.round((chordFontScale - 0.2) * 10) / 10); setChordFontScale(v); saveChordFontScale(v); }}
                   disabled={chordFontScale <= 0.4}
                   style={{ width:26, height:26, borderRadius:6, border:`1px solid ${C.bdr}`,
                     background:"transparent", cursor: chordFontScale <= 0.4 ? "default" : "pointer",
                     fontWeight:700, fontSize:11, display:"flex", alignItems:"center", justifyContent:"center",
                     color: chordFontScale <= 0.4 ? C.bdr : C.txt }}>A−</button>
-                <button onClick={() => setChordFontScale(s => Math.min(2.0, Math.round((s + 0.2) * 10) / 10))}
+                <button onClick={() => { const v = Math.min(2.0, Math.round((chordFontScale + 0.2) * 10) / 10); setChordFontScale(v); saveChordFontScale(v); }}
                   disabled={chordFontScale >= 2.0}
                   style={{ width:26, height:26, borderRadius:6, border:`1px solid ${C.bdr}`,
                     background:"transparent", cursor: chordFontScale >= 2.0 ? "default" : "pointer",
@@ -4198,7 +4252,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               }
               {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
-                <button onClick={() => setChordFontScale(s => Math.max(0.4, Math.round((s - 0.2) * 10) / 10))}
+                {chordData.length > 0 && (
+                  <span style={{ fontSize:9, color:C.dim, whiteSpace:"nowrap" }}>더블탭: 복사 · 꾹: 삭제</span>
+                )}
+                <button onClick={() => { const v = Math.max(0.4, Math.round((chordFontScale - 0.2) * 10) / 10); setChordFontScale(v); saveChordFontScale(v); }}
                   disabled={chordFontScale <= 0.4}
                   style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
                     background:"transparent", cursor: chordFontScale <= 0.4 ? "default" : "pointer",
@@ -4207,7 +4264,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 <span style={{ fontSize:10, color:C.dim, minWidth:28, textAlign:"center" }}>
                   {chordFontScale === 1.0 ? "크기" : `×${chordFontScale.toFixed(1)}`}
                 </span>
-                <button onClick={() => setChordFontScale(s => Math.min(2.0, Math.round((s + 0.2) * 10) / 10))}
+                <button onClick={() => { const v = Math.min(2.0, Math.round((chordFontScale + 0.2) * 10) / 10); setChordFontScale(v); saveChordFontScale(v); }}
                   disabled={chordFontScale >= 2.0}
                   style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
                     background:"transparent", cursor: chordFontScale >= 2.0 ? "default" : "pointer",
