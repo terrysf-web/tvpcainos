@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.89";
+const APP_VERSION = "3.90";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -157,14 +157,30 @@ const HELP_ITEMS = [
 function HelpModal({ onClose }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState("전체");
-  const CONS = ["전체","ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
-  const available = new Set(HELP_ITEMS.map(h => h.ini));
+  const KO_TABS = ["전체","ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+  const EN_TABS = [...new Set(HELP_ITEMS.map(h => h.eng[0].toUpperCase()))].sort();
+  const koAvail = new Set(HELP_ITEMS.map(h => h.ini));
+  const isEng = t => /^[A-Z]$/.test(t);
   const filtered = HELP_ITEMS.filter(h => {
     const q = query.toLowerCase();
     const matchQ = !q || h.name.includes(q) || h.eng.toLowerCase().includes(q) || h.desc.includes(q);
-    const matchC = active === "전체" || h.ini === active;
+    const matchC = active === "전체"
+      || (isEng(active) ? h.eng[0].toUpperCase() === active : h.ini === active);
     return matchQ && matchC;
   });
+  const Tab = ({ c }) => {
+    const hasItems = c === "전체" || (isEng(c) ? true : koAvail.has(c));
+    return (
+      <button key={c} onClick={() => { setActive(c); setQuery(""); }}
+        disabled={!hasItems}
+        style={{ padding:"4px 9px", borderRadius:14, border:"none", cursor: hasItems ? "pointer" : "default",
+          flexShrink:0, fontSize:13, fontWeight:600,
+          background: active === c ? C.pur : C.card,
+          color: active === c ? "#fff" : hasItems ? C.txt : C.bdr,
+          opacity: hasItems ? 1 : 0.4,
+        }}>{c}</button>
+    );
+  };
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)", zIndex:2000, display:"flex", flexDirection:"column" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -189,21 +205,14 @@ function HelpModal({ onClose }) {
             </button>}
           </div>
         </div>
-        <div style={{ display:"flex", overflowX:"auto", padding:"8px 12px", gap:4,
+        {/* 한글 자음 탭 */}
+        <div style={{ display:"flex", overflowX:"auto", padding:"6px 12px 4px", gap:4, flexShrink:0 }}>
+          {KO_TABS.map(c => <Tab key={c} c={c} />)}
+        </div>
+        {/* 영문 알파벳 탭 */}
+        <div style={{ display:"flex", overflowX:"auto", padding:"4px 12px 6px", gap:4,
           borderBottom:`1px solid ${C.bdr}`, flexShrink:0 }}>
-          {CONS.map(c => {
-            const hasItems = c === "전체" || available.has(c);
-            return (
-              <button key={c} onClick={() => { setActive(c); setQuery(""); }}
-                disabled={!hasItems}
-                style={{ padding:"4px 9px", borderRadius:14, border:"none", cursor: hasItems ? "pointer" : "default",
-                  flexShrink:0, fontSize:13, fontWeight:600,
-                  background: active === c ? C.pur : C.card,
-                  color: active === c ? "#fff" : hasItems ? C.txt : C.bdr,
-                  opacity: hasItems ? 1 : 0.4,
-                }}>{c}</button>
-            );
-          })}
+          {EN_TABS.map(c => <Tab key={c} c={c} />)}
         </div>
         <div style={{ flex:1, overflowY:"auto" }}>
           {filtered.length === 0
