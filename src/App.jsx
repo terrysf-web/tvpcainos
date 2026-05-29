@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.77";
+const APP_VERSION = "3.78";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1465,10 +1465,15 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
             <span style={{ fontSize:12, color:unread > 0 ? C.acc : C.dim, fontWeight:600 }}>알림</span>
             {unread > 0 && (
               <span style={{
-                position:"absolute", top:4, right:4,
-                width:7, height:7, background:C.red,
-                borderRadius:"50%", border:`2px solid ${C.surf}`,
-              }} />
+                position:"absolute", top:-6, right:-6,
+                minWidth:16, height:16, padding:"0 4px",
+                background:C.red, borderRadius:8, border:`2px solid ${C.surf}`,
+                fontSize:10, fontWeight:700, color:"#fff",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                lineHeight:1, boxSizing:"border-box",
+              }}>
+                {unread > 99 ? "99+" : unread}
+              </span>
             )}
           </button>
         </div>
@@ -5138,9 +5143,15 @@ function BottomNav({ view, nav, unread }) {
               <Icon n={t.icon} size={22} color={active ? C.acc : C.dim} />
               {t.id === "notifications" && unread > 0 && (
                 <span style={{
-                  position:"absolute", top:-2, right:-4, width:8, height:8,
-                  background:C.red, borderRadius:"50%", border:`2px solid ${C.surf}`,
-                }} />
+                  position:"absolute", top:-6, right:-8,
+                  minWidth:16, height:16, padding:"0 4px",
+                  background:C.red, borderRadius:8, border:`2px solid ${C.surf}`,
+                  fontSize:10, fontWeight:700, color:"#fff",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  lineHeight:1, boxSizing:"border-box",
+                }}>
+                  {unread > 99 ? "99+" : unread}
+                </span>
               )}
             </div>
             <span style={{ fontSize:10, fontWeight: active ? 700 : 400,
