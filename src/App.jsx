@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.92";
+const APP_VERSION = "3.93";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -191,7 +191,11 @@ function HelpModal({ onClose }) {
         <div style={{ padding:"16px 16px 12px", borderBottom:`1px solid ${C.bdr}`,
           display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
           <div style={{ flex:1, fontWeight:700, fontSize:18 }}>도움말</div>
-          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", padding:4 }}>
+          <button onClick={onClose} style={{
+            background:C.card, border:`1px solid ${C.bdr}`, borderRadius:10,
+            cursor:"pointer", padding:"8px 10px", display:"flex", alignItems:"center", justifyContent:"center",
+            minWidth:40, minHeight:40,
+          }}>
             <Icon n="xmark" size={22} color={C.dim} />
           </button>
         </div>
@@ -1899,7 +1903,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             fontWeight:700, fontSize:12, cursor:"pointer", fontFamily:"inherit", color:"#3C1E1E",
             position:"relative",
           }}>
-            <span style={{ fontSize:14 }}>💬</span> 공유
+            <Icon n="send" size={14} color="#3C1E1E" /> 공유
             {svc.shareCount > 0 && (
               <span style={{
                 position:"absolute", top:-6, right:-6,
@@ -1922,7 +1926,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
               display:"flex", alignItems:"center", gap:5, color:"#fff",
               fontWeight:600, fontSize:12, cursor:"pointer", fontFamily:"inherit",
             }}>
-              <Icon n="send" size={14} color="#fff" /> 알림
+              <Icon n="bell" size={14} color="#fff" /> 알림
             </button>
           )
         }
@@ -3509,13 +3513,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (dcRef.current) dcRef.current.getContext("2d").clearRect(0, 0, dcRef.current.width, dcRef.current.height);
   };
 
+  const tbNarrow = (cSize.w || window.innerWidth) < 600;
+  const tbIconSz = tbNarrow ? 17 : 18;
+
   const toolBtn = (name, active, onClick, ttl) => (
     <button onClick={onClick} title={ttl} style={{
       background: active ? `${C.acc}33` : "transparent",
       border:`1px solid ${active ? C.acc : C.bdr}`,
-      borderRadius:8, padding:7, cursor:"pointer", display:"flex", alignItems:"center",
+      borderRadius:8, padding: tbNarrow ? 6 : 7, cursor:"pointer", display:"flex", alignItems:"center",
     }}>
-      <Icon n={name} size={17} color={active ? C.acc : C.dim} />
+      <Icon n={name} size={tbIconSz} color={active ? C.acc : C.dim} />
     </button>
   );
 
@@ -3573,9 +3580,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
           {/* 오른쪽 버튼 그룹 — 600px 기준으로 폰/태블릿 레이아웃 분기 */}
           {(() => {
-            const narrow = (cSize.w || window.innerWidth) < 600;
+            const narrow = tbNarrow;
             const gap = narrow ? 3 : 4;
-            const iconSz = narrow ? 17 : 18;
+            const iconSz = tbIconSz;
             const pad = narrow ? 6 : 7;
             const sep = <div style={{ width:1, height:18, background:C.bdr, margin: narrow ? "0 1px" : "0 2px" }} />;
             return (
@@ -3611,7 +3618,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       color: fitActive ? "#fff" : C.txt,
                       fontWeight:700, fontSize: narrow ? 10 : 11, fontFamily:"inherit",
                       letterSpacing:"0.04em", transition:"all .15s" }}>
-                    <Icon n="fitCrop" size={narrow ? 13 : 14} color={fitActive ? "#fff" : C.txt} />
+                    <Icon n="fitCrop" size={iconSz} color={fitActive ? "#fff" : C.txt} />
                     FIT
                   </button>
                   {sep}
