@@ -63,7 +63,7 @@ async function detectWithGemini(imageData, apiKey) {
     const d = await res.json();
     if (d.error) {
       const msg = d.error.message || "";
-      if (d.error.code === 429 || /quota|resource_exhausted|rate/i.test(msg)) continue;
+      if (d.error.code === 429 || /quota|resource_exhausted|rate|high demand|overloaded|temporarily|try again/i.test(msg)) continue;
       throw new Error(msg || "Gemini 오류");
     }
     result = d;
