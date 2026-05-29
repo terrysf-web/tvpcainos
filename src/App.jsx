@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.122";
+const APP_VERSION = "3.123";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3009,8 +3009,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   useEffect(() => {
     setChordData([]);
     if (!user?.uid || !dualLeftSongId || !dual) return;
-    const sharedKey  = `chord_shared_${dualLeftSongId}_p1`;
-    const personalKey = `chord_${user.uid}_${dualLeftSongId}_p1`;
+    const pg = svcSongs[dualIdx]?.pdfPage || 1;
+    const sharedKey  = `chord_shared_${dualLeftSongId}_p${pg}`;
+    const personalKey = `chord_${user.uid}_${dualLeftSongId}_p${pg}`;
     Promise.all([
       getDoc(doc(db, "customSongs", sharedKey)),
       getDoc(doc(db, "customSongs", personalKey)),
@@ -3030,14 +3031,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         if (personal.data().chordFontScale)               setChordFontScale(personal.data().chordFontScale);
       }
     }).catch(() => {});
-  }, [dualLeftSongId, user?.uid, dual]);
+  }, [dualLeftSongId, user?.uid, dual, dualIdx]);
 
   // 코드 감지 결과 로드 — 듀얼 오른쪽
   useEffect(() => {
     setChordData2([]);
     if (!user?.uid || !dualRightSongId || !dual) return;
-    const sharedKey  = `chord_shared_${dualRightSongId}_p1`;
-    const personalKey = `chord_${user.uid}_${dualRightSongId}_p1`;
+    const pg = svcSongs[dualIdx + 1]?.pdfPage || 1;
+    const sharedKey  = `chord_shared_${dualRightSongId}_p${pg}`;
+    const personalKey = `chord_${user.uid}_${dualRightSongId}_p${pg}`;
     Promise.all([
       getDoc(doc(db, "customSongs", sharedKey)),
       getDoc(doc(db, "customSongs", personalKey)),
@@ -3053,14 +3055,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       if (personal.exists() && personal.data().transposeSteps !== undefined)
         setTransposeSteps2(personal.data().transposeSteps);
     }).catch(() => {});
-  }, [dualRightSongId, user?.uid, dual]);
+  }, [dualRightSongId, user?.uid, dual, dualIdx]);
 
   const detectChords = async (side = 1) => {
     const canvas = (side === 2 ? canvas2Ref : canvas1Ref).current;
     if (!canvas || !canvas.width) return;
     const setCD = side === 2 ? setChordData2 : setChordData;
     const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
-    const page   = dual ? 1 : pageNum;
+    const page   = dual
+      ? (side === 2 ? (svcSongs[dualIdx + 1]?.pdfPage || 1) : (svcSongs[dualIdx]?.pdfPage || 1))
+      : pageNum;
     setDetectingChords(true); setDetectErr(""); setCD([]);
     try {
       // 이미지 축소 (최대 1200px) + JPEG 압축
@@ -3101,7 +3105,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const saveChordPositions = (chords, side = 1) => {
     if (!user?.uid) return;
     const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
-    const page   = dual ? 1 : pageNum;
+    const page   = dual
+      ? (side === 2 ? (svcSongs[dualIdx + 1]?.pdfPage || 1) : (svcSongs[dualIdx]?.pdfPage || 1))
+      : pageNum;
     if (!songId) return;
     const data = { chords, updatedAt: serverTimestamp() };
     if (isLeader(user.role)) {
@@ -3114,7 +3120,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const saveChordFontScale = (scale) => {
     if (!user?.uid) return;
     const songId = dual ? dualLeftSongId : selectedSongId;
-    const page   = dual ? 1 : pageNum;
+    const page   = dual ? (svcSongs[dualIdx]?.pdfPage || 1) : pageNum;
     if (!songId) return;
     const data = { chordFontScale: scale, updatedAt: serverTimestamp() };
     if (isLeader(user.role))
@@ -3207,9 +3213,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setTransposeSteps(newSteps);
     if (!user?.uid) return;
     const songId = dual ? dualLeftSongId : selectedSongId;
-    const page   = dual ? 1 : pageNum;
+    const page   = dual ? (svcSongs[dualIdx]?.pdfPage || 1) : pageNum;
     if (!songId) return;
-    // 전조 +/− 는 항상 개인 저장만 (리더 포함)
     setDoc(doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`),
       { transposeSteps: newSteps, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
   };
@@ -3217,7 +3222,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const saveTransposeSteps2 = (newSteps) => {
     setTransposeSteps2(newSteps);
     if (!user?.uid || !dualRightSongId) return;
-    setDoc(doc(db, "customSongs", `chord_${user.uid}_${dualRightSongId}_p1`),
+    const page = svcSongs[dualIdx + 1]?.pdfPage || 1;
+    setDoc(doc(db, "customSongs", `chord_${user.uid}_${dualRightSongId}_p${page}`),
       { transposeSteps: newSteps, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
   };
 
