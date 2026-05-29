@@ -12,25 +12,26 @@ const MODELS = [
   "gemini-1.5-flash-8b",
 ];
 
-const PROMPT = `You are analyzing a sheet music image. Your task: find every chord symbol printed ABOVE the staff lines.
+const PROMPT = `Analyze this sheet music image. Find every chord symbol printed above the staff lines.
 
-Chord symbols look like: C, Am, G7, F#m, Bb, Dm7, Cadd9, E/G#, Bm7, Dsus4, etc.
-They are TEXT labels placed directly above the musical staff, NOT lyrics below the staff.
+Chord symbols: C, Am, G7, F#m, Bb, Dm7, E/G#, Bm7, Dsus4, C#m, A7, etc.
+They appear as TEXT LABELS in the white space above each staff system — NOT lyrics below the staff.
 
-For each chord symbol found, measure its CENTER position as a fraction of the TOTAL image size.
-
-Return ONLY a valid JSON array — no markdown, no explanation:
+Return ONLY a valid JSON array (no markdown, no explanation, no commentary):
 [{"label":"C","cx":0.12,"cy":0.07},{"label":"Am","cx":0.34,"cy":0.07}]
 
-Rules:
-- "label": chord text exactly as written (preserve sharps # and flats b)
-- "cx": horizontal center of that chord text (0.0=far left, 1.0=far right)
-- "cy": vertical center of that chord text (0.0=very top, 1.0=very bottom)
-- Measure cx/cy at the CHORD TEXT itself, not at the note below it
-- Chords in the same row will have nearly identical cy values
-- Be pixel-accurate: if two chords are in different rows, their cy must differ noticeably
+Field definitions:
+- "label": exact chord text as printed (keep # and b characters)
+- "cx": 0.0=left image edge, 1.0=right image edge — measure at horizontal CENTER of the chord label text
+- "cy": 0.0=top image edge, 1.0=bottom image edge — measure at vertical CENTER of the chord label text
 
-Return [] only if truly no chords exist.`;
+Precision rules:
+- Measure the center of the PRINTED CHORD TEXT characters, not the note head beneath it
+- Chord labels in the same staff row share nearly identical cy values (within 0.01)
+- Different rows must have clearly different cy values
+- cx precision matters: each chord label has a distinct horizontal position
+
+Return [] if no chord symbols exist.`;
 
 function parseText(text: string): unknown[] {
   if (!text || !text.trim()) return [];
@@ -113,10 +114,13 @@ serve(async (req) => {
       authHeader = `Bearer ${token}`;
     }
 
-    const body = JSON.stringify({ contents: [{ parts: [
-      { inlineData: { mimeType: "image/jpeg", data: imageData } },
-      { text: PROMPT },
-    ]}]});
+    const body = JSON.stringify({
+      contents: [{ parts: [
+        { inlineData: { mimeType: "image/jpeg", data: imageData } },
+        { text: PROMPT },
+      ]}],
+      generationConfig: { thinkingConfig: { thinkingBudget: 0 } },
+    });
 
     // Gemini 시도
     let result = null;
