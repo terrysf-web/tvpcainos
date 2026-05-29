@@ -58,7 +58,7 @@ jobs:
         if: steps.check.outputs.has_token == 'true'
         run: npm install -g supabase@latest --silent
 
-      - name: Edge Function 배포
+      - name: Edge Function 배포 (send-fcm + detect-chords)
         if: steps.check.outputs.has_token == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -66,20 +66,27 @@ jobs:
           supabase functions deploy send-fcm \
             --project-ref byvbrsuvporwhlapecja \
             --no-verify-jwt
+          supabase functions deploy detect-chords \
+            --project-ref byvbrsuvporwhlapecja \
+            --no-verify-jwt
 
-      - name: Firebase 서비스 계정을 Supabase 시크릿으로 등록
+      - name: Supabase 시크릿 등록 (Firebase SA + Gemini API Key)
         if: steps.check.outputs.has_token == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GEMINI_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
         run: |
           python3 - <<'EOF'
-          import json, sys, os, urllib.request
-          sa  = os.environ["FIREBASE_SA"]
-          tok = os.environ["SUPABASE_ACCESS_TOKEN"]
+          import json, os, urllib.request
+          tok     = os.environ["SUPABASE_ACCESS_TOKEN"]
+          secrets = [
+            {"name": "FIREBASE_SERVICE_ACCOUNT", "value": os.environ["FIREBASE_SA"]},
+            {"name": "GEMINI_API_KEY",            "value": os.environ.get("GEMINI_KEY","")},
+          ]
           req = urllib.request.Request(
             "https://api.supabase.com/v1/projects/byvbrsuvporwhlapecja/secrets",
-            data=json.dumps([{"name": "FIREBASE_SERVICE_ACCOUNT", "value": sa}]).encode(),
+            data=json.dumps(secrets).encode(),
             headers={"Authorization": "Bearer " + tok, "Content-Type": "application/json"},
             method="POST",
           )

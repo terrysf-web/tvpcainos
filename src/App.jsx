@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { auth, db, messagingPromise, firebaseConfigObj } from "./firebase.js";
 import { getToken, onMessage } from "firebase/messaging";
-import { uploadPdf, sendFcmPush } from "./supabase.js";
+import { uploadPdf, sendFcmPush, detectChordsViaEdge } from "./supabase.js";
 import AIPanel from "./AIPanel.jsx";
 import {
   signOut,
@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.69";
+const APP_VERSION = "3.70";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2766,73 +2766,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const detectChords = async (side = 1) => {
     const canvas = (side === 2 ? canvas2Ref : canvas1Ref).current;
     if (!canvas || !canvas.width) return;
-    const key = user?.geminiKey || import.meta.env.VITE_GEMINI_API_KEY;
-    if (!key) { setDetectErr("API 키 없음 — 프로필에서 Gemini 키를 설정해주세요"); return; }
     const setCD = side === 2 ? setChordData2 : setChordData;
     const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
     const page   = dual ? 1 : pageNum;
     setDetectingChords(true); setDetectErr(""); setCD([]);
     try {
-      // 이미지 축소 (최대 1200px) + JPEG 압축 → 토큰 사용량 대폭 절감
+      // 이미지 축소 (최대 1200px) + JPEG 압축
       const MAX_DIM = 1200;
       const ratio = Math.min(MAX_DIM / canvas.width, MAX_DIM / canvas.height, 1);
       const small = document.createElement("canvas");
       small.width  = Math.round(canvas.width  * ratio);
       small.height = Math.round(canvas.height * ratio);
       small.getContext("2d").drawImage(canvas, 0, 0, small.width, small.height);
-      const b64 = small.toDataURL("image/jpeg", 0.80).split(",")[1];
-      const prompt = `You are analyzing a sheet music image. Find every chord symbol printed above the staff (like C, Am, G7, F#m, Bb, Dm7, Cadd9, etc.).
-For each chord symbol, provide its center position as a fraction of the total image dimensions.
+      const imageData = small.toDataURL("image/jpeg", 0.80).split(",")[1];
 
-Return ONLY a JSON array, no other text:
-[{"label":"C","cx":0.15,"cy":0.08},{"label":"Am","cx":0.35,"cy":0.08}]
-
-- "label": the chord symbol exactly as printed
-- "cx": horizontal center of the chord label (0.0=left edge, 1.0=right edge)
-- "cy": vertical center of the chord label (0.0=top edge, 1.0=bottom edge)
-
-Be precise about the position of each chord label. Return [] if no chords found.`;
-      const MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-8b"];
-      const body = JSON.stringify({ contents: [{ parts: [
-        { inlineData: { mimeType: "image/png", data: b64 } },
-        { text: prompt },
-      ]}]});
-      let data = null;
-      for (let mi = 0; mi < MODELS.length; mi++) {
-        if (mi > 0) await new Promise(r => setTimeout(r, 1500)); // 모델 전환 전 잠시 대기
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${MODELS[mi]}:generateContent?key=${key}`,
-          { method: "POST", headers: { "content-type": "application/json" }, body }
-        );
-        const d = await res.json();
-        if (d.error) {
-          const msg = d.error.message || "";
-          if (d.error.code === 429 || /quota|resource_exhausted|rate/i.test(msg)) continue;
-          if (/expired|invalid.*key|api.*key/i.test(msg))
-            throw new Error("API 키 만료 또는 오류 — 프로필에서 키를 새로 발급·교체해주세요");
-          throw new Error(msg || "Gemini API 오류");
-        }
-        data = d;
-        break;
-      }
-      if (!data) throw new Error("쿼터 초과 — 프로필에서 개인 Gemini API 키를 확인하거나 잠시 후 재시도해주세요");
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      // Remove <think>...</think> blocks, markdown fences, then extract JSON array
-      const cleaned = rawText
-        .replace(/<think>[\s\S]*?<\/think>/gi, "")
-        .replace(/```[a-z]*\n?/gi, "")
-        .trim();
-      let raw = null;
-      // Try direct parse first
-      try { const p = JSON.parse(cleaned); raw = Array.isArray(p) ? p : (p?.chords || p?.items || p?.result || null); } catch {}
-      // Try extracting outermost [...] from the text
-      if (!raw) {
-        const m = cleaned.match(/\[[\s\S]*\]/);
-        if (m) try { raw = JSON.parse(m[0]); } catch {}
-      }
-      if (!raw) { setDetectErr("응답 파싱 실패 — 재시도 해주세요"); return; }
-      if (!Array.isArray(raw)) { setDetectErr("응답 형식 오류 — 재시도 해주세요"); return; }
-      const chords = raw.map(item => ({
+      // Supabase Edge Function 경유 — API 키 서버에서 관리
+      const raw = await detectChordsViaEdge(imageData);
+      const chords = raw.map((item) => ({
         chord: item.label,
         x: typeof item.cx === "number" ? item.cx : (typeof item.x === "number" ? item.x : 0.5),
         y: typeof item.cy === "number" ? item.cy : (typeof item.y === "number" ? item.y : 0.5),

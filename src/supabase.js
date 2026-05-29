@@ -20,6 +20,17 @@ export async function sendFcmPush(title, body) {
   }
 }
 
+export async function detectChordsViaEdge(imageData) {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/detect-chords`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_ANON}` },
+    body: JSON.stringify({ imageData }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.chords;
+}
+
 export async function uploadPdf(file, songId) {
   const path = `${songId}.pdf`;
   const { error } = await supabase.storage
