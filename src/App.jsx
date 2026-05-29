@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.115";
+const APP_VERSION = "3.116";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -139,7 +139,7 @@ const HELP_ITEMS = [
   { icon:"circle",    name:"원",                eng:"Circle",        ini:"ㅇ", desc:"악보 위에 원 도형을 그립니다. 시작점 터치 후 드래그하세요. ⚠️ 도형 그리기 모드 중에는 스와이프 페이지 이동이 불가합니다." },
   { icon:"prev",      name:"이전 페이지",       eng:"Prev Page",     ini:"ㅇ", desc:"악보의 이전 페이지로 이동합니다. ⚠️ 쓰기 모드(그리기·도형·스탬프 등)가 켜진 상태에서는 스와이프 이동이 불가하지만 이 버튼은 동작합니다." },
   // ㅈ
-  { icon:"refresh",   name:"전조",              eng:"Transpose",     ini:"ㅈ", desc:"AI가 감지한 코드를 반음 단위로 올리거나 내립니다. +는 반음 올리기, -는 반음 내리기, 0은 원위치입니다. 전조 설정은 내 계정에만 저장되며 다른 팀원 화면에는 보이지 않습니다." },
+  { icon:"refresh",   name:"전조",              eng:"Transpose",     ini:"ㅈ", desc:"AI가 감지한 코드를 반음 단위로 올리거나 내립니다. +는 반음 올리기, -는 반음 내리기, 0은 원위치입니다. 전조 설정은 내 계정에만 저장되며 다른 팀원 화면에는 보이지 않습니다.\n\n전조 버튼을 껐다 켜도 코드는 유지됩니다. 초기화 버튼을 누르면 전조값·코드·크기가 모두 초기화되고 코드 감지 버튼이 다시 나타납니다." },
   { icon:"fitCrop",   name:"자동 맞춤(FIT)",    eng:"Auto Fit",      ini:"ㅈ", desc:"악보 여백을 자동으로 분석해 화면에 꽉 차게 맞춥니다. 다시 누르면 원래 크기로 돌아옵니다. 두 화면 모드에서도 좌우 각각 동작합니다." },
   { icon:"zoomIn",    name:"줌인",              eng:"Zoom In",       ini:"ㅈ", desc:"악보를 확대합니다. 핀치 제스처로도 확대할 수 있습니다. 줌인 상태에서는 화면 오른쪽에 방향 D-패드가 나타나 악보를 상하좌우로 이동할 수 있습니다." },
   { icon:"zoomOut",   name:"줌아웃",            eng:"Zoom Out",      ini:"ㅈ", desc:"악보를 축소합니다. 가운데 % 버튼을 누르면 원래 100% 크기로 즉시 돌아옵니다." },
@@ -147,7 +147,7 @@ const HELP_ITEMS = [
   // ㅊ
   { icon:"plus",      name:"추가",              eng:"Add",           ini:"ㅊ", desc:"새 악보, 예배, 또는 항목을 추가합니다." },
   // ㅋ
-  { icon:"music",     name:"코드 감지(AI)",     eng:"Chord Detect",  ini:"ㅋ", desc:"AI(Gemini 또는 Groq)가 악보 이미지에서 코드 기호를 자동 인식합니다. 싱글 모드에서는 미디어 패널에서, 두 화면(Dual) 모드에서는 전조 서브툴바에서 왼쪽·오른쪽 각각 실행합니다. API 키가 없으면 서버 키를 우선 사용합니다." },
+  { icon:"music",     name:"코드 감지(AI)",     eng:"Chord Detect",  ini:"ㅋ", desc:"AI(Gemini 또는 Groq)가 악보 이미지에서 코드 기호를 자동 인식합니다. 싱글 모드에서는 미디어 패널에서, 두 화면(Dual) 모드에서는 전조 서브툴바에서 왼쪽·오른쪽 각각 실행합니다. API 키가 없으면 서버 키를 우선 사용합니다.\n\n한 번 감지된 코드는 전조 버튼을 껐다 켜도 항상 악보 위에 표시됩니다. 초기화 버튼을 누르면 코드가 모두 지워지고 감지 버튼이 다시 활성화됩니다.\n\n코드 라벨 조작: 드래그로 위치 이동 | 더블탭으로 복사 | 꾹 누르기(0.6초)로 삭제.\n\n전조 +/−는 개인별로 저장됩니다. 리더가 코드를 감지하거나 위치를 조정하면 팀 전체에 공유되고 악보 라이브러리에도 저장됩니다.\n\n코드 크기(A−/A+)도 저장되어 다음에 열면 그대로 유지됩니다. V·I·II 같은 섹션 마커는 전조되지 않고 그대로 유지됩니다." },
   { icon:"cresc",     name:"크레센도",          eng:"Crescendo",     ini:"ㅋ", desc:"악보에 크레센도(점점 세게 <) 기호를 스탬프로 찍습니다. 스탬프 모드 중에는 스와이프 페이지 이동이 불가합니다." },
   // ㅌ
   { icon:"textT",     name:"텍스트",            eng:"Text",          ini:"ㅌ", desc:"악보 위에 텍스트를 입력합니다. 텍스트 모드가 켜지면 노란색 원형 커서(T)가 손가락 위치를 실시간으로 표시해 입력 위치를 잡는 데 도움을 줍니다. 원하는 위치를 탭하면 입력창이 열리고 커서가 사라집니다. ⚠️ 텍스트 입력 모드 중에는 스와이프 페이지 이동이 불가합니다." },
@@ -3918,7 +3918,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   {isLeader(user.role) && (narrow ? (
                     <button onClick={() => {
                       setTransposeMode(p => !p);
-                      if (transposeMode) { setTransposeSteps(0); setChordData([]); setChordData2([]); setDetectErr(""); }
+                      if (transposeMode) { setTransposeSteps(0); setDetectErr(""); }
                     }} title="전조" style={{
                       position:"relative",
                       background: transposeMode ? `${C.grn}33` : "transparent",
@@ -3938,7 +3938,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   ) : (
                     <button onClick={() => {
                       setTransposeMode(p => !p);
-                      if (transposeMode) { setTransposeSteps(0); setChordData([]); setChordData2([]); setDetectErr(""); }
+                      if (transposeMode) { setTransposeSteps(0); setDetectErr(""); }
                     }} style={{
                       display:"flex", alignItems:"center", gap:5,
                       padding:"5px 10px", borderRadius:8, cursor:"pointer",
@@ -4442,7 +4442,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         onPointerCancel={handleDraw1Cancel}
                         onPointerLeave={() => { if (drawTool === "text" && !textInput) setTextDot(null); }}
                       />
-                      {transposeMode && chordData.length > 0 && (() => {
+                      {chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 400;
                         const fs = Math.round(Math.max(8, Math.min(14, cw / 50)) * chordFontScale);
                         return (
@@ -4506,7 +4506,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           onPointerCancel={handleDraw2Cancel}
                           onPointerLeave={() => { if (drawTool === "text" && !textInput) setTextDot(null); }}
                         />
-                        {transposeMode && chordData2.length > 0 && (() => {
+                        {chordData2.length > 0 && (() => {
                           const cw = canvas2Ref.current?.offsetWidth  || 400;
                           const fs = Math.round(Math.max(8, Math.min(14, cw / 50)) * chordFontScale);
                           return (
@@ -4582,7 +4582,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         onPointerLeave={() => { if (drawTool === "text" && !textInput) setTextDot(null); }}
                       />
                       {/* 전조 코드 오버레이 — 드래그로 위치 조정 가능 */}
-                      {transposeMode && chordData.length > 0 && (() => {
+                      {chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 600;
                         const fs = Math.round(Math.max(10, Math.min(16, cw / 50)) * chordFontScale);
                         return (
