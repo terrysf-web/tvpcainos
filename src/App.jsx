@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.80";
+const APP_VERSION = "3.81";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2790,13 +2790,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setDetectingChords(true); setDetectErr(""); setCD([]);
     try {
       // 이미지 축소 (최대 1200px) + JPEG 압축
-      const MAX_DIM = 1200;
+      const MAX_DIM = 2400;
       const ratio = Math.min(MAX_DIM / canvas.width, MAX_DIM / canvas.height, 1);
       const small = document.createElement("canvas");
       small.width  = Math.round(canvas.width  * ratio);
       small.height = Math.round(canvas.height * ratio);
       small.getContext("2d").drawImage(canvas, 0, 0, small.width, small.height);
-      const imageData = small.toDataURL("image/jpeg", 0.80).split(",")[1];
+      const imageData = small.toDataURL("image/jpeg", 0.95).split(",")[1];
 
       const raw = await detectChordsViaEdge(imageData, user?.geminiKey);
       const chords = raw.map((item) => ({

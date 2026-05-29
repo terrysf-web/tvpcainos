@@ -122,9 +122,9 @@ serve(async (req) => {
       const groqKey = Deno.env.get("GROQ_API_KEY");
       if (!groqKey) throw new Error("쿼터 초과 — 잠시 후 재시도");
       const groqModels = [
-        "meta-llama/llama-4-scout-17b-16e-instruct",
-        "meta-llama/llama-4-maverick-17b-128e-instruct",
         "llama-3.2-90b-vision-preview",
+        "meta-llama/llama-4-maverick-17b-128e-instruct",
+        "meta-llama/llama-4-scout-17b-16e-instruct",
       ];
       for (const model of groqModels) {
         const gr = await fetch("https://api.groq.com/openai/v1/chat/completions", {
