@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.96";
+const APP_VERSION = "3.97";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1759,11 +1759,15 @@ function SongPickerModal({ songs, currentIds, onClose, onSave }) {
   );
 }
 
-function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotations, nav, selectedSvcId, onUpdateService }) {
+function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotations, notifs, nav, selectedSvcId, onUpdateService }) {
   const svc = services.find(s => s.id === selectedSvcId);
-  const [showPicker, setShowPicker] = useState(false);
-  const [showEdit,   setShowEdit]   = useState(false);
-  const [drag, setDrag]           = useState(null); // {fromIdx, startY, curY}
+  const [showPicker,     setShowPicker]     = useState(false);
+  const [showEdit,       setShowEdit]       = useState(false);
+  const [showNotifModal, setShowNotifModal] = useState(false);
+  const [notifType,      setNotifType]      = useState("예배 악보");
+  const [notifContent,   setNotifContent]   = useState("");
+  const [notifSending,   setNotifSending]   = useState(false);
+  const [drag, setDrag]           = useState(null);
   const [dropIdx, setDropIdx]     = useState(null);
   const cardRefs = useRef([]);
 
@@ -1776,16 +1780,24 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const validEntries = entries.filter(e => e.song);
 
   const leader = isLeader(user.role);
+  const svcNotifCount = (notifs || []).filter(n => n.serviceId === svc.id).length;
 
   const sendNotif = async () => {
-    const title = `${svc.title} 악보 등록`;
-    const body  = `${svc.date} ${svc.title} 악보가 등록되었습니다. 연습 준비해주세요!`;
-    await updateDoc(doc(db, "services", svc.id), { notified: true });
+    if (!notifContent.trim()) return;
+    setNotifSending(true);
+    const typeLabel = notifType;
+    const title = `[${typeLabel}] ${svc.title}`;
+    const body  = notifContent.trim();
     await addDoc(collection(db, "notifications"), {
-      title, body, createdAt: serverTimestamp(), readBy: [], serviceId: svc.id,
+      type: typeLabel, content: body,
+      title, body,
+      createdAt: serverTimestamp(), readBy: [], serviceId: svc.id,
     });
-    // FCM 푸시 — 앱이 닫혀있는 팀원에게도 전송
     sendFcmPush(title, body);
+    setNotifContent("");
+    setNotifType("예배 악보");
+    setNotifSending(false);
+    setShowNotifModal(false);
   };
 
   const shareToKakao = () => {
@@ -1918,18 +1930,27 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             )}
           </button>
         )}
-        {svc.notified
-          ? <Badge label="알림완료" color={C.grn} />
-          : leader && (
-            <button onClick={sendNotif} title="팀 알림 보내기" style={{
-              width:36, height:36, borderRadius:9, cursor:"pointer",
-              background:C.pur, border:`1px solid ${C.pur}`,
-              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
-            }}>
-              <Icon n="bell" size={18} color="#fff" />
-            </button>
-          )
-        }
+        {leader && (
+          <button onClick={() => setShowNotifModal(true)} title="팀 알림 보내기" style={{
+            width:36, height:36, borderRadius:9, cursor:"pointer", position:"relative",
+            background:C.pur, border:`1px solid ${C.pur}`,
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+          }}>
+            <Icon n="bell" size={18} color="#fff" />
+            {svcNotifCount > 0 && (
+              <span style={{
+                position:"absolute", top:-5, right:-5,
+                minWidth:15, height:15, padding:"0 3px",
+                background:C.acc, borderRadius:8, border:`2px solid ${C.pur}`,
+                fontSize:9, fontWeight:700, color:"#fff",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                lineHeight:1, boxSizing:"border-box",
+              }}>
+                {svcNotifCount}
+              </span>
+            )}
+          </button>
+        )}
       </div>
 
       <div style={{ padding:16, paddingBottom:90 }}>
@@ -2072,6 +2093,51 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       )}
       {showEdit && (
         <EditServiceModal svc={svc} onClose={() => setShowEdit(false)} onSave={onUpdateService} />
+      )}
+      {showNotifModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)", zIndex:2000,
+          display:"flex", alignItems:"flex-end", justifyContent:"center" }}
+          onClick={e => { if (e.target === e.currentTarget) setShowNotifModal(false); }}>
+          <div style={{ background:C.surf, borderRadius:"16px 16px 0 0", padding:20,
+            width:"100%", maxWidth:480, paddingBottom:"calc(20px + env(safe-area-inset-bottom))" }}>
+            <div style={{ display:"flex", alignItems:"center", marginBottom:16 }}>
+              <div style={{ flex:1, fontWeight:700, fontSize:16 }}>알림 보내기</div>
+              <button onClick={() => setShowNotifModal(false)}
+                style={{ background:"none", border:"none", cursor:"pointer", padding:6 }}>
+                <Icon n="xmark" size={20} color={C.dim} />
+              </button>
+            </div>
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:12, color:C.dim, fontWeight:600, marginBottom:6 }}>알림 타입</div>
+              <select value={notifType} onChange={e => setNotifType(e.target.value)}
+                style={{ width:"100%", padding:"10px 12px", borderRadius:10,
+                  border:`1px solid ${C.bdr}`, background:C.card, fontSize:14,
+                  color:C.txt, fontFamily:"inherit", outline:"none" }}>
+                <option>예배 악보</option>
+                <option>참고</option>
+                <option>공지</option>
+              </select>
+            </div>
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:12, color:C.dim, fontWeight:600, marginBottom:6 }}>알림 내용</div>
+              <textarea value={notifContent} onChange={e => setNotifContent(e.target.value)}
+                placeholder="팀원에게 전달할 내용을 입력하세요..."
+                rows={4}
+                style={{ width:"100%", padding:"10px 12px", borderRadius:10,
+                  border:`1px solid ${C.bdr}`, background:C.card, fontSize:14,
+                  color:C.txt, fontFamily:"inherit", outline:"none", resize:"none",
+                  boxSizing:"border-box" }} />
+            </div>
+            <button onClick={sendNotif} disabled={notifSending || !notifContent.trim()}
+              style={{ width:"100%", padding:"13px 0", borderRadius:12,
+                background: (!notifContent.trim() || notifSending) ? C.bdr : C.pur,
+                border:"none", color:"#fff", fontWeight:700, fontSize:15,
+                cursor: (!notifContent.trim() || notifSending) ? "default" : "pointer",
+                fontFamily:"inherit" }}>
+              {notifSending ? "전송 중..." : "알림 보내기"}
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -4559,7 +4625,7 @@ function NotificationsScreen({ notifs, markNotifRead, markAllNotifRead }) {
             <div style={{ fontSize:36, marginBottom:12 }}>🔔</div>새로운 알림이 없습니다
           </div>
         )}
-        {notifs.map(n => (
+        {[...notifs].reverse().map((n, idx) => (
           <div key={n.id} className="wFadeIn"
             onClick={() => markNotifRead(n.id)}
             style={{
@@ -4572,12 +4638,15 @@ function NotificationsScreen({ notifs, markNotifRead, markAllNotifRead }) {
               width:38, height:38, borderRadius:10, flexShrink:0,
               background: n.read ? C.surf : `${C.pur}33`,
               display:"flex", alignItems:"center", justifyContent:"center",
+              fontWeight:700, fontSize:14, color: n.read ? C.dim : C.pur,
             }}>
-              <Icon n="bell" size={17} color={n.read ? C.dim : C.pur} />
+              {idx + 1}
             </div>
             <div style={{ flex:1 }}>
-              <div style={{ fontWeight:700, fontSize:14, marginBottom:3 }}>{n.title}</div>
-              <div style={{ fontSize:13, color:C.dim, lineHeight:1.5 }}>{n.body}</div>
+              <div style={{ fontWeight:700, fontSize:14, marginBottom:3 }}>
+                {n.type ? `[${n.type}] ${n.title?.replace(/^\[.*?\]\s*/, "") || ""}` : n.title}
+              </div>
+              <div style={{ fontSize:13, color:C.dim, lineHeight:1.5 }}>{n.content || n.body}</div>
               <div style={{ fontSize:11, color:C.dim, marginTop:5 }}>{n.time}</div>
             </div>
             {!n.read && (
@@ -5309,6 +5378,8 @@ export default function App() {
   const [backTo,        setBackTo]        = useState("library");
   const [pdfjsReady,    setPdfjsReady]    = useState(false);
   const [showHelp,      setShowHelp]      = useState(false);
+  const [notifPopup,    setNotifPopup]    = useState(null); // {unreadCount, latest}
+  const notifPopupShownRef = useRef(false);
 
   // ── Kakao SDK 초기화
   useEffect(() => {
@@ -5502,6 +5573,16 @@ export default function App() {
         }
         knownNotifIdsRef.current = new Set(docs.map(d => d.id));
         setNotifs(docs);
+        // 앱 시작 시 읽지 않은 알림 팝업 (최초 1회)
+        if (!notifPopupShownRef.current) {
+          notifPopupShownRef.current = true;
+          const unread = docs.filter(n => !n.read);
+          if (unread.length > 0) {
+            // newest unread (docs are desc, so first unread)
+            const latest = unread[0];
+            setNotifPopup({ unreadCount: unread.length, latest });
+          }
+        }
       }
     );
   }, [user?.uid]);
@@ -5761,6 +5842,48 @@ export default function App() {
       )}
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+
+      {notifPopup && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)", zIndex:3000,
+          display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+          <div style={{ background:C.surf, borderRadius:20, padding:24, maxWidth:340, width:"100%",
+            boxShadow:"0 8px 32px rgba(0,0,0,0.25)" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+              <div style={{ width:44, height:44, borderRadius:12, background:`${C.pur}20`,
+                display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <Icon n="bell" size={22} color={C.pur} />
+              </div>
+              <div>
+                <div style={{ fontWeight:700, fontSize:16, color:C.txt }}>읽지 않은 알림</div>
+                <div style={{ fontSize:13, color:C.dim }}>{notifPopup.unreadCount}개의 새 알림이 있습니다</div>
+              </div>
+            </div>
+            <div style={{ background:C.card, borderRadius:12, padding:"12px 14px", marginBottom:20,
+              border:`1px solid ${C.bdr}` }}>
+              <div style={{ fontWeight:700, fontSize:14, color:C.txt, marginBottom:4 }}>
+                {notifPopup.latest.type ? `[${notifPopup.latest.type}]` : ""} {notifPopup.latest.title?.replace(/^\[.*?\]\s*/, "") || ""}
+              </div>
+              <div style={{ fontSize:13, color:C.dim, lineHeight:1.5 }}>
+                {notifPopup.latest.content || notifPopup.latest.body}
+              </div>
+            </div>
+            <div style={{ display:"flex", gap:10 }}>
+              <button onClick={() => setNotifPopup(null)}
+                style={{ flex:1, padding:"11px 0", borderRadius:10, border:`1px solid ${C.bdr}`,
+                  background:C.card, color:C.txt, fontWeight:600, fontSize:14,
+                  cursor:"pointer", fontFamily:"inherit" }}>
+                닫기
+              </button>
+              <button onClick={() => { setNotifPopup(null); nav("notifications"); }}
+                style={{ flex:2, padding:"11px 0", borderRadius:10, border:"none",
+                  background:C.pur, color:"#fff", fontWeight:700, fontSize:14,
+                  cursor:"pointer", fontFamily:"inherit" }}>
+                알림 보기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
