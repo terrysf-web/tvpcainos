@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.119";
+const APP_VERSION = "3.120";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -5885,6 +5885,7 @@ export default function App() {
     el.textContent = `
       @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap');
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { height: 100%; overflow: hidden; }
       body { font-family: 'Noto Sans KR', -apple-system, sans-serif;
              background: ${C.bg}; color: ${C.txt}; -webkit-tap-highlight-color: transparent; }
       ::-webkit-scrollbar { width: 4px; height: 4px; }
