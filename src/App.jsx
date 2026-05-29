@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.120";
+const APP_VERSION = "3.121";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1531,8 +1531,18 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
     .slice().sort((a, b) => b.date.localeCompare(a.date));
   const pastShown = pastExpanded ? past : past.slice(0, 3);
 
-  const SvcCard = ({ svc, past }) => {
+  const SvcCard = ({ svc, past, first }) => {
     const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
+    const borderStyle = past
+      ? `1px solid ${C.bdr}`
+      : first
+        ? `2px solid ${C.acc}`
+        : `1px solid ${C.bdr}`;
+    const shadowStyle = past
+      ? "0 1px 4px rgba(0,0,0,.06)"
+      : first
+        ? `0 4px 18px ${C.acc}55`
+        : "0 1px 4px rgba(0,0,0,.06)";
     return (
       <div className="wFadeIn"
         onClick={() => nav("svcDetail", { svcId: svc.id })}
@@ -1540,14 +1550,14 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
           background: C.surf,
           borderRadius:14, padding:"16px",
           marginBottom:10,
-          border: past ? `1px solid ${C.bdr}` : `1.5px solid ${C.acc}`,
+          border: borderStyle,
           cursor:"pointer",
-          boxShadow: past ? "0 1px 4px rgba(0,0,0,.06)" : `0 2px 12px ${C.acc}33`,
+          boxShadow: shadowStyle,
         }}>
         <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:10 }}>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontWeight:700, fontSize:16 }}>{svc.title}</div>
-            <div style={{ color:C.dim, fontSize:13, marginTop:3 }}>
+            <div style={{ fontWeight: first ? 800 : 700, fontSize: first ? 17 : 16 }}>{svc.title}</div>
+            <div style={{ color: first ? C.acc : C.dim, fontSize:13, marginTop:3, fontWeight: first ? 600 : 400 }}>
               📅 {fmtDate(svc.date)}{svc.time ? ` · ${svc.time}` : ""}
             </div>
           </div>
@@ -1635,7 +1645,7 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
           <>
             <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
               textTransform:"uppercase", marginBottom:10 }}>다가오는 예배</div>
-            {upcoming.map(svc => <SvcCard key={svc.id} svc={svc} past={false} />)}
+            {upcoming.map((svc, i) => <SvcCard key={svc.id} svc={svc} past={false} first={i === 0} />)}
           </>
         )}
 
