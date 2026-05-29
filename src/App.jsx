@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.73";
+const APP_VERSION = "3.74";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2529,6 +2529,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [chordData2,     setChordData2]     = useState([]);   // dual right
   const [detectingChords, setDetectingChords] = useState(false);
   const [detectErr,      setDetectErr]      = useState("");
+  const [detectNeedsAuth, setDetectNeedsAuth] = useState(0); // 0=없음, 1=왼쪽, 2=오른쪽
   const drawCanvas1Ref  = useRef(null);  // single mode + dual left
   const drawCanvas2Ref  = useRef(null);  // dual right
   const isDrawing1Ref   = useRef(false);
@@ -2794,15 +2795,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       small.getContext("2d").drawImage(canvas, 0, 0, small.width, small.height);
       const imageData = small.toDataURL("image/jpeg", 0.80).split(",")[1];
 
-      let raw;
-      try {
-        raw = await detectChordsViaEdge(imageData, user?.geminiKey);
-      } catch(e) {
-        if (e.message === "__need_oauth__" || /쿼터|quota/i.test(e.message)) {
-          const token = await getGeminiOAuthToken();
-          raw = await detectChordsViaEdge(imageData, null, token);
-        } else throw e;
-      }
+      const raw = await detectChordsViaEdge(imageData, user?.geminiKey);
       const chords = raw.map((item) => ({
         chord: item.label,
         x: typeof item.cx === "number" ? item.cx : (typeof item.x === "number" ? item.x : 0.5),
@@ -2817,6 +2810,48 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`),
           { chords, transposeSteps, updatedAt: serverTimestamp() }
         ).catch(() => {});
+      }
+    } catch(e) {
+      if (/쿼터|quota|__need_oauth__|Load failed/i.test(e.message)) {
+        setDetectNeedsAuth(side);
+        setDetectErr("Google 인증이 필요합니다");
+      } else {
+        setDetectErr("오류: " + e.message);
+      }
+    } finally {
+      setDetectingChords(false);
+    }
+  };
+
+  const detectChordsWithAuth = async (side = 1) => {
+    setDetectingChords(true); setDetectErr(""); setDetectNeedsAuth(0);
+    const canvas = (side === 2 ? canvas2Ref : canvas1Ref).current;
+    if (!canvas || !canvas.width) { setDetectingChords(false); return; }
+    const setCD = side === 2 ? setChordData2 : setChordData;
+    const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
+    const page   = dual ? 1 : pageNum;
+    try {
+      const token = await getGeminiOAuthToken();
+      const MAX_DIM = 1200;
+      const ratio = Math.min(MAX_DIM / canvas.width, MAX_DIM / canvas.height, 1);
+      const small = document.createElement("canvas");
+      small.width  = Math.round(canvas.width  * ratio);
+      small.height = Math.round(canvas.height * ratio);
+      small.getContext("2d").drawImage(canvas, 0, 0, small.width, small.height);
+      const imageData = small.toDataURL("image/jpeg", 0.80).split(",")[1];
+      const raw = await detectChordsViaEdge(imageData, null, token);
+      const chords = raw.map((item) => ({
+        chord: item.label,
+        x: typeof item.cx === "number" ? item.cx : (typeof item.x === "number" ? item.x : 0.5),
+        y: typeof item.cy === "number" ? item.cy : (typeof item.y === "number" ? item.y : 0.5),
+        w: 0.02, h: 0.02,
+      }));
+      setCD(chords);
+      if (chords.length === 0) {
+        setDetectErr("코드를 찾지 못했습니다");
+      } else if (user?.uid && songId) {
+        setDoc(doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`),
+          { chords, transposeSteps, updatedAt: serverTimestamp() }).catch(() => {});
       }
     } catch(e) {
       setDetectErr("오류: " + e.message);
@@ -3809,7 +3844,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   }}>{detectingChords ? "⏳" : "🎵"} 오른쪽</button>
                 : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 오른쪽 {chordData2.length}개</span>
               }
-              {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
+              {detectNeedsAuth > 0
+                ? <button onClick={() => detectChordsWithAuth(detectNeedsAuth)} disabled={detectingChords}
+                    style={{ background:"#4285F4", border:"none", borderRadius:7, padding:"5px 10px",
+                      cursor:"pointer", fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0 }}>
+                    🔑 Google 인증 후 재시도
+                  </button>
+                : detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>
+              }
               {/* 오른쪽 전조 + 초기화 */}
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
                 <span style={{ fontSize:10, color:C.dim, fontWeight:700 }}>오른쪽</span>
@@ -3860,9 +3902,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   }}>{detectingChords ? "⏳ 감지 중..." : "🎵 코드 감지 (AI)"}</button>
                 : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ {chordData.length}개 감지됨</span>
               }
-              {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
+              {detectNeedsAuth === 1
+                ? <button onClick={() => detectChordsWithAuth(1)} disabled={detectingChords}
+                    style={{ background:"#4285F4", border:"none", borderRadius:7, padding:"5px 12px",
+                      cursor:"pointer", fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0 }}>
+                    🔑 Google 인증 후 재시도
+                  </button>
+                : detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>
+              }
               <div style={{ marginLeft:"auto", flexShrink:0 }}>
-                <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setChordData([]); setChordData2([]); setDetectErr(""); }}
+                <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setChordData([]); setChordData2([]); setDetectErr(""); setDetectNeedsAuth(0); }}
                   style={{ background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
                     padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit" }}>
                   초기화
