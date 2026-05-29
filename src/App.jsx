@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.88";
+const APP_VERSION = "3.89";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -101,7 +101,140 @@ const P = {
   line:    "M4 12 L20 12",
   rect:    "M3 5h18v14H3z",
   circle:  "M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0",
+  help:    "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01",
 };
+
+/* ══════════════════════════════════════════════════════════════════
+   HELP DATA
+══════════════════════════════════════════════════════════════════ */
+const HELP_ITEMS = [
+  // ㄱ
+  { icon:"search",    name:"검색",          eng:"Search",        ini:"ㄱ", desc:"악보 제목 또는 아티스트 이름으로 악보를 검색합니다." },
+  { icon:"send",      name:"공유",          eng:"Share",         ini:"ㄱ", desc:"카카오톡으로 악보/예배 링크를 공유합니다. 공유 횟수가 버튼에 표시됩니다." },
+  { icon:"pen",       name:"그리기",        eng:"Draw",          ini:"ㄱ", desc:"악보 위에 자유곡선으로 필기합니다. 색상과 굵기를 선택할 수 있습니다." },
+  // ㄴ
+  { icon:"back",      name:"나가기",        eng:"Back",          ini:"ㄴ", desc:"이전 화면으로 돌아갑니다." },
+  // ㄷ
+  { icon:"next",      name:"다음 페이지",   eng:"Next Page",     ini:"ㄷ", desc:"악보의 다음 페이지로 이동합니다." },
+  { icon:"xmark",     name:"닫기",          eng:"Close",         ini:"ㄷ", desc:"현재 화면이나 모달을 닫습니다." },
+  { icon:"dual",      name:"두 화면 보기",  eng:"Dual View",     ini:"ㄷ", desc:"두 개의 악보를 화면에 나란히 동시에 표시합니다. 예배 시 유용합니다." },
+  { icon:"dim",       name:"디미누엔도",    eng:"Diminuendo",    ini:"ㄷ", desc:"악보에 디미누엔도(점점 여리게) 기호를 추가합니다." },
+  // ㅅ
+  { icon:"rect",      name:"사각형",        eng:"Rectangle",     ini:"ㅅ", desc:"악보 위에 사각형 도형을 그립니다." },
+  { icon:"sideR",     name:"사이드 패널",   eng:"Side Panel",    ini:"ㅅ", desc:"화면 오른쪽에 곡 정보 패널을 펼칩니다." },
+  { icon:"trash",     name:"삭제",          eng:"Delete",        ini:"ㅅ", desc:"선택한 악보, 예배, 또는 항목을 삭제합니다." },
+  { icon:"line",      name:"선",            eng:"Line",          ini:"ㅅ", desc:"악보 위에 직선을 그립니다." },
+  { icon:"slur",      name:"슬러",          eng:"Slur",          ini:"ㅅ", desc:"악보에 슬러(연결선) 기호를 추가합니다." },
+  { icon:"stamp",     name:"스탬프",        eng:"Stamp",         ini:"ㅅ", desc:"자주 쓰는 기호를 스탬프처럼 찍습니다." },
+  { icon:"undo",      name:"실행 취소",     eng:"Undo",          ini:"ㅅ", desc:"마지막 필기 또는 도형을 취소합니다." },
+  // ㅇ
+  { icon:"music",     name:"악보 라이브러리",eng:"Library",      ini:"ㅇ", desc:"전체 악보 목록을 관리합니다. PDF 업로드, 편집, 삭제가 가능합니다." },
+  { icon:"bell",      name:"알림",          eng:"Notifications", ini:"ㅇ", desc:"새 예배 등록 등 알림을 확인합니다. 읽지 않은 알림 수가 뱃지로 표시됩니다." },
+  { icon:"upload",    name:"업로드",        eng:"Upload",        ini:"ㅇ", desc:"PDF 형식의 악보 파일을 업로드합니다." },
+  { icon:"home",      name:"예배",          eng:"Services",      ini:"ㅇ", desc:"예배 목록과 예배 모드를 관리합니다. 예배별 악보 세트를 구성할 수 있습니다." },
+  { icon:"circle",    name:"원",            eng:"Circle",        ini:"ㅇ", desc:"악보 위에 원 도형을 그립니다." },
+  { icon:"prev",      name:"이전 페이지",   eng:"Prev Page",     ini:"ㅇ", desc:"악보의 이전 페이지로 이동합니다." },
+  // ㅈ
+  { icon:"refresh",   name:"전조",          eng:"Transpose",     ini:"ㅈ", desc:"악보의 코드를 반음 단위로 올리거나 내립니다. +/- 버튼으로 조절합니다." },
+  { icon:"zoomIn",    name:"줌인",          eng:"Zoom In",       ini:"ㅈ", desc:"악보를 확대합니다. 핀치 동작으로도 확대할 수 있습니다." },
+  { icon:"zoomOut",   name:"줌아웃",        eng:"Zoom Out",      ini:"ㅈ", desc:"악보를 축소합니다." },
+  { icon:"eraser",    name:"지우개",        eng:"Eraser",        ini:"ㅈ", desc:"필기한 내용을 부분적으로 지웁니다." },
+  // ㅊ
+  { icon:"plus",      name:"추가",          eng:"Add",           ini:"ㅊ", desc:"새 악보, 예배, 또는 항목을 추가합니다." },
+  // ㅋ
+  { icon:"music",     name:"코드 감지",     eng:"Chord Detect",  ini:"ㅋ", desc:"AI(Gemini)가 악보 이미지에서 코드 기호를 자동으로 인식하고 전조 모드에 활용합니다." },
+  { icon:"cresc",     name:"크레센도",      eng:"Crescendo",     ini:"ㅋ", desc:"악보에 크레센도(점점 세게) 기호를 추가합니다." },
+  { icon:"fitCrop",   name:"크롭",          eng:"Crop",          ini:"ㅋ", desc:"악보의 표시 영역을 설정합니다. 여백을 제거하거나 특정 영역만 보이게 합니다." },
+  // ㅌ
+  { icon:"textT",     name:"텍스트",        eng:"Text",          ini:"ㅌ", desc:"악보 위에 텍스트 메모를 입력합니다." },
+  // ㅍ
+  { icon:"user",      name:"프로필",        eng:"Profile",       ini:"ㅍ", desc:"사용자 정보, AI API 키, 알림 설정을 관리합니다." },
+  // ㅎ
+  { icon:"highlight", name:"형광펜",        eng:"Highlight",     ini:"ㅎ", desc:"악보 위에 형광펜으로 중요 부분을 표시합니다." },
+  { icon:"check",     name:"확인",          eng:"Check/Select",  ini:"ㅎ", desc:"선택 또는 확인 동작을 수행합니다." },
+];
+
+function HelpModal({ onClose }) {
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState("전체");
+  const CONS = ["전체","ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+  const available = new Set(HELP_ITEMS.map(h => h.ini));
+  const filtered = HELP_ITEMS.filter(h => {
+    const q = query.toLowerCase();
+    const matchQ = !q || h.name.includes(q) || h.eng.toLowerCase().includes(q) || h.desc.includes(q);
+    const matchC = active === "전체" || h.ini === active;
+    return matchQ && matchC;
+  });
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)", zIndex:2000, display:"flex", flexDirection:"column" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background:C.surf, display:"flex", flexDirection:"column",
+        height:"100%", maxWidth:560, width:"100%", margin:"0 auto" }}>
+        <div style={{ padding:"16px 16px 12px", borderBottom:`1px solid ${C.bdr}`,
+          display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
+          <div style={{ flex:1, fontWeight:700, fontSize:18 }}>도움말</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", padding:4 }}>
+            <Icon n="xmark" size={22} color={C.dim} />
+          </button>
+        </div>
+        <div style={{ padding:"10px 16px", borderBottom:`1px solid ${C.bdr}`, flexShrink:0 }}>
+          <div style={{ background:C.card, borderRadius:10, padding:"8px 12px",
+            display:"flex", gap:8, alignItems:"center", border:`1px solid ${C.bdr}` }}>
+            <Icon n="search" size={15} color={C.dim} />
+            <input value={query} onChange={e => { setQuery(e.target.value); setActive("전체"); }}
+              placeholder="기능 검색 (한글 또는 영문)..."
+              style={{ border:"none", background:"none", flex:1, fontSize:14, color:C.txt, outline:"none" }} />
+            {query && <button onClick={() => setQuery("")} style={{ background:"none", border:"none", cursor:"pointer", padding:0 }}>
+              <Icon n="xmark" size={14} color={C.dim} />
+            </button>}
+          </div>
+        </div>
+        <div style={{ display:"flex", overflowX:"auto", padding:"8px 12px", gap:4,
+          borderBottom:`1px solid ${C.bdr}`, flexShrink:0 }}>
+          {CONS.map(c => {
+            const hasItems = c === "전체" || available.has(c);
+            return (
+              <button key={c} onClick={() => { setActive(c); setQuery(""); }}
+                disabled={!hasItems}
+                style={{ padding:"4px 9px", borderRadius:14, border:"none", cursor: hasItems ? "pointer" : "default",
+                  flexShrink:0, fontSize:13, fontWeight:600,
+                  background: active === c ? C.pur : C.card,
+                  color: active === c ? "#fff" : hasItems ? C.txt : C.bdr,
+                  opacity: hasItems ? 1 : 0.4,
+                }}>{c}</button>
+            );
+          })}
+        </div>
+        <div style={{ flex:1, overflowY:"auto" }}>
+          {filtered.length === 0
+            ? <div style={{ textAlign:"center", color:C.dim, padding:40, fontSize:14 }}>검색 결과가 없습니다</div>
+            : filtered.map((item, i) => (
+              <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:12,
+                padding:"12px 16px", borderBottom:`1px solid ${C.bdr}` }}>
+                <div style={{ width:38, height:38, borderRadius:10, background:`${C.pur}18`,
+                  display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
+                  <Icon n={item.icon} size={18} color={C.pur} />
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:3 }}>
+                    <span style={{ fontWeight:700, fontSize:14, color:C.txt }}>{item.name}</span>
+                    <span style={{ fontSize:11, color:C.dim, background:C.card, padding:"1px 6px", borderRadius:6 }}>{item.eng}</span>
+                    <span style={{ fontSize:11, color:C.pur, marginLeft:"auto", fontWeight:600 }}>{item.ini}</span>
+                  </div>
+                  <div style={{ fontSize:13, color:C.dim, lineHeight:1.6 }}>{item.desc}</div>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+        <div style={{ padding:"10px 16px", borderTop:`1px solid ${C.bdr}`, flexShrink:0,
+          textAlign:"center", fontSize:11, color:C.dim }}>
+          총 {filtered.length}개 기능
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Icon({ n, size = 20, color = C.txt, sw = 2 }) {
   return (
@@ -5051,60 +5184,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
       )}
 
       {/* 도움말 */}
-      {showHelp && (
-        <Modal title="도움말" onClose={() => setShowHelp(false)}>
-          <div style={{ fontSize:13, lineHeight:1.9, color:C.txt }}>
-
-            {/* 팀 공유 섹션 */}
-            <div style={{ fontSize:11, fontWeight:800, color:C.acc, letterSpacing:"0.05em",
-              marginBottom:8, textTransform:"uppercase" }}>👥 팀 전체 공유</div>
-            {[
-              { title:"📋 예배 일정", desc:"예배탭에서 일정을 만들고 곡을 추가하세요. 리더는 순서 변경·복사·삭제가 가능하고, 카카오톡으로 일정을 공유할 수 있습니다. 모든 팀원이 동일하게 봅니다." },
-              { title:"🎵 악보 라이브러리", desc:"PDF 악보는 팀 전체가 공유합니다. 리더가 업로드·편집·삭제할 수 있고, 모든 팀원이 열람할 수 있습니다." },
-              { title:"🔔 알림", desc:"리더가 예배 일정을 등록하면 팀 전체에게 알림이 갑니다. 알림탭에서 확인하세요." },
-            ].map((s, i) => (
-              <div key={i} style={{ marginBottom:12, paddingBottom:12, borderBottom:`1px solid ${C.bdr}` }}>
-                <div style={{ fontWeight:700, marginBottom:3 }}>{s.title}</div>
-                <div style={{ color:C.dim, fontSize:12 }}>{s.desc}</div>
-              </div>
-            ))}
-
-            {/* 쓰기 툴 섹션 */}
-            <div style={{ fontSize:11, fontWeight:800, color:"#4ade80", letterSpacing:"0.05em",
-              margin:"16px 0 8px", textTransform:"uppercase" }}>✍️ 악보 쓰기 툴</div>
-            {[
-              { title:"펜 / 마커", desc:"펜은 가는 선으로 정밀하게 필기합니다. 마커는 반투명 형광펜으로 악보 구간을 강조할 때 유용합니다." },
-              { title:"지우개", desc:"그린 획을 지웁니다. 지우개 크기는 하단 슬라이더로 조절하세요." },
-              { title:"스탬프", desc:"악상기호(pp·f·sfz), 음표, 임시표, 아티큘레이션 등을 악보 위에 찍습니다. 돋보기(루페)로 정확한 위치를 확인하며 배치할 수 있습니다." },
-              { title:"도형", desc:"슬러, 크레셴도/디크레셴도(헤어핀), 직선, 박스, 원형을 그릴 수 있습니다. 시작점을 터치한 뒤 끝점까지 드래그하세요." },
-              { title:"줌 & D-패드", desc:"악보를 줌인하면 화면 오른쪽에 방향 D-패드가 나타납니다. 화살표로 악보를 상하좌우로 이동하고, 가운데 % 버튼으로 원래 크기로 돌아옵니다." },
-            ].map((s, i, arr) => (
-              <div key={i} style={{ marginBottom:12, paddingBottom:12,
-                borderBottom: i < arr.length - 1 ? `1px solid ${C.bdr}` : `1px solid ${C.bdr}` }}>
-                <div style={{ fontWeight:700, marginBottom:3 }}>{s.title}</div>
-                <div style={{ color:C.dim, fontSize:12 }}>{s.desc}</div>
-              </div>
-            ))}
-
-            {/* 개인 전용 섹션 */}
-            <div style={{ fontSize:11, fontWeight:800, color:C.pur, letterSpacing:"0.05em",
-              margin:"16px 0 8px", textTransform:"uppercase" }}>🔒 나만 보는 개인 데이터</div>
-            {[
-              { title:"✏️ 필기", desc:"악보에 그린 필기는 나만 볼 수 있습니다. 다른 팀원 화면에는 표시되지 않으며, 내 계정으로 로그인하면 어느 기기에서나 불러옵니다." },
-              { title:"📝 메모", desc:"악보 화면의 메모 기능도 개인 전용입니다. 내가 추가한 메모는 나만 확인할 수 있습니다." },
-              { title:"🎼 코드 전조", desc:"리더만 사용 가능합니다. 감지된 코드와 전조 설정은 내 계정에만 저장되며 다른 팀원에게는 보이지 않습니다." },
-              { title:"📖 듀얼 모드", desc:"악보 두 개를 나란히 보는 개인 뷰입니다. 악보 화면 상단의 듀얼 아이콘을 눌러 사용하세요." },
-            ].map((s, i, arr) => (
-              <div key={i} style={{ marginBottom:12, paddingBottom:12,
-                borderBottom: i < arr.length - 1 ? `1px solid ${C.bdr}` : "none" }}>
-                <div style={{ fontWeight:700, marginBottom:3 }}>{s.title}</div>
-                <div style={{ color:C.dim, fontSize:12 }}>{s.desc}</div>
-              </div>
-            ))}
-          </div>
-          <Btn label="확인" full onClick={() => setShowHelp(false)} />
-        </Modal>
-      )}
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
       {/* 문의하기 */}
       {showContact && (
@@ -5196,6 +5276,7 @@ export default function App() {
   const [selSvcSongIdx, setSelSvcSongIdx] = useState(-1); // 서비스 내 곡 인덱스 (복사 곡 대응)
   const [backTo,        setBackTo]        = useState("library");
   const [pdfjsReady,    setPdfjsReady]    = useState(false);
+  const [showHelp,      setShowHelp]      = useState(false);
 
   // ── Kakao SDK 초기화
   useEffect(() => {
@@ -5632,6 +5713,22 @@ export default function App() {
       {view !== "pdfViewer" && (
         <BottomNav view={view} nav={nav} unread={unread} />
       )}
+
+      {view !== "pdfViewer" && (
+        <button onClick={() => setShowHelp(true)}
+          style={{
+            position:"fixed", bottom:"calc(80px + env(safe-area-inset-bottom))", right:16,
+            width:40, height:40, borderRadius:"50%",
+            background:C.pur, border:"none", cursor:"pointer",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            boxShadow:"0 2px 10px rgba(107,93,231,0.45)",
+            zIndex:490,
+          }}>
+          <span style={{ color:"#fff", fontWeight:700, fontSize:18, lineHeight:1 }}>?</span>
+        </button>
+      )}
+
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </div>
   );
 }
