@@ -5,17 +5,25 @@ const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-const CHORD_PROMPT = `You are analyzing a sheet music image. Find every chord symbol printed above the staff (like C, Am, G7, F#m, Bb, Dm7, Cadd9, etc.).
-For each chord symbol, provide its center position as a fraction of the total image dimensions.
+const CHORD_PROMPT = `You are analyzing a sheet music image. Your task: find every chord symbol printed ABOVE the staff lines.
 
-Return ONLY a JSON array, no other text:
-[{"label":"C","cx":0.15,"cy":0.08},{"label":"Am","cx":0.35,"cy":0.08}]
+Chord symbols look like: C, Am, G7, F#m, Bb, Dm7, Cadd9, E/G#, Bm7, Dsus4, etc.
+They are TEXT labels placed directly above the musical staff, NOT lyrics below the staff.
 
-- "label": the chord symbol exactly as printed
-- "cx": horizontal center (0.0=left edge, 1.0=right edge)
-- "cy": vertical center (0.0=top edge, 1.0=bottom edge)
+For each chord symbol found, measure its CENTER position as a fraction of the TOTAL image size.
 
-Be precise. Return [] if no chords found.`;
+Return ONLY a valid JSON array — no markdown, no explanation:
+[{"label":"C","cx":0.12,"cy":0.07},{"label":"Am","cx":0.34,"cy":0.07}]
+
+Rules:
+- "label": chord text exactly as written (preserve sharps # and flats b)
+- "cx": horizontal center of that chord text (0.0=far left, 1.0=far right)
+- "cy": vertical center of that chord text (0.0=very top, 1.0=very bottom)
+- Measure cx/cy at the CHORD TEXT itself, not at the note below it
+- Chords in the same row will have nearly identical cy values
+- Be pixel-accurate: if two chords are in different rows, their cy must differ noticeably
+
+Return [] only if truly no chords exist.`;
 
 function parseChordResponse(text) {
   const cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```[a-z]*\n?/gi, "").trim();

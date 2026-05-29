@@ -12,17 +12,25 @@ const MODELS = [
   "gemini-1.5-flash-8b",
 ];
 
-const PROMPT = `You are analyzing a sheet music image. Find every chord symbol printed above the staff (like C, Am, G7, F#m, Bb, Dm7, Cadd9, etc.).
-For each chord symbol, provide its center position as a fraction of the total image dimensions.
+const PROMPT = `You are analyzing a sheet music image. Your task: find every chord symbol printed ABOVE the staff lines.
 
-Return ONLY a JSON array, no other text:
-[{"label":"C","cx":0.15,"cy":0.08},{"label":"Am","cx":0.35,"cy":0.08}]
+Chord symbols look like: C, Am, G7, F#m, Bb, Dm7, Cadd9, E/G#, Bm7, Dsus4, etc.
+They are TEXT labels placed directly above the musical staff, NOT lyrics below the staff.
 
-- "label": the chord symbol exactly as printed
-- "cx": horizontal center (0.0=left edge, 1.0=right edge)
-- "cy": vertical center (0.0=top edge, 1.0=bottom edge)
+For each chord symbol found, measure its CENTER position as a fraction of the TOTAL image size.
 
-Be precise. Return [] if no chords found.`;
+Return ONLY a valid JSON array — no markdown, no explanation:
+[{"label":"C","cx":0.12,"cy":0.07},{"label":"Am","cx":0.34,"cy":0.07}]
+
+Rules:
+- "label": chord text exactly as written (preserve sharps # and flats b)
+- "cx": horizontal center of that chord text (0.0=far left, 1.0=far right)
+- "cy": vertical center of that chord text (0.0=very top, 1.0=very bottom)
+- Measure cx/cy at the CHORD TEXT itself, not at the note below it
+- Chords in the same row will have nearly identical cy values
+- Be pixel-accurate: if two chords are in different rows, their cy must differ noticeably
+
+Return [] only if truly no chords exist.`;
 
 // Firebase 서비스 계정으로 OAuth 토큰 발급 (send-fcm와 동일 패턴)
 async function getAccessToken(sa: { client_email: string; private_key: string }) {
@@ -90,6 +98,7 @@ serve(async (req) => {
       { text: PROMPT },
     ]}]});
 
+    // Gemini 시도
     let result = null;
     for (let i = 0; i < MODELS.length; i++) {
       if (i > 0) await new Promise(r => setTimeout(r, 1500));
@@ -107,7 +116,46 @@ serve(async (req) => {
       result = d;
       break;
     }
-    if (!result) throw new Error("쿼터 초과 — 잠시 후 재시도");
+
+    // Gemini 쿼터 소진 시 Groq 폴백
+    if (!result) {
+      const groqKey = Deno.env.get("GROQ_API_KEY");
+      if (!groqKey) throw new Error("쿼터 초과 — 잠시 후 재시도");
+      const groqModels = [
+        "meta-llama/llama-4-scout-17b-16e-instruct",
+        "meta-llama/llama-4-maverick-17b-128e-instruct",
+        "llama-3.2-90b-vision-preview",
+      ];
+      for (const model of groqModels) {
+        const gr = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${groqKey}` },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: [
+              { type: "text", text: PROMPT },
+              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageData}` } },
+            ]}],
+            max_tokens: 1024,
+            temperature: 0,
+          }),
+        });
+        const gd = await gr.json();
+        if (gd.error) {
+          const msg = (gd.error.message || "") as string;
+          if (/decommissioned|deprecated|not supported|unavailable/i.test(msg)) continue;
+          throw new Error(msg || "Groq 오류");
+        }
+        const rawText: string = gd.choices?.[0]?.message?.content || "";
+        const cleaned = rawText.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```[a-z]*\n?/gi, "").trim();
+        let chords: unknown[] | null = null;
+        try { const p = JSON.parse(cleaned); chords = Array.isArray(p) ? p : (p?.chords || null); } catch { /**/ }
+        if (!chords) { const m = cleaned.match(/\[[\s\S]*\]/); if (m) try { chords = JSON.parse(m[0]); } catch { /**/ } }
+        if (!Array.isArray(chords)) throw new Error("응답 파싱 실패");
+        return new Response(JSON.stringify({ chords }), { headers: { ...CORS, "Content-Type": "application/json" } });
+      }
+      throw new Error("쿼터 초과 — 잠시 후 재시도");
+    }
 
     const rawText: string = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
     const cleaned = rawText.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```[a-z]*\n?/gi, "").trim();

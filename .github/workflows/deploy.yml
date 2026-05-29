@@ -70,12 +70,13 @@ jobs:
             --project-ref byvbrsuvporwhlapecja \
             --no-verify-jwt
 
-      - name: Supabase 시크릿 등록 (Firebase SA + Gemini API Key)
+      - name: Supabase 시크릿 등록 (Firebase SA + Gemini + Groq)
         if: steps.check.outputs.has_token == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           GEMINI_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          GROQ_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
           python3 - <<'EOF'
           import json, os, urllib.request
@@ -83,6 +84,7 @@ jobs:
           secrets = [
             {"name": "FIREBASE_SERVICE_ACCOUNT", "value": os.environ["FIREBASE_SA"]},
             {"name": "GEMINI_API_KEY",            "value": os.environ.get("GEMINI_KEY","")},
+            {"name": "GROQ_API_KEY",              "value": os.environ.get("GROQ_KEY","")},
           ]
           req = urllib.request.Request(
             "https://api.supabase.com/v1/projects/byvbrsuvporwhlapecja/secrets",
