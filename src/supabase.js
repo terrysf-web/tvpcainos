@@ -68,9 +68,8 @@ async function detectWithGemini(imageData, apiKey) {
 
 async function detectWithGroq(imageData, apiKey) {
   const models = [
-    "llama-3.2-90b-vision-preview",
-    "meta-llama/llama-4-maverick-17b-128e-instruct",
     "meta-llama/llama-4-scout-17b-16e-instruct",
+    "llama-3.2-90b-vision-preview",
   ];
   const content = [
     { type: "text", text: CHORD_PROMPT },
@@ -85,7 +84,7 @@ async function detectWithGroq(imageData, apiKey) {
     const d = await res.json();
     if (d.error) {
       const msg = d.error.message || "";
-      if (/decommissioned|deprecated|not supported|unavailable/i.test(msg)) continue;
+      if (/decommissioned|deprecated|not supported|unavailable|does not exist|no access/i.test(msg)) continue;
       throw new Error(msg || "Groq 오류");
     }
     return parseChordResponse(d.choices?.[0]?.message?.content || "");

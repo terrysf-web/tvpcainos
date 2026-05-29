@@ -122,9 +122,8 @@ serve(async (req) => {
       const groqKey = Deno.env.get("GROQ_API_KEY");
       if (!groqKey) throw new Error("쿼터 초과 — 잠시 후 재시도");
       const groqModels = [
-        "llama-3.2-90b-vision-preview",
-        "meta-llama/llama-4-maverick-17b-128e-instruct",
         "meta-llama/llama-4-scout-17b-16e-instruct",
+        "llama-3.2-90b-vision-preview",
       ];
       for (const model of groqModels) {
         const gr = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -143,7 +142,7 @@ serve(async (req) => {
         const gd = await gr.json();
         if (gd.error) {
           const msg = (gd.error.message || "") as string;
-          if (/decommissioned|deprecated|not supported|unavailable/i.test(msg)) continue;
+          if (/decommissioned|deprecated|not supported|unavailable|does not exist|no access/i.test(msg)) continue;
           throw new Error(msg || "Groq 오류");
         }
         const rawText: string = gd.choices?.[0]?.message?.content || "";
