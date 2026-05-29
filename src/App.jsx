@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.95";
+const APP_VERSION = "3.96";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1798,14 +1798,12 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     const doCount = () => updateDoc(doc(db, "services", svc.id), { shareCount: increment(1) }).catch(() => {});
 
     if (window.Kakao?.isInitialized()) {
-      try {
-        window.Kakao.Share.sendDefault({
-          objectType: "text",
-          text,
-          link: { mobileWebUrl: window.location.origin, webUrl: window.location.origin },
-          success: doCount,
-        });
-      } catch { /* SDK가 success 콜백 미지원 시 여기서 카운트하지 않음 */ }
+      window.Kakao.Share.sendDefault({
+        objectType: "text",
+        text,
+        link: { mobileWebUrl: window.location.origin, webUrl: window.location.origin },
+      });
+      doCount();
     } else {
       navigator.clipboard?.writeText(text)
         .then(() => { alert("메시지가 복사됐습니다. 카카오톡에 붙여넣기 해주세요."); doCount(); })
