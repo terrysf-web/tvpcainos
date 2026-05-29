@@ -79,8 +79,48 @@ export async function sendFcmPush(title, body) {
   }
 }
 
-// 코드 감지: Edge Function 우선, 실패 시 직접 Gemini API 호출
-export async function detectChordsViaEdge(imageData, userApiKey) {
+async function detectChordsWithOAuth(imageData, oauthToken) {
+  const body = JSON.stringify({ contents: [{ parts: [
+    { inlineData: { mimeType: "image/jpeg", data: imageData } },
+    { text: GEMINI_PROMPT },
+  ]}]});
+
+  let result = null;
+  for (let i = 0; i < GEMINI_MODELS.length; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, 1500));
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODELS[i]}:generateContent`,
+      { method: "POST", headers: { "content-type": "application/json", "Authorization": `Bearer ${oauthToken}` }, body }
+    );
+    const d = await res.json();
+    if (d.error) {
+      const msg = d.error.message || "";
+      if (d.error.code === 429 || /quota|resource_exhausted|rate/i.test(msg)) continue;
+      throw new Error(msg || "Gemini 오류");
+    }
+    result = d;
+    break;
+  }
+  if (!result) throw new Error("쿼터 초과 — 잠시 후 재시도");
+
+  const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  const cleaned = rawText.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```[a-z]*\n?/gi, "").trim();
+
+  let chords = null;
+  try {
+    const p = JSON.parse(cleaned);
+    chords = Array.isArray(p) ? p : (p?.chords || p?.items || p?.result || null);
+  } catch { /* ignore */ }
+  if (!chords) {
+    const m = cleaned.match(/\[[\s\S]*\]/);
+    if (m) try { chords = JSON.parse(m[0]); } catch { /* ignore */ }
+  }
+  if (!Array.isArray(chords)) throw new Error("응답 파싱 실패");
+  return chords;
+}
+
+// 코드 감지: Edge Function → API 키 → Google OAuth 순으로 시도
+export async function detectChordsViaEdge(imageData, userApiKey, oauthToken) {
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/detect-chords`, {
       method: "POST",
@@ -93,8 +133,9 @@ export async function detectChordsViaEdge(imageData, userApiKey) {
     return data.chords;
   } catch {
     const apiKey = userApiKey || import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) throw new Error("서버 연결 실패. API 키를 프로필에서 설정해주세요.");
-    return detectChordsDirectly(imageData, apiKey);
+    if (apiKey) return detectChordsDirectly(imageData, apiKey);
+    if (oauthToken) return detectChordsWithOAuth(imageData, oauthToken);
+    throw new Error("__need_oauth__");
   }
 }
 

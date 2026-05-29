@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.72";
+const APP_VERSION = "3.73";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -476,6 +476,20 @@ function getYoutubeId(url) {
    LOGIN SCREEN
 ══════════════════════════════════════════════════════════════════ */
 const googleProvider = new GoogleAuthProvider();
+
+// Google OAuth 토큰 캐시 (1시간 유효)
+let _geminiOAuthToken = null;
+let _geminiTokenExpiry = 0;
+async function getGeminiOAuthToken() {
+  if (_geminiOAuthToken && Date.now() < _geminiTokenExpiry) return _geminiOAuthToken;
+  const p = new GoogleAuthProvider();
+  p.addScope("https://www.googleapis.com/auth/generative-language");
+  const result = await signInWithPopup(auth, p);
+  const cred = GoogleAuthProvider.credentialFromResult(result);
+  _geminiOAuthToken = cred.accessToken;
+  _geminiTokenExpiry = Date.now() + 50 * 60 * 1000;
+  return _geminiOAuthToken;
+}
 
 function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
   const [err,          setErr]          = useState("");
@@ -2780,7 +2794,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       small.getContext("2d").drawImage(canvas, 0, 0, small.width, small.height);
       const imageData = small.toDataURL("image/jpeg", 0.80).split(",")[1];
 
-      const raw = await detectChordsViaEdge(imageData, user?.geminiKey);
+      let raw;
+      try {
+        raw = await detectChordsViaEdge(imageData, user?.geminiKey);
+      } catch(e) {
+        if (e.message === "__need_oauth__" || /쿼터|quota/i.test(e.message)) {
+          const token = await getGeminiOAuthToken();
+          raw = await detectChordsViaEdge(imageData, null, token);
+        } else throw e;
+      }
       const chords = raw.map((item) => ({
         chord: item.label,
         x: typeof item.cx === "number" ? item.cx : (typeof item.x === "number" ? item.x : 0.5),
