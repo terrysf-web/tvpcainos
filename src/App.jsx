@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.116";
+const APP_VERSION = "3.117";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -5563,10 +5563,17 @@ function BottomNav({ view, nav, unread }) {
             style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
               gap:4, background:"none", border:"none", cursor:"pointer", padding:"2px 0" }}>
             <div style={{ position:"relative" }}>
-              <Icon n={t.icon} size={22} color={active ? C.acc : C.dim} />
+              <div style={{
+                width:44, height:44, borderRadius:12,
+                background: active ? C.pur : `${C.pur}18`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                transition:"background .15s",
+              }}>
+                <Icon n={t.icon} size={22} color={active ? "#fff" : `${C.pur}88`} />
+              </div>
               {t.id === "notifications" && unread > 0 && (
                 <span style={{
-                  position:"absolute", top:-6, right:-8,
+                  position:"absolute", top:-4, right:-6,
                   minWidth:16, height:16, padding:"0 4px",
                   background:C.red, borderRadius:8, border:`2px solid ${C.surf}`,
                   fontSize:10, fontWeight:700, color:"#fff",
@@ -5578,7 +5585,7 @@ function BottomNav({ view, nav, unread }) {
               )}
             </div>
             <span style={{ fontSize:10, fontWeight: active ? 700 : 400,
-              color: active ? C.acc : C.dim, letterSpacing:"0.01em" }}>
+              color: active ? C.pur : C.dim, letterSpacing:"0.01em" }}>
               {t.label}
             </span>
           </button>
