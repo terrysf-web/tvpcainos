@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.87";
+const APP_VERSION = "3.88";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -4028,7 +4028,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         const cw = canvas1Ref.current?.offsetWidth  || 400;
                         const ch = canvas1Ref.current?.offsetHeight || 600;
                         const fs = Math.max(8, Math.min(14, cw / 50));
-                        const placed = resolveChordOverlaps(chordData, cw, ch, fs);
+                        const placed = chordData;
                         return (
                           <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
                             {placed.map((item, i) => (
@@ -4079,7 +4079,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           const cw = canvas2Ref.current?.offsetWidth  || 400;
                           const ch = canvas2Ref.current?.offsetHeight || 600;
                           const fs = Math.max(8, Math.min(14, cw / 50));
-                          const placed = resolveChordOverlaps(chordData2, cw, ch, fs);
+                          const placed = chordData2;
                           return (
                             <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
                               {placed.map((item, i) => (
@@ -4142,7 +4142,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         const cw = canvas1Ref.current?.offsetWidth  || 600;
                         const ch = canvas1Ref.current?.offsetHeight || 800;
                         const fs = Math.max(10, Math.min(16, cw / 50));
-                        const placed = resolveChordOverlaps(chordData, cw, ch, fs);
+                        const placed = chordData;
                         return (
                           <div style={{ position:"absolute", inset:0, pointerEvents:"none", borderRadius:4 }}>
                             {placed.map((item, i) => (
