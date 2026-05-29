@@ -114,13 +114,10 @@ serve(async (req) => {
       authHeader = `Bearer ${token}`;
     }
 
-    const body = JSON.stringify({
-      contents: [{ parts: [
-        { inlineData: { mimeType: "image/jpeg", data: imageData } },
-        { text: PROMPT },
-      ]}],
-      generationConfig: { thinkingConfig: { thinkingBudget: 0 } },
-    });
+    const body = JSON.stringify({ contents: [{ parts: [
+      { inlineData: { mimeType: "image/jpeg", data: imageData } },
+      { text: PROMPT },
+    ]}]});
 
     // Gemini 시도
     let result = null;

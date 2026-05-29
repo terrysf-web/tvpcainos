@@ -49,13 +49,10 @@ function parseChordResponse(text) {
 
 async function detectWithGemini(imageData, apiKey) {
   const models = ["gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-flash-8b"];
-  const body = JSON.stringify({
-    contents: [{ parts: [
-      { inlineData: { mimeType: "image/jpeg", data: imageData } },
-      { text: CHORD_PROMPT },
-    ]}],
-    generationConfig: { thinkingConfig: { thinkingBudget: 0 } },
-  });
+  const body = JSON.stringify({ contents: [{ parts: [
+    { inlineData: { mimeType: "image/jpeg", data: imageData } },
+    { text: CHORD_PROMPT },
+  ]}]});
   let result = null;
   for (let i = 0; i < models.length; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, 1500));
