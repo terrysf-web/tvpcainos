@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.70";
+const APP_VERSION = "3.71";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2780,8 +2780,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       small.getContext("2d").drawImage(canvas, 0, 0, small.width, small.height);
       const imageData = small.toDataURL("image/jpeg", 0.80).split(",")[1];
 
-      // Supabase Edge Function 경유 — API 키 서버에서 관리
-      const raw = await detectChordsViaEdge(imageData);
+      const raw = await detectChordsViaEdge(imageData, user?.geminiKey);
       const chords = raw.map((item) => ({
         chord: item.label,
         x: typeof item.cx === "number" ? item.cx : (typeof item.x === "number" ? item.x : 0.5),
