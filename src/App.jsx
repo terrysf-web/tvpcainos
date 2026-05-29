@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.109";
+const APP_VERSION = "3.110";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -4322,7 +4322,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 cursor: dragChord?.side===1 && dragChord?.idx===i ? "grabbing" : "grab",
                                 userSelect:"none",
                               }}
-                                onPointerDown={e => handleChordPointerDown(e, 1, i)}>
+                                onPointerDown={e => handleChordPointerDown(e, 1, i)}
+                                onTouchStart={e => e.stopPropagation()}>
                                 {transposeChord(item.chord, transposeSteps)}
                               </span>
                             ))}
@@ -4381,7 +4382,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                   cursor: dragChord?.side===2 && dragChord?.idx===i ? "grabbing" : "grab",
                                   userSelect:"none",
                                 }}
-                                  onPointerDown={e => handleChordPointerDown(e, 2, i)}>
+                                  onPointerDown={e => handleChordPointerDown(e, 2, i)}
+                                  onTouchStart={e => e.stopPropagation()}>
                                   {transposeChord(item.chord, transposeSteps2)}
                                 </span>
                               ))}
@@ -4455,6 +4457,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 userSelect:"none",
                               }}
                                 onPointerDown={e => handleChordPointerDown(e, 1, i)}
+                                onTouchStart={e => e.stopPropagation()}
                               >
                                 {transposeChord(item.chord, transposeSteps)}
                               </span>
