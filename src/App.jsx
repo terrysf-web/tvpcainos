@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.75";
+const APP_VERSION = "3.76";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -4833,13 +4833,23 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
     if (!k) return;
     setApiKeyTesting(true); setApiKeyErr(""); setApiKeyOk(false);
     try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${k}`,
-        { method:"POST", headers:{"content-type":"application/json"},
-          body: JSON.stringify({ contents:[{ parts:[{ text:"Hi" }] }] }) }
-      );
-      const d = await res.json();
-      if (d.error) throw new Error(d.error.message || "오류");
+      if (k.startsWith("gsk_")) {
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${k}` },
+          body: JSON.stringify({ model:"llama-3.2-11b-vision-preview", messages:[{ role:"user", content:"Hi" }], max_tokens:1 }),
+        });
+        const d = await res.json();
+        if (d.error) throw new Error(d.error.message || "오류");
+      } else {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${k}`,
+          { method:"POST", headers:{"content-type":"application/json"},
+            body: JSON.stringify({ contents:[{ parts:[{ text:"Hi" }] }] }) }
+        );
+        const d = await res.json();
+        if (d.error) throw new Error(d.error.message || "오류");
+      }
       setApiKeyOk(true);
     } catch(e) {
       setApiKeyErr("키 오류: " + e.message);
