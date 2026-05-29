@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.100";
+const APP_VERSION = "3.101";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -5831,19 +5831,17 @@ export default function App() {
         <BottomNav view={view} nav={nav} unread={unread} />
       )}
 
-      {view !== "pdfViewer" && (
-        <button onClick={() => setShowHelp(true)}
-          style={{
-            position:"fixed", bottom:"calc(80px + env(safe-area-inset-bottom))", right:16,
-            width:40, height:40, borderRadius:"50%",
-            background:C.pur, border:"none", cursor:"pointer",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            boxShadow:"0 2px 10px rgba(107,93,231,0.45)",
-            zIndex:490,
-          }}>
-          <span style={{ color:"#fff", fontWeight:700, fontSize:18, lineHeight:1 }}>?</span>
-        </button>
-      )}
+      <button onClick={() => setShowHelp(true)}
+        style={{
+          position:"fixed", bottom:"calc(20px + env(safe-area-inset-bottom))", right:16,
+          width:40, height:40, borderRadius:"50%",
+          background:C.pur, border:"none", cursor:"pointer",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          boxShadow:"0 2px 10px rgba(107,93,231,0.45)",
+          zIndex:1500, opacity: view === "pdfViewer" ? 0.7 : 1,
+        }}>
+        <span style={{ color:"#fff", fontWeight:700, fontSize:18, lineHeight:1 }}>?</span>
+      </button>
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
