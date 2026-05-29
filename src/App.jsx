@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.90";
+const APP_VERSION = "3.91";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -109,49 +109,51 @@ const P = {
 ══════════════════════════════════════════════════════════════════ */
 const HELP_ITEMS = [
   // ㄱ
-  { icon:"search",    name:"검색",          eng:"Search",        ini:"ㄱ", desc:"악보 제목 또는 아티스트 이름으로 악보를 검색합니다." },
-  { icon:"send",      name:"공유",          eng:"Share",         ini:"ㄱ", desc:"카카오톡으로 악보/예배 링크를 공유합니다. 공유 횟수가 버튼에 표시됩니다." },
-  { icon:"pen",       name:"그리기",        eng:"Draw",          ini:"ㄱ", desc:"악보 위에 자유곡선으로 필기합니다. 색상과 굵기를 선택할 수 있습니다." },
+  { icon:"search",    name:"검색",              eng:"Search",        ini:"ㄱ", desc:"악보 제목 또는 아티스트 이름으로 악보를 검색합니다." },
+  { icon:"send",      name:"공유",              eng:"Share",         ini:"ㄱ", desc:"카카오톡으로 악보/예배 링크를 공유합니다. 공유 횟수가 버튼에 표시됩니다." },
+  { icon:"pen",       name:"그리기(펜)",        eng:"Draw / Pen",    ini:"ㄱ", desc:"악보 위에 자유곡선으로 필기합니다. 색상과 굵기를 선택할 수 있습니다. ⚠️ 그리기 모드가 켜져 있는 동안에는 손가락 스와이프로 페이지를 넘길 수 없습니다." },
   // ㄴ
-  { icon:"back",      name:"나가기",        eng:"Back",          ini:"ㄴ", desc:"이전 화면으로 돌아갑니다." },
+  { icon:"back",      name:"나가기",            eng:"Back",          ini:"ㄴ", desc:"이전 화면으로 돌아갑니다." },
   // ㄷ
-  { icon:"next",      name:"다음 페이지",   eng:"Next Page",     ini:"ㄷ", desc:"악보의 다음 페이지로 이동합니다." },
-  { icon:"xmark",     name:"닫기",          eng:"Close",         ini:"ㄷ", desc:"현재 화면이나 모달을 닫습니다." },
-  { icon:"dual",      name:"두 화면 보기",  eng:"Dual View",     ini:"ㄷ", desc:"두 개의 악보를 화면에 나란히 동시에 표시합니다. 예배 시 유용합니다." },
-  { icon:"dim",       name:"디미누엔도",    eng:"Diminuendo",    ini:"ㄷ", desc:"악보에 디미누엔도(점점 여리게) 기호를 추가합니다." },
+  { icon:"next",      name:"다음 페이지",       eng:"Next Page",     ini:"ㄷ", desc:"악보의 다음 페이지로 이동합니다. ⚠️ 그리기·형광펜·도형 등 쓰기 모드가 켜진 상태에서는 이 버튼 외 스와이프 페이지 이동은 불가합니다." },
+  { icon:"xmark",     name:"닫기",              eng:"Close",         ini:"ㄷ", desc:"현재 화면이나 모달을 닫습니다." },
+  { icon:"dual",      name:"두 화면(Dual)",     eng:"Dual View",     ini:"ㄷ", desc:"두 악보를 화면 좌우에 나란히 표시합니다. 예배 중 두 곡을 동시에 볼 때 유용합니다. ⚠️ 두 화면 모드에서는 ① 미디어 패널(유튜브·AI 코드 감지) 사용 불가, ② 각 악보의 1페이지만 표시, ③ 스와이프가 페이지 이동 대신 곡 전환으로 동작합니다." },
+  { icon:"dim",       name:"디미누엔도",        eng:"Diminuendo",    ini:"ㄷ", desc:"악보에 디미누엔도(점점 여리게 >) 기호를 스탬프로 찍습니다. 스탬프 모드 중에는 스와이프 페이지 이동이 불가합니다." },
+  // ㅁ
+  { icon:"note",      name:"메모 목록",         eng:"Memo / Notes",  ini:"ㅁ", desc:"악보에 추가된 메모 패널을 엽니다. 팀 전체가 보는 공유 메모(👥)와 나만 보는 개인 메모(🔒)를 함께 확인하고, 페이지 번호를 탭하면 해당 페이지로 바로 이동합니다." },
   // ㅅ
-  { icon:"rect",      name:"사각형",        eng:"Rectangle",     ini:"ㅅ", desc:"악보 위에 사각형 도형을 그립니다." },
-  { icon:"sideR",     name:"사이드 패널",   eng:"Side Panel",    ini:"ㅅ", desc:"화면 오른쪽에 곡 정보 패널을 펼칩니다." },
-  { icon:"trash",     name:"삭제",          eng:"Delete",        ini:"ㅅ", desc:"선택한 악보, 예배, 또는 항목을 삭제합니다." },
-  { icon:"line",      name:"선",            eng:"Line",          ini:"ㅅ", desc:"악보 위에 직선을 그립니다." },
-  { icon:"slur",      name:"슬러",          eng:"Slur",          ini:"ㅅ", desc:"악보에 슬러(연결선) 기호를 추가합니다." },
-  { icon:"stamp",     name:"스탬프",        eng:"Stamp",         ini:"ㅅ", desc:"자주 쓰는 기호를 스탬프처럼 찍습니다." },
-  { icon:"undo",      name:"실행 취소",     eng:"Undo",          ini:"ㅅ", desc:"마지막 필기 또는 도형을 취소합니다." },
+  { icon:"rect",      name:"사각형",            eng:"Rectangle",     ini:"ㅅ", desc:"악보 위에 사각형 도형을 그립니다. 시작점 터치 후 끝점까지 드래그하세요. ⚠️ 도형 그리기 모드 중에는 스와이프 페이지 이동이 불가합니다." },
+  { icon:"sideR",     name:"미디어 패널",       eng:"Media Panel",   ini:"ㅅ", desc:"화면 오른쪽에 미디어 패널을 펼칩니다. 유튜브 영상 재생, AI 코드 감지(Gemini/Groq) 실행, AI 분석 결과 확인이 가능합니다. ⚠️ 두 화면(Dual) 모드에서는 사용할 수 없습니다." },
+  { icon:"trash",     name:"삭제",              eng:"Delete",        ini:"ㅅ", desc:"선택한 악보, 예배, 또는 항목을 삭제합니다. 삭제 후 복구할 수 없습니다." },
+  { icon:"line",      name:"선",                eng:"Line",          ini:"ㅅ", desc:"악보 위에 직선을 그립니다. 시작점 터치 후 끝점까지 드래그하세요. ⚠️ 도형 그리기 모드 중에는 스와이프 페이지 이동이 불가합니다." },
+  { icon:"slur",      name:"슬러",              eng:"Slur",          ini:"ㅅ", desc:"악보에 슬러(연결선 ⌢) 기호를 스탬프로 찍습니다. 스탬프 모드 중에는 스와이프 페이지 이동이 불가합니다." },
+  { icon:"stamp",     name:"스탬프",            eng:"Stamp",         ini:"ㅅ", desc:"악상기호(pp · f · sfz), 음표, 아티큘레이션 등을 악보 위에 찍습니다. 루페(돋보기)로 정확한 위치를 확인하며 배치할 수 있습니다. ⚠️ 스탬프 모드 중에는 스와이프 페이지 이동이 불가합니다." },
+  { icon:"undo",      name:"실행 취소",         eng:"Undo",          ini:"ㅅ", desc:"가장 마지막에 그린 필기 또는 도형을 취소합니다. 현재 페이지의 필기에만 적용됩니다." },
   // ㅇ
-  { icon:"music",     name:"악보 라이브러리",eng:"Library",      ini:"ㅇ", desc:"전체 악보 목록을 관리합니다. PDF 업로드, 편집, 삭제가 가능합니다." },
-  { icon:"bell",      name:"알림",          eng:"Notifications", ini:"ㅇ", desc:"새 예배 등록 등 알림을 확인합니다. 읽지 않은 알림 수가 뱃지로 표시됩니다." },
-  { icon:"upload",    name:"업로드",        eng:"Upload",        ini:"ㅇ", desc:"PDF 형식의 악보 파일을 업로드합니다." },
-  { icon:"home",      name:"예배",          eng:"Services",      ini:"ㅇ", desc:"예배 목록과 예배 모드를 관리합니다. 예배별 악보 세트를 구성할 수 있습니다." },
-  { icon:"circle",    name:"원",            eng:"Circle",        ini:"ㅇ", desc:"악보 위에 원 도형을 그립니다." },
-  { icon:"prev",      name:"이전 페이지",   eng:"Prev Page",     ini:"ㅇ", desc:"악보의 이전 페이지로 이동합니다." },
+  { icon:"music",     name:"악보 라이브러리",   eng:"Library",       ini:"ㅇ", desc:"전체 악보 목록을 관리합니다. 리더는 PDF 업로드·편집·삭제가 가능하고, 일반 팀원은 열람만 할 수 있습니다." },
+  { icon:"bell",      name:"알림",              eng:"Notifications", ini:"ㅇ", desc:"새 예배 등록 등 알림을 확인합니다. 읽지 않은 알림 수가 뱃지로 표시됩니다." },
+  { icon:"upload",    name:"업로드",            eng:"Upload",        ini:"ㅇ", desc:"PDF 형식의 악보 파일을 업로드합니다. 리더 권한이 있어야 합니다." },
+  { icon:"home",      name:"예배",              eng:"Services",      ini:"ㅇ", desc:"예배 목록과 예배 모드를 관리합니다. 예배별 악보 세트를 구성하고 순서를 변경할 수 있습니다." },
+  { icon:"circle",    name:"원",                eng:"Circle",        ini:"ㅇ", desc:"악보 위에 원 도형을 그립니다. 시작점 터치 후 드래그하세요. ⚠️ 도형 그리기 모드 중에는 스와이프 페이지 이동이 불가합니다." },
+  { icon:"prev",      name:"이전 페이지",       eng:"Prev Page",     ini:"ㅇ", desc:"악보의 이전 페이지로 이동합니다. ⚠️ 쓰기 모드(그리기·도형·스탬프 등)가 켜진 상태에서는 스와이프 이동이 불가하지만 이 버튼은 동작합니다." },
   // ㅈ
-  { icon:"refresh",   name:"전조",          eng:"Transpose",     ini:"ㅈ", desc:"악보의 코드를 반음 단위로 올리거나 내립니다. +/- 버튼으로 조절합니다." },
-  { icon:"zoomIn",    name:"줌인",          eng:"Zoom In",       ini:"ㅈ", desc:"악보를 확대합니다. 핀치 동작으로도 확대할 수 있습니다." },
-  { icon:"zoomOut",   name:"줌아웃",        eng:"Zoom Out",      ini:"ㅈ", desc:"악보를 축소합니다." },
-  { icon:"eraser",    name:"지우개",        eng:"Eraser",        ini:"ㅈ", desc:"필기한 내용을 부분적으로 지웁니다." },
+  { icon:"refresh",   name:"전조",              eng:"Transpose",     ini:"ㅈ", desc:"AI가 감지한 코드를 반음 단위로 올리거나 내립니다. +는 반음 올리기, -는 반음 내리기, 0은 원위치입니다. 전조 설정은 내 계정에만 저장되며 다른 팀원 화면에는 보이지 않습니다." },
+  { icon:"fitCrop",   name:"자동 맞춤(FIT)",    eng:"Auto Fit",      ini:"ㅈ", desc:"악보 여백을 자동으로 분석해 화면에 꽉 차게 맞춥니다. 다시 누르면 원래 크기로 돌아옵니다. 두 화면 모드에서도 좌우 각각 동작합니다." },
+  { icon:"zoomIn",    name:"줌인",              eng:"Zoom In",       ini:"ㅈ", desc:"악보를 확대합니다. 핀치 제스처로도 확대할 수 있습니다. 줌인 상태에서는 화면 오른쪽에 방향 D-패드가 나타나 악보를 상하좌우로 이동할 수 있습니다." },
+  { icon:"zoomOut",   name:"줌아웃",            eng:"Zoom Out",      ini:"ㅈ", desc:"악보를 축소합니다. 가운데 % 버튼을 누르면 원래 100% 크기로 즉시 돌아옵니다." },
+  { icon:"eraser",    name:"지우개",            eng:"Eraser",        ini:"ㅈ", desc:"필기한 내용을 부분적으로 지웁니다. 하단 슬라이더로 지우개 크기를 조절할 수 있습니다. ⚠️ 지우개 모드 중에는 스와이프 페이지 이동이 불가합니다." },
   // ㅊ
-  { icon:"plus",      name:"추가",          eng:"Add",           ini:"ㅊ", desc:"새 악보, 예배, 또는 항목을 추가합니다." },
+  { icon:"plus",      name:"추가",              eng:"Add",           ini:"ㅊ", desc:"새 악보, 예배, 또는 항목을 추가합니다." },
   // ㅋ
-  { icon:"music",     name:"코드 감지",     eng:"Chord Detect",  ini:"ㅋ", desc:"AI(Gemini)가 악보 이미지에서 코드 기호를 자동으로 인식하고 전조 모드에 활용합니다." },
-  { icon:"cresc",     name:"크레센도",      eng:"Crescendo",     ini:"ㅋ", desc:"악보에 크레센도(점점 세게) 기호를 추가합니다." },
-  { icon:"fitCrop",   name:"크롭",          eng:"Crop",          ini:"ㅋ", desc:"악보의 표시 영역을 설정합니다. 여백을 제거하거나 특정 영역만 보이게 합니다." },
+  { icon:"music",     name:"코드 감지(AI)",     eng:"Chord Detect",  ini:"ㅋ", desc:"AI(Gemini 또는 Groq)가 악보 이미지에서 코드 기호를 자동 인식합니다. 미디어 패널에서 실행하며, API 키가 없으면 서버 키를 사용합니다. 감지된 코드는 전조 기능과 연동됩니다. ⚠️ 두 화면 모드에서는 사용할 수 없습니다." },
+  { icon:"cresc",     name:"크레센도",          eng:"Crescendo",     ini:"ㅋ", desc:"악보에 크레센도(점점 세게 <) 기호를 스탬프로 찍습니다. 스탬프 모드 중에는 스와이프 페이지 이동이 불가합니다." },
   // ㅌ
-  { icon:"textT",     name:"텍스트",        eng:"Text",          ini:"ㅌ", desc:"악보 위에 텍스트 메모를 입력합니다." },
+  { icon:"textT",     name:"텍스트",            eng:"Text",          ini:"ㅌ", desc:"악보 위에 텍스트를 입력합니다. 원하는 위치를 탭하면 입력 커서가 생깁니다. ⚠️ 텍스트 입력 모드 중에는 스와이프 페이지 이동이 불가합니다." },
   // ㅍ
-  { icon:"user",      name:"프로필",        eng:"Profile",       ini:"ㅍ", desc:"사용자 정보, AI API 키, 알림 설정을 관리합니다." },
+  { icon:"user",      name:"프로필",            eng:"Profile",       ini:"ㅍ", desc:"사용자 정보, AI API 키(Gemini/Groq), 알림 설정을 관리합니다. API 키를 등록하면 코드 감지 기능을 우선 사용합니다." },
   // ㅎ
-  { icon:"highlight", name:"형광펜",        eng:"Highlight",     ini:"ㅎ", desc:"악보 위에 형광펜으로 중요 부분을 표시합니다." },
-  { icon:"check",     name:"확인",          eng:"Check/Select",  ini:"ㅎ", desc:"선택 또는 확인 동작을 수행합니다." },
+  { icon:"highlight", name:"형광펜",            eng:"Highlight",     ini:"ㅎ", desc:"악보 위에 반투명 형광펜으로 중요 부분을 강조합니다. ⚠️ 형광펜 모드가 켜진 동안에는 손가락 스와이프로 페이지를 넘길 수 없습니다." },
+  { icon:"check",     name:"확인",              eng:"Check / Select",ini:"ㅎ", desc:"선택 또는 확인 동작을 수행합니다." },
 ];
 
 function HelpModal({ onClose }) {
