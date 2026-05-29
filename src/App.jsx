@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.117";
+const APP_VERSION = "3.118";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1580,9 +1580,9 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg }}>
+    <div style={{ height:"var(--app-h, 100dvh)", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* 헤더 */}
-      <div style={{ background:C.surf, padding:"20px 20px 16px",
+      <div style={{ background:C.surf, padding:"20px 20px 16px", flexShrink:0,
         paddingTop:"calc(20px + env(safe-area-inset-top))",
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", justifyContent:"space-between" }}>
@@ -1629,7 +1629,7 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
         </div>
       </div>
 
-      <div style={{ padding:16, paddingBottom:90 }}>
+      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:90 }}>
         {/* 다가오는 예배 */}
         {upcoming.length > 0 && (
           <>
@@ -4798,8 +4798,8 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg }}>
-      <div style={{ background:C.surf, padding:"18px 16px",
+    <div style={{ height:"var(--app-h, 100dvh)", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      <div style={{ background:C.surf, padding:"18px 16px", flexShrink:0,
         paddingTop:"calc(18px + env(safe-area-inset-top))",
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", justifyContent:"space-between" }}>
@@ -4810,37 +4810,37 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
           모두 읽음
         </button>
       </div>
-      {/* 알림 권한 배너 */}
-      {perm === "default" && (
-        <div style={{ margin:"12px 16px 0", padding:"12px 14px", borderRadius:12,
-          background:`${C.acc}18`, border:`1px solid ${C.acc}44`,
-          display:"flex", alignItems:"center", gap:10 }}>
-          <span style={{ fontSize:20 }}>🔔</span>
-          <div style={{ flex:1 }}>
-            <div style={{ fontWeight:700, fontSize:13, color:C.txt }}>브라우저 알림 허용</div>
-            <div style={{ fontSize:12, color:C.dim }}>새 알림을 팝업으로 받으려면 허용해주세요</div>
+      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:90 }}>
+        {/* 알림 권한 배너 */}
+        {perm === "default" && (
+          <div style={{ marginBottom:12, padding:"12px 14px", borderRadius:12,
+            background:`${C.acc}18`, border:`1px solid ${C.acc}44`,
+            display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontSize:20 }}>🔔</span>
+            <div style={{ flex:1 }}>
+              <div style={{ fontWeight:700, fontSize:13, color:C.txt }}>브라우저 알림 허용</div>
+              <div style={{ fontSize:12, color:C.dim }}>새 알림을 팝업으로 받으려면 허용해주세요</div>
+            </div>
+            <button onClick={requestPerm} style={{
+              background:C.acc, border:"none", borderRadius:8, color:"#fff",
+              fontSize:12, fontWeight:700, padding:"6px 12px", cursor:"pointer", fontFamily:"inherit",
+            }}>허용</button>
           </div>
-          <button onClick={requestPerm} style={{
-            background:C.acc, border:"none", borderRadius:8, color:"#fff",
-            fontSize:12, fontWeight:700, padding:"6px 12px", cursor:"pointer", fontFamily:"inherit",
-          }}>허용</button>
-        </div>
-      )}
-      {perm === "denied" && (
-        <div style={{ margin:"12px 16px 0", padding:"10px 14px", borderRadius:12,
-          background:`${C.red}10`, border:`1px solid ${C.red}33`,
-          fontSize:12, color:C.dim }}>
-          🚫 알림이 차단됨 — 브라우저 설정에서 이 사이트 알림을 허용해주세요
-        </div>
-      )}
-      {perm === "granted" && (
-        <div style={{ margin:"12px 16px 0", padding:"8px 14px", borderRadius:10,
-          background:`${C.grn}10`, border:`1px solid ${C.grn}33`,
-          fontSize:12, color:C.grn, fontWeight:600 }}>
-          ✓ 브라우저 알림 활성화됨
-        </div>
-      )}
-      <div style={{ padding:16, paddingBottom:90 }}>
+        )}
+        {perm === "denied" && (
+          <div style={{ marginBottom:12, padding:"10px 14px", borderRadius:12,
+            background:`${C.red}10`, border:`1px solid ${C.red}33`,
+            fontSize:12, color:C.dim }}>
+            🚫 알림이 차단됨 — 브라우저 설정에서 이 사이트 알림을 허용해주세요
+          </div>
+        )}
+        {perm === "granted" && (
+          <div style={{ marginBottom:12, padding:"8px 14px", borderRadius:10,
+            background:`${C.grn}10`, border:`1px solid ${C.grn}33`,
+            fontSize:12, color:C.grn, fontWeight:600 }}>
+            ✓ 브라우저 알림 활성화됨
+          </div>
+        )}
         {notifs.length === 0 && (
           <div style={{ textAlign:"center", padding:"60px 0", color:C.dim }}>
             <div style={{ fontSize:36, marginBottom:12 }}>🔔</div>새로운 알림이 없습니다
@@ -4884,7 +4884,7 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
             </div>
           );
         })}
-      </div>
+      </div>   {/* scrollable */}
     </div>
   );
 }
@@ -5368,9 +5368,14 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, padding:20, paddingBottom:90,
-      paddingTop:"calc(20px + env(safe-area-inset-top))" }}>
-      <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em", marginBottom:20 }}>내 정보</div>
+    <div style={{ height:"var(--app-h, 100dvh)", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      {/* 헤더 */}
+      <div style={{ background:C.surf, padding:"18px 20px", flexShrink:0,
+        paddingTop:"calc(18px + env(safe-area-inset-top))",
+        borderBottom:`1px solid ${C.bdr}` }}>
+        <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>내 정보</div>
+      </div>
+      <div style={{ flex:1, overflowY:"auto", padding:20, paddingBottom:90 }}>
 
       {/* 내 프로필 카드 */}
       <div style={{ background:C.surf, borderRadius:16, padding:20,
@@ -5532,6 +5537,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
           <Btn label="이메일 보내기" full onClick={() => window.location.href = "mailto:terrysf@gmail.com"} />
         </Modal>
       )}
+      </div>  {/* scrollable */}
     </div>
   );
 }
