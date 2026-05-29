@@ -48,7 +48,7 @@ function parseChordResponse(text) {
 }
 
 async function detectWithGemini(imageData, apiKey) {
-  const models = ["gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-flash-8b"];
+  const models = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-8b"];
   const body = JSON.stringify({ contents: [{ parts: [
     { inlineData: { mimeType: "image/jpeg", data: imageData } },
     { text: CHORD_PROMPT },
