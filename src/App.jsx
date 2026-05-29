@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.101";
+const APP_VERSION = "3.102";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1792,6 +1792,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       type: typeLabel, content: body,
       title, body,
       createdAt: serverTimestamp(), readBy: [], serviceId: svc.id,
+      serviceDate: svc.date || "", serviceTitle: svc.title || "",
     });
     sendFcmPush(title, body);
     setNotifContent("");
@@ -4573,7 +4574,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 /* ══════════════════════════════════════════════════════════════════
    NOTIFICATIONS SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function NotificationsScreen({ notifs, markNotifRead, markAllNotifRead }) {
+function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead }) {
   const [perm, setPerm] = useState(typeof Notification !== "undefined" ? Notification.permission : "unsupported");
 
   const requestPerm = () => {
@@ -4629,36 +4630,44 @@ function NotificationsScreen({ notifs, markNotifRead, markAllNotifRead }) {
             <div style={{ fontSize:36, marginBottom:12 }}>🔔</div>새로운 알림이 없습니다
           </div>
         )}
-        {[...notifs].reverse().map((n, idx) => (
-          <div key={n.id} className="wFadeIn"
-            onClick={() => markNotifRead(n.id)}
-            style={{
-              background: n.read ? C.card : `${C.pur}18`,
-              border:`1px solid ${n.read ? C.bdr : `${C.pur}44`}`,
-              borderRadius:12, padding:"14px 16px", marginBottom:8, cursor:"pointer",
-              display:"flex", alignItems:"flex-start", gap:10,
-            }}>
-            <div style={{
-              width:38, height:38, borderRadius:10, flexShrink:0,
-              background: n.read ? C.surf : `${C.pur}33`,
-              display:"flex", alignItems:"center", justifyContent:"center",
-              fontWeight:700, fontSize:14, color: n.read ? C.dim : C.pur,
-            }}>
-              {idx + 1}
-            </div>
-            <div style={{ flex:1 }}>
-              <div style={{ fontWeight:700, fontSize:14, marginBottom:3 }}>
-                {n.type ? `[${n.type}] ${n.title?.replace(/^\[.*?\]\s*/, "") || ""}` : n.title}
+        {notifs.map((n, idx) => {
+          const num = notifs.length - idx;
+          const svcDate = n.serviceDate || (services || []).find(s => s.id === n.serviceId)?.date || "";
+          const svcTitle = n.serviceTitle || (services || []).find(s => s.id === n.serviceId)?.title || "";
+          return (
+            <div key={n.id} className="wFadeIn"
+              onClick={() => markNotifRead(n.id)}
+              style={{
+                background: n.read ? C.card : `${C.pur}18`,
+                border:`1px solid ${n.read ? C.bdr : `${C.pur}44`}`,
+                borderRadius:12, padding:"14px 16px", marginBottom:8, cursor:"pointer",
+                display:"flex", alignItems:"flex-start", gap:10,
+              }}>
+              <div style={{
+                width:38, height:38, borderRadius:10, flexShrink:0,
+                background: n.read ? C.surf : `${C.pur}33`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontWeight:700, fontSize:14, color: n.read ? C.dim : C.pur,
+              }}>
+                {num}
               </div>
-              <div style={{ fontSize:13, color:C.dim, lineHeight:1.5 }}>{n.content || n.body}</div>
-              <div style={{ fontSize:11, color:C.dim, marginTop:5 }}>{n.time}</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:700, fontSize:14, marginBottom:2 }}>
+                  {n.type ? `[${n.type}]` : ""} {svcTitle || n.title?.replace(/^\[.*?\]\s*/, "") || ""}
+                </div>
+                {svcDate && (
+                  <div style={{ fontSize:11, color:C.acc, fontWeight:600, marginBottom:3 }}>📅 {svcDate}</div>
+                )}
+                <div style={{ fontSize:13, color:C.dim, lineHeight:1.5 }}>{n.content || n.body}</div>
+                <div style={{ fontSize:11, color:C.dim, marginTop:5 }}>{n.time}</div>
+              </div>
+              {!n.read && (
+                <div style={{ width:8, height:8, borderRadius:"50%",
+                  background:C.pur, flexShrink:0, marginTop:6 }} />
+              )}
             </div>
-            {!n.read && (
-              <div style={{ width:8, height:8, borderRadius:"50%",
-                background:C.pur, flexShrink:0, marginTop:6 }} />
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -5818,6 +5827,7 @@ export default function App() {
       {view === "notifications" && (
         <NotificationsScreen
           notifs={notifs}
+          services={services}
           markNotifRead={markNotifRead}
           markAllNotifRead={markAllNotifRead}
         />
