@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.110";
+const APP_VERSION = "3.111";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2751,6 +2751,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [transposeSteps2, setTransposeSteps2] = useState(0);  // dual right
   const [chordData,      setChordData]      = useState([]);   // [{chord,x,y}] — single / dual left
   const [chordData2,     setChordData2]     = useState([]);   // dual right
+  const [chordFontScale, setChordFontScale] = useState(1.0);  // 0.4–2.0
   const [detectingChords, setDetectingChords] = useState(false);
   const [detectErr,      setDetectErr]      = useState("");
   const [dragChord,      setDragChord]      = useState(null); // {side,idx,pointerId}
@@ -4092,7 +4093,20 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     background:"transparent", cursor:"pointer", fontWeight:700, fontSize:14, display:"flex",
                     alignItems:"center", justifyContent:"center", color:C.txt }}>+</button>
                 <div style={{ width:1, height:20, background:C.bdr }} />
-                <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setChordData([]); setChordData2([]); setDetectErr(""); }}
+                <button onClick={() => setChordFontScale(s => Math.max(0.4, Math.round((s - 0.2) * 10) / 10))}
+                  disabled={chordFontScale <= 0.4}
+                  style={{ width:26, height:26, borderRadius:6, border:`1px solid ${C.bdr}`,
+                    background:"transparent", cursor: chordFontScale <= 0.4 ? "default" : "pointer",
+                    fontWeight:700, fontSize:11, display:"flex", alignItems:"center", justifyContent:"center",
+                    color: chordFontScale <= 0.4 ? C.bdr : C.txt }}>A−</button>
+                <button onClick={() => setChordFontScale(s => Math.min(2.0, Math.round((s + 0.2) * 10) / 10))}
+                  disabled={chordFontScale >= 2.0}
+                  style={{ width:26, height:26, borderRadius:6, border:`1px solid ${C.bdr}`,
+                    background:"transparent", cursor: chordFontScale >= 2.0 ? "default" : "pointer",
+                    fontWeight:700, fontSize:11, display:"flex", alignItems:"center", justifyContent:"center",
+                    color: chordFontScale >= 2.0 ? C.bdr : C.txt }}>A+</button>
+                <div style={{ width:1, height:20, background:C.bdr }} />
+                <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setChordData([]); setChordData2([]); setDetectErr(""); setChordFontScale(1.0); }}
                   style={{ background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
                     padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit" }}>
                   초기화
@@ -4127,8 +4141,24 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ {chordData.length}개 감지됨</span>
               }
               {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
-              <div style={{ marginLeft:"auto", flexShrink:0 }}>
-                <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setChordData([]); setChordData2([]); setDetectErr(""); }}
+              <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                <button onClick={() => setChordFontScale(s => Math.max(0.4, Math.round((s - 0.2) * 10) / 10))}
+                  disabled={chordFontScale <= 0.4}
+                  style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
+                    background:"transparent", cursor: chordFontScale <= 0.4 ? "default" : "pointer",
+                    fontWeight:700, fontSize:12, display:"flex", alignItems:"center", justifyContent:"center",
+                    color: chordFontScale <= 0.4 ? C.bdr : C.txt }}>A−</button>
+                <span style={{ fontSize:10, color:C.dim, minWidth:28, textAlign:"center" }}>
+                  {chordFontScale === 1.0 ? "크기" : `×${chordFontScale.toFixed(1)}`}
+                </span>
+                <button onClick={() => setChordFontScale(s => Math.min(2.0, Math.round((s + 0.2) * 10) / 10))}
+                  disabled={chordFontScale >= 2.0}
+                  style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
+                    background:"transparent", cursor: chordFontScale >= 2.0 ? "default" : "pointer",
+                    fontWeight:700, fontSize:12, display:"flex", alignItems:"center", justifyContent:"center",
+                    color: chordFontScale >= 2.0 ? C.bdr : C.txt }}>A+</button>
+                <div style={{ width:1, height:20, background:C.bdr }} />
+                <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setChordData([]); setChordData2([]); setDetectErr(""); setChordFontScale(1.0); }}
                   style={{ background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
                     padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit" }}>
                   초기화
@@ -4301,7 +4331,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       />
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 400;
-                        const fs = Math.max(8, Math.min(14, cw / 50));
+                        const fs = Math.round(Math.max(8, Math.min(14, cw / 50)) * chordFontScale);
                         return (
                           <div ref={chordOverlay1Ref}
                             style={{ position:"absolute", inset:0, pointerEvents:"none" }}
@@ -4361,7 +4391,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         />
                         {transposeMode && chordData2.length > 0 && (() => {
                           const cw = canvas2Ref.current?.offsetWidth  || 400;
-                          const fs = Math.max(8, Math.min(14, cw / 50));
+                          const fs = Math.round(Math.max(8, Math.min(14, cw / 50)) * chordFontScale);
                           return (
                             <div ref={chordOverlay2Ref}
                               style={{ position:"absolute", inset:0, pointerEvents:"none" }}
@@ -4433,7 +4463,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       {/* 전조 코드 오버레이 — 드래그로 위치 조정 가능 */}
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 600;
-                        const fs = Math.max(10, Math.min(16, cw / 50));
+                        const fs = Math.round(Math.max(10, Math.min(16, cw / 50)) * chordFontScale);
                         return (
                           <div ref={chordOverlay1Ref}
                             style={{ position:"absolute", inset:0, pointerEvents:"none", borderRadius:4 }}
