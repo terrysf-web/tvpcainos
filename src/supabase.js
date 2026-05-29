@@ -59,22 +59,31 @@ async function detectWithGemini(imageData, apiKey) {
 }
 
 async function detectWithGroq(imageData, apiKey) {
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "llama-3.2-11b-vision-preview",
-      messages: [{ role: "user", content: [
-        { type: "text", text: CHORD_PROMPT },
-        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageData}` } },
-      ]}],
-      max_tokens: 1024,
-      temperature: 0,
-    }),
-  });
-  const d = await res.json();
-  if (d.error) throw new Error(d.error.message || "Groq 오류");
-  return parseChordResponse(d.choices?.[0]?.message?.content || "");
+  const models = [
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "llama-3.2-90b-vision-preview",
+    "llama-3.2-11b-vision-preview",
+  ];
+  const content = [
+    { type: "text", text: CHORD_PROMPT },
+    { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageData}` } },
+  ];
+  for (const model of models) {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({ model, messages: [{ role: "user", content }], max_tokens: 1024, temperature: 0 }),
+    });
+    const d = await res.json();
+    if (d.error) {
+      const msg = d.error.message || "";
+      if (/decommissioned|deprecated|not supported|unavailable/i.test(msg)) continue;
+      throw new Error(msg || "Groq 오류");
+    }
+    return parseChordResponse(d.choices?.[0]?.message?.content || "");
+  }
+  throw new Error("Groq 사용 가능한 모델 없음");
 }
 
 // FCM 푸시 알림 전송 — Supabase Edge Function 경유

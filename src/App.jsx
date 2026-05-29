@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.76";
+const APP_VERSION = "3.77";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -4837,7 +4837,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
         const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${k}` },
-          body: JSON.stringify({ model:"llama-3.2-11b-vision-preview", messages:[{ role:"user", content:"Hi" }], max_tokens:1 }),
+          body: JSON.stringify({ model:"meta-llama/llama-4-scout-17b-16e-instruct", messages:[{ role:"user", content:"Hi" }], max_tokens:1 }),
         });
         const d = await res.json();
         if (d.error) throw new Error(d.error.message || "오류");
