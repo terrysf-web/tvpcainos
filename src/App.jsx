@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.111";
+const APP_VERSION = "3.112";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2961,48 +2961,72 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   useEffect(() => {
     setChordData([]); setDetectErr("");
     if (!user?.uid || !selectedSongId || dual) return;
-    getDoc(doc(db, "customSongs", `chord_${user.uid}_${selectedSongId}_p${pageNum}`))
-      .then(snap => {
-        if (snap.exists()) {
-          setChordData(snap.data().chords || []);
-          setTransposeSteps(snap.data().transposeSteps ?? 0);
-        } else {
-          setTransposeSteps(0);
-        }
-      })
-      .catch(() => {});
+    const sharedKey  = `chord_shared_${selectedSongId}_p${pageNum}`;
+    const personalKey = `chord_${user.uid}_${selectedSongId}_p${pageNum}`;
+    Promise.all([
+      getDoc(doc(db, "customSongs", sharedKey)),
+      getDoc(doc(db, "customSongs", personalKey)),
+    ]).then(([shared, personal]) => {
+      if (shared.exists()) {
+        setChordData(shared.data().chords || []);
+        setTransposeSteps(shared.data().transposeSteps ?? 0);
+      } else if (personal.exists()) {
+        setChordData(personal.data().chords || []);
+        setTransposeSteps(personal.data().transposeSteps ?? 0);
+        return;
+      } else {
+        setTransposeSteps(0); return;
+      }
+      // 멤버 개인 전조 덮어쓰기
+      if (personal.exists() && personal.data().transposeSteps !== undefined)
+        setTransposeSteps(personal.data().transposeSteps);
+    }).catch(() => {});
   }, [pageNum, selectedSongId, user?.uid, dual]);
 
   // 코드 감지 결과 로드 — 듀얼 왼쪽
   useEffect(() => {
     setChordData([]);
     if (!user?.uid || !dualLeftSongId || !dual) return;
-    getDoc(doc(db, "customSongs", `chord_${user.uid}_${dualLeftSongId}_p1`))
-      .then(snap => {
-        if (snap.exists()) {
-          setChordData(snap.data().chords || []);
-          setTransposeSteps(snap.data().transposeSteps ?? 0);
-        } else {
-          setTransposeSteps(0);
-        }
-      })
-      .catch(() => {});
+    const sharedKey  = `chord_shared_${dualLeftSongId}_p1`;
+    const personalKey = `chord_${user.uid}_${dualLeftSongId}_p1`;
+    Promise.all([
+      getDoc(doc(db, "customSongs", sharedKey)),
+      getDoc(doc(db, "customSongs", personalKey)),
+    ]).then(([shared, personal]) => {
+      if (shared.exists()) {
+        setChordData(shared.data().chords || []);
+        setTransposeSteps(shared.data().transposeSteps ?? 0);
+      } else if (personal.exists()) {
+        setChordData(personal.data().chords || []);
+        setTransposeSteps(personal.data().transposeSteps ?? 0);
+        return;
+      } else { setTransposeSteps(0); return; }
+      if (personal.exists() && personal.data().transposeSteps !== undefined)
+        setTransposeSteps(personal.data().transposeSteps);
+    }).catch(() => {});
   }, [dualLeftSongId, user?.uid, dual]);
 
   // 코드 감지 결과 로드 — 듀얼 오른쪽
   useEffect(() => {
     setChordData2([]);
     if (!user?.uid || !dualRightSongId || !dual) return;
-    getDoc(doc(db, "customSongs", `chord_${user.uid}_${dualRightSongId}_p1`))
-      .then(snap => {
-        if (snap.exists()) {
-          setChordData2(snap.data().chords || []);
-          setTransposeSteps2(snap.data().transposeSteps ?? 0);
-        } else {
-          setTransposeSteps2(0);
-        }
-      })
-      .catch(() => {});
+    const sharedKey  = `chord_shared_${dualRightSongId}_p1`;
+    const personalKey = `chord_${user.uid}_${dualRightSongId}_p1`;
+    Promise.all([
+      getDoc(doc(db, "customSongs", sharedKey)),
+      getDoc(doc(db, "customSongs", personalKey)),
+    ]).then(([shared, personal]) => {
+      if (shared.exists()) {
+        setChordData2(shared.data().chords || []);
+        setTransposeSteps2(shared.data().transposeSteps ?? 0);
+      } else if (personal.exists()) {
+        setChordData2(personal.data().chords || []);
+        setTransposeSteps2(personal.data().transposeSteps ?? 0);
+        return;
+      } else { setTransposeSteps2(0); return; }
+      if (personal.exists() && personal.data().transposeSteps !== undefined)
+        setTransposeSteps2(personal.data().transposeSteps);
+    }).catch(() => {});
   }, [dualRightSongId, user?.uid, dual]);
 
   const detectChords = async (side = 1) => {
@@ -3033,10 +3057,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       if (chords.length === 0) {
         setDetectErr("코드를 찾지 못했습니다");
       } else if (user?.uid && songId) {
-        setDoc(
-          doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`),
-          { chords, transposeSteps, updatedAt: serverTimestamp() }
-        ).catch(() => {});
+        const data = { chords, transposeSteps, updatedAt: serverTimestamp() };
+        if (isLeader(user.role)) {
+          // 리더: 팀 공유 + 악보 라이브러리에 저장
+          setDoc(doc(db, "customSongs", `chord_shared_${songId}_p${page}`), data).catch(() => {});
+          setDoc(doc(db, "songs", songId), { [`chords_p${page}`]: chords, [`transposeSteps_p${page}`]: transposeSteps }, { merge: true }).catch(() => {});
+        }
+        setDoc(doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`), data).catch(() => {});
       }
     } catch(e) {
       setDetectErr("오류: " + e.message);
@@ -3050,11 +3077,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
     const page   = dual ? 1 : pageNum;
     if (!songId) return;
-    setDoc(
-      doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`),
-      { chords, updatedAt: serverTimestamp() },
-      { merge: true }
-    ).catch(() => {});
+    const data = { chords, updatedAt: serverTimestamp() };
+    if (isLeader(user.role)) {
+      setDoc(doc(db, "customSongs", `chord_shared_${songId}_p${page}`), data, { merge: true }).catch(() => {});
+      setDoc(doc(db, "songs", songId), { [`chords_p${page}`]: chords }, { merge: true }).catch(() => {});
+    }
+    setDoc(doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`), data, { merge: true }).catch(() => {});
   };
 
   const handleChordPointerDown = (e, side, idx) => {
@@ -3087,21 +3115,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const songId = dual ? dualLeftSongId : selectedSongId;
     const page   = dual ? 1 : pageNum;
     if (!songId) return;
-    setDoc(
-      doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`),
-      { transposeSteps: newSteps, updatedAt: serverTimestamp() },
-      { merge: true }
-    ).catch(() => {});
+    // 전조 +/− 는 항상 개인 저장만 (리더 포함)
+    setDoc(doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`),
+      { transposeSteps: newSteps, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
   };
 
   const saveTransposeSteps2 = (newSteps) => {
     setTransposeSteps2(newSteps);
     if (!user?.uid || !dualRightSongId) return;
-    setDoc(
-      doc(db, "customSongs", `chord_${user.uid}_${dualRightSongId}_p1`),
-      { transposeSteps: newSteps, updatedAt: serverTimestamp() },
-      { merge: true }
-    ).catch(() => {});
+    setDoc(doc(db, "customSongs", `chord_${user.uid}_${dualRightSongId}_p1`),
+      { transposeSteps: newSteps, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
   };
 
   // PDF 로드 (싱글 모드)
