@@ -13,11 +13,11 @@ import {
 } from "firebase/auth";
 import {
   collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc,
-  query, orderBy, where, getDoc, getDocs, setDoc, serverTimestamp, arrayUnion, limit,
+  query, orderBy, where, getDoc, getDocs, setDoc, serverTimestamp, arrayUnion, limit, increment,
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.78";
+const APP_VERSION = "3.79";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1657,9 +1657,9 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
         link: { mobileWebUrl: window.location.origin, webUrl: window.location.origin },
       });
     } else {
-      // Kakao SDK 미초기화 시 클립보드 복사로 대체
       navigator.clipboard?.writeText(text).then(() => alert("메시지가 복사됐습니다. 카카오톡에 붙여넣기 해주세요."));
     }
+    updateDoc(doc(db, "services", svc.id), { shareCount: increment(1) }).catch(() => {});
   };
 
   const removeSong = async (idx) => {
@@ -1753,8 +1753,21 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             background:"#FEE500", border:"none", borderRadius:9, padding:"7px 12px",
             display:"flex", alignItems:"center", gap:5,
             fontWeight:700, fontSize:12, cursor:"pointer", fontFamily:"inherit", color:"#3C1E1E",
+            position:"relative",
           }}>
             <span style={{ fontSize:14 }}>💬</span> 공유
+            {svc.shareCount > 0 && (
+              <span style={{
+                position:"absolute", top:-6, right:-6,
+                minWidth:16, height:16, padding:"0 4px",
+                background:C.red, borderRadius:8, border:"2px solid #FEE500",
+                fontSize:10, fontWeight:700, color:"#fff",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                lineHeight:1, boxSizing:"border-box",
+              }}>
+                {svc.shareCount}
+              </span>
+            )}
           </button>
         )}
         {svc.notified
