@@ -26,7 +26,13 @@ Rules:
 Return [] only if truly no chords exist.`;
 
 function parseChordResponse(text) {
-  const cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```[a-z]*\n?/gi, "").trim();
+  if (!text || !text.trim()) return [];
+  const cleaned = text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/```[\w]*\n?/g, "")
+    .replace(/```/g, "")
+    .replace(/,\s*([\]}])/g, "$1")  // trailing comma
+    .trim();
   let chords = null;
   try {
     const p = JSON.parse(cleaned);
@@ -34,9 +40,9 @@ function parseChordResponse(text) {
   } catch { /* ignore */ }
   if (!chords) {
     const m = cleaned.match(/\[[\s\S]*\]/);
-    if (m) try { chords = JSON.parse(m[0]); } catch { /* ignore */ }
+    if (m) try { chords = JSON.parse(m[0].replace(/,\s*([\]}])/g, "$1")); } catch { /* ignore */ }
   }
-  if (!Array.isArray(chords)) throw new Error("응답 파싱 실패");
+  if (!Array.isArray(chords)) return [];
   return chords;
 }
 

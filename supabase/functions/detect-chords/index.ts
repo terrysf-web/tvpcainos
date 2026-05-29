@@ -32,6 +32,26 @@ Rules:
 
 Return [] only if truly no chords exist.`;
 
+function parseText(text: string): unknown[] {
+  if (!text || !text.trim()) return [];
+  const cleaned = text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/```[\w]*\n?/g, "")
+    .replace(/```/g, "")
+    .replace(/,\s*([\]}])/g, "$1")
+    .trim();
+  let chords: unknown[] | null = null;
+  try {
+    const p = JSON.parse(cleaned);
+    chords = Array.isArray(p) ? p : ((p as Record<string, unknown>)?.chords as unknown[] || null);
+  } catch { /* ignore */ }
+  if (!chords) {
+    const m = cleaned.match(/\[[\s\S]*\]/);
+    if (m) try { chords = JSON.parse(m[0].replace(/,\s*([\]}])/g, "$1")); } catch { /* ignore */ }
+  }
+  return Array.isArray(chords) ? chords : [];
+}
+
 // Firebase 서비스 계정으로 OAuth 토큰 발급 (send-fcm와 동일 패턴)
 async function getAccessToken(sa: { client_email: string; private_key: string }) {
   const now = Math.floor(Date.now() / 1000);
@@ -146,29 +166,14 @@ serve(async (req) => {
           throw new Error(msg || "Groq 오류");
         }
         const rawText: string = gd.choices?.[0]?.message?.content || "";
-        const cleaned = rawText.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```[a-z]*\n?/gi, "").trim();
-        let chords: unknown[] | null = null;
-        try { const p = JSON.parse(cleaned); chords = Array.isArray(p) ? p : (p?.chords || null); } catch { /**/ }
-        if (!chords) { const m = cleaned.match(/\[[\s\S]*\]/); if (m) try { chords = JSON.parse(m[0]); } catch { /**/ } }
-        if (!Array.isArray(chords)) throw new Error("응답 파싱 실패");
+        const chords = parseText(rawText);
         return new Response(JSON.stringify({ chords }), { headers: { ...CORS, "Content-Type": "application/json" } });
       }
       throw new Error("쿼터 초과 — 잠시 후 재시도");
     }
 
     const rawText: string = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const cleaned = rawText.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```[a-z]*\n?/gi, "").trim();
-
-    let chords: unknown[] | null = null;
-    try {
-      const p = JSON.parse(cleaned);
-      chords = Array.isArray(p) ? p : (p?.chords || p?.items || p?.result || null);
-    } catch { /* ignore */ }
-    if (!chords) {
-      const m = cleaned.match(/\[[\s\S]*\]/);
-      if (m) try { chords = JSON.parse(m[0]); } catch { /* ignore */ }
-    }
-    if (!Array.isArray(chords)) throw new Error("응답 파싱 실패");
+    const chords = parseText(rawText);
 
     return new Response(JSON.stringify({ chords }), {
       headers: { ...CORS, "Content-Type": "application/json" },
