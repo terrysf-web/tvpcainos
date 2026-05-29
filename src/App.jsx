@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.112";
+const APP_VERSION = "3.113";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -289,6 +289,8 @@ function transposeChord(chord, steps) {
   const twoChar = c.length > 1 && c[1] === '#';
   const root   = twoChar ? c.slice(0, 2) : c[0];
   const suffix = c.slice(root.length);
+  // if root is not a valid note (e.g. "V", "I", section markers), leave unchanged
+  if (SEMITONES.indexOf(FLAT_SHARP[root] || root) === -1) return chord;
   const newRoot = transposeNote(root, steps);
   // use flat display for common keys
   return (DISPLAY_KEY[newRoot] || newRoot) + suffix;
