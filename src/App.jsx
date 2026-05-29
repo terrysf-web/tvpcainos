@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.98";
+const APP_VERSION = "3.99";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1810,7 +1810,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     const footer = isFirst
       ? "예배 악보가 등록 되었어요. 연습을 준비해 주세요!"
       : "예배 악보가 업데이트 되었어요. 참고하세요!";
-    const text = `📋 ${svc.title}\n\n📅 ${svc.date}${svc.time ? " · " + svc.time : ""}\n${sep}\n${songLines}\n${sep}\n${footer}\n🎵 Ainos 앱에서 확인하세요`;
+    const text = `📋 ${svc.title}\n\n📅 ${svc.date}${svc.time ? " · " + svc.time : ""}\n${sep}\n${songLines}\n${sep}\n${footer}\n\n🎵 Ainos 앱에서 확인하세요`;
     const doCount = () => updateDoc(doc(db, "services", svc.id), { shareCount: increment(1) }).catch(() => {});
 
     if (window.Kakao?.isInitialized()) {
