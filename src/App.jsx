@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.93";
+const APP_VERSION = "3.94";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1586,37 +1586,35 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
           <div style={{ fontSize:12, color:C.dim, marginBottom:2 }}>TVPC Worship</div>
           <div style={{ fontWeight:800, fontSize:20 }}>예배 일정</div>
         </div>
-        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
           {isLeader(user.role) && (
-            <button onClick={() => setShowCreate(true)} style={{
-              background:`${C.acc}18`, border:`1px solid ${C.acc}66`, borderRadius:9,
-              padding:"7px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:5,
-              color:C.acc, fontSize:12, fontFamily:"inherit", fontWeight:700,
+            <button onClick={() => setShowCreate(true)} title="새 예배 만들기" style={{
+              width:36, height:36, borderRadius:9, cursor:"pointer",
+              background:`${C.acc}18`, border:`1px solid ${C.acc}66`,
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
             }}>
-              <Icon n="plus" size={14} color={C.acc} /> 새예배
+              <Icon n="plus" size={18} color={C.acc} />
             </button>
           )}
-          <button onClick={() => window.location.reload()} style={{
+          <button onClick={() => window.location.reload()} title="새로고침" style={{
+            width:36, height:36, borderRadius:9, cursor:"pointer",
             background:C.card, border:`1px solid ${C.bdr}`,
-            borderRadius:9, padding:"7px 12px", cursor:"pointer",
-            display:"flex", alignItems:"center", gap:5,
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
           }}>
-            <Icon n="refresh" size={14} color={C.dim} />
-            <span style={{ fontSize:12, color:C.dim, fontWeight:600 }}>새로고침</span>
+            <Icon n="refresh" size={18} color={C.dim} />
           </button>
-          <button onClick={() => nav("notifications")} style={{
+          <button onClick={() => nav("notifications")} title="알림" style={{
+            width:36, height:36, borderRadius:9, cursor:"pointer", position:"relative",
             background:C.card, border:`1px solid ${unread > 0 ? C.acc : C.bdr}`,
-            borderRadius:9, padding:"7px 12px", position:"relative",
-            cursor:"pointer", display:"flex", alignItems:"center", gap:5,
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
           }}>
-            <Icon n="bell" size={14} color={unread > 0 ? C.acc : C.dim} />
-            <span style={{ fontSize:12, color:unread > 0 ? C.acc : C.dim, fontWeight:600 }}>알림</span>
+            <Icon n="bell" size={18} color={unread > 0 ? C.acc : C.dim} />
             {unread > 0 && (
               <span style={{
-                position:"absolute", top:-6, right:-6,
-                minWidth:16, height:16, padding:"0 4px",
+                position:"absolute", top:-5, right:-5,
+                minWidth:15, height:15, padding:"0 3px",
                 background:C.red, borderRadius:8, border:`2px solid ${C.surf}`,
-                fontSize:10, fontWeight:700, color:"#fff",
+                fontSize:9, fontWeight:700, color:"#fff",
                 display:"flex", alignItems:"center", justifyContent:"center",
                 lineHeight:1, boxSizing:"border-box",
               }}>
@@ -1797,17 +1795,22 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       .join("\n");
     const sep = "─".repeat(9);
     const text = `📋 ${svc.title}\n\n📅 ${svc.date}${svc.time ? " · " + svc.time : ""}\n${sep}\n${songLines}\n${sep}\n🎵 Ainos 앱에서 확인하세요`;
+    const doCount = () => updateDoc(doc(db, "services", svc.id), { shareCount: increment(1) }).catch(() => {});
 
     if (window.Kakao?.isInitialized()) {
-      window.Kakao.Share.sendDefault({
-        objectType: "text",
-        text,
-        link: { mobileWebUrl: window.location.origin, webUrl: window.location.origin },
-      });
+      try {
+        window.Kakao.Share.sendDefault({
+          objectType: "text",
+          text,
+          link: { mobileWebUrl: window.location.origin, webUrl: window.location.origin },
+          success: doCount,
+        });
+      } catch { /* SDK가 success 콜백 미지원 시 여기서 카운트하지 않음 */ }
     } else {
-      navigator.clipboard?.writeText(text).then(() => alert("메시지가 복사됐습니다. 카카오톡에 붙여넣기 해주세요."));
+      navigator.clipboard?.writeText(text)
+        .then(() => { alert("메시지가 복사됐습니다. 카카오톡에 붙여넣기 해주세요."); doCount(); })
+        .catch(() => alert("클립보드 복사에 실패했습니다."));
     }
-    updateDoc(doc(db, "services", svc.id), { shareCount: increment(1) }).catch(() => {});
   };
 
   const removeSong = async (idx) => {
@@ -1879,37 +1882,36 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           </div>
         </div>
         {leader && (
-          <button onClick={() => setShowPicker(true)} style={{
-            background:`${C.acc}18`, border:`1px solid ${C.acc}66`, borderRadius:9,
-            padding:"7px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:5,
-            color:C.acc, fontSize:12, fontFamily:"inherit", fontWeight:700,
+          <button onClick={() => setShowPicker(true)} title="곡 추가" style={{
+            width:36, height:36, borderRadius:9, cursor:"pointer",
+            background:`${C.acc}18`, border:`1px solid ${C.acc}66`,
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
           }}>
-            <Icon n="plus" size={14} color={C.acc} /> 곡추가
+            <Icon n="plus" size={18} color={C.acc} />
           </button>
         )}
         {leader && (
-          <button onClick={() => setShowEdit(true)} style={{
-            background:C.card, border:`1px solid ${C.bdr}`, borderRadius:9,
-            padding:"7px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:5,
-            color:C.dim, fontSize:12, fontFamily:"inherit", fontWeight:600,
+          <button onClick={() => setShowEdit(true)} title="예배 수정" style={{
+            width:36, height:36, borderRadius:9, cursor:"pointer",
+            background:C.card, border:`1px solid ${C.bdr}`,
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
           }}>
-            <Icon n="pen" size={14} color={C.dim} /> 수정
+            <Icon n="pen" size={18} color={C.dim} />
           </button>
         )}
         {leader && (
-          <button onClick={shareToKakao} style={{
-            background:"#FEE500", border:"none", borderRadius:9, padding:"7px 12px",
-            display:"flex", alignItems:"center", gap:5,
-            fontWeight:700, fontSize:12, cursor:"pointer", fontFamily:"inherit", color:"#3C1E1E",
-            position:"relative",
+          <button onClick={shareToKakao} title="카카오톡 공유" style={{
+            width:36, height:36, borderRadius:9, cursor:"pointer", position:"relative",
+            background:"#FEE500", border:`1px solid #FEE500`,
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
           }}>
-            <Icon n="send" size={14} color="#3C1E1E" /> 공유
+            <Icon n="send" size={18} color="#3C1E1E" />
             {svc.shareCount > 0 && (
               <span style={{
-                position:"absolute", top:-6, right:-6,
-                minWidth:16, height:16, padding:"0 4px",
+                position:"absolute", top:-5, right:-5,
+                minWidth:15, height:15, padding:"0 3px",
                 background:C.red, borderRadius:8, border:"2px solid #FEE500",
-                fontSize:10, fontWeight:700, color:"#fff",
+                fontSize:9, fontWeight:700, color:"#fff",
                 display:"flex", alignItems:"center", justifyContent:"center",
                 lineHeight:1, boxSizing:"border-box",
               }}>
@@ -1921,12 +1923,12 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
         {svc.notified
           ? <Badge label="알림완료" color={C.grn} />
           : leader && (
-            <button onClick={sendNotif} style={{
-              background:C.pur, border:"none", borderRadius:9, padding:"7px 12px",
-              display:"flex", alignItems:"center", gap:5, color:"#fff",
-              fontWeight:600, fontSize:12, cursor:"pointer", fontFamily:"inherit",
+            <button onClick={sendNotif} title="팀 알림 보내기" style={{
+              width:36, height:36, borderRadius:9, cursor:"pointer",
+              background:C.pur, border:`1px solid ${C.pur}`,
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
             }}>
-              <Icon n="bell" size={14} color="#fff" /> 알림
+              <Icon n="bell" size={18} color="#fff" />
             </button>
           )
         }
