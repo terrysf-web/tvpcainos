@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.113";
+const APP_VERSION = "3.114";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2757,6 +2757,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [detectingChords, setDetectingChords] = useState(false);
   const [detectErr,      setDetectErr]      = useState("");
   const [dragChord,      setDragChord]      = useState(null); // {side,idx,pointerId}
+  const [deletingChord,  setDeletingChord]  = useState(null); // {side,idx} long-press pending
+  const longPressTimer   = useRef(null);
+  const longPressOrigin  = useRef(null); // {x,y} to detect move
   const chordOverlay1Ref = useRef(null);
   const chordOverlay2Ref = useRef(null);
   const drawCanvas1Ref  = useRef(null);  // single mode + dual left
@@ -3087,13 +3090,38 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setDoc(doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`), data, { merge: true }).catch(() => {});
   };
 
+  const deleteChord = (side, idx) => {
+    const current = side === 2 ? chordData2 : chordData;
+    const updated = current.filter((_, i) => i !== idx);
+    (side === 2 ? setChordData2 : setChordData)(updated);
+    saveChordPositions(updated, side);
+  };
+
   const handleChordPointerDown = (e, side, idx) => {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     setDragChord({ side, idx, pointerId: e.pointerId });
+    longPressOrigin.current = { x: e.clientX, y: e.clientY };
+    setDeletingChord({ side, idx });
+    longPressTimer.current = setTimeout(() => {
+      deleteChord(side, idx);
+      setDragChord(null);
+      setDeletingChord(null);
+      longPressOrigin.current = null;
+    }, 600);
   };
 
   const handleChordPointerMove = (e, side) => {
+    // cancel long-press if pointer moved > 8px
+    if (longPressOrigin.current) {
+      const dx = e.clientX - longPressOrigin.current.x;
+      const dy = e.clientY - longPressOrigin.current.y;
+      if (dx * dx + dy * dy > 64) {
+        clearTimeout(longPressTimer.current);
+        setDeletingChord(null);
+        longPressOrigin.current = null;
+      }
+    }
     if (!dragChord || dragChord.side !== side) return;
     const ref = side === 2 ? chordOverlay2Ref : chordOverlay1Ref;
     const rect = ref.current?.getBoundingClientRect();
@@ -3105,6 +3133,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
 
   const handleChordPointerUp = (side) => {
+    clearTimeout(longPressTimer.current);
+    setDeletingChord(null);
+    longPressOrigin.current = null;
     if (!dragChord || dragChord.side !== side) return;
     const chords = side === 2 ? chordData2 : chordData;
     saveChordPositions(chords, side);
@@ -4362,13 +4393,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                             style={{ position:"absolute", inset:0, pointerEvents:"none" }}
                             onPointerMove={e => handleChordPointerMove(e, 1)}
                             onPointerUp={() => handleChordPointerUp(1)}>
-                            {chordData.map((item, i) => (
+                            {chordData.map((item, i) => {
+                              const isPendingDel = deletingChord?.side===1 && deletingChord?.idx===i;
+                              return (
                               <span key={i} style={{
                                 position:"absolute",
                                 left:`${item.x * 100}%`, top:`${item.y * 100}%`,
                                 transform:"translate(-50%,-50%)",
-                                background: transposeSteps === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
-                                color: transposeSteps === 0 ? "#fff" : "#111",
+                                background: isPendingDel ? "rgba(220,50,50,0.95)" : transposeSteps === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
+                                color: isPendingDel ? "#fff" : transposeSteps === 0 ? "#fff" : "#111",
                                 borderRadius:3, padding:"1px 4px",
                                 fontSize:fs, fontWeight:800, lineHeight:1.5,
                                 whiteSpace:"nowrap", fontFamily:"monospace",
@@ -4376,12 +4409,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 pointerEvents:"auto", touchAction:"none",
                                 cursor: dragChord?.side===1 && dragChord?.idx===i ? "grabbing" : "grab",
                                 userSelect:"none",
+                                transition:"background 0.15s",
                               }}
                                 onPointerDown={e => handleChordPointerDown(e, 1, i)}
                                 onTouchStart={e => e.stopPropagation()}>
                                 {transposeChord(item.chord, transposeSteps)}
                               </span>
-                            ))}
+                              );
+                            })}
                           </div>
                         );
                       })()}
@@ -4422,13 +4457,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                               style={{ position:"absolute", inset:0, pointerEvents:"none" }}
                               onPointerMove={e => handleChordPointerMove(e, 2)}
                               onPointerUp={() => handleChordPointerUp(2)}>
-                              {chordData2.map((item, i) => (
+                              {chordData2.map((item, i) => {
+                                const isPendingDel = deletingChord?.side===2 && deletingChord?.idx===i;
+                                return (
                                 <span key={i} style={{
                                   position:"absolute",
                                   left:`${item.x * 100}%`, top:`${item.y * 100}%`,
                                   transform:"translate(-50%,-50%)",
-                                  background: transposeSteps2 === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
-                                  color: transposeSteps2 === 0 ? "#fff" : "#111",
+                                  background: isPendingDel ? "rgba(220,50,50,0.95)" : transposeSteps2 === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
+                                  color: isPendingDel ? "#fff" : transposeSteps2 === 0 ? "#fff" : "#111",
                                   borderRadius:3, padding:"1px 4px",
                                   fontSize:fs, fontWeight:800, lineHeight:1.5,
                                   whiteSpace:"nowrap", fontFamily:"monospace",
@@ -4436,12 +4473,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                   pointerEvents:"auto", touchAction:"none",
                                   cursor: dragChord?.side===2 && dragChord?.idx===i ? "grabbing" : "grab",
                                   userSelect:"none",
+                                  transition:"background 0.15s",
                                 }}
                                   onPointerDown={e => handleChordPointerDown(e, 2, i)}
                                   onTouchStart={e => e.stopPropagation()}>
                                   {transposeChord(item.chord, transposeSteps2)}
                                 </span>
-                              ))}
+                                );
+                              })}
                             </div>
                           );
                         })()}
@@ -4495,14 +4534,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                             onPointerMove={e => handleChordPointerMove(e, 1)}
                             onPointerUp={() => handleChordPointerUp(1)}
                           >
-                            {chordData.map((item, i) => (
+                            {chordData.map((item, i) => {
+                              const isPendingDel = deletingChord?.side===1 && deletingChord?.idx===i;
+                              return (
                               <span key={i} style={{
                                 position:"absolute",
                                 left:`${item.x * 100}%`,
                                 top:`${item.y * 100}%`,
                                 transform:"translate(-50%, -50%)",
-                                background: transposeSteps === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
-                                color: transposeSteps === 0 ? "#fff" : "#111",
+                                background: isPendingDel ? "rgba(220,50,50,0.95)" : transposeSteps === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
+                                color: isPendingDel ? "#fff" : transposeSteps === 0 ? "#fff" : "#111",
                                 borderRadius:3, padding:"2px 6px",
                                 fontSize:fs, fontWeight:800, lineHeight:1.5,
                                 whiteSpace:"nowrap", fontFamily:"monospace",
@@ -4510,13 +4551,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 pointerEvents:"auto", touchAction:"none",
                                 cursor: dragChord?.side===1 && dragChord?.idx===i ? "grabbing" : "grab",
                                 userSelect:"none",
+                                transition:"background 0.15s",
                               }}
                                 onPointerDown={e => handleChordPointerDown(e, 1, i)}
                                 onTouchStart={e => e.stopPropagation()}
                               >
                                 {transposeChord(item.chord, transposeSteps)}
                               </span>
-                            ))}
+                              );
+                            })}
                           </div>
                         );
                       })()}
