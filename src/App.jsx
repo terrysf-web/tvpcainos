@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.74";
+const APP_VERSION = "3.75";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -476,20 +476,6 @@ function getYoutubeId(url) {
    LOGIN SCREEN
 ══════════════════════════════════════════════════════════════════ */
 const googleProvider = new GoogleAuthProvider();
-
-// Google OAuth 토큰 캐시 (1시간 유효)
-let _geminiOAuthToken = null;
-let _geminiTokenExpiry = 0;
-async function getGeminiOAuthToken() {
-  if (_geminiOAuthToken && Date.now() < _geminiTokenExpiry) return _geminiOAuthToken;
-  const p = new GoogleAuthProvider();
-  p.addScope("https://www.googleapis.com/auth/generative-language");
-  const result = await signInWithPopup(auth, p);
-  const cred = GoogleAuthProvider.credentialFromResult(result);
-  _geminiOAuthToken = cred.accessToken;
-  _geminiTokenExpiry = Date.now() + 50 * 60 * 1000;
-  return _geminiOAuthToken;
-}
 
 function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
   const [err,          setErr]          = useState("");
@@ -2529,7 +2515,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [chordData2,     setChordData2]     = useState([]);   // dual right
   const [detectingChords, setDetectingChords] = useState(false);
   const [detectErr,      setDetectErr]      = useState("");
-  const [detectNeedsAuth, setDetectNeedsAuth] = useState(0); // 0=없음, 1=왼쪽, 2=오른쪽
   const drawCanvas1Ref  = useRef(null);  // single mode + dual left
   const drawCanvas2Ref  = useRef(null);  // dual right
   const isDrawing1Ref   = useRef(false);
@@ -2810,48 +2795,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`),
           { chords, transposeSteps, updatedAt: serverTimestamp() }
         ).catch(() => {});
-      }
-    } catch(e) {
-      if (/쿼터|quota|__need_oauth__|Load failed/i.test(e.message)) {
-        setDetectNeedsAuth(side);
-        setDetectErr("Google 인증이 필요합니다");
-      } else {
-        setDetectErr("오류: " + e.message);
-      }
-    } finally {
-      setDetectingChords(false);
-    }
-  };
-
-  const detectChordsWithAuth = async (side = 1) => {
-    setDetectingChords(true); setDetectErr(""); setDetectNeedsAuth(0);
-    const canvas = (side === 2 ? canvas2Ref : canvas1Ref).current;
-    if (!canvas || !canvas.width) { setDetectingChords(false); return; }
-    const setCD = side === 2 ? setChordData2 : setChordData;
-    const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
-    const page   = dual ? 1 : pageNum;
-    try {
-      const token = await getGeminiOAuthToken();
-      const MAX_DIM = 1200;
-      const ratio = Math.min(MAX_DIM / canvas.width, MAX_DIM / canvas.height, 1);
-      const small = document.createElement("canvas");
-      small.width  = Math.round(canvas.width  * ratio);
-      small.height = Math.round(canvas.height * ratio);
-      small.getContext("2d").drawImage(canvas, 0, 0, small.width, small.height);
-      const imageData = small.toDataURL("image/jpeg", 0.80).split(",")[1];
-      const raw = await detectChordsViaEdge(imageData, null, token);
-      const chords = raw.map((item) => ({
-        chord: item.label,
-        x: typeof item.cx === "number" ? item.cx : (typeof item.x === "number" ? item.x : 0.5),
-        y: typeof item.cy === "number" ? item.cy : (typeof item.y === "number" ? item.y : 0.5),
-        w: 0.02, h: 0.02,
-      }));
-      setCD(chords);
-      if (chords.length === 0) {
-        setDetectErr("코드를 찾지 못했습니다");
-      } else if (user?.uid && songId) {
-        setDoc(doc(db, "customSongs", `chord_${user.uid}_${songId}_p${page}`),
-          { chords, transposeSteps, updatedAt: serverTimestamp() }).catch(() => {});
       }
     } catch(e) {
       setDetectErr("오류: " + e.message);
@@ -3844,14 +3787,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   }}>{detectingChords ? "⏳" : "🎵"} 오른쪽</button>
                 : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 오른쪽 {chordData2.length}개</span>
               }
-              {detectNeedsAuth > 0
-                ? <button onClick={() => detectChordsWithAuth(detectNeedsAuth)} disabled={detectingChords}
-                    style={{ background:"#4285F4", border:"none", borderRadius:7, padding:"5px 10px",
-                      cursor:"pointer", fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0 }}>
-                    🔑 Google 인증 후 재시도
-                  </button>
-                : detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>
-              }
+              {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
               {/* 오른쪽 전조 + 초기화 */}
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
                 <span style={{ fontSize:10, color:C.dim, fontWeight:700 }}>오른쪽</span>
@@ -3902,16 +3838,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   }}>{detectingChords ? "⏳ 감지 중..." : "🎵 코드 감지 (AI)"}</button>
                 : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ {chordData.length}개 감지됨</span>
               }
-              {detectNeedsAuth === 1
-                ? <button onClick={() => detectChordsWithAuth(1)} disabled={detectingChords}
-                    style={{ background:"#4285F4", border:"none", borderRadius:7, padding:"5px 12px",
-                      cursor:"pointer", fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0 }}>
-                    🔑 Google 인증 후 재시도
-                  </button>
-                : detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>
-              }
+              {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
               <div style={{ marginLeft:"auto", flexShrink:0 }}>
-                <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setChordData([]); setChordData2([]); setDetectErr(""); setDetectNeedsAuth(0); }}
+                <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setChordData([]); setChordData2([]); setDetectErr(""); }}
                   style={{ background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
                     padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit" }}>
                   초기화
@@ -5029,8 +4958,9 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
         <Modal title="AI 코드 감지 키 설정" onClose={() => setShowApiKey(false)}>
           <div style={{ padding:"4px 0 8px" }}>
             <div style={{ fontSize:13, color:C.dim, marginBottom:12, lineHeight:1.6 }}>
-              개인 Gemini API 키를 설정하면 쿼터 초과 없이 코드 감지를 사용할 수 있습니다.<br />
-              <span style={{ color:C.acc, fontWeight:600 }}>aistudio.google.com</span>에서 무료로 발급받을 수 있습니다.
+              AI 키를 설정하면 코드 감지를 사용할 수 있습니다.<br />
+              <span style={{ color:C.acc, fontWeight:700 }}>Groq 추천 (완전 무료)</span> — <span style={{ color:C.acc }}>console.groq.com</span> 에서 가입 후 API Keys 생성 → <code style={{ fontSize:11 }}>gsk_...</code> 형식<br />
+              <span style={{ color:C.dim }}>Gemini: aistudio.google.com → <code style={{ fontSize:11 }}>AIzaSy...</code> 형식</span>
             </div>
             {user?.geminiKey && (
               <div style={{ fontSize:11, color:C.dim, marginBottom:8, fontFamily:"monospace",
@@ -5041,7 +4971,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             <input
               value={apiKeyInput}
               onChange={e => { setApiKeyInput(e.target.value); setApiKeyOk(false); setApiKeyErr(""); }}
-              placeholder="AIza..."
+              placeholder="gsk_... 또는 AIzaSy..."
               style={{ width:"100%", padding:"10px 12px", borderRadius:8,
                 border:`1px solid ${apiKeyOk ? C.grn : apiKeyErr ? C.red : C.bdr}`,
                 background:C.surf, color:C.txt, fontSize:13, fontFamily:"monospace",
