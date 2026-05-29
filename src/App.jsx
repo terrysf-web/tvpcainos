@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.103";
+const APP_VERSION = "3.104";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2103,10 +2103,10 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       )}
       {showNotifModal && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)", zIndex:2000,
-          display:"flex", alignItems:"flex-end", justifyContent:"center" }}
+          display:"flex", alignItems:"center", justifyContent:"center", padding:"16px" }}
           onClick={e => { if (e.target === e.currentTarget) setShowNotifModal(false); }}>
-          <div style={{ background:C.surf, borderRadius:"16px 16px 0 0", padding:20,
-            width:"100%", maxWidth:480, paddingBottom:"calc(20px + env(safe-area-inset-bottom))" }}>
+          <div style={{ background:C.surf, borderRadius:16, padding:20,
+            width:"100%", maxWidth:440 }}>
             <div style={{ display:"flex", alignItems:"center", marginBottom:16 }}>
               <div style={{ flex:1, fontWeight:700, fontSize:16 }}>알림 보내기</div>
               <button onClick={() => setShowNotifModal(false)}
