@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.94";
+const APP_VERSION = "3.95";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -83,7 +83,7 @@ const P = {
   prev:    "M15 18l-6-6 6-6",
   next:    "M9 18l6-6-6-6",
   back:    "M19 12H5M12 5l-7 7 7 7",
-  refresh: "M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.76-4.24L13 11h7V4l-2.35 2.35z",
+  refresh: "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M3 21v-5h5",
   chevU:   "M18 15l-6-6-6 6",
   chevD:   "M6 9l6 6 6-6",
   chevL:   "M15 18l-6-6 6-6",
@@ -1601,7 +1601,7 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
             background:C.card, border:`1px solid ${C.bdr}`,
             display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
           }}>
-            <Icon n="refresh" size={18} color={C.dim} />
+            <Icon n="refresh" size={20} color={C.dim} />
           </button>
           <button onClick={() => nav("notifications")} title="알림" style={{
             width:36, height:36, borderRadius:9, cursor:"pointer", position:"relative",
@@ -2296,22 +2296,21 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
         borderBottom:`1px solid ${C.bdr}` }}>
         <div style={{ padding:"0 16px 10px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>악보 라이브러리</div>
-          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <button onClick={() => window.location.reload()} style={{
+          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+            <button onClick={() => window.location.reload()} title="새로고침" style={{
+              width:36, height:36, borderRadius:9, cursor:"pointer",
               background:C.card, border:`1px solid ${C.bdr}`,
-              borderRadius:9, padding:"7px 12px", cursor:"pointer",
-              display:"flex", alignItems:"center", gap:5,
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
             }}>
-              <Icon n="refresh" size={14} color={C.dim} />
-              <span style={{ fontSize:12, color:C.dim, fontWeight:600 }}>새로고침</span>
+              <Icon n="refresh" size={20} color={C.dim} />
             </button>
             {isLeader(user.role) && (
-              <button onClick={() => setShowAdd(true)} style={{
-                background:`${C.acc}18`, border:`1px solid ${C.acc}66`, borderRadius:9,
-                padding:"7px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:5,
-                color:C.acc, fontSize:12, fontFamily:"inherit", fontWeight:700,
+              <button onClick={() => setShowAdd(true)} title="곡 추가" style={{
+                width:36, height:36, borderRadius:9, cursor:"pointer",
+                background:`${C.acc}18`, border:`1px solid ${C.acc}66`,
+                display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
               }}>
-                <Icon n="plus" size={14} color={C.acc} /> 곡추가
+                <Icon n="plus" size={18} color={C.acc} />
               </button>
             )}
           </div>
