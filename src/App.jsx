@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.128";
+const APP_VERSION = "3.129";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3288,9 +3288,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       canvas.height = dH;
       canvas.getContext("2d").drawImage(off, cb.left * vp.width, cb.top * vp.height, dW, dH, 0, 0, dW, dH);
     } else {
-      canvas.width  = Math.round(vp.width);
-      canvas.height = Math.round(vp.height);
-      await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+      // 오프스크린 버퍼에 렌더 완료 후 한 번에 교체 → 깜빡임 제거
+      const off = document.createElement("canvas");
+      off.width  = Math.round(vp.width);
+      off.height = Math.round(vp.height);
+      await page.render({ canvasContext: off.getContext("2d"), viewport: vp }).promise;
+      canvas.width  = off.width;
+      canvas.height = off.height;
+      canvas.getContext("2d").drawImage(off, 0, 0);
     }
   };
 
