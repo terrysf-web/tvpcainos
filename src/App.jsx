@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.124";
+const APP_VERSION = "3.125";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1807,6 +1807,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       title, body,
       createdAt: serverTimestamp(), readBy: [], serviceId: svc.id,
       serviceDate: svc.date || "", serviceTitle: svc.title || "",
+      senderRole: user.role || "leader",
     });
     sendFcmPush(title, body);
     setNotifContent("");
@@ -4182,22 +4183,26 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   background:"transparent", cursor:"pointer", fontWeight:700, fontSize:14, display:"flex",
                   alignItems:"center", justifyContent:"center", color:C.txt, flexShrink:0 }}>+</button>
               <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
-              {/* 감지 버튼 */}
-              {chordData.length === 0
-                ? <button onClick={() => detectChords(1)} disabled={detectingChords} style={{
-                    background: detectingChords ? `${C.grn}44` : C.grn, border:"none", borderRadius:7,
-                    padding:"5px 10px", cursor: detectingChords ? "not-allowed" : "pointer",
-                    fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
-                  }}>{detectingChords ? "⏳" : "🎵"} 왼쪽</button>
-                : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 왼쪽 {chordData.length}개</span>
+              {/* 감지 버튼 — 리더 전용 */}
+              {leader
+                ? (chordData.length === 0
+                  ? <button onClick={() => detectChords(1)} disabled={detectingChords} style={{
+                      background: detectingChords ? `${C.grn}44` : C.grn, border:"none", borderRadius:7,
+                      padding:"5px 10px", cursor: detectingChords ? "not-allowed" : "pointer",
+                      fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
+                    }}>{detectingChords ? "⏳" : "🎵"} 왼쪽</button>
+                  : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 왼쪽 {chordData.length}개</span>)
+                : chordData.length > 0 && <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 왼쪽 {chordData.length}개</span>
               }
-              {chordData2.length === 0
-                ? <button onClick={() => detectChords(2)} disabled={detectingChords} style={{
-                    background: detectingChords ? `${C.grn}44` : C.grn, border:"none", borderRadius:7,
-                    padding:"5px 10px", cursor: detectingChords ? "not-allowed" : "pointer",
-                    fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
-                  }}>{detectingChords ? "⏳" : "🎵"} 오른쪽</button>
-                : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 오른쪽 {chordData2.length}개</span>
+              {leader
+                ? (chordData2.length === 0
+                  ? <button onClick={() => detectChords(2)} disabled={detectingChords} style={{
+                      background: detectingChords ? `${C.grn}44` : C.grn, border:"none", borderRadius:7,
+                      padding:"5px 10px", cursor: detectingChords ? "not-allowed" : "pointer",
+                      fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
+                    }}>{detectingChords ? "⏳" : "🎵"} 오른쪽</button>
+                  : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 오른쪽 {chordData2.length}개</span>)
+                : chordData2.length > 0 && <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 오른쪽 {chordData2.length}개</span>
               }
               {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
               {/* 오른쪽 전조 + 초기화 */}
@@ -4232,11 +4237,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     fontWeight:700, fontSize:11, display:"flex", alignItems:"center", justifyContent:"center",
                     color: chordFontScale >= 2.0 ? C.bdr : C.txt }}>A+</button>
                 <div style={{ width:1, height:20, background:C.bdr }} />
-                <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setChordData([]); setChordData2([]); setDetectErr(""); setChordFontScale(1.0); }}
-                  style={{ background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
-                    padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit" }}>
-                  초기화
-                </button>
+                {leader && (
+                  <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setChordData([]); setChordData2([]); setDetectErr(""); setChordFontScale(1.0); }}
+                    style={{ background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
+                      padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit" }}>
+                    초기화
+                  </button>
+                )}
               </div>
             </>
           ) : (
@@ -4258,13 +4265,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     alignItems:"center", justifyContent:"center", color:C.txt }}>+</button>
               </div>
               <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
-              {chordData.length === 0
-                ? <button onClick={() => detectChords(1)} disabled={detectingChords} style={{
-                    background: detectingChords ? `${C.grn}44` : C.grn, border:"none", borderRadius:7,
-                    padding:"5px 12px", cursor: detectingChords ? "not-allowed" : "pointer",
-                    fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
-                  }}>{detectingChords ? "⏳ 감지 중..." : "🎵 코드 감지 (AI)"}</button>
-                : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ {chordData.length}개 감지됨</span>
+              {leader
+                ? (chordData.length === 0
+                  ? <button onClick={() => detectChords(1)} disabled={detectingChords} style={{
+                      background: detectingChords ? `${C.grn}44` : C.grn, border:"none", borderRadius:7,
+                      padding:"5px 12px", cursor: detectingChords ? "not-allowed" : "pointer",
+                      fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
+                    }}>{detectingChords ? "⏳ 감지 중..." : "🎵 코드 감지 (AI)"}</button>
+                  : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ {chordData.length}개 감지됨</span>)
+                : chordData.length > 0 && <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ {chordData.length}개 감지됨</span>
               }
               {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
@@ -4287,11 +4296,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     fontWeight:700, fontSize:12, display:"flex", alignItems:"center", justifyContent:"center",
                     color: chordFontScale >= 2.0 ? C.bdr : C.txt }}>A+</button>
                 <div style={{ width:1, height:20, background:C.bdr }} />
-                <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setChordData([]); setChordData2([]); setDetectErr(""); setChordFontScale(1.0); }}
-                  style={{ background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
-                    padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit" }}>
-                  초기화
-                </button>
+                {leader && (
+                  <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setChordData([]); setChordData2([]); setDetectErr(""); setChordFontScale(1.0); }}
+                    style={{ background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
+                      padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit" }}>
+                    초기화
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -4464,8 +4475,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         return (
                           <div ref={chordOverlay1Ref}
                             style={{ position:"absolute", inset:0, pointerEvents:"none" }}
-                            onPointerMove={e => handleChordPointerMove(e, 1)}
-                            onPointerUp={() => handleChordPointerUp(1)}>
+                            onPointerMove={leader ? e => handleChordPointerMove(e, 1) : undefined}
+                            onPointerUp={leader ? () => handleChordPointerUp(1) : undefined}>
                             {chordData.map((item, i) => {
                               const isPendingDel = deletingChord?.side===1 && deletingChord?.idx===i;
                               return (
@@ -4479,13 +4490,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 fontSize:fs, fontWeight:800, lineHeight:1.5,
                                 whiteSpace:"nowrap", fontFamily:"monospace",
                                 boxShadow:"0 1px 4px rgba(0,0,0,.3)",
-                                pointerEvents:"auto", touchAction:"none",
-                                cursor: dragChord?.side===1 && dragChord?.idx===i ? "grabbing" : "grab",
+                                pointerEvents: leader ? "auto" : "none", touchAction:"none",
+                                cursor: leader ? (dragChord?.side===1 && dragChord?.idx===i ? "grabbing" : "grab") : "default",
                                 userSelect:"none",
                                 transition:"background 0.15s",
                               }}
-                                onPointerDown={e => handleChordPointerDown(e, 1, i)}
-                                onTouchStart={e => e.stopPropagation()}>
+                                onPointerDown={leader ? e => handleChordPointerDown(e, 1, i) : undefined}
+                                onTouchStart={leader ? e => e.stopPropagation() : undefined}>
                                 {transposeChord(item.chord, transposeSteps)}
                               </span>
                               );
@@ -4528,8 +4539,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           return (
                             <div ref={chordOverlay2Ref}
                               style={{ position:"absolute", inset:0, pointerEvents:"none" }}
-                              onPointerMove={e => handleChordPointerMove(e, 2)}
-                              onPointerUp={() => handleChordPointerUp(2)}>
+                              onPointerMove={leader ? e => handleChordPointerMove(e, 2) : undefined}
+                              onPointerUp={leader ? () => handleChordPointerUp(2) : undefined}>
                               {chordData2.map((item, i) => {
                                 const isPendingDel = deletingChord?.side===2 && deletingChord?.idx===i;
                                 return (
@@ -4543,13 +4554,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                   fontSize:fs, fontWeight:800, lineHeight:1.5,
                                   whiteSpace:"nowrap", fontFamily:"monospace",
                                   boxShadow:"0 1px 4px rgba(0,0,0,.3)",
-                                  pointerEvents:"auto", touchAction:"none",
-                                  cursor: dragChord?.side===2 && dragChord?.idx===i ? "grabbing" : "grab",
+                                  pointerEvents: leader ? "auto" : "none", touchAction:"none",
+                                  cursor: leader ? (dragChord?.side===2 && dragChord?.idx===i ? "grabbing" : "grab") : "default",
                                   userSelect:"none",
                                   transition:"background 0.15s",
                                 }}
-                                  onPointerDown={e => handleChordPointerDown(e, 2, i)}
-                                  onTouchStart={e => e.stopPropagation()}>
+                                  onPointerDown={leader ? e => handleChordPointerDown(e, 2, i) : undefined}
+                                  onTouchStart={leader ? e => e.stopPropagation() : undefined}>
                                   {transposeChord(item.chord, transposeSteps2)}
                                 </span>
                                 );
@@ -4604,8 +4615,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         return (
                           <div ref={chordOverlay1Ref}
                             style={{ position:"absolute", inset:0, pointerEvents:"none", borderRadius:4 }}
-                            onPointerMove={e => handleChordPointerMove(e, 1)}
-                            onPointerUp={() => handleChordPointerUp(1)}
+                            onPointerMove={leader ? e => handleChordPointerMove(e, 1) : undefined}
+                            onPointerUp={leader ? () => handleChordPointerUp(1) : undefined}
                           >
                             {chordData.map((item, i) => {
                               const isPendingDel = deletingChord?.side===1 && deletingChord?.idx===i;
@@ -4621,13 +4632,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 fontSize:fs, fontWeight:800, lineHeight:1.5,
                                 whiteSpace:"nowrap", fontFamily:"monospace",
                                 boxShadow:"0 1px 4px rgba(0,0,0,.3)",
-                                pointerEvents:"auto", touchAction:"none",
-                                cursor: dragChord?.side===1 && dragChord?.idx===i ? "grabbing" : "grab",
+                                pointerEvents: leader ? "auto" : "none", touchAction:"none",
+                                cursor: leader ? (dragChord?.side===1 && dragChord?.idx===i ? "grabbing" : "grab") : "default",
                                 userSelect:"none",
                                 transition:"background 0.15s",
                               }}
-                                onPointerDown={e => handleChordPointerDown(e, 1, i)}
-                                onTouchStart={e => e.stopPropagation()}
+                                onPointerDown={leader ? e => handleChordPointerDown(e, 1, i) : undefined}
+                                onTouchStart={leader ? e => e.stopPropagation() : undefined}
                               >
                                 {transposeChord(item.chord, transposeSteps)}
                               </span>
@@ -4866,26 +4877,35 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
           const num = notifs.length - idx;
           const svcDate = n.serviceDate || (services || []).find(s => s.id === n.serviceId)?.date || "";
           const svcTitle = n.serviceTitle || (services || []).find(s => s.id === n.serviceId)?.title || "";
+          const isAdmin = n.senderRole === "admin";
+          const themeClr = isAdmin ? C.red : C.pur;
           return (
             <div key={n.id} className="wFadeIn"
               onClick={() => markNotifRead(n.id)}
               style={{
-                background: n.read ? C.card : `${C.pur}18`,
-                border:`1px solid ${n.read ? C.bdr : `${C.pur}44`}`,
+                background: n.read ? C.card : `${themeClr}18`,
+                border:`1px solid ${n.read ? C.bdr : `${themeClr}44`}`,
                 borderRadius:12, padding:"14px 16px", marginBottom:8, cursor:"pointer",
                 display:"flex", alignItems:"flex-start", gap:10,
               }}>
               <div style={{
                 width:38, height:38, borderRadius:10, flexShrink:0,
-                background: n.read ? C.surf : `${C.pur}33`,
+                background: n.read ? C.surf : `${themeClr}33`,
                 display:"flex", alignItems:"center", justifyContent:"center",
-                fontWeight:700, fontSize:14, color: n.read ? C.dim : C.pur,
+                fontWeight:700, fontSize:14, color: n.read ? C.dim : themeClr,
               }}>
                 {num}
               </div>
               <div style={{ flex:1 }}>
-                <div style={{ fontWeight:700, fontSize:14, marginBottom:2 }}>
-                  {n.type ? `[${n.type}]` : ""} {svcTitle || n.title?.replace(/^\[.*?\]\s*/, "") || ""}
+                <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                  {isAdmin && (
+                    <span style={{ fontSize:9, fontWeight:800, color:C.red,
+                      background:`${C.red}18`, border:`1px solid ${C.red}44`,
+                      borderRadius:4, padding:"1px 5px", letterSpacing:"0.04em" }}>어드민</span>
+                  )}
+                  <span style={{ fontWeight:700, fontSize:14 }}>
+                    {n.type ? `[${n.type}]` : ""} {svcTitle || n.title?.replace(/^\[.*?\]\s*/, "") || ""}
+                  </span>
                 </div>
                 {svcDate && (
                   <div style={{ fontSize:11, color:C.acc, fontWeight:600, marginBottom:3 }}>📅 {svcDate}</div>
@@ -4895,7 +4915,7 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
               </div>
               {!n.read && (
                 <div style={{ width:8, height:8, borderRadius:"50%",
-                  background:C.pur, flexShrink:0, marginTop:6 }} />
+                  background:themeClr, flexShrink:0, marginTop:6 }} />
               )}
             </div>
           );
