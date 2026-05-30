@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.127";
+const APP_VERSION = "3.128";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2716,7 +2716,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const dualPdf2Ref = useRef(null);  // dual right song PDF doc
   const [dualKey,  setDualKey]  = useState(0); // bumped once when both PDFs are ready
   const [dualToast, setDualToast] = useState("");
-  const touchStartX = useRef(null);
+  const touchStartX  = useRef(null);
+  const touchStartY  = useRef(null);
+  const touchFired   = useRef(false);
   const toastTimer  = useRef(null);
   const penDownRef  = useRef(false); // 애플펜슬 터치 중 여부
   const dualFitModeRef   = useRef(false); // 듀얼 FIT 모드: 페이지 이동마다 자동 재적용
@@ -3402,14 +3404,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (drawModeRef.current) return;
     if (penDownRef.current) return;
     touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    touchFired.current  = false;
   };
 
-  const handleTouchEnd = (e) => {
-    if (drawModeRef.current) return;
-    if (touchStartX.current === null) return;
-    const delta = e.changedTouches[0].clientX - touchStartX.current;
-    touchStartX.current = null;
-    if (Math.abs(delta) < 50) return;
+  const triggerSwipe = (delta) => {
     if (dual) {
       if (delta < 0) dualNext(); else dualPrev();
     } else if (svcSongs.length > 1 && songIdx >= 0) {
@@ -3421,6 +3420,33 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         else nav("pdfViewer", { songId: svcSongs[songIdx - 1].id, svcSongIdx: songIdx - 1, backTo });
       }
     }
+  };
+
+  const handleTouchMove = (e) => {
+    if (drawModeRef.current) return;
+    if (touchStartX.current === null || touchFired.current) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current;
+    // 수평 방향이 수직보다 명확할 때만 반응
+    if (Math.abs(dx) < 55 || Math.abs(dy) > Math.abs(dx) * 0.75) return;
+    touchFired.current  = true;
+    touchStartX.current = null;
+    triggerSwipe(dx);
+  };
+
+  const handleTouchEnd = (e) => {
+    if (drawModeRef.current) return;
+    // touchMove에서 이미 처리된 경우 스킵
+    if (touchFired.current || touchStartX.current === null) {
+      touchStartX.current = null;
+      touchFired.current  = false;
+      return;
+    }
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    touchFired.current  = false;
+    if (Math.abs(dx) < 55) return;
+    triggerSwipe(dx);
   };
 
   const saveNote = async () => {
@@ -4444,6 +4470,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         <div ref={containerRef} style={{ flex:1, overflow:"hidden", display:"flex",
           position:"relative", background:C.bg, touchAction:"none" }}
           onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}>
 
           {dual ? (
