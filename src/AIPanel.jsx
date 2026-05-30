@@ -76,14 +76,13 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
   const [loading,   setLoading]   = useState(false);
   const [aiErr,     setAiErr]     = useState("");
   const [usedImage,  setUsedImage]  = useState(false);
-  const [savedMeta,  setSavedMeta]  = useState(null); // { at, usedImage }
+  const [savedMeta,  setSavedMeta]  = useState(null);
 
   const isLeader = user?.role === "leader" || user?.role === "admin";
 
   const [ytId, setYtId] = useState(song?.youtubeId || null);
-  const [ytMeta, setYtMeta] = useState(null); // { title, author }
+  const [ytMeta, setYtMeta] = useState(null);
 
-  // ytId 바뀌면 YouTube oEmbed로 영상 제목/채널명 가져오기
   useEffect(() => {
     if (!ytId) { setYtMeta(null); return; }
     fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${ytId}&format=json`)
@@ -92,7 +91,6 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
       .catch(() => setYtMeta(null));
   }, [ytId]);
 
-  // songAnalysis 컬렉션에서 저장된 분석 결과 불러오기
   useEffect(() => {
     if (!song?.id) return;
     setAnalysis(""); setAiErr(""); setUsedImage(false);
@@ -202,7 +200,6 @@ BPM: ${song.bpm || "미상"}
       setAnalysis(text);
       setUsedImage(!!imageB64);
       setAiErr("");
-      // songAnalysis 컬렉션에 저장 — 모든 팀원 읽기/쓰기 가능
       const now = serverTimestamp();
       await setDoc(doc(db, "songAnalysis", song.id), {
         text, usedImage: !!imageB64, savedAt: now,
@@ -220,7 +217,8 @@ BPM: ${song.bpm || "미상"}
 
   return (
     <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.surf, overflow:"hidden" }}>
-      {/* Header */}
+
+      {/* ── 고정: 헤더 */}
       <div style={{
         padding:"10px 14px", borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", gap:8,
@@ -228,7 +226,6 @@ BPM: ${song.bpm || "미상"}
       }}>
         <span style={{ fontSize:14 }}>🎵</span>
         <span style={{ fontWeight:800, fontSize:13, color:C.acc, letterSpacing:"-0.01em" }}>AI 도움</span>
-        <span style={{ fontSize:10, color:`${C.dim}88`, marginLeft:2 }}>고정 영역</span>
         <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6 }}>
           <span style={{
             background:`${keyColor(song.key)}22`, color:keyColor(song.key),
@@ -239,8 +236,9 @@ BPM: ${song.bpm || "미상"}
         </div>
       </div>
 
-      <div style={{ flex:1, overflowY:"auto" }}>
-        {/* ── YouTube Section */}
+      {/* ── 고정: YouTube + 구분선 + AI 컨트롤 */}
+      <div style={{ flexShrink:0 }}>
+        {/* YouTube section */}
         <div style={{ padding:"12px 12px 0" }}>
           <div style={{ fontSize:10, color:C.dim, fontWeight:700,
             letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:8 }}>
@@ -334,40 +332,32 @@ BPM: ${song.bpm || "미상"}
           )}
         </div>
 
-        {/* ── Divider */}
+        {/* 구분선 */}
         <div style={{ height:1, background:C.bdr, margin:"12px 12px" }} />
 
-        {/* ── AI Analysis Section */}
-        <div style={{ padding:"0 12px 20px" }}>
-
-          {/* 분석 결과가 있을 때: 상단에 메타 + 다시 분석 버튼 */}
+        {/* AI 컨트롤 (버튼/메타 행) */}
+        <div style={{ padding:"0 12px 10px" }}>
           {analysis ? (
-            <div style={{ marginBottom:10 }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                  {usedImage
-                    ? <span style={{ fontSize:10, color:C.grn }}>📄 악보 이미지 분석</span>
-                    : <span style={{ fontSize:10, color:C.dim }}>ℹ️ 메타데이터 분석</span>
-                  }
-                  {savedAt && (
-                    <span style={{ fontSize:10, color:C.dim }}>· {fmtDate(savedAt)}</span>
-                  )}
-                </div>
-                <button onClick={() => analyze(0)} disabled={loading} style={{
-                  background:"transparent", border:`1px solid ${C.pur}`,
-                  borderRadius:7, padding:"3px 10px", cursor:"pointer",
-                  fontSize:11, color:C.pur, fontFamily:"inherit", fontWeight:600,
-                  opacity: loading ? 0.5 : 1,
-                }}>
-                  {loading ? "분석 중..." : "↺ 다시 분석"}
-                </button>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                {usedImage
+                  ? <span style={{ fontSize:10, color:C.grn }}>📄 악보 이미지 분석</span>
+                  : <span style={{ fontSize:10, color:C.dim }}>ℹ️ 메타데이터 분석</span>
+                }
+                {savedAt && (
+                  <span style={{ fontSize:10, color:C.dim }}>· {fmtDate(savedAt)}</span>
+                )}
               </div>
-              <div style={{ background:C.card, borderRadius:10, padding:"12px 14px", border:`1px solid ${C.bdr}` }}>
-                <Markdown text={analysis} />
-              </div>
+              <button onClick={() => analyze(0)} disabled={loading} style={{
+                background:"transparent", border:`1px solid ${C.pur}`,
+                borderRadius:7, padding:"3px 10px", cursor:"pointer",
+                fontSize:11, color:C.pur, fontFamily:"inherit", fontWeight:600,
+                opacity: loading ? 0.5 : 1,
+              }}>
+                {loading ? "분석 중..." : "↺ 다시 분석"}
+              </button>
             </div>
           ) : (
-            /* 분석 결과 없을 때: 큰 분석하기 버튼 */
             <>
               <button onClick={() => analyze(0)} disabled={loading} style={{
                 width:"100%",
@@ -381,7 +371,7 @@ BPM: ${song.bpm || "미상"}
               }}>
                 {loading ? "⏳ 분석 중..." : "✨ AI 분석하기"}
               </button>
-              <div style={{ fontSize:10, color:C.dim, textAlign:"center", marginBottom:8, lineHeight:1.6 }}>
+              <div style={{ fontSize:10, color:C.dim, textAlign:"center", lineHeight:1.6 }}>
                 {pdfCanvasRef?.current?.width
                   ? "📄 현재 페이지 악보 이미지를 AI가 직접 읽어 분석합니다"
                   : "ℹ️ 곡 메타데이터 기반으로 분석합니다"}
@@ -391,7 +381,7 @@ BPM: ${song.bpm || "미상"}
           )}
 
           {aiErr && (
-            <div style={{ fontSize:12, marginTop:6,
+            <div style={{ fontSize:12, marginTop:8,
               background: aiErr.startsWith("⏳") ? `${C.acc}11` : `${C.red}11`,
               color: aiErr.startsWith("⏳") ? C.acc : C.red,
               padding:"10px 12px", borderRadius:8,
@@ -409,6 +399,16 @@ BPM: ${song.bpm || "미상"}
           )}
         </div>
       </div>
+
+      {/* ── 스크롤 가능: AI 분석 결과만 */}
+      <div style={{ flex:1, overflowY:"auto", padding: analysis ? "0 12px 20px" : 0 }}>
+        {analysis && (
+          <div style={{ background:C.card, borderRadius:10, padding:"12px 14px", border:`1px solid ${C.bdr}` }}>
+            <Markdown text={analysis} />
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }
