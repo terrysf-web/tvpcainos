@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.126";
+const APP_VERSION = "3.127";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3931,8 +3931,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       )}
                     </button>
                   )}
-                  {/* 전조 */}
-                  {isLeader(user.role) && (narrow ? (
+                  {/* 전조 — 모든 역할 사용 가능 */}
+                  {narrow ? (
                     <button onClick={() => {
                       setTransposeMode(p => !p);
                       if (transposeMode) { setTransposeSteps(0); setDetectErr(""); }
@@ -3969,7 +3969,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         ? `${song.key}→${keyName(song.key, transposeSteps)}`
                         : "전조"}
                     </button>
-                  ))}
+                  )}
                 </div>
               </div>
             );
