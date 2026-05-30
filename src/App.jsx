@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.129";
+const APP_VERSION = "3.130";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2788,6 +2788,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const curStroke2Ref   = useRef(null);
   const lastSideRef     = useRef(1);     // last drawn side for undo
   const drawModeRef     = useRef(false);
+  const preClearRef1    = useRef(null);  // snapshot before 필기 삭제 (side 1)
+  const preClearRef2    = useRef(null);  // snapshot before 필기 삭제 (side 2)
+  const [clearConfirm,  setClearConfirm]  = useState(false); // 필기 삭제 확인 다이얼로그
 
   const myNotes   = annotations[selectedSongId]     || [];
   const teamNotes = (teamAnnotations || {})[selectedSongId] || [];
@@ -3760,9 +3763,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // ── Undo: acts on the last-drawn side
   const handleUndo = async () => {
     const side = lastSideRef.current;
-    const sRef = side === 2 ? strokes2Ref : strokes1Ref;
+    const sRef  = side === 2 ? strokes2Ref  : strokes1Ref;
     const dcRef = side === 2 ? drawCanvas2Ref : drawCanvas1Ref;
+    const pRef  = side === 2 ? preClearRef2  : preClearRef1;
     const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
+    // 필기 삭제 직후라면 스냅샷 복원
+    if (sRef.current.length === 0 && pRef.current !== null) {
+      const restored = pRef.current;
+      pRef.current = null;
+      sRef.current = restored;
+      await saveDrawing(songId, dual ? 1 : pageNum, restored);
+      if (dcRef.current) drawStrokes(dcRef.current, restored);
+      return;
+    }
     if (sRef.current.length === 0) return;
     const next = sRef.current.slice(0, -1);
     sRef.current = next;
@@ -3770,12 +3783,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (dcRef.current) drawStrokes(dcRef.current, next);
   };
 
-  const handleClearPage = async () => {
+  const handleClearPage = () => setClearConfirm(true);
+
+  const confirmClearPage = async () => {
+    setClearConfirm(false);
     const side = lastSideRef.current;
-    const sRef = side === 2 ? strokes2Ref : strokes1Ref;
+    const sRef  = side === 2 ? strokes2Ref  : strokes1Ref;
     const dcRef = side === 2 ? drawCanvas2Ref : drawCanvas1Ref;
+    const pRef  = side === 2 ? preClearRef2  : preClearRef1;
     const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
-    sRef.current = [];
+    pRef.current  = sRef.current;  // undo용 스냅샷 저장
+    sRef.current  = [];
     await saveDrawing(songId, dual ? 1 : pageNum, []);
     if (dcRef.current) dcRef.current.getContext("2d").clearRect(0, 0, dcRef.current.width, dcRef.current.height);
   };
@@ -4085,12 +4103,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               <span style={{ fontSize:9, fontWeight:600, color:C.dim, fontFamily:"inherit", lineHeight:1 }}>취소</span>
             </button>
             <button onClick={handleClearPage} style={{
-              background:"transparent", border:`1px solid ${C.bdr}`,
+              background:"transparent", border:`1px solid ${C.red}44`,
               borderRadius:7, padding:"5px 8px", cursor:"pointer",
               display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0,
             }}>
-              <Icon n="trash" size={15} color={C.dim} />
-              <span style={{ fontSize:9, fontWeight:600, color:C.dim, fontFamily:"inherit", lineHeight:1 }}>지우기</span>
+              <Icon n="trash" size={15} color={C.red} />
+              <span style={{ fontSize:9, fontWeight:600, color:C.red, fontFamily:"inherit", lineHeight:1 }}>필기삭제</span>
             </button>
             {drawSaveErr && (
               <span style={{ fontSize:10, color:C.red, marginLeft:4, flexShrink:0 }}>
@@ -4773,6 +4791,36 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             <div style={{ display:"flex", gap:8, marginTop:12 }}>
               <Btn label="취소" variant="ghost" onClick={() => { setNoteInput(false); setNoteTxt(""); setNoteShared(false); }} full />
               <Btn label={saving ? "저장 중..." : "저장"} variant="primary" onClick={saveNote} full disabled={saving} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 필기 삭제 확인 다이얼로그 */}
+      {clearConfirm && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.65)",
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:300, padding:20 }}>
+          <div style={{ background:C.surf, borderRadius:16, padding:24,
+            width:"100%", maxWidth:320, border:`1px solid ${C.bdr}`, textAlign:"center" }}>
+            <div style={{ fontSize:32, marginBottom:8 }}>🗑️</div>
+            <div style={{ fontWeight:800, fontSize:16, marginBottom:8 }}>필기 삭제</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:20, lineHeight:1.6 }}>
+              이 페이지의 모든 필기를 삭제합니다.<br />
+              삭제 후 실행 취소(↺)로 복원할 수 있습니다.
+            </div>
+            <div style={{ display:"flex", gap:10 }}>
+              <button onClick={() => setClearConfirm(false)}
+                style={{ flex:1, padding:"10px 0", borderRadius:10, cursor:"pointer",
+                  background:C.card, border:`1px solid ${C.bdr}`,
+                  fontFamily:"inherit", fontSize:14, fontWeight:600, color:C.dim }}>
+                취소
+              </button>
+              <button onClick={confirmClearPage}
+                style={{ flex:1, padding:"10px 0", borderRadius:10, cursor:"pointer",
+                  background:C.red, border:"none",
+                  fontFamily:"inherit", fontSize:14, fontWeight:700, color:"#fff" }}>
+                삭제
+              </button>
             </div>
           </div>
         </div>
@@ -5708,27 +5756,6 @@ export default function App() {
     return () => window.removeEventListener("resize", setVh);
   }, []);
 
-  // ── Apple Pencil 호버 커서
-  const [pencilCursor, setPencilCursor] = useState(null);
-  const pencilHideTimer = useRef(null);
-  useEffect(() => {
-    const show = (x, y) => {
-      setPencilCursor({ x, y });
-      clearTimeout(pencilHideTimer.current);
-      pencilHideTimer.current = setTimeout(() => setPencilCursor(null), 500);
-    };
-    const onMove  = (e) => { if (e.pointerType === "pen") show(e.clientX, e.clientY); };
-    const onDown  = (e) => { if (e.pointerType === "pen") { clearTimeout(pencilHideTimer.current); setPencilCursor(null); } };
-    window.addEventListener("pointermove",  onMove);
-    window.addEventListener("pointerdown",  onDown);
-    window.addEventListener("pointerleave", onDown);
-    return () => {
-      window.removeEventListener("pointermove",  onMove);
-      window.removeEventListener("pointerdown",  onDown);
-      window.removeEventListener("pointerleave", onDown);
-      clearTimeout(pencilHideTimer.current);
-    };
-  }, []);
 
 
   // ── Handle Google redirect result
@@ -6105,15 +6132,6 @@ export default function App() {
 
   return (
     <div style={{ width:"100%", height:"var(--app-h, 100dvh)", background:C.bg, position:"relative", overflow:"hidden" }}>
-      {pencilCursor && (
-        <div style={{
-          position:"fixed", pointerEvents:"none", zIndex:9999,
-          left: pencilCursor.x - 10, top: pencilCursor.y - 10,
-          width:20, height:20, borderRadius:"50%",
-          border:"2px solid rgba(108,93,231,0.8)",
-          background:"rgba(108,93,231,0.12)",
-        }} />
-      )}
       {view === "services"      && <ServicesScreen      {...shared} />}
       {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
       {view === "library"       && <SongLibraryScreen   {...shared} />}
