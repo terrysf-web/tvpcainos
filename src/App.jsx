@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.148";
+const APP_VERSION = "3.149";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1056,6 +1056,7 @@ function AddSongModal({ onClose, onAdd }) {
   const [youtubeUrl,   setYoutubeUrl]   = useState("");
   const [pdfFile,      setPdfFile]      = useState(null);
   const [imgFile,      setImgFile]      = useState(null);
+  const [imgPreview,   setImgPreview]   = useState(null);  // blob URL for paste preview
   const [saving,       setSaving]       = useState(false);
   const [pdfPageCount, setPdfPageCount] = useState(0);
   const [splitMode,    setSplitMode]    = useState(false);
@@ -1065,10 +1066,18 @@ function AddSongModal({ onClose, onAdd }) {
   const [showCrop,     setShowCrop]     = useState(false);
   const fileRef    = useRef(null);
   const imgFileRef = useRef(null);
+  const imgPasteRef = useRef(null);
   const KEYS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+  const applyImageFile = (file) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    setImgFile(file);
+    setImgPreview(URL.createObjectURL(file));
+  };
 
   const handleFileSelect = async (file) => {
     setPdfFile(file);
+    setImgFile(null); setImgPreview(null); // PDF 선택 시 이미지 초기화
     setSplitMode(false);
     setPdfPageCount(0);
     setSplitEntries([]);
@@ -1285,34 +1294,66 @@ function AddSongModal({ onClose, onAdd }) {
             <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
               textTransform:"uppercase", marginBottom:8 }}>악보 이미지 (선택)</div>
             <input ref={imgFileRef} type="file" accept="image/*" style={{ display:"none" }}
-              onChange={e => { setImgFile(e.target.files[0] || null); e.target.value = ""; }} />
+              onChange={e => { applyImageFile(e.target.files?.[0]); e.target.value = ""; }} />
             {imgFile ? (
-              <div style={{
-                display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
-                background:`${C.acc}12`, border:`1.5px solid ${C.acc}55`, borderRadius:10,
-              }}>
-                <span style={{ fontSize:20 }}>🖼️</span>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13, color:C.acc, fontWeight:600,
-                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                    {imgFile.name}
-                  </div>
+              <>
+                <div style={{ marginBottom:8, borderRadius:10, overflow:"hidden",
+                  border:`1px solid ${C.bdr}`, lineHeight:0 }}>
+                  <img src={imgPreview} alt="preview"
+                    style={{ width:"100%", maxHeight:160, objectFit:"contain",
+                      background:C.surf, display:"block" }} />
                 </div>
-                <button onClick={() => setImgFile(null)}
-                  style={{ background:"none", border:"none", cursor:"pointer", padding:2, display:"flex" }}>
-                  <Icon n="xmark" size={16} color={C.dim} />
-                </button>
-              </div>
+                <div style={{
+                  display:"flex", alignItems:"center", gap:10, padding:"8px 14px",
+                  background:`${C.acc}12`, border:`1.5px solid ${C.acc}55`, borderRadius:10,
+                }}>
+                  <span style={{ fontSize:18 }}>🖼️</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, color:C.acc, fontWeight:600,
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {imgFile.name}
+                    </div>
+                  </div>
+                  <button onClick={() => { setImgFile(null); setImgPreview(null); }}
+                    style={{ background:"none", border:"none", cursor:"pointer", padding:2, display:"flex" }}>
+                    <Icon n="xmark" size={16} color={C.dim} />
+                  </button>
+                </div>
+              </>
             ) : (
-              <button onClick={() => imgFileRef.current?.click()} style={{
-                width:"100%", padding:"16px", borderRadius:12, cursor:"pointer",
-                border:`2px dashed ${C.bdr}`, background:C.card,
-                fontFamily:"inherit", fontSize:14, fontWeight:600, color:C.dim,
-                display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-              }}>
-                <span style={{ fontSize:18 }}>🖼️</span>
-                이미지 파일 선택
-              </button>
+              <>
+                <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                  <button onClick={() => imgPasteRef.current?.focus()} style={{
+                    flex:1, padding:"12px 0", borderRadius:10, cursor:"pointer",
+                    background:C.pur, border:"none", fontFamily:"inherit",
+                    fontSize:13, fontWeight:700, color:"#fff",
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                  }}>📋 붙여넣기</button>
+                  <label style={{
+                    flex:1, padding:"12px 0", borderRadius:10, cursor:"pointer",
+                    background:"transparent", border:`1.5px solid ${C.bdr}`,
+                    fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.dim,
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                  }}>📁 파일 선택
+                    <input type="file" accept="image/*" style={{ display:"none" }}
+                      onChange={e => { applyImageFile(e.target.files?.[0]); e.target.value = ""; }} />
+                  </label>
+                </div>
+                <div ref={imgPasteRef} contentEditable suppressContentEditableWarning
+                  onPaste={e => {
+                    e.preventDefault();
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    for (const item of Array.from(items)) {
+                      if (item.type.startsWith("image/")) { applyImageFile(item.getAsFile()); break; }
+                    }
+                  }}
+                  style={{ minHeight:44, borderRadius:8, border:`1.5px dashed ${C.acc}66`,
+                    padding:"10px 12px", fontSize:12, color:C.dim, outline:"none",
+                    background:C.surf, textAlign:"center", lineHeight:1.5 }}>
+                  여기서 커서 위치 후 붙여넣기 (Ctrl+V / 꾹 누르기)
+                </div>
+              </>
             )}
           </div>
         </>
