@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.132";
+const APP_VERSION = "3.133";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -4854,7 +4854,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 ? `translate(${panOffset.x}px,${panOffset.y}px)` : undefined,
               willChange: panOffset.x !== 0 || panOffset.y !== 0 ? "transform" : undefined,
             }}>
-              {song.pdfUrl ? (
+              {(song.pdfUrl || song.imageUrl) ? (
                 loadErr
                   ? <div style={{ color:C.red, fontSize:13 }}>{loadErr}</div>
                   : <div style={{ position:"relative", display:"inline-block", lineHeight:0, flexShrink:0 }}>
@@ -4924,7 +4924,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     fontSize:38, marginBottom:16,
                   }}>🎼</div>
                   <div style={{ fontWeight:700, fontSize:16, marginBottom:6 }}>{song.title}</div>
-                  <div style={{ fontSize:13 }}>PDF 악보가 없습니다</div>
+                  <div style={{ fontSize:13 }}>PDF 또는 이미지 악보가 없습니다</div>
                 </div>
               )}
             </div>
