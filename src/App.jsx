@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.164";
+const APP_VERSION = "3.165";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -329,7 +329,6 @@ const STAMP_GROUPS = [
     { sym:"fp",  italic:true  },
   ]},
   { label:"아티큘", items:[
-    { sym:"●",   italic:false },
     { sym:"·",   italic:false },
     { sym:"–",   italic:false },
     { sym:">",   italic:false },
@@ -349,6 +348,7 @@ const STAMP_GROUPS = [
     { sym:"𝄢",    italic:false },
   ]},
   { label:"음표", items:[
+    { sym:"notehead", italic:false },
     { sym:"♩",  italic:false },
     { sym:"♪",  italic:false },
     { sym:"♫",  italic:false },
@@ -466,6 +466,15 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
           ctx.lineTo(px + staffW / 2, ly);
           ctx.stroke();
         }
+      } else if (s.symbol === "notehead") {
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(-28 * Math.PI / 180);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, sz * 0.72, sz * 0.52, 0, 0, Math.PI * 2);
+        ctx.fillStyle = s.color || "#1c1c1e";
+        ctx.fill();
+        ctx.restore();
       } else {
         const family = s.italic
           ? '"Times New Roman", Georgia, serif'
@@ -4377,16 +4386,27 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     ctx.stroke();
     // 스탬프 미리보기 — drawStrokes와 동일한 baseline 적용
     if (sym) {
-      const baseline = getStampBaseline(sym);
       const actualSz = Math.max(7, (size || 12) * pdfCanvas.width / 450);
       const sz = actualSz * ZOOM;
-      const family = italic ? '"Times New Roman", Georgia, serif' : 'system-ui, sans-serif';
-      ctx.font = `${italic ? "italic " : ""}bold ${sz}px ${family}`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = baseline;
-      ctx.fillStyle = color || "#e8383b";
       ctx.globalAlpha = 0.88;
-      ctx.fillText(sym, LW / 2, LH / 2);
+      if (sym === "notehead") {
+        ctx.save();
+        ctx.translate(LW / 2, LH / 2);
+        ctx.rotate(-28 * Math.PI / 180);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, sz * 0.72, sz * 0.52, 0, 0, Math.PI * 2);
+        ctx.fillStyle = color || "#1c1c1e";
+        ctx.fill();
+        ctx.restore();
+      } else {
+        const baseline = getStampBaseline(sym);
+        const family = italic ? '"Times New Roman", Georgia, serif' : 'system-ui, sans-serif';
+        ctx.font = `${italic ? "italic " : ""}bold ${sz}px ${family}`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = baseline;
+        ctx.fillStyle = color || "#e8383b";
+        ctx.fillText(sym, LW / 2, LH / 2);
+      }
       ctx.globalAlpha = 1;
     }
   }, []);
@@ -5310,6 +5330,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                             <line key={i} x1="1" y1={1+i*3} x2="23" y2={1+i*3}
                               stroke={stampSymbol === "staff" ? C.acc : C.dim} strokeWidth="1" />
                           ))}
+                        </svg>
+                      ) : st.sym === "notehead" ? (
+                        <svg width="26" height="20" viewBox="0 0 26 20" style={{ display:"block" }}>
+                          <ellipse cx="13" cy="11" rx="10" ry="7"
+                            fill={stampSymbol === "notehead" ? C.acc : C.txt}
+                            transform="rotate(-28 13 11)" />
                         </svg>
                       ) : (
                         <span style={{
