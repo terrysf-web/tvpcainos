@@ -145,3 +145,14 @@ export async function uploadPdf(file, songId) {
   const { data } = supabase.storage.from("pdfs").getPublicUrl(path);
   return data.publicUrl;
 }
+
+export async function uploadImage(file, songId) {
+  const ext  = file.type.includes("png") ? "png" : "jpg";
+  const path = `img_${songId}.${ext}`;
+  const { error } = await supabase.storage
+    .from("pdfs")
+    .upload(path, file, { contentType: file.type, upsert: true });
+  if (error) throw error;
+  const { data } = supabase.storage.from("pdfs").getPublicUrl(path);
+  return data.publicUrl;
+}

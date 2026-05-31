@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { auth, db, messagingPromise, firebaseConfigObj } from "./firebase.js";
 import { getToken, onMessage } from "firebase/messaging";
-import { uploadPdf, sendFcmPush, detectChordsViaEdge } from "./supabase.js";
+import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage } from "./supabase.js";
 import AIPanel from "./AIPanel.jsx";
 import {
   signOut,
@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.130";
+const APP_VERSION = "3.131";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1712,9 +1712,19 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
 /* ══════════════════════════════════════════════════════════════════
    SERVICE DETAIL SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function SongPickerModal({ songs, currentIds, onClose, onSave }) {
-  const [selected, setSelected] = useState([...currentIds]);
-  const [query,    setQuery]    = useState("");
+const QUICK_KEYS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+function SongPickerModal({ songs, currentIds, onClose, onSave, addSong, user }) {
+  const [selected,     setSelected]     = useState([...currentIds]);
+  const [query,        setQuery]        = useState("");
+  const [showQuick,    setShowQuick]    = useState(false);
+  const [quickTitle,   setQuickTitle]   = useState("");
+  const [quickKey,     setQuickKey]     = useState("C");
+  const [quickImage,   setQuickImage]   = useState(null);   // File
+  const [quickPreview, setQuickPreview] = useState(null);   // blob URL
+  const [quickSaving,  setQuickSaving]  = useState(false);
+  const [quickErr,     setQuickErr]     = useState("");
+  const pasteAreaRef = useRef(null);
 
   const filtered = songs.filter(s =>
     s.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -1722,8 +1732,137 @@ function SongPickerModal({ songs, currentIds, onClose, onSave }) {
   );
   const toggle = id => setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
 
+  const applyImageFile = (file) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    setQuickImage(file);
+    setQuickPreview(URL.createObjectURL(file));
+    setQuickErr("");
+    if (!quickTitle) setQuickTitle(file.name.replace(/\.[^.]+$/, "").slice(0, 40));
+  };
+
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        applyImageFile(item.getAsFile());
+        break;
+      }
+    }
+  };
+
+  const handleQuickAdd = async () => {
+    if (!quickTitle.trim()) { setQuickErr("곡 제목을 입력하세요"); return; }
+    if (!quickImage)        { setQuickErr("이미지를 붙여넣거나 선택하세요"); return; }
+    setQuickSaving(true); setQuickErr("");
+    try {
+      const docRef = await addSong({ title: quickTitle.trim(), key: quickKey, artist: "", bpm: 80, timeSig: "4/4" });
+      const { updateDoc, doc } = await import("firebase/firestore");
+      const { db: _db } = await import("./firebase.js");
+      const imageUrl = await uploadImage(quickImage, docRef.id);
+      await updateDoc(doc(_db, "songs", docRef.id), { imageUrl });
+      setSelected(p => [...p, docRef.id]);
+      setShowQuick(false);
+      setQuickTitle(""); setQuickKey("C"); setQuickImage(null); setQuickPreview(null);
+    } catch(e) {
+      setQuickErr("추가 실패: " + e.message);
+    } finally {
+      setQuickSaving(false);
+    }
+  };
+
   return (
     <Modal title={`곡 선택 (${selected.length}곡)`} onClose={onClose}>
+      {/* 빠른 추가 (이미지) 토글 */}
+      <button onClick={() => { setShowQuick(p => !p); setQuickErr(""); }}
+        style={{
+          width:"100%", marginBottom:10, padding:"8px 12px",
+          background: showQuick ? `${C.acc}22` : C.card,
+          border:`1.5px solid ${showQuick ? C.acc : C.bdr}`,
+          borderRadius:10, cursor:"pointer", fontFamily:"inherit",
+          display:"flex", alignItems:"center", gap:8,
+          color: showQuick ? C.acc : C.dim, fontWeight:700, fontSize:13,
+        }}>
+        <span style={{ fontSize:16 }}>🖼️</span>
+        이미지로 빠른 추가
+        <span style={{ marginLeft:"auto", fontSize:11, opacity:0.7 }}>
+          {showQuick ? "▲ 닫기" : "▼ 열기"}
+        </span>
+      </button>
+
+      {showQuick && (
+        <div style={{ background:C.card, borderRadius:12, padding:14, marginBottom:12,
+          border:`1.5px solid ${C.acc}44` }}>
+          {/* 이미지 붙여넣기 / 파일 선택 */}
+          <div
+            ref={pasteAreaRef}
+            tabIndex={0}
+            onPaste={handlePaste}
+            onFocus={e => e.currentTarget.style.borderColor = C.acc}
+            onBlur={e => e.currentTarget.style.borderColor = C.bdr}
+            style={{
+              width:"100%", minHeight:90, borderRadius:10,
+              border:`2px dashed ${C.bdr}`, marginBottom:10,
+              display:"flex", flexDirection:"column",
+              alignItems:"center", justifyContent:"center",
+              cursor:"pointer", outline:"none", position:"relative",
+              background: quickPreview ? "transparent" : C.surf,
+              overflow:"hidden",
+            }}>
+            {quickPreview
+              ? <img src={quickPreview} alt="preview"
+                  style={{ maxWidth:"100%", maxHeight:160, borderRadius:8, display:"block" }} />
+              : <>
+                  <div style={{ fontSize:28, marginBottom:4 }}>📋</div>
+                  <div style={{ fontSize:12, color:C.dim, textAlign:"center", lineHeight:1.6 }}>
+                    여기를 탭한 뒤 <strong>붙여넣기(Ctrl+V)</strong><br />또는 아래 버튼으로 파일 선택
+                  </div>
+                </>
+            }
+          </div>
+          <label style={{
+            display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+            padding:"7px 0", borderRadius:8, cursor:"pointer",
+            background:"transparent", border:`1px solid ${C.bdr}`,
+            fontSize:12, color:C.dim, fontFamily:"inherit", fontWeight:600,
+            marginBottom:10,
+          }}>
+            <span>📁 파일 선택</span>
+            <input type="file" accept="image/*" style={{ display:"none" }}
+              onChange={e => applyImageFile(e.target.files?.[0])} />
+          </label>
+          <input value={quickTitle} onChange={e => setQuickTitle(e.target.value)}
+            placeholder="곡 제목 *"
+            style={{
+              width:"100%", background:C.surf, border:`1.5px solid ${C.bdr}`,
+              color:C.txt, padding:"8px 12px", borderRadius:8,
+              fontSize:13, outline:"none", fontFamily:"inherit",
+              marginBottom:8, boxSizing:"border-box",
+            }} />
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+            <span style={{ fontSize:12, color:C.dim, flexShrink:0 }}>Key</span>
+            <select value={quickKey} onChange={e => setQuickKey(e.target.value)}
+              style={{
+                background:C.surf, border:`1.5px solid ${C.bdr}`, color:C.txt,
+                padding:"6px 10px", borderRadius:8, fontSize:13, fontFamily:"inherit",
+                outline:"none", cursor:"pointer",
+              }}>
+              {QUICK_KEYS.map(k => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </div>
+          {quickErr && <div style={{ fontSize:12, color:C.red, marginBottom:8 }}>{quickErr}</div>}
+          <button onClick={handleQuickAdd} disabled={quickSaving}
+            style={{
+              width:"100%", padding:"9px 0", borderRadius:9,
+              background: quickSaving ? `${C.acc}66` : C.acc,
+              border:"none", cursor: quickSaving ? "not-allowed" : "pointer",
+              fontFamily:"inherit", fontSize:13, fontWeight:700, color:"#111",
+            }}>
+            {quickSaving ? "추가 중..." : "🎵 라이브러리에 추가 후 선택"}
+          </button>
+        </div>
+      )}
+
       <input value={query} onChange={e => setQuery(e.target.value)}
         placeholder="곡명, 아티스트 검색..."
         style={{
@@ -1731,7 +1870,7 @@ function SongPickerModal({ songs, currentIds, onClose, onSave }) {
           color:C.txt, padding:"9px 14px", borderRadius:10,
           fontSize:14, outline:"none", fontFamily:"inherit", marginBottom:12,
         }} />
-      <div style={{ maxHeight:320, overflowY:"auto", marginBottom:14 }}>
+      <div style={{ maxHeight:300, overflowY:"auto", marginBottom:14 }}>
         {filtered.length === 0 && (
           <div style={{ textAlign:"center", padding:"30px 0", color:C.dim, fontSize:13 }}>
             {query ? "검색 결과 없음" : "악보 라이브러리에 곡이 없습니다"}
@@ -1759,7 +1898,7 @@ function SongPickerModal({ songs, currentIds, onClose, onSave }) {
                   textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.title}</div>
                 <div style={{ fontSize:12, color:C.dim, marginTop:1 }}>
                   {s.artist} · Key {s.key}{s.bpm ? ` · ♩${s.bpm}` : ""}
-                  {s.pdfUrl ? " · 📄 PDF" : ""}
+                  {s.pdfUrl ? " · 📄 PDF" : s.imageUrl ? " · 🖼️ 이미지" : ""}
                 </div>
               </div>
               <KeyBadge k={s.key} />
@@ -1773,7 +1912,7 @@ function SongPickerModal({ songs, currentIds, onClose, onSave }) {
   );
 }
 
-function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotations, notifs, nav, selectedSvcId, onUpdateService }) {
+function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotations, notifs, nav, selectedSvcId, onUpdateService, addSong }) {
   const svc = services.find(s => s.id === selectedSvcId);
   const [showPicker,     setShowPicker]     = useState(false);
   const [showEdit,       setShowEdit]       = useState(false);
@@ -2066,6 +2205,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                     <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap" }}>
                       <KeyBadge k={song.key} />
                       {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF · 페이지${song.pdfPage}` : "PDF"} color={C.grn} />}
+                      {!song.pdfUrl && song.imageUrl && <Badge label="🖼️ 이미지" color={C.acc} />}
                       {teamNotes.length > 0 && <Badge label={`📋 ${teamNotes.length}`} color={C.acc} />}
                     </div>
                   </div>
@@ -2109,7 +2249,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
       {showPicker && (
         <SongPickerModal songs={songs} currentIds={svc.songIds || []}
-          onClose={() => setShowPicker(false)} onSave={saveSongs} />
+          onClose={() => setShowPicker(false)} onSave={saveSongs}
+          addSong={addSong} user={user} />
       )}
       {showEdit && (
         <EditServiceModal svc={svc} onClose={() => setShowEdit(false)} onSave={onUpdateService} />
@@ -2704,6 +2845,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const canvas2Ref   = useRef(null);
   const containerRef = useRef(null);
   const pdfDocRef    = useRef(null);
+  const imageRef     = useRef(null);  // 이미지 악보용
   const [numPages, setNumPages] = useState(0);
   const [pageNum,  setPageNum]  = useState(1);
   const [zoomMul,  setZoomMul]  = useState(1.0);
@@ -3237,12 +3379,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   useEffect(() => {
     if (dual) return;
     pdfDocRef.current = null;
+    imageRef.current  = null;
     setPageNum(song?.pdfPage || 1); setNumPages(0); setLoadErr("");
     if (!song?.pdfUrl || !pdfjsReady || !window.pdfjsLib) return;
     window.pdfjsLib.getDocument({ url: song.pdfUrl }).promise
       .then(pdf => { pdfDocRef.current = pdf; setNumPages(pdf.numPages); })
       .catch(() => setLoadErr("PDF를 불러올 수 없습니다"));
   }, [song?.pdfUrl, pdfjsReady, selectedSongId, dual]);
+
+  // 이미지 악보 로드 (싱글 모드, pdfUrl 없이 imageUrl만 있을 때)
+  useEffect(() => {
+    if (dual || song?.pdfUrl || !song?.imageUrl) return;
+    imageRef.current = null;
+    setNumPages(0); setLoadErr("");
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload  = () => { imageRef.current = img; setNumPages(1); };
+    img.onerror = () => setLoadErr("이미지를 불러올 수 없습니다");
+    img.src = song.imageUrl;
+  }, [song?.imageUrl, selectedSongId, dual, song?.pdfUrl]);
 
   // PDF 로드 (듀얼 모드) — Promise.all로 두 곡 동시 로드, 완료 후 한 번만 렌더 트리거
   const dualLeftUrl   = svcSongs[dualIdx]?.pdfUrl      || null;
@@ -3347,7 +3502,28 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           }
         }
       } else {
-        // 싱글: 한 페이지 꽉 맞춤
+        // 싱글: 이미지 악보 렌더
+        if (!pdfDocRef.current && imageRef.current && canvas1Ref.current) {
+          const img    = imageRef.current;
+          const availW = cSize.w - pad * 2;
+          const availH = cSize.h - pad * 2;
+          const scale  = Math.min(availW / img.width, availH / img.height) * zoomMul;
+          const dW = Math.round(img.width  * scale);
+          const dH = Math.round(img.height * scale);
+          const off = document.createElement("canvas");
+          off.width = dW; off.height = dH;
+          off.getContext("2d").drawImage(img, 0, 0, dW, dH);
+          const c = canvas1Ref.current;
+          c.width = dW; c.height = dH;
+          c.getContext("2d").drawImage(off, 0, 0);
+          if (drawCanvas1Ref.current) {
+            drawCanvas1Ref.current.width  = dW;
+            drawCanvas1Ref.current.height = dH;
+            drawStrokes(drawCanvas1Ref.current, strokes1Ref.current);
+          }
+          return;
+        }
+        // 싱글: PDF 한 페이지 꽉 맞춤
         if (!pdfDocRef.current || !canvas1Ref.current) return;
         const availW = cSize.w - pad * 2;
         const availH = cSize.h - pad * 2;
