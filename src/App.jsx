@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.162";
+const APP_VERSION = "3.164";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3211,6 +3211,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // ── Stamp + loupe
   const [stampSymbol, setStampSymbol] = useState("f");
   const [stampItalic, setStampItalic] = useState(true);
+  const [stampSize,   setStampSize]   = useState(12); // 6–40
   const [loupePos, setLoupePos] = useState(null); // { x, y } viewport coords
   const loupeCanvasRef = useRef(null);
   const lastPt1Ref = useRef({ x: 0.5, y: 0.5 });
@@ -4344,7 +4345,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   }, [textInput, drawColor, drawWidth, dual, dualLeftSongId, dualRightSongId, selectedSongId, pageNum, saveDrawing, saveTeamDrawing, teamDrawMode]);
 
   // ── Loupe update (stamp mode)
-  const updateLoupe = useCallback((e, pdfCanvas, drawCanvas, sym, italic, color) => {
+  const updateLoupe = useCallback((e, pdfCanvas, drawCanvas, sym, italic, color, size) => {
     const lc = loupeCanvasRef.current;
     if (!lc || !pdfCanvas || !pdfCanvas.width) return;
     const posRef = drawCanvas || pdfCanvas;
@@ -4377,8 +4378,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     // 스탬프 미리보기 — drawStrokes와 동일한 baseline 적용
     if (sym) {
       const baseline = getStampBaseline(sym);
-      // 루프 크기에 비례한 크기 계산: 실제 스탬프 sz에 ZOOM 적용
-      const actualSz = Math.max(7, 12 * pdfCanvas.width / 450);
+      const actualSz = Math.max(7, (size || 12) * pdfCanvas.width / 450);
       const sz = actualSz * ZOOM;
       const family = italic ? '"Times New Roman", Georgia, serif' : 'system-ui, sans-serif';
       ctx.font = `${italic ? "italic " : ""}bold ${sz}px ${family}`;
@@ -4441,7 +4441,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       stampPressed1Ref.current = true;
       const pt = getCanvasPt(e, canvas);
       lastPt1Ref.current = pt;
-      updateLoupe(e, canvas1Ref.current, canvas, stampSymbol, stampItalic, drawColor);
+      updateLoupe(e, canvas1Ref.current, canvas, stampSymbol, stampItalic, drawColor, stampSize);
       setLoupePos({ x: e.clientX, y: e.clientY });
       return;
     }
@@ -4481,7 +4481,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (drawTool === "stamp") {
       if (!stampPressed1Ref.current && e.buttons === 0) return; // pencil hover - ignore
       lastPt1Ref.current = getCanvasPt(e, canvas);
-      updateLoupe(e, canvas1Ref.current, canvas, stampSymbol, stampItalic, drawColor);
+      updateLoupe(e, canvas1Ref.current, canvas, stampSymbol, stampItalic, drawColor, stampSize);
       setLoupePos({ x: e.clientX, y: e.clientY });
       return;
     }
@@ -4517,7 +4517,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const coordCanvas = drawCanvas1Ref.current || canvas;
       const pt = e ? getCanvasPt(e, coordCanvas) : lastPt1Ref.current;
       const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
-        color:drawColor, size:drawWidth * 3 + 8, points:[pt] };
+        color:drawColor, size:stampSize, points:[pt] };
       const sRef1 = teamDrawMode ? teamStrokes1Ref : strokes1Ref;
       const next = [...sRef1.current, stamp];
       sRef1.current = next;
@@ -4611,7 +4611,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       stampPressed2Ref.current = true;
       const pt = getCanvasPt(e, canvas);
       lastPt2Ref.current = pt;
-      updateLoupe(e, canvas2Ref.current, canvas, stampSymbol, stampItalic, drawColor);
+      updateLoupe(e, canvas2Ref.current, canvas, stampSymbol, stampItalic, drawColor, stampSize);
       setLoupePos({ x: e.clientX, y: e.clientY });
       return;
     }
@@ -4651,7 +4651,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (drawTool === "stamp") {
       if (!stampPressed2Ref.current && e.buttons === 0) return; // pencil hover - ignore
       lastPt2Ref.current = getCanvasPt(e, canvas);
-      updateLoupe(e, canvas2Ref.current, canvas, stampSymbol, stampItalic, drawColor);
+      updateLoupe(e, canvas2Ref.current, canvas, stampSymbol, stampItalic, drawColor, stampSize);
       setLoupePos({ x: e.clientX, y: e.clientY });
       return;
     }
@@ -4686,7 +4686,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const coordCanvas = drawCanvas2Ref.current || canvas;
       const pt = e ? getCanvasPt(e, coordCanvas) : lastPt2Ref.current;
       const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
-        color:drawColor, size:drawWidth * 3 + 8, points:[pt] };
+        color:drawColor, size:stampSize, points:[pt] };
       const sRef2 = teamDrawMode ? teamStrokes2Ref : strokes2Ref;
       const next = [...sRef2.current, stamp];
       sRef2.current = next;
@@ -5270,6 +5270,26 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               boxShadow:"0 8px 32px rgba(0,0,0,0.5)",
               padding:"8px 10px", display:"flex", flexDirection:"column", gap:3,
             }}>
+              {/* 크기 조절 */}
+              <div style={{ display:"flex", alignItems:"center", gap:4, paddingBottom:6,
+                borderBottom:`1px solid ${C.bdr}`, marginBottom:2 }}>
+                <span style={{ fontSize:9, color:C.dim, fontWeight:700, width:32,
+                  textAlign:"right", flexShrink:0 }}>크기</span>
+                <button onClick={() => setStampSize(s => Math.max(6, s - 2))} style={{
+                  width:28, height:28, borderRadius:7, border:`1px solid ${C.bdr}`,
+                  background:"transparent", cursor:"pointer", fontSize:16,
+                  color:C.txt, display:"flex", alignItems:"center", justifyContent:"center",
+                  fontFamily:"inherit", flexShrink:0,
+                }}>−</button>
+                <span style={{ fontSize:13, fontWeight:700, color:C.pur,
+                  minWidth:28, textAlign:"center", flexShrink:0 }}>{stampSize}</span>
+                <button onClick={() => setStampSize(s => Math.min(40, s + 2))} style={{
+                  width:28, height:28, borderRadius:7, border:`1px solid ${C.bdr}`,
+                  background:"transparent", cursor:"pointer", fontSize:16,
+                  color:C.txt, display:"flex", alignItems:"center", justifyContent:"center",
+                  fontFamily:"inherit", flexShrink:0,
+                }}>+</button>
+              </div>
               {STAMP_GROUPS.map(group => (
                 <div key={group.label} style={{ display:"flex", alignItems:"center", gap:4 }}>
                   <span style={{ fontSize:9, color:C.dim, fontWeight:700, width:32, textAlign:"right",
