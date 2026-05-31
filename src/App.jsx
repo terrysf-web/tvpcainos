@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.154";
+const APP_VERSION = "3.155";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -4863,7 +4863,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       borderRadius:8, cursor:"pointer", flexShrink:0,
                     }}>
                       <Icon n="download" size={tbIconSz} color={svc.downloadEnabled ? C.grn : C.dim} />
-                      <span style={{ fontSize:7, fontWeight:700, lineHeight:1,
+                      <span style={{ fontSize:9, fontWeight:700, lineHeight:1,
                         color: svc.downloadEnabled ? C.grn : C.dim, fontFamily:"inherit", whiteSpace:"nowrap" }}>
                         {svc.downloadEnabled ? "↓허용중" : "↓멤버"}
                       </span>
@@ -5008,8 +5008,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 border:`1px solid ${drawTool === t.id ? C.pur : C.bdr}`,
                 borderRadius:7, cursor:"pointer", flexShrink:0,
               }}>
-                <Icon n={t.icon} size={14} color={drawTool === t.id ? C.pur : C.dim} />
-                <span style={{ fontSize:8, fontWeight:600, color: drawTool === t.id ? C.pur : C.dim,
+                <Icon n={t.icon} size={16} color={drawTool === t.id ? C.pur : C.dim} />
+                <span style={{ fontSize:10, fontWeight:600, color: drawTool === t.id ? C.pur : C.dim,
                   fontFamily:"inherit", lineHeight:1 }}>{t.label}</span>
               </button>
             ))}
@@ -5022,15 +5022,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 border:`1px solid ${teamDrawMode ? C.acc : C.bdr}`,
                 borderRadius:7, cursor:"pointer", flexShrink:0,
               }}>
-                <span style={{ fontSize:11, lineHeight:1 }}>👥</span>
-                <span style={{ fontSize:8, fontWeight:700,
+                <span style={{ fontSize:13, lineHeight:1 }}>👥</span>
+                <span style={{ fontSize:10, fontWeight:700,
                   color: teamDrawMode ? C.acc : C.dim, fontFamily:"inherit", lineHeight:1 }}>팀필기</span>
               </button>
             )}
             {/* 손가락 사용 안내 (선택 모드 아닐 때) */}
             {drawTool !== "select" && (
               <div style={{ marginLeft:"auto", flexShrink:0, padding:"0 8px", borderLeft:`1px solid ${C.bdr}`, lineHeight:1.6 }}>
-                <div style={{ fontSize:8, color:C.dim, fontWeight:600, whiteSpace:"nowrap" }}>
+                <div style={{ fontSize:10, color:C.dim, fontWeight:600, whiteSpace:"nowrap" }}>
                   👆 손가락: <span style={{ color:C.acc }}>텍스트 · 스탬프</span>
                 </div>
               </div>
@@ -5127,16 +5127,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 borderRadius:7, padding:"4px 8px", cursor:"pointer",
                 display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0,
               }}>
-                <Icon n="undo" size={14} color={C.dim} />
-                <span style={{ fontSize:8, fontWeight:600, color:C.dim, fontFamily:"inherit", lineHeight:1 }}>취소</span>
+                <Icon n="undo" size={16} color={C.dim} />
+                <span style={{ fontSize:10, fontWeight:600, color:C.dim, fontFamily:"inherit", lineHeight:1 }}>취소</span>
               </button>
               <button onClick={handleClearPage} style={{
                 background:"transparent", border:`1px solid ${C.red}44`,
                 borderRadius:7, padding:"4px 8px", cursor:"pointer",
                 display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0,
               }}>
-                <Icon n="trash" size={14} color={C.red} />
-                <span style={{ fontSize:8, fontWeight:600, color:C.red, fontFamily:"inherit", lineHeight:1 }}>필기삭제</span>
+                <Icon n="trash" size={16} color={C.red} />
+                <span style={{ fontSize:10, fontWeight:600, color:C.red, fontFamily:"inherit", lineHeight:1 }}>필기삭제</span>
               </button>
               {drawSaveErr && (
                 <span style={{ fontSize:10, color:C.red, marginLeft:4, flexShrink:0 }}>⚠ {drawSaveErr}</span>
