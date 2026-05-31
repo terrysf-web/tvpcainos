@@ -4712,6 +4712,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }, "image/png");
   };
 
+  // leader toggles download permission for members (per service)
+  const toggleDownloadEnabled = async () => {
+    if (!svc) return;
+    try {
+      await updateDoc(doc(db, "services", svc.id), { downloadEnabled: !svc.downloadEnabled });
+    } catch(e) { console.error(e); }
+  };
+
+  const canDownload = isLibraryMode || leader || svc?.downloadEnabled;
+
   const tbNarrow = (cSize.w || window.innerWidth) < 600;
   const tbIconSz = tbNarrow ? 17 : 18;
 
@@ -4839,9 +4849,26 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     FIT
                   </button>
                   {sep}
-                  {toolBtn("pen",      drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
-                  {toolBtn("note",     showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
-                  {toolBtn("download", false,         downloadAnnotatedScore, "악보 다운로드")}
+                  {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
+                  {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
+                  {/* 다운로드: 라이브러리·리더는 항상, 멤버는 리더가 허용 시만 */}
+                  {canDownload && toolBtn("download", false, downloadAnnotatedScore, "악보 다운로드")}
+                  {/* 리더: 멤버 다운로드 허용 토글 (서비스 모드만) */}
+                  {!isLibraryMode && leader && svc && (
+                    <button onClick={toggleDownloadEnabled} title="멤버 다운로드 허용" style={{
+                      display:"flex", flexDirection:"column", alignItems:"center", gap:1,
+                      padding: narrow ? "4px 6px" : "4px 7px",
+                      background: svc.downloadEnabled ? `${C.grn}22` : "transparent",
+                      border:`1px solid ${svc.downloadEnabled ? C.grn : C.bdr}`,
+                      borderRadius:8, cursor:"pointer", flexShrink:0,
+                    }}>
+                      <Icon n="download" size={tbIconSz} color={svc.downloadEnabled ? C.grn : C.dim} />
+                      <span style={{ fontSize:7, fontWeight:700, lineHeight:1,
+                        color: svc.downloadEnabled ? C.grn : C.dim, fontFamily:"inherit", whiteSpace:"nowrap" }}>
+                        {svc.downloadEnabled ? "↓허용중" : "↓멤버"}
+                      </span>
+                    </button>
+                  )}
                   {!isLibraryMode && sep}
                   {/* DUAL — 라이브러리 모드에서는 숨김 (svcSongs 없음) */}
                   {!isLibraryMode && (narrow ? (
@@ -7350,7 +7377,11 @@ export default function App() {
 
       <button onClick={() => setShowHelp(true)}
         style={{
-          position:"fixed", bottom:"calc(20px + env(safe-area-inset-bottom))", right:16,
+          position:"fixed",
+          bottom: view === "pdfViewer"
+            ? "calc(20px + env(safe-area-inset-bottom))"
+            : "calc(88px + env(safe-area-inset-bottom))",
+          right:16,
           width:40, height:40, borderRadius:"50%",
           background:C.pur, border:"none", cursor:"pointer",
           display:"flex", alignItems:"center", justifyContent:"center",
