@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.166";
+const APP_VERSION = "3.167";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -4313,14 +4313,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const strokesRef = isC1 ? strokes1Ref : strokes2Ref;
     const dcRef      = isC1 ? drawCanvas1Ref : drawCanvas2Ref;
     const s = strokesRef.current[sel.idx];
-    if (!s || s.tool !== "text") return;
-    const newSize = Math.max(6, Math.min(80, (s.size || 15) + delta));
+    if (!s || (s.tool !== "text" && s.tool !== "stamp")) return;
+    const cur = s.tool === "text" ? (s.size || 15) : (s.size || 12);
+    const newSize = Math.max(4, Math.min(80, cur + delta));
     const next = strokesRef.current.map((st, i) =>
       i === sel.idx ? { ...st, size: newSize } : st
     );
     strokesRef.current = next;
     drawStrokes(dcRef.current, next, null, sel.idx);
-    setSelAnnot({ ...sel }); // force re-render to update size display
+    setSelAnnot({ ...sel });
     const songId = isC1 ? (dual ? dualLeftSongId : selectedSongId) : dualRightSongId;
     await saveDrawing(songId, dual ? 1 : pageNum, next);
   };
@@ -5160,11 +5161,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               {selAnnot ? (
                 <>
                   <span style={{ fontSize:12, color:C.pur, fontWeight:700, flexShrink:0 }}>✓ 선택됨</span>
-                  {/* 텍스트 크기 조절 */}
+                  {/* 텍스트/스탬프 크기 조절 */}
                   {(() => {
                     const sRef = selAnnot.canvasNum === 1 ? strokes1Ref : strokes2Ref;
                     const s = sRef.current[selAnnot.idx];
-                    if (!s || s.tool !== "text") return null;
+                    if (!s || (s.tool !== "text" && s.tool !== "stamp")) return null;
+                    const curSz = s.tool === "text" ? (s.size || 15) : (s.size || 12);
                     return (
                       <>
                         <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
@@ -5174,7 +5176,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           fontSize:14, fontWeight:700, color:C.txt, fontFamily:"inherit",
                         }}>A-</button>
                         <span style={{ fontSize:13, fontWeight:700, color:C.pur,
-                          minWidth:26, textAlign:"center", flexShrink:0 }}>{s.size || 15}</span>
+                          minWidth:26, textAlign:"center", flexShrink:0 }}>{curSz}</span>
                         <button onClick={() => resizeSelText(4)} style={{
                           background:C.card, border:`1px solid ${C.bdr}`,
                           borderRadius:8, padding:"5px 11px", cursor:"pointer", flexShrink:0,
@@ -5245,10 +5247,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   }}>
                   {(drawTool === "stamp" || drawTool === "shape") ? (
                     stampSymbol === "notehead" ? (
-                      <svg width={w===1?10:w===2?13:17} height={w===1?7:w===2?9:12}
-                        viewBox="0 0 17 12" style={{ display:"block" }}>
-                        <ellipse cx="8.5" cy="6.5" rx="7" ry="4.8"
-                          fill={drawColor} transform="rotate(-28 8.5 6.5)" />
+                      <svg width={w===1?8:w===2?11:15} height={w===1?6:w===2?8:11}
+                        viewBox="0 0 15 11" style={{ display:"block" }}>
+                        <ellipse cx="7.5" cy="5.5" rx="6.5" ry="4.5"
+                          fill={drawColor} transform="rotate(-28 7.5 5.5)" />
                       </svg>
                     ) : (
                       <span style={{ fontSize: w === 1 ? 9 : w === 2 ? 12 : 16, color:drawColor, fontWeight:700,
@@ -5340,10 +5342,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           ))}
                         </svg>
                       ) : st.sym === "notehead" ? (
-                        <svg width="22" height="16" viewBox="0 0 22 16" style={{ display:"block" }}>
-                          <ellipse cx="11" cy="9" rx="8" ry="5.5"
+                        <svg width="13" height="10" viewBox="0 0 13 10" style={{ display:"block" }}>
+                          <ellipse cx="6.5" cy="5.5" rx="5.5" ry="3.8"
                             fill={stampSymbol === "notehead" ? C.acc : C.txt}
-                            transform="rotate(-28 11 9)" />
+                            transform="rotate(-28 6.5 5.5)" />
                         </svg>
                       ) : (
                         <span style={{
