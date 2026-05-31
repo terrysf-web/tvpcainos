@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.156";
+const APP_VERSION = "3.157";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -485,7 +485,7 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
       ctx.globalCompositeOperation = "destination-out";
       ctx.strokeStyle = "rgba(0,0,0,1)";
       ctx.fillStyle   = "rgba(0,0,0,1)";
-      ctx.lineWidth   = lw * 2;
+      ctx.lineWidth   = Math.max(4, s.width * canvas.width / 90);
       ctx.lineCap     = "round";
       ctx.lineJoin    = "round";
     } else if (isHighlight) {
@@ -4239,6 +4239,26 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setSelAnnot(null);
   };
 
+  // 선택된 텍스트 크기 조절
+  const resizeSelText = async (delta) => {
+    const sel = selAnnotRef.current;
+    if (!sel) return;
+    const isC1 = sel.canvasNum === 1;
+    const strokesRef = isC1 ? strokes1Ref : strokes2Ref;
+    const dcRef      = isC1 ? drawCanvas1Ref : drawCanvas2Ref;
+    const s = strokesRef.current[sel.idx];
+    if (!s || s.tool !== "text") return;
+    const newSize = Math.max(6, Math.min(80, (s.size || 15) + delta));
+    const next = strokesRef.current.map((st, i) =>
+      i === sel.idx ? { ...st, size: newSize } : st
+    );
+    strokesRef.current = next;
+    drawStrokes(dcRef.current, next, null, sel.idx);
+    setSelAnnot({ ...sel }); // force re-render to update size display
+    const songId = isC1 ? (dual ? dualLeftSongId : selectedSongId) : dualRightSongId;
+    await saveDrawing(songId, dual ? 1 : pageNum, next);
+  };
+
   // ── Text tool confirm
   const confirmText = useCallback(async () => {
     setTextDot(null);
@@ -5054,6 +5074,29 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               {selAnnot ? (
                 <>
                   <span style={{ fontSize:12, color:C.pur, fontWeight:700, flexShrink:0 }}>✓ 선택됨</span>
+                  {/* 텍스트 크기 조절 */}
+                  {(() => {
+                    const sRef = selAnnot.canvasNum === 1 ? strokes1Ref : strokes2Ref;
+                    const s = sRef.current[selAnnot.idx];
+                    if (!s || s.tool !== "text") return null;
+                    return (
+                      <>
+                        <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+                        <button onClick={() => resizeSelText(-4)} style={{
+                          background:C.card, border:`1px solid ${C.bdr}`,
+                          borderRadius:8, padding:"5px 11px", cursor:"pointer", flexShrink:0,
+                          fontSize:14, fontWeight:700, color:C.txt, fontFamily:"inherit",
+                        }}>A-</button>
+                        <span style={{ fontSize:13, fontWeight:700, color:C.pur,
+                          minWidth:26, textAlign:"center", flexShrink:0 }}>{s.size || 15}</span>
+                        <button onClick={() => resizeSelText(4)} style={{
+                          background:C.card, border:`1px solid ${C.bdr}`,
+                          borderRadius:8, padding:"5px 11px", cursor:"pointer", flexShrink:0,
+                          fontSize:14, fontWeight:700, color:C.txt, fontFamily:"inherit",
+                        }}>A+</button>
+                      </>
+                    );
+                  })()}
                   <div style={{ flex:1 }} />
                   <button onClick={deleteSelAnnot} style={{
                     display:"flex", alignItems:"center", gap:5,
