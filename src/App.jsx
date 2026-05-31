@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.144";
+const APP_VERSION = "3.145";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3027,6 +3027,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const longPressOrigin  = useRef(null); // {x,y} to detect move
   const pointerDownTimeRef = useRef(0);
   const didDragRef         = useRef(false);
+  const chordDragCancelledRef = useRef(false); // swipe 감지 시 chord drag 즉시 취소용
   const lastTapRef         = useRef({ side: null, idx: null, time: 0 });
   const chordOverlay1Ref = useRef(null);
   const chordOverlay2Ref = useRef(null);
@@ -3416,6 +3417,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const handleChordPointerDown = (e, side, idx) => {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
+    chordDragCancelledRef.current = false;
     setDragChord({ side, idx, pointerId: e.pointerId });
     longPressOrigin.current = { x: e.clientX, y: e.clientY };
     pointerDownTimeRef.current = Date.now();
@@ -3430,10 +3432,21 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
 
   const handleChordPointerMove = (e, side) => {
-    // cancel long-press if pointer moved > 8px
     if (longPressOrigin.current) {
       const dx = e.clientX - longPressOrigin.current.x;
       const dy = e.clientY - longPressOrigin.current.y;
+      // 수평 스와이프 감지: drag 취소하고 페이지/곡 이동으로 전환
+      if (Math.abs(dx) > 44 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+        clearTimeout(longPressTimer.current);
+        chordDragCancelledRef.current = true;
+        setDragChord(null);
+        setDeletingChord(null);
+        longPressOrigin.current = null;
+        didDragRef.current = false;
+        triggerSwipe(dx); // 스와이프 방향 그대로 전달
+        return;
+      }
+      // cancel long-press if pointer moved > 8px (non-swipe)
       if (dx * dx + dy * dy > 64) {
         clearTimeout(longPressTimer.current);
         setDeletingChord(null);
@@ -3441,6 +3454,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         didDragRef.current = true;
       }
     }
+    if (chordDragCancelledRef.current) return; // state 업데이트 전에도 즉시 차단
     if (!dragChord || dragChord.side !== side) return;
     const ref = side === 2 ? chordOverlay2Ref : chordOverlay1Ref;
     const rect = ref.current?.getBoundingClientRect();
