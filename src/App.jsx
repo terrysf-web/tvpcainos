@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.159";
+const APP_VERSION = "3.160";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3383,19 +3383,26 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       }).catch(() => {});
   };
 
-  const loadTeamDrawing = (songId, page, tStrokesRef, tdcRef) => {
+  const loadTeamDrawing = (songId, page, tStrokesRef, tdcRef, drawingRef) => {
     tStrokesRef.current = [];
     const dc = tdcRef.current;
     if (dc) dc.getContext("2d").clearRect(0, 0, dc.width, dc.height);
-    if (!songId) return;
-    getDoc(doc(db, "customSongs", `drw_TEAM_${songId}_p${page}`))
-      .then(snap => {
-        if (snap.exists()) {
-          tStrokesRef.current = snap.data().strokes || [];
-          const dc2 = tdcRef.current;
-          if (dc2 && dc2.width > 0) drawStrokes(dc2, tStrokesRef.current);
+    if (!songId) return () => {};
+    const unsub = onSnapshot(
+      doc(db, "customSongs", `drw_TEAM_${songId}_p${page}`),
+      snap => {
+        if (drawingRef?.current) return; // mid-stroke — skip to avoid flicker
+        const strokes = snap.exists() ? (snap.data().strokes || []) : [];
+        tStrokesRef.current = strokes;
+        const dc2 = tdcRef.current;
+        if (dc2 && dc2.width > 0) {
+          dc2.getContext("2d").clearRect(0, 0, dc2.width, dc2.height);
+          if (strokes.length > 0) drawStrokes(dc2, strokes);
         }
-      }).catch(() => {});
+      },
+      () => {}
+    );
+    return unsub;
   };
 
   // load strokes — single mode
@@ -3419,24 +3426,27 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dualRightSongId, user?.uid, dual]);
 
-  // load team strokes — single
+  // load team strokes — single (realtime)
   useEffect(() => {
     if (dual) return;
-    loadTeamDrawing(selectedSongId, pageNum, teamStrokes1Ref, teamDrawCanvas1Ref);
+    const unsub = loadTeamDrawing(selectedSongId, pageNum, teamStrokes1Ref, teamDrawCanvas1Ref, isDrawing1Ref);
+    return unsub;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSongId, pageNum, dual]);
 
-  // load team strokes — dual left
+  // load team strokes — dual left (realtime)
   useEffect(() => {
     if (!dual) return;
-    loadTeamDrawing(dualLeftSongId, 1, teamStrokes1Ref, teamDrawCanvas1Ref);
+    const unsub = loadTeamDrawing(dualLeftSongId, 1, teamStrokes1Ref, teamDrawCanvas1Ref, isDrawing1Ref);
+    return unsub;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dualLeftSongId, dual]);
 
-  // load team strokes — dual right
+  // load team strokes — dual right (realtime)
   useEffect(() => {
     if (!dual) return;
-    loadTeamDrawing(dualRightSongId, 1, teamStrokes2Ref, teamDrawCanvas2Ref);
+    const unsub = loadTeamDrawing(dualRightSongId, 1, teamStrokes2Ref, teamDrawCanvas2Ref, isDrawing2Ref);
+    return unsub;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dualRightSongId, dual]);
 
