@@ -92,6 +92,7 @@ const P = {
   tag:     "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01",
   textT:   "M4 6h16M12 6v13M8 19h8",
   eraser:  "M20 20H7L3 16 13 6l8 8-2.5 2.5M9 15l2 2",
+  cover:   "M4 8h16v8H4z M8 8V5.5h8V8",
   undo:    "M3 10h13a4 4 0 0 1 0 8H9M3 10l4-4M3 10l4 4",
   highlight:"M3 20h4L19.5 8.5a2.12 2.12 0 0 0-3-3L5 17 3 20zM16 5l3 3M15 7l-8 8",
   stamp:   "M9 2h6v3H9zM7 5h10v2H7zM3 7h18v11H3zM2 21h20",
@@ -467,6 +468,7 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
     }
     const isEraser     = s.tool === "eraser"     || s.eraser;
     const isHighlight  = s.tool === "highlighter";
+    const isCover      = s.tool === "cover";
     const lw = Math.max(0.5, s.width * canvas.width / 900);
     if (isEraser) {
       ctx.globalCompositeOperation = "destination-out";
@@ -482,6 +484,14 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
       ctx.fillStyle   = s.color;
       ctx.lineWidth   = Math.max(2, s.width * canvas.width / 150);
       ctx.lineCap     = "square";
+      ctx.lineJoin    = "round";
+    } else if (isCover) {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = "#ffffff";
+      ctx.fillStyle   = "#ffffff";
+      ctx.lineWidth   = Math.max(6, s.width * canvas.width / 80);
+      ctx.lineCap     = "round";
       ctx.lineJoin    = "round";
     } else {
       ctx.globalCompositeOperation = "source-over";
@@ -4824,9 +4834,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           {/* 도구 선택 행 */}
           <div style={{ display:"flex", alignItems:"center", gap:6, padding:"0 14px", height:48, overflowX:"auto", borderBottom: drawTool === "select" ? `1px solid ${C.bdr}` : "none" }}>
             {[
-              { id:"select",      icon:"cursor",   label:"선택"  },
-              { id:"pen",         icon:"pen",      label:"펜"    },
+              { id:"select",      icon:"cursor",    label:"선택"  },
+              { id:"pen",         icon:"pen",       label:"펜"    },
               { id:"highlighter", icon:"highlight", label:"마커"  },
+              { id:"cover",       icon:"cover",     label:"커버"  },
               { id:"eraser",      icon:"eraser",    label:"지우개" },
               { id:"text",        icon:"textT",     label:"텍스트" },
               { id:"stamp",       icon:"stamp",     label:"스탬프" },
@@ -4891,7 +4902,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           {drawTool !== "select" && (
             <div style={{ display:"flex", alignItems:"center", gap:6, padding:"0 14px", height:44, overflowX:"auto" }}>
               {/* Colors */}
-              {(drawTool === "highlighter"
+              {drawTool === "cover" ? (
+                /* 커버 모드: 흰색 고정 표시 */
+                <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                  <div style={{ width:22, height:22, borderRadius:"50%", background:"#ffffff",
+                    border:"3px solid #bbb", outline:"2px solid #aaa", flexShrink:0 }} />
+                  <span style={{ fontSize:10, color:C.dim, whiteSpace:"nowrap" }}>흰색 고정</span>
+                </div>
+              ) : (drawTool === "highlighter"
                 ? ["#ffe034","#7dff6b","#5df4ff","#ff7de9","#ffac30"]
                 : ["#e8383b","#1a73e8","#1c1c1e","#34c759","#e8a93e"]
               ).map(clr => (
@@ -4921,10 +4939,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     </span>
                   ) : (
                     <div style={{
-                      width: drawTool === "highlighter" ? w * 2 + 1 : w + 2,
-                      height: drawTool === "highlighter" ? Math.max(6, w) : w + 2,
-                      borderRadius: drawTool === "highlighter" ? 2 : "50%",
-                      background: drawTool === "eraser" ? C.dim : drawColor,
+                      width: (drawTool === "highlighter" || drawTool === "cover") ? w * 2 + 1 : w + 2,
+                      height: (drawTool === "highlighter" || drawTool === "cover") ? Math.max(6, w) : w + 2,
+                      borderRadius: (drawTool === "highlighter" || drawTool === "cover") ? 2 : "50%",
+                      background: drawTool === "eraser" ? C.dim : drawTool === "cover" ? "#ccc" : drawColor,
+                      outline: drawTool === "cover" ? "1px solid #999" : "none",
                       opacity: drawTool === "eraser" ? 0.4 : 0.8,
                     }} />
                   )}
