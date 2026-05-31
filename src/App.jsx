@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.147";
+const APP_VERSION = "3.148";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1055,6 +1055,7 @@ function AddSongModal({ onClose, onAdd }) {
   const [timeSig,      setTimeSig]      = useState("4/4");
   const [youtubeUrl,   setYoutubeUrl]   = useState("");
   const [pdfFile,      setPdfFile]      = useState(null);
+  const [imgFile,      setImgFile]      = useState(null);
   const [saving,       setSaving]       = useState(false);
   const [pdfPageCount, setPdfPageCount] = useState(0);
   const [splitMode,    setSplitMode]    = useState(false);
@@ -1062,7 +1063,8 @@ function AddSongModal({ onClose, onAdd }) {
   const [savingPage,   setSavingPage]   = useState("");
   const [cropBox,      setCropBox]      = useState(null);
   const [showCrop,     setShowCrop]     = useState(false);
-  const fileRef = useRef(null);
+  const fileRef    = useRef(null);
+  const imgFileRef = useRef(null);
   const KEYS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
   const handleFileSelect = async (file) => {
@@ -1136,6 +1138,9 @@ function AddSongModal({ onClose, onAdd }) {
           const extra = { pdfUrl: url };
           if (cropBox) extra.cropBox = cropBox;
           await updateDoc(doc(db, "songs", docRef.id), extra);
+        } else if (imgFile && docRef?.id) {
+          const url = await uploadImage(imgFile, docRef.id);
+          await updateDoc(doc(db, "songs", docRef.id), { imageUrl: url });
         }
       }
       onClose();
@@ -1268,6 +1273,51 @@ function AddSongModal({ onClose, onAdd }) {
         )}
       </div>
 
+      {/* 이미지 업로드 — PDF 없을 때만 표시 */}
+      {!pdfFile && !splitMode && (
+        <>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+            <div style={{ flex:1, height:1, background:C.bdr }} />
+            <span style={{ fontSize:11, color:C.dim }}>또는</span>
+            <div style={{ flex:1, height:1, background:C.bdr }} />
+          </div>
+          <div style={{ marginBottom:12 }}>
+            <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+              textTransform:"uppercase", marginBottom:8 }}>악보 이미지 (선택)</div>
+            <input ref={imgFileRef} type="file" accept="image/*" style={{ display:"none" }}
+              onChange={e => { setImgFile(e.target.files[0] || null); e.target.value = ""; }} />
+            {imgFile ? (
+              <div style={{
+                display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
+                background:`${C.acc}12`, border:`1.5px solid ${C.acc}55`, borderRadius:10,
+              }}>
+                <span style={{ fontSize:20 }}>🖼️</span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13, color:C.acc, fontWeight:600,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {imgFile.name}
+                  </div>
+                </div>
+                <button onClick={() => setImgFile(null)}
+                  style={{ background:"none", border:"none", cursor:"pointer", padding:2, display:"flex" }}>
+                  <Icon n="xmark" size={16} color={C.dim} />
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => imgFileRef.current?.click()} style={{
+                width:"100%", padding:"16px", borderRadius:12, cursor:"pointer",
+                border:`2px dashed ${C.bdr}`, background:C.card,
+                fontFamily:"inherit", fontSize:14, fontWeight:600, color:C.dim,
+                display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+              }}>
+                <span style={{ fontSize:18 }}>🖼️</span>
+                이미지 파일 선택
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
       {/* 분할 저장 옵션 */}
       {pdfPageCount > 1 && !splitMode && (
         <button onClick={enableSplit} style={{
@@ -1356,7 +1406,7 @@ function AddSongModal({ onClose, onAdd }) {
 
       {saving && (
         <div style={{ fontSize:12, color:C.dim, marginBottom:12, textAlign:"center" }}>
-          {savingPage ? `📤 저장 중... (${savingPage})` : pdfFile ? "📤 업로드 중..." : "저장 중..."}
+          {savingPage ? `📤 저장 중... (${savingPage})` : pdfFile ? "📤 PDF 업로드 중..." : imgFile ? "📤 이미지 업로드 중..." : "저장 중..."}
         </div>
       )}
 
@@ -2657,11 +2707,15 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
             }}>
               <div style={{
                 width:46, height:46, borderRadius:11, flexShrink:0,
-                background:`linear-gradient(135deg, ${keyColor(song.key)}44, ${C.pur}44)`,
-                border:`1px solid ${keyColor(song.key)}44`,
+                background: song.pdfUrl
+                  ? `linear-gradient(135deg, ${C.grn}33, ${C.grn}15)`
+                  : song.imageUrl
+                  ? `linear-gradient(135deg, ${C.acc}33, ${C.acc}15)`
+                  : `linear-gradient(135deg, ${keyColor(song.key)}44, ${C.pur}44)`,
+                border:`1px solid ${song.pdfUrl ? C.grn+"44" : song.imageUrl ? C.acc+"44" : keyColor(song.key)+"44"}`,
                 display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:20,
-              }}>🎵</div>
+                fontSize:22,
+              }}>{song.pdfUrl ? "📄" : song.imageUrl ? "🖼️" : "🎵"}</div>
 
               <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
                 onClick={() => nav("pdfViewer", { songId: song.id, svcId: null, backTo: "library" })}>
