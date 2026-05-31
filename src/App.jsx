@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.140";
+const APP_VERSION = "3.141";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3611,13 +3611,27 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (!bmp || !cRef.current) return false;
     cRef.current.width  = bmp.width;
     cRef.current.height = bmp.height;
-    cRef.current.getContext("2d").drawImage(bmp, 0, 0);
+    cRef.current.getContext("2d").drawImage(bmp, 0, 0); // GPU blit when bmp is ImageBitmap
     if (dcRef.current) {
       dcRef.current.width  = bmp.width;
       dcRef.current.height = bmp.height;
       dcRef.current.getContext("2d").clearRect(0, 0, bmp.width, bmp.height);
     }
     return true;
+  };
+
+  // Piascore-style slide: flash new bitmap → animate container from offset back to 0
+  // direction: +1 = from right (next), -1 = from left (prev)
+  const slideAnimate = (direction) => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.style.transition = "none";
+    el.style.transform  = `translateX(${direction * 42}px)`;
+    el.style.opacity    = "0.82";
+    el.getBoundingClientRect(); // force reflow so the browser registers initial state
+    el.style.transition = "transform 170ms cubic-bezier(0.22,1,0.36,1), opacity 120ms ease-out";
+    el.style.transform  = "translateX(0)";
+    el.style.opacity    = "1";
   };
 
   // 인접 곡을 백그라운드에서 미리 렌더 → preBitmapRef 에 저장
@@ -3685,7 +3699,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         off.height = Math.round(srcH * sc);
         off.getContext("2d").drawImage(img, srcX, srcY, srcW, srcH, 0, 0, off.width, off.height);
       }
-      if (off.width > 0 && off.height > 0) preBitmapRef.current[id] = off;
+      if (off.width > 0 && off.height > 0) {
+        if (typeof createImageBitmap === "function") {
+          // GPU-resident texture: drawImage(ImageBitmap) is a zero-copy GPU blit
+          createImageBitmap(off).then(bmp => { preBitmapRef.current[id] = bmp; });
+        } else {
+          preBitmapRef.current[id] = off;
+        }
+      }
     } catch { /* ignore — 다음 기회에 다시 시도 */ }
     finally { preRenderBusy.current.delete(id); }
   };
@@ -3854,6 +3875,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const r = svcSongs[dualIdx];
     if (l) flashBitmap(l.id, canvas1Ref, drawCanvas1Ref);
     if (r) flashBitmap(r.id, canvas2Ref, drawCanvas2Ref);
+    slideAnimate(-1); // slides in from left
     setDualIdx(i => i - 1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dualIdx, svcSongs, showToast]);
@@ -3864,6 +3886,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const r = svcSongs[dualIdx + 2];
     if (l) flashBitmap(l.id, canvas1Ref, drawCanvas1Ref);
     if (r) flashBitmap(r.id, canvas2Ref, drawCanvas2Ref);
+    slideAnimate(1); // slides in from right
     setDualIdx(i => i + 1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dualIdx, svcSongs, showToast]);
@@ -3883,12 +3906,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       if (delta < 0) {
         if (songIdx >= svcSongs.length - 1) { showToast("마지막 곡입니다"); return; }
         const target = svcSongs[songIdx + 1];
-        flashBitmap(target.id, canvas1Ref, drawCanvas1Ref); // 캐시 있으면 즉시 표시
+        flashBitmap(target.id, canvas1Ref, drawCanvas1Ref);
+        slideAnimate(1); // slides in from right
         nav("pdfViewer", { songId: target.id, svcSongIdx: songIdx + 1, backTo });
       } else {
         if (songIdx <= 0) { showToast("첫번째 곡입니다"); return; }
         const target = svcSongs[songIdx - 1];
         flashBitmap(target.id, canvas1Ref, drawCanvas1Ref);
+        slideAnimate(-1); // slides in from left
         nav("pdfViewer", { songId: target.id, svcSongIdx: songIdx - 1, backTo });
       }
     }
