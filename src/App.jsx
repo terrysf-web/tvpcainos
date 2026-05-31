@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.136";
+const APP_VERSION = "3.137";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -96,6 +96,7 @@ const P = {
   highlight:"M3 20h4L19.5 8.5a2.12 2.12 0 0 0-3-3L5 17 3 20zM16 5l3 3M15 7l-8 8",
   stamp:   "M9 2h6v3H9zM7 5h10v2H7zM3 7h18v11H3zM2 21h20",
   slur:    "M4 17 Q12 7 20 17",
+  cursor:  "M4 4l7 18 3-7 7-3L4 4z",
   cresc:   "M4 12 L20 7 M4 12 L20 17",
   dim:     "M4 7 L20 12 M4 17 L20 12",
   line:    "M4 12 L20 12",
@@ -365,7 +366,7 @@ function getStampBaseline(_sym) {
 }
 
 /* ── Canvas drawing utility (module-level, pure) */
-function drawStrokes(canvas, strokes, cur = null) {
+function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
   if (!canvas || !canvas.width || !canvas.height) return;
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -507,6 +508,25 @@ function drawStrokes(canvas, strokes, cur = null) {
       ctx.stroke();
     }
     ctx.restore();
+  }
+  // Selection indicator
+  if (selectedIdx >= 0 && selectedIdx < all.length && !cur) {
+    const sel = all[selectedIdx];
+    if ((sel.tool === "text" || sel.tool === "stamp") && sel.points?.[0]) {
+      const pt = sel.points[0];
+      const px = pt.x * canvas.width;
+      const py = pt.y * canvas.height;
+      ctx.save();
+      ctx.strokeStyle = "#0a84ff";
+      ctx.lineWidth = Math.max(1.5, canvas.width * 0.003);
+      ctx.setLineDash([5, 3]);
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.arc(px, py, Math.max(18, canvas.width * 0.045), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
   }
 }
 
@@ -2975,6 +2995,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [textInput, setTextInput] = useState(null); // { x, y, value, canvasNum }
   const [textDot,   setTextDot]   = useState(null); // { sx, sy } 화면 좌표 — 임시 인디케이터
 
+  const [selAnnot,   setSelAnnot]   = useState(null); // { idx, canvasNum }
+  const selAnnotRef  = useRef(null);
+  const selDragRef   = useRef(null);
+
   // ── Stamp + loupe
   const [stampSymbol, setStampSymbol] = useState("f");
   const [stampItalic, setStampItalic] = useState(true);
@@ -3161,6 +3185,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     loadDrawing(dualRightSongId, 1, strokes2Ref, drawCanvas2Ref);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dualRightSongId, user?.uid, dual]);
+
+  // Sync selAnnotRef with state
+  useEffect(() => { selAnnotRef.current = selAnnot; }, [selAnnot]);
+
+  // Clear selection when switching away from select tool or draw mode off
+  useEffect(() => {
+    if (drawTool !== "select") setSelAnnot(null);
+  }, [drawTool]);
+
+  // Clear selection on page/song change
+  useEffect(() => { setSelAnnot(null); }, [selectedSongId, pageNum, dualIdx]);
 
   const saveDrawing = useCallback(async (songId, page, strokes) => {
     if (!user?.uid || !songId) return;
@@ -3894,6 +3929,21 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
   const deleteNote = id => onDeleteAnnotation(selectedSongId, id);
 
+  // 선택된 텍스트/스탬프 삭제
+  const deleteSelAnnot = async () => {
+    const sel = selAnnotRef.current;
+    if (!sel) return;
+    const isC1 = sel.canvasNum === 1;
+    const strokesRef = isC1 ? strokes1Ref : strokes2Ref;
+    const dcRef      = isC1 ? drawCanvas1Ref : drawCanvas2Ref;
+    const newStrokes = strokesRef.current.filter((_, i) => i !== sel.idx);
+    strokesRef.current = newStrokes;
+    drawStrokes(dcRef.current, newStrokes);
+    const songId = isC1 ? (dual ? dualLeftSongId : selectedSongId) : dualRightSongId;
+    await saveDrawing(songId, dual ? 1 : pageNum, newStrokes);
+    setSelAnnot(null);
+  };
+
   // ── Text tool confirm
   const confirmText = useCallback(async () => {
     setTextDot(null);
@@ -3976,12 +4026,35 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // ── Canvas 1 handlers (single mode + dual left)
   const handleDraw1Down = (e) => {
-    if (e.pointerType === "touch" && drawTool !== "text" && drawTool !== "stamp") return;
+    if (e.pointerType === "touch" && !["text","stamp","select"].includes(drawTool)) return;
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
     e.preventDefault(); e.stopPropagation();
     e.target.setPointerCapture(e.pointerId);
     lastSideRef.current = 1;
+    if (drawTool === "select") {
+      const pt = getCanvasPt(e, canvas);
+      const HIT = Math.min(0.1, 50 / (canvas.width || 400));
+      let bestIdx = -1, bestDist = HIT;
+      strokes1Ref.current.forEach((s, i) => {
+        if (s.tool !== "text" && s.tool !== "stamp") return;
+        const sp = s.points?.[0]; if (!sp) return;
+        const d = Math.sqrt((sp.x - pt.x)**2 + (sp.y - pt.y)**2);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      });
+      if (bestIdx >= 0) {
+        const s = strokes1Ref.current[bestIdx];
+        const newSel = { idx: bestIdx, canvasNum: 1 };
+        setSelAnnot(newSel); selAnnotRef.current = newSel;
+        selDragRef.current = { startX: pt.x, startY: pt.y, origX: s.points[0].x, origY: s.points[0].y };
+        drawStrokes(canvas, strokes1Ref.current, null, bestIdx);
+      } else {
+        setSelAnnot(null); selAnnotRef.current = null;
+        selDragRef.current = null;
+        drawStrokes(canvas, strokes1Ref.current);
+      }
+      return;
+    }
     if (drawTool === "text") {
       const pt = getCanvasPt(e, canvas);
       setTextDot({ sx: e.clientX, sy: e.clientY });
@@ -4006,10 +4079,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     drawStrokes(canvas, strokes1Ref.current, curStroke1Ref.current);
   };
   const handleDraw1Move = (e) => {
-    if (e.pointerType === "touch") return;
+    if (e.pointerType === "touch" && drawTool !== "select") return;
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
     e.preventDefault();
+    if (drawTool === "select") {
+      if (!selDragRef.current || selAnnotRef.current?.canvasNum !== 1) return;
+      const pt = getCanvasPt(e, canvas);
+      const { startX, startY, origX, origY } = selDragRef.current;
+      const newX = Math.max(0.01, Math.min(0.99, origX + (pt.x - startX)));
+      const newY = Math.max(0.01, Math.min(0.99, origY + (pt.y - startY)));
+      const idx = selAnnotRef.current.idx;
+      strokes1Ref.current = strokes1Ref.current.map((s, i) =>
+        i === idx ? { ...s, points: [{ x: newX, y: newY }] } : s
+      );
+      drawStrokes(canvas, strokes1Ref.current, null, idx);
+      return;
+    }
     if (drawTool === "text") {
       if (!textInput) setTextDot({ sx: e.clientX, sy: e.clientY });
       return;
@@ -4031,6 +4117,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     drawStrokes(canvas, strokes1Ref.current, curStroke1Ref.current);
   };
   const handleDraw1Up = async (e) => {
+    if (drawTool === "select") {
+      if (selDragRef.current && selAnnotRef.current?.canvasNum === 1) {
+        selDragRef.current = null;
+        const songId = dual ? dualLeftSongId : selectedSongId;
+        await saveDrawing(songId, dual ? 1 : pageNum, strokes1Ref.current);
+        const canvas = drawCanvas1Ref.current;
+        if (canvas) drawStrokes(canvas, strokes1Ref.current, null, selAnnotRef.current.idx);
+      }
+      return;
+    }
     if (drawTool === "stamp") {
       setLoupePos(null);
       const canvas = drawCanvas1Ref.current;
@@ -4079,18 +4175,42 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setLoupePos(null);
     shapeStart1Ref.current = null;
     isDrawing1Ref.current = false; curStroke1Ref.current = null;
+    selDragRef.current = null;
     const canvas = drawCanvas1Ref.current;
-    if (canvas) drawStrokes(canvas, strokes1Ref.current);
+    if (canvas) drawStrokes(canvas, strokes1Ref.current, null, selAnnotRef.current?.canvasNum === 1 ? selAnnotRef.current.idx : -1);
   };
 
   // ── Canvas 2 handlers (dual right)
   const handleDraw2Down = (e) => {
-    if (e.pointerType === "touch" && drawTool !== "text" && drawTool !== "stamp") return;
+    if (e.pointerType === "touch" && !["text","stamp","select"].includes(drawTool)) return;
     const canvas = drawCanvas2Ref.current;
     if (!canvas) return;
     e.preventDefault(); e.stopPropagation();
     e.target.setPointerCapture(e.pointerId);
     lastSideRef.current = 2;
+    if (drawTool === "select") {
+      const pt = getCanvasPt(e, canvas);
+      const HIT = Math.min(0.1, 50 / (canvas.width || 400));
+      let bestIdx = -1, bestDist = HIT;
+      strokes2Ref.current.forEach((s, i) => {
+        if (s.tool !== "text" && s.tool !== "stamp") return;
+        const sp = s.points?.[0]; if (!sp) return;
+        const d = Math.sqrt((sp.x - pt.x)**2 + (sp.y - pt.y)**2);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      });
+      if (bestIdx >= 0) {
+        const s = strokes2Ref.current[bestIdx];
+        const newSel = { idx: bestIdx, canvasNum: 2 };
+        setSelAnnot(newSel); selAnnotRef.current = newSel;
+        selDragRef.current = { startX: pt.x, startY: pt.y, origX: s.points[0].x, origY: s.points[0].y };
+        drawStrokes(canvas, strokes2Ref.current, null, bestIdx);
+      } else {
+        setSelAnnot(null); selAnnotRef.current = null;
+        selDragRef.current = null;
+        drawStrokes(canvas, strokes2Ref.current);
+      }
+      return;
+    }
     if (drawTool === "text") {
       const pt = getCanvasPt(e, canvas);
       setTextDot({ sx: e.clientX, sy: e.clientY });
@@ -4115,10 +4235,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     drawStrokes(canvas, strokes2Ref.current, curStroke2Ref.current);
   };
   const handleDraw2Move = (e) => {
-    if (e.pointerType === "touch") return;
+    if (e.pointerType === "touch" && drawTool !== "select") return;
     const canvas = drawCanvas2Ref.current;
     if (!canvas) return;
     e.preventDefault();
+    if (drawTool === "select") {
+      if (!selDragRef.current || selAnnotRef.current?.canvasNum !== 2) return;
+      const pt = getCanvasPt(e, canvas);
+      const { startX, startY, origX, origY } = selDragRef.current;
+      const newX = Math.max(0.01, Math.min(0.99, origX + (pt.x - startX)));
+      const newY = Math.max(0.01, Math.min(0.99, origY + (pt.y - startY)));
+      const idx = selAnnotRef.current.idx;
+      strokes2Ref.current = strokes2Ref.current.map((s, i) =>
+        i === idx ? { ...s, points: [{ x: newX, y: newY }] } : s
+      );
+      drawStrokes(canvas, strokes2Ref.current, null, idx);
+      return;
+    }
     if (drawTool === "text") {
       if (!textInput) setTextDot({ sx: e.clientX, sy: e.clientY });
       return;
@@ -4140,6 +4273,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     drawStrokes(canvas, strokes2Ref.current, curStroke2Ref.current);
   };
   const handleDraw2Up = async (e) => {
+    if (drawTool === "select") {
+      if (selDragRef.current && selAnnotRef.current?.canvasNum === 2) {
+        selDragRef.current = null;
+        await saveDrawing(dualRightSongId, 1, strokes2Ref.current);
+        const canvas = drawCanvas2Ref.current;
+        if (canvas) drawStrokes(canvas, strokes2Ref.current, null, selAnnotRef.current.idx);
+      }
+      return;
+    }
     if (drawTool === "stamp") {
       setLoupePos(null);
       const canvas = drawCanvas2Ref.current;
@@ -4185,12 +4327,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setLoupePos(null);
     shapeStart2Ref.current = null;
     isDrawing2Ref.current = false; curStroke2Ref.current = null;
+    selDragRef.current = null;
     const canvas = drawCanvas2Ref.current;
-    if (canvas) drawStrokes(canvas, strokes2Ref.current);
+    if (canvas) drawStrokes(canvas, strokes2Ref.current, null, selAnnotRef.current?.canvasNum === 2 ? selAnnotRef.current.idx : -1);
   };
 
   // ── Undo: acts on the last-drawn side
   const handleUndo = async () => {
+    setSelAnnot(null);
     const side = lastSideRef.current;
     const sRef  = side === 2 ? strokes2Ref  : strokes1Ref;
     const dcRef = side === 2 ? drawCanvas2Ref : drawCanvas1Ref;
