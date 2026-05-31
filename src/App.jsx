@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.145";
+const APP_VERSION = "3.146";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3014,6 +3014,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // ── Chord transposition
   const [transposeMode,  setTransposeMode]  = useState(false);
+  const [chordMoveMode,  setChordMoveMode]  = useState(false); // 리더 전용: 코드 이동 모드
   const [transposeSteps,  setTransposeSteps]  = useState(0);  // single / dual left
   const [transposeSteps2, setTransposeSteps2] = useState(0);  // dual right
   const [chordData,      setChordData]      = useState([]);   // [{chord,x,y}] — single / dual left
@@ -3197,6 +3198,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // Clear selection on page/song change
   useEffect(() => { setSelAnnot(null); }, [selectedSongId, pageNum, dualIdx]);
+
+  // 코드 이동 모드: 전조 끄거나 곡/페이지 이동 시 자동 리셋
+  useEffect(() => { if (!transposeMode) setChordMoveMode(false); }, [transposeMode]);
+  useEffect(() => { setChordMoveMode(false); }, [selectedSongId, pageNum, dualIdx]);
 
   const saveDrawing = useCallback(async (songId, page, strokes) => {
     if (!user?.uid || !songId) return;
@@ -4930,7 +4935,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
               {/* 오른쪽 전조 + 초기화 */}
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
-                {(chordData.length > 0 || chordData2.length > 0) && (
+                {leader && (chordData.length > 0 || chordData2.length > 0) && (
+                  <button onClick={() => setChordMoveMode(m => !m)}
+                    style={{ border:`1px solid ${chordMoveMode ? C.grn : C.bdr}`, borderRadius:6,
+                      background: chordMoveMode ? `${C.grn}22` : "transparent",
+                      padding:"3px 8px", cursor:"pointer", fontSize:10,
+                      color: chordMoveMode ? C.grn : C.dim, fontFamily:"inherit", flexShrink:0 }}>
+                    {chordMoveMode ? "✋ 이동 ON" : "코드 이동"}
+                  </button>
+                )}
+                {chordMoveMode && (chordData.length > 0 || chordData2.length > 0) && (
                   <span style={{ fontSize:9, color:C.dim, whiteSpace:"nowrap" }}>더블탭: 복사 · 꾹: 삭제</span>
                 )}
                 <span style={{ fontSize:10, color:C.dim, fontWeight:700 }}>오른쪽</span>
@@ -5000,7 +5014,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               }
               {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
-                {chordData.length > 0 && (
+                {leader && chordData.length > 0 && (
+                  <button onClick={() => setChordMoveMode(m => !m)}
+                    style={{ border:`1px solid ${chordMoveMode ? C.grn : C.bdr}`, borderRadius:6,
+                      background: chordMoveMode ? `${C.grn}22` : "transparent",
+                      padding:"3px 8px", cursor:"pointer", fontSize:10,
+                      color: chordMoveMode ? C.grn : C.dim, fontFamily:"inherit", flexShrink:0 }}>
+                    {chordMoveMode ? "✋ 이동 ON" : "코드 이동"}
+                  </button>
+                )}
+                {chordMoveMode && chordData.length > 0 && (
                   <span style={{ fontSize:9, color:C.dim, whiteSpace:"nowrap" }}>더블탭: 복사 · 꾹: 삭제</span>
                 )}
                 <button onClick={() => { const v = Math.max(0.4, Math.round((chordFontScale - 0.2) * 10) / 10); setChordFontScale(v); saveChordFontScale(v); }}
@@ -5196,11 +5219,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 400;
                         const fs = Math.round(Math.max(8, Math.min(14, cw / 50)) * chordFontScale);
+                        const canMove = leader && chordMoveMode;
                         return (
                           <div ref={chordOverlay1Ref}
                             style={{ position:"absolute", inset:0, pointerEvents:"none" }}
-                            onPointerMove={leader ? e => handleChordPointerMove(e, 1) : undefined}
-                            onPointerUp={leader ? () => handleChordPointerUp(1) : undefined}>
+                            onPointerMove={canMove ? e => handleChordPointerMove(e, 1) : undefined}
+                            onPointerUp={canMove ? () => handleChordPointerUp(1) : undefined}>
                             {chordData.map((item, i) => {
                               const isPendingDel = deletingChord?.side===1 && deletingChord?.idx===i;
                               return (
@@ -5213,14 +5237,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 borderRadius:3, padding:"1px 4px",
                                 fontSize:fs, fontWeight:800, lineHeight:1.5,
                                 whiteSpace:"nowrap", fontFamily:"monospace",
-                                boxShadow:"0 1px 4px rgba(0,0,0,.3)",
-                                pointerEvents: leader ? "auto" : "none", touchAction:"none",
-                                cursor: leader ? (dragChord?.side===1 && dragChord?.idx===i ? "grabbing" : "grab") : "default",
+                                boxShadow: canMove ? "0 1px 8px rgba(0,0,0,.45)" : "0 1px 4px rgba(0,0,0,.3)",
+                                pointerEvents: canMove ? "auto" : "none", touchAction:"none",
+                                cursor: canMove ? (dragChord?.side===1 && dragChord?.idx===i ? "grabbing" : "grab") : "default",
                                 userSelect:"none",
                                 transition:"background 0.15s",
+                                outline: canMove ? "1.5px dashed rgba(255,255,255,0.6)" : "none",
                               }}
-                                onPointerDown={leader ? e => handleChordPointerDown(e, 1, i) : undefined}
-                                onTouchStart={leader ? e => e.stopPropagation() : undefined}>
+                                onPointerDown={canMove ? e => handleChordPointerDown(e, 1, i) : undefined}
+                                onTouchStart={canMove ? e => e.stopPropagation() : undefined}>
                                 {transposeChord(item.chord, transposeSteps)}
                               </span>
                               );
@@ -5259,11 +5284,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         {transposeMode && chordData2.length > 0 && (() => {
                           const cw = canvas2Ref.current?.offsetWidth  || 400;
                           const fs = Math.round(Math.max(8, Math.min(14, cw / 50)) * chordFontScale);
+                          const canMove = leader && chordMoveMode;
                           return (
                             <div ref={chordOverlay2Ref}
                               style={{ position:"absolute", inset:0, pointerEvents:"none" }}
-                              onPointerMove={leader ? e => handleChordPointerMove(e, 2) : undefined}
-                              onPointerUp={leader ? () => handleChordPointerUp(2) : undefined}>
+                              onPointerMove={canMove ? e => handleChordPointerMove(e, 2) : undefined}
+                              onPointerUp={canMove ? () => handleChordPointerUp(2) : undefined}>
                               {chordData2.map((item, i) => {
                                 const isPendingDel = deletingChord?.side===2 && deletingChord?.idx===i;
                                 return (
@@ -5276,14 +5302,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                   borderRadius:3, padding:"1px 4px",
                                   fontSize:fs, fontWeight:800, lineHeight:1.5,
                                   whiteSpace:"nowrap", fontFamily:"monospace",
-                                  boxShadow:"0 1px 4px rgba(0,0,0,.3)",
-                                  pointerEvents: leader ? "auto" : "none", touchAction:"none",
-                                  cursor: leader ? (dragChord?.side===2 && dragChord?.idx===i ? "grabbing" : "grab") : "default",
+                                  boxShadow: canMove ? "0 1px 8px rgba(0,0,0,.45)" : "0 1px 4px rgba(0,0,0,.3)",
+                                  pointerEvents: canMove ? "auto" : "none", touchAction:"none",
+                                  cursor: canMove ? (dragChord?.side===2 && dragChord?.idx===i ? "grabbing" : "grab") : "default",
                                   userSelect:"none",
                                   transition:"background 0.15s",
+                                  outline: canMove ? "1.5px dashed rgba(255,255,255,0.6)" : "none",
                                 }}
-                                  onPointerDown={leader ? e => handleChordPointerDown(e, 2, i) : undefined}
-                                  onTouchStart={leader ? e => e.stopPropagation() : undefined}>
+                                  onPointerDown={canMove ? e => handleChordPointerDown(e, 2, i) : undefined}
+                                  onTouchStart={canMove ? e => e.stopPropagation() : undefined}>
                                   {transposeChord(item.chord, transposeSteps2)}
                                 </span>
                                 );
@@ -5331,15 +5358,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         onPointerCancel={handleDraw1Cancel}
                         onPointerLeave={() => { if (drawTool === "text" && !textInput) setTextDot(null); }}
                       />
-                      {/* 전조 코드 오버레이 — 드래그로 위치 조정 가능 */}
+                      {/* 전조 코드 오버레이 */}
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 600;
                         const fs = Math.round(Math.max(10, Math.min(16, cw / 50)) * chordFontScale);
+                        const canMove = leader && chordMoveMode;
                         return (
                           <div ref={chordOverlay1Ref}
                             style={{ position:"absolute", inset:0, pointerEvents:"none", borderRadius:4 }}
-                            onPointerMove={leader ? e => handleChordPointerMove(e, 1) : undefined}
-                            onPointerUp={leader ? () => handleChordPointerUp(1) : undefined}
+                            onPointerMove={canMove ? e => handleChordPointerMove(e, 1) : undefined}
+                            onPointerUp={canMove ? () => handleChordPointerUp(1) : undefined}
                           >
                             {chordData.map((item, i) => {
                               const isPendingDel = deletingChord?.side===1 && deletingChord?.idx===i;
@@ -5354,14 +5382,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 borderRadius:3, padding:"2px 6px",
                                 fontSize:fs, fontWeight:800, lineHeight:1.5,
                                 whiteSpace:"nowrap", fontFamily:"monospace",
-                                boxShadow:"0 1px 4px rgba(0,0,0,.3)",
-                                pointerEvents: leader ? "auto" : "none", touchAction:"none",
-                                cursor: leader ? (dragChord?.side===1 && dragChord?.idx===i ? "grabbing" : "grab") : "default",
+                                boxShadow: canMove ? "0 1px 8px rgba(0,0,0,.45)" : "0 1px 4px rgba(0,0,0,.3)",
+                                pointerEvents: canMove ? "auto" : "none", touchAction:"none",
+                                cursor: canMove ? (dragChord?.side===1 && dragChord?.idx===i ? "grabbing" : "grab") : "default",
                                 userSelect:"none",
                                 transition:"background 0.15s",
+                                outline: canMove ? "1.5px dashed rgba(255,255,255,0.6)" : "none",
                               }}
-                                onPointerDown={leader ? e => handleChordPointerDown(e, 1, i) : undefined}
-                                onTouchStart={leader ? e => e.stopPropagation() : undefined}
+                                onPointerDown={canMove ? e => handleChordPointerDown(e, 1, i) : undefined}
+                                onTouchStart={canMove ? e => e.stopPropagation() : undefined}
                               >
                                 {transposeChord(item.chord, transposeSteps)}
                               </span>
