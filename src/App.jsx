@@ -5501,7 +5501,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 /* ══════════════════════════════════════════════════════════════════
    NOTIFICATIONS SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead, user }) {
+function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead, user, nav }) {
   const [perm,        setPerm]        = useState(typeof Notification !== "undefined" ? Notification.permission : "unsupported");
   const [tab,         setTab]         = useState("service"); // "service" | "admin"
   const [showCompose, setShowCompose] = useState(false);
@@ -5655,7 +5655,10 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
           const svcTitle = n.serviceTitle || (services || []).find(s => s.id === n.serviceId)?.title || "";
           return (
             <div key={n.id} className="wFadeIn"
-              onClick={() => markNotifRead(n.id)}
+              onClick={() => {
+                markNotifRead(n.id);
+                if (!isAdminNotif && n.serviceId) nav("svcDetail", { svcId: n.serviceId });
+              }}
               style={{
                 background: n.read ? C.card : `${themeClr}18`,
                 border:`1px solid ${n.read ? C.bdr : `${themeClr}44`}`,
@@ -6915,6 +6918,7 @@ export default function App() {
           markNotifRead={markNotifRead}
           markAllNotifRead={markAllNotifRead}
           user={user}
+          nav={nav}
         />
       )}
       {view === "profile" && (
