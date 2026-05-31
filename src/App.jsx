@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.167";
+const APP_VERSION = "3.168";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2326,9 +2326,12 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           <Icon n="back" size={18} color={C.acc} />
         </button>
         <div style={{ flex:1 }}>
-          <div style={{ fontWeight:700, fontSize:17 }}>{svc.title}</div>
+          <div style={{ fontWeight:700, fontSize:17 }}>
+            {new Date(svc.date + "T00:00:00").toLocaleDateString("ko-KR",
+              { month:"long", day:"numeric", weekday:"short" })}
+          </div>
           <div style={{ fontSize:12, color:C.dim, marginTop:1 }}>
-            📅 {svc.date}{svc.time ? ` · ${svc.time}` : ""}
+            {svc.title}{svc.time ? ` · ${svc.time}` : ""}
           </div>
         </div>
         {leader && (
