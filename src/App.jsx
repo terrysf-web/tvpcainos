@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.146";
+const APP_VERSION = "3.147";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2664,7 +2664,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
               }}>🎵</div>
 
               <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
-                onClick={() => nav("pdfViewer", { songId: song.id, backTo: "library" })}>
+                onClick={() => nav("pdfViewer", { songId: song.id, svcId: null, backTo: "library" })}>
                 <div style={{ fontWeight:700, fontSize:14, letterSpacing:"-0.01em",
                   overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                   {song.title}
@@ -2926,9 +2926,10 @@ const _pdfCache = {};
 
 function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady }) {
   const song = songs.find(s => s.id === selectedSongId);
+  const isLibraryMode = backTo === "library"; // 라이브러리에서 열린 경우: 예배 컨텍스트 없음
 
   // ── 예배 곡 순서
-  const svc      = selectedSvcId ? services.find(s => s.id === selectedSvcId) : null;
+  const svc      = (!isLibraryMode && selectedSvcId) ? services.find(s => s.id === selectedSvcId) : null;
   // 유효 곡만 포함 — 삭제된 ID 제외, 중복 ID(복사) 허용
   const svcSongs = svc
     ? (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean)
@@ -4489,7 +4490,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 : song.key}
               {song.bpm ? ` · ♩${song.bpm}` : ""}
               {numPages > 0 ? ` · ${pageNum}/${numPages}p` : ""}
-              {svcSongs.length > 1 ? ` · 곡 ${songIdx + 1}/${svcSongs.length}` : ""}
+              {!isLibraryMode && svcSongs.length > 1 ? ` · 곡 ${songIdx + 1}/${svcSongs.length}` : ""}
             </div>
           </div>
 
@@ -4557,9 +4558,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   {sep}
                   {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
                   {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
-                  {sep}
-                  {/* DUAL */}
-                  {narrow ? (
+                  {!isLibraryMode && sep}
+                  {/* DUAL — 라이브러리 모드에서는 숨김 (svcSongs 없음) */}
+                  {!isLibraryMode && (narrow ? (
                     <button onClick={() => setDual(p => !p)} title="듀얼 모드" style={{
                       background: dual ? `${C.pur}33` : "transparent",
                       border:`1px solid ${dual ? C.pur : C.bdr}`,
@@ -4581,7 +4582,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       <Icon n="dual" size={12} color={dual ? "#fff" : C.dim} />
                       DUAL
                     </button>
-                  )}
+                  ))}
                   {/* MEDIA */}
                   {narrow ? (
                     <button onClick={() => {
