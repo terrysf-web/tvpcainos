@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.134";
+const APP_VERSION = "3.135";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1360,7 +1360,7 @@ function AddSongModal({ onClose, onAdd }) {
 /* ══════════════════════════════════════════════════════════════════
    CROP MODAL
 ══════════════════════════════════════════════════════════════════ */
-function CropModal({ pdfFile, pdfUrl, onClose, onConfirm, initialCrop = null }) {
+function CropModal({ pdfFile, pdfUrl, imageUrl, onClose, onConfirm, initialCrop = null }) {
   const canvasRef    = useRef(null);
   const containerRef = useRef(null);
   const dragRef      = useRef(null);
@@ -1369,7 +1369,7 @@ function CropModal({ pdfFile, pdfUrl, onClose, onConfirm, initialCrop = null }) 
 
   useEffect(() => {
     let cancelled = false;
-    const render = async (arrayBuf) => {
+    const renderPdf = async (arrayBuf) => {
       if (!window.pdfjsLib) { setRendering(false); return; }
       try {
         const pdf  = await window.pdfjsLib.getDocument({ data: arrayBuf }).promise;
@@ -1385,15 +1385,34 @@ function CropModal({ pdfFile, pdfUrl, onClose, onConfirm, initialCrop = null }) 
       } catch(e) { console.error(e); }
       finally { if (!cancelled) setRendering(false); }
     };
-    if (pdfFile) {
-      pdfFile.arrayBuffer().then(buf => { if (!cancelled) render(buf); });
+    const renderImg = (url) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        if (cancelled || !canvasRef.current) return;
+        const maxW = Math.min(window.innerWidth - 48, 460);
+        const sc   = maxW / img.width;
+        const dW   = Math.round(img.width  * sc);
+        const dH   = Math.round(img.height * sc);
+        canvasRef.current.width  = dW;
+        canvasRef.current.height = dH;
+        canvasRef.current.getContext("2d").drawImage(img, 0, 0, dW, dH);
+        if (!cancelled) setRendering(false);
+      };
+      img.onerror = () => { if (!cancelled) setRendering(false); };
+      img.src = url;
+    };
+    if (imageUrl) {
+      renderImg(imageUrl);
+    } else if (pdfFile) {
+      pdfFile.arrayBuffer().then(buf => { if (!cancelled) renderPdf(buf); });
     } else if (pdfUrl) {
-      fetch(pdfUrl).then(r => r.arrayBuffer()).then(buf => { if (!cancelled) render(buf); }).catch(() => setRendering(false));
+      fetch(pdfUrl).then(r => r.arrayBuffer()).then(buf => { if (!cancelled) renderPdf(buf); }).catch(() => setRendering(false));
     } else {
       setRendering(false);
     }
     return () => { cancelled = true; };
-  }, [pdfFile, pdfUrl]);
+  }, [pdfFile, pdfUrl, imageUrl]);
 
   const autoDetect = () => {
     const canvas = canvasRef.current;
@@ -1771,23 +1790,11 @@ function SongPickerModal({ songs, currentIds, onClose, onSave, addSong, user }) 
     }
   };
 
-  // 📋 버튼 클릭 → Clipboard API (모바일 포함)
-  const handleClipboardBtn = async () => {
-    try {
-      if (!navigator.clipboard?.read) throw new Error("not supported");
-      const items = await navigator.clipboard.read();
-      for (const item of items) {
-        const imgType = item.types.find(t => t.startsWith("image/"));
-        if (imgType) {
-          const blob = await item.getType(imgType);
-          const file = new File([blob], `paste.${imgType.split("/")[1]}`, { type: imgType });
-          applyImageFile(file);
-          return;
-        }
-      }
-      setQuickErr("클립보드에 이미지가 없습니다");
-    } catch {
-      setQuickErr("클립보드 접근 실패 — 아래 '파일 선택'을 이용해주세요");
+  // 📋 버튼 클릭 → 붙여넣기 영역에 포커스 후 paste 실행
+  const handleClipboardBtn = () => {
+    if (pasteAreaRef.current) {
+      pasteAreaRef.current.focus();
+      try { document.execCommand("paste"); } catch { /* ignore */ }
     }
   };
 
@@ -1847,8 +1854,9 @@ function SongPickerModal({ songs, currentIds, onClose, onSave, addSong, user }) 
             </label>
           </div>
 
-          {/* contenteditable 영역 — 모바일 꾹 누르기 → 붙여넣기 지원 */}
+          {/* 붙여넣기 영역 — 여기서 커서 위치 후 붙여넣기 버튼 클릭 */}
           <div
+            ref={pasteAreaRef}
             contentEditable
             suppressContentEditableWarning
             onPaste={e => {
@@ -1863,11 +1871,12 @@ function SongPickerModal({ songs, currentIds, onClose, onSave, addSong, user }) 
               }
             }}
             style={{
-              minHeight:36, borderRadius:8, border:`1px dashed ${C.bdr}`,
-              padding:"8px 12px", fontSize:12, color:C.dim, outline:"none",
+              minHeight:44, borderRadius:8, border:`1.5px dashed ${C.acc}66`,
+              padding:"10px 12px", fontSize:12, color:C.dim, outline:"none",
               marginBottom:10, background:C.surf, textAlign:"center",
+              lineHeight:1.5,
             }}>
-            또는 여기를 꾹 눌러 붙여넣기
+            여기서 커서 위치 후 붙여넣기 버튼 클릭 (또는 Ctrl+V / 꾹 누르기)
           </div>
 
           <input value={quickTitle} onChange={e => setQuickTitle(e.target.value)}
@@ -2478,7 +2487,8 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
   const [editSong,      setEditSong]      = useState(null);
   const [editForm,      setEditForm]      = useState({});
   const [pagePicker,    setPagePicker]    = useState(null);
-  const [cropSong,      setCropSong]      = useState(null); // { id, pdfUrl, cropBox }
+  const [cropSong,      setCropSong]      = useState(null); // { id, pdfUrl, imageUrl, cropBox }
+  const [imgUploading,  setImgUploading]  = useState(null);
   const [consonant,     setConsonant]     = useState("");
 
   const CONSONANTS = ["ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ","A"];
@@ -2536,6 +2546,21 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
       alert("업로드 실패: " + err.message);
     } finally {
       setUploading(null);
+    }
+  };
+
+  const handleImgUpload = async (e, songId) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    setImgUploading(songId);
+    try {
+      const url = await uploadImage(file, songId);
+      await updateDoc(doc(db, "songs", songId), { imageUrl: url });
+    } catch (err) {
+      alert("이미지 업로드 실패: " + err.message);
+    } finally {
+      setImgUploading(null);
     }
   };
 
@@ -2629,12 +2654,13 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
                   <KeyBadge k={song.key} />
                   <Badge label={`♩ ${song.bpm}`} color={C.dim} />
                   {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF · 페이지${song.pdfPage}` : "PDF"} color={C.grn} />}
+                  {song.imageUrl && !song.pdfUrl && <Badge label="이미지" color={C.acc} />}
                 </div>
               </div>
 
               {isLeader(user.role) && (
                 <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-                  {uploading === song.id ? (
+                  {(uploading === song.id || imgUploading === song.id) ? (
                     <div style={{ fontSize:11, color:C.acc, padding:"0 6px" }}>업로드 중...</div>
                   ) : (
                     <>
@@ -2645,8 +2671,8 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
                           background:`${C.acc}22`, border:`1px solid ${C.acc}55` }}>
                         <Icon n="pen" size={14} color={C.acc} />
                       </button>
-                      {song.pdfUrl && (
-                        <button onClick={() => setCropSong({ id: song.id, pdfUrl: song.pdfUrl, cropBox: song.cropBox || null })}
+                      {(song.pdfUrl || song.imageUrl) && (
+                        <button onClick={() => setCropSong({ id: song.id, pdfUrl: song.pdfUrl || null, imageUrl: song.imageUrl || null, cropBox: song.cropBox || null })}
                           title="크롭 설정"
                           style={{ display:"flex", alignItems:"center", justifyContent:"center",
                             width:34, height:34, borderRadius:9, cursor:"pointer",
@@ -2655,6 +2681,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
                           <Icon n="fitCrop" size={14} color={song.cropBox ? C.acc : C.pur} />
                         </button>
                       )}
+                      {/* PDF 업로드 */}
                       <input type="file" accept=".pdf,application/pdf"
                         style={{ display:"none" }} id={`up-${song.id}`}
                         onChange={e => handleUpload(e, song.id)} />
@@ -2665,6 +2692,18 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
                           background: song.pdfUrl ? `${C.grn}22` : C.surf,
                           border:`1px solid ${song.pdfUrl ? C.grn : C.bdr}` }}>
                         <Icon n="upload" size={14} color={song.pdfUrl ? C.grn : C.dim} />
+                      </label>
+                      {/* 이미지 업로드 */}
+                      <input type="file" accept="image/*"
+                        style={{ display:"none" }} id={`img-${song.id}`}
+                        onChange={e => handleImgUpload(e, song.id)} />
+                      <label htmlFor={`img-${song.id}`}
+                        title={song.imageUrl ? "이미지 교체" : "이미지 업로드"}
+                        style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                          width:34, height:34, borderRadius:9, cursor:"pointer",
+                          background: song.imageUrl ? `${C.acc}22` : C.surf,
+                          border:`1px solid ${song.imageUrl ? C.acc+"55" : C.bdr}` }}>
+                        <span style={{ fontSize:14 }}>🖼️</span>
                       </label>
                       <button onClick={() => setConfirmDel(song.id)}
                         title="곡 삭제"
@@ -2779,6 +2818,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
       {cropSong && (
         <CropModal
           pdfUrl={cropSong.pdfUrl}
+          imageUrl={cropSong.imageUrl}
           initialCrop={cropSong.cropBox}
           onClose={() => setCropSong(null)}
           onConfirm={async (box) => {
@@ -3530,13 +3570,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           if (!ref.current) return;
           if (!pdfDoc && !imgObj) { ref.current.width = 0; ref.current.height = 0; return; }
           if (imgObj && !pdfDoc) {
-            // image song
-            const scale = Math.min(halfW / imgObj.width, availH / imgObj.height) * zoomMul;
-            const dW = Math.round(imgObj.width  * scale);
-            const dH = Math.round(imgObj.height * scale);
+            // image song — apply cropBox if present
+            const hasCb = cropBox && (cropBox.left > 0.001 || cropBox.top > 0.001 || cropBox.right < 0.999 || cropBox.bottom < 0.999);
+            const srcX  = hasCb ? cropBox.left  * imgObj.width  : 0;
+            const srcY  = hasCb ? cropBox.top   * imgObj.height : 0;
+            const srcW  = hasCb ? (cropBox.right - cropBox.left) * imgObj.width  : imgObj.width;
+            const srcH  = hasCb ? (cropBox.bottom - cropBox.top) * imgObj.height : imgObj.height;
+            const scale = Math.min(halfW / srcW, availH / srcH) * zoomMul;
+            const dW = Math.round(srcW * scale);
+            const dH = Math.round(srcH * scale);
             const off = document.createElement("canvas");
             off.width = dW; off.height = dH;
-            off.getContext("2d").drawImage(imgObj, 0, 0, dW, dH);
+            off.getContext("2d").drawImage(imgObj, srcX, srcY, srcW, srcH, 0, 0, dW, dH);
             ref.current.width  = dW;
             ref.current.height = dH;
             ref.current.getContext("2d").drawImage(off, 0, 0);
@@ -3578,12 +3623,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           const img    = imageRef.current;
           const availW = cSize.w - pad * 2;
           const availH = cSize.h - pad * 2;
-          const scale  = Math.min(availW / img.width, availH / img.height) * zoomMul;
-          const dW = Math.round(img.width  * scale);
-          const dH = Math.round(img.height * scale);
+          const cb     = song?.cropBox;
+          const hasCb  = cb && (cb.left > 0.001 || cb.top > 0.001 || cb.right < 0.999 || cb.bottom < 0.999);
+          let srcX = 0, srcY = 0, srcW = img.width, srcH = img.height;
+          if (hasCb) { srcX = cb.left*img.width; srcY = cb.top*img.height; srcW = (cb.right-cb.left)*img.width; srcH = (cb.bottom-cb.top)*img.height; }
+          const scale  = Math.min(availW / srcW, availH / srcH) * zoomMul;
+          const dW = Math.round(srcW * scale);
+          const dH = Math.round(srcH * scale);
           const off = document.createElement("canvas");
           off.width = dW; off.height = dH;
-          off.getContext("2d").drawImage(img, 0, 0, dW, dH);
+          off.getContext("2d").drawImage(img, srcX, srcY, srcW, srcH, 0, 0, dW, dH);
           const c = canvas1Ref.current;
           c.width = dW; c.height = dH;
           c.getContext("2d").drawImage(off, 0, 0);
