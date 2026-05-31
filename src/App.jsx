@@ -4606,6 +4606,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           <div style={{ display:"flex", alignItems:"center", gap:6, padding:"0 14px", height:56, overflowX:"auto" }}>
             {/* Tool selector */}
             {[
+              { id:"select",      icon:"cursor",   label:"선택"  },
               { id:"pen",         icon:"pen",      label:"펜"    },
               { id:"highlighter", icon:"highlight", label:"마커"  },
               { id:"eraser",      icon:"eraser",    label:"지우개" },
@@ -4625,6 +4626,30 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   fontFamily:"inherit", lineHeight:1 }}>{t.label}</span>
               </button>
             ))}
+            {/* 선택 모드 액션 바 */}
+            {drawTool === "select" && selAnnot && (
+              <>
+                <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+                <button onClick={deleteSelAnnot}
+                  style={{
+                    display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+                    padding:"5px 8px", background:`${C.red}18`, border:`1px solid ${C.red}44`,
+                    borderRadius:7, cursor:"pointer", flexShrink:0,
+                  }}>
+                  <Icon n="trash" size={15} color={C.red} />
+                  <span style={{ fontSize:9, fontWeight:600, color:C.red, fontFamily:"inherit", lineHeight:1 }}>삭제</span>
+                </button>
+                <button onClick={() => { setSelAnnot(null); drawStrokes(drawCanvas1Ref.current, strokes1Ref.current); drawStrokes(drawCanvas2Ref.current, strokes2Ref.current); }}
+                  style={{
+                    display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+                    padding:"5px 8px", background:"transparent", border:`1px solid ${C.bdr}`,
+                    borderRadius:7, cursor:"pointer", flexShrink:0,
+                  }}>
+                  <Icon n="xmark" size={15} color={C.dim} />
+                  <span style={{ fontSize:9, fontWeight:600, color:C.dim, fontFamily:"inherit", lineHeight:1 }}>해제</span>
+                </button>
+              </>
+            )}
             <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
             {/* Colors */}
             {(drawTool === "highlighter"
