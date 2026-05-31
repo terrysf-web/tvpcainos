@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.150";
+const APP_VERSION = "3.151";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1785,13 +1785,16 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
               <Icon n="plus" size={18} color={C.acc} />
             </button>
           )}
-          <button onClick={() => window.location.reload()} title="새로고침" style={{
-            width:36, height:36, borderRadius:9, cursor:"pointer",
-            background:C.card, border:`1px solid ${C.bdr}`,
-            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
-          }}>
-            <Icon n="refresh" size={20} color={C.dim} />
-          </button>
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
+            <span style={{ fontSize:9, color:C.dim, letterSpacing:"0.03em", lineHeight:1 }}>v{APP_VERSION}</span>
+            <button onClick={() => window.location.reload()} title="새로고침" style={{
+              width:36, height:36, borderRadius:9, cursor:"pointer",
+              background:C.card, border:`1px solid ${C.bdr}`,
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+            }}>
+              <Icon n="refresh" size={20} color={C.dim} />
+            </button>
+          </div>
           <button onClick={() => nav("notifications")} title="알림" style={{
             width:36, height:36, borderRadius:9, cursor:"pointer", position:"relative",
             background:C.card, border:`1px solid ${unread > 0 ? C.acc : C.bdr}`,
