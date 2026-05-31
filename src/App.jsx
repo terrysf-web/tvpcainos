@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.165";
+const APP_VERSION = "3.166";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -471,7 +471,7 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
         ctx.translate(px, py);
         ctx.rotate(-28 * Math.PI / 180);
         ctx.beginPath();
-        ctx.ellipse(0, 0, sz * 0.72, sz * 0.52, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, sz * 0.5, sz * 0.36, 0, 0, Math.PI * 2);
         ctx.fillStyle = s.color || "#1c1c1e";
         ctx.fill();
         ctx.restore();
@@ -4394,7 +4394,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         ctx.translate(LW / 2, LH / 2);
         ctx.rotate(-28 * Math.PI / 180);
         ctx.beginPath();
-        ctx.ellipse(0, 0, sz * 0.72, sz * 0.52, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, sz * 0.5, sz * 0.36, 0, 0, Math.PI * 2);
         ctx.fillStyle = color || "#1c1c1e";
         ctx.fill();
         ctx.restore();
@@ -5244,10 +5244,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     borderRadius:6, cursor:"pointer", flexShrink:0,
                   }}>
                   {(drawTool === "stamp" || drawTool === "shape") ? (
-                    <span style={{ fontSize: w === 1 ? 9 : w === 2 ? 12 : 16, color:drawColor, fontWeight:700,
-                      fontStyle: drawTool === "stamp" && stampItalic ? "italic" : "normal", lineHeight:1 }}>
-                      {drawTool === "stamp" ? stampSymbol : w === 1 ? "S" : w === 2 ? "M" : "L"}
-                    </span>
+                    stampSymbol === "notehead" ? (
+                      <svg width={w===1?10:w===2?13:17} height={w===1?7:w===2?9:12}
+                        viewBox="0 0 17 12" style={{ display:"block" }}>
+                        <ellipse cx="8.5" cy="6.5" rx="7" ry="4.8"
+                          fill={drawColor} transform="rotate(-28 8.5 6.5)" />
+                      </svg>
+                    ) : (
+                      <span style={{ fontSize: w === 1 ? 9 : w === 2 ? 12 : 16, color:drawColor, fontWeight:700,
+                        fontStyle: drawTool === "stamp" && stampItalic ? "italic" : "normal", lineHeight:1 }}>
+                        {drawTool === "stamp" ? stampSymbol : w === 1 ? "S" : w === 2 ? "M" : "L"}
+                      </span>
+                    )
                   ) : (
                     <div style={{
                       width: (drawTool === "highlighter" || drawTool === "cover") ? w * 2 + 1 : w + 2,
@@ -5332,10 +5340,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           ))}
                         </svg>
                       ) : st.sym === "notehead" ? (
-                        <svg width="26" height="20" viewBox="0 0 26 20" style={{ display:"block" }}>
-                          <ellipse cx="13" cy="11" rx="10" ry="7"
+                        <svg width="22" height="16" viewBox="0 0 22 16" style={{ display:"block" }}>
+                          <ellipse cx="11" cy="9" rx="8" ry="5.5"
                             fill={stampSymbol === "notehead" ? C.acc : C.txt}
-                            transform="rotate(-28 13 11)" />
+                            transform="rotate(-28 11 9)" />
                         </svg>
                       ) : (
                         <span style={{
