@@ -7217,7 +7217,16 @@ export default function App() {
                   cursor:"pointer", fontFamily:"inherit" }}>
                 닫기
               </button>
-              <button onClick={() => { setNotifPopup(null); nav("notifications"); }}
+              <button onClick={() => {
+                setNotifPopup(null);
+                const n = notifPopup.latest;
+                markNotifRead(n.id);
+                if ((!n.category || n.category === "service") && n.serviceId) {
+                  nav("svcDetail", { svcId: n.serviceId });
+                } else {
+                  nav("notifications");
+                }
+              }}
                 style={{ flex:2, padding:"11px 0", borderRadius:10, border:"none",
                   background:C.pur, color:"#fff", fontWeight:700, fontSize:14,
                   cursor:"pointer", fontFamily:"inherit" }}>
