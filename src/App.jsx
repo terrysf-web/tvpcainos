@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.152";
+const APP_VERSION = "3.153";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -94,6 +94,7 @@ const P = {
   eraser:  "M20 20H7L3 16 13 6l8 8-2.5 2.5M9 15l2 2",
   cover:   "M4 8h16v8H4z M8 8V5.5h8V8",
   undo:    "M3 10h13a4 4 0 0 1 0 8H9M3 10l4-4M3 10l4 4",
+  download:"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
   highlight:"M3 20h4L19.5 8.5a2.12 2.12 0 0 0-3-3L5 17 3 20zM16 5l3 3M15 7l-8 8",
   stamp:   "M9 2h6v3H9zM7 5h10v2H7zM3 7h18v11H3zM2 21h20",
   slur:    "M4 17 Q12 7 20 17",
@@ -3199,6 +3200,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const preClearRef1    = useRef(null);  // snapshot before 필기 삭제 (side 1)
   const preClearRef2    = useRef(null);  // snapshot before 필기 삭제 (side 2)
   const [clearConfirm,  setClearConfirm]  = useState(false); // 필기 삭제 확인 다이얼로그
+  // ── Team drawing
+  const teamDrawCanvas1Ref = useRef(null);
+  const teamDrawCanvas2Ref = useRef(null);
+  const teamStrokes1Ref    = useRef([]);
+  const teamStrokes2Ref    = useRef([]);
+  const preClearTeamRef1   = useRef(null);
+  const preClearTeamRef2   = useRef(null);
+  const [teamDrawMode, setTeamDrawMode] = useState(false);
 
   const myNotes   = annotations[selectedSongId]     || [];
   const teamNotes = (teamAnnotations || {})[selectedSongId] || [];
@@ -3321,6 +3330,21 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       }).catch(() => {});
   };
 
+  const loadTeamDrawing = (songId, page, tStrokesRef, tdcRef) => {
+    tStrokesRef.current = [];
+    const dc = tdcRef.current;
+    if (dc) dc.getContext("2d").clearRect(0, 0, dc.width, dc.height);
+    if (!songId) return;
+    getDoc(doc(db, "customSongs", `drw_TEAM_${songId}_p${page}`))
+      .then(snap => {
+        if (snap.exists()) {
+          tStrokesRef.current = snap.data().strokes || [];
+          const dc2 = tdcRef.current;
+          if (dc2 && dc2.width > 0) drawStrokes(dc2, tStrokesRef.current);
+        }
+      }).catch(() => {});
+  };
+
   // load strokes — single mode
   useEffect(() => {
     if (dual) return;
@@ -3341,6 +3365,27 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     loadDrawing(dualRightSongId, 1, strokes2Ref, drawCanvas2Ref);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dualRightSongId, user?.uid, dual]);
+
+  // load team strokes — single
+  useEffect(() => {
+    if (dual) return;
+    loadTeamDrawing(selectedSongId, pageNum, teamStrokes1Ref, teamDrawCanvas1Ref);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSongId, pageNum, dual]);
+
+  // load team strokes — dual left
+  useEffect(() => {
+    if (!dual) return;
+    loadTeamDrawing(dualLeftSongId, 1, teamStrokes1Ref, teamDrawCanvas1Ref);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dualLeftSongId, dual]);
+
+  // load team strokes — dual right
+  useEffect(() => {
+    if (!dual) return;
+    loadTeamDrawing(dualRightSongId, 1, teamStrokes2Ref, teamDrawCanvas2Ref);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dualRightSongId, dual]);
 
   // Sync selAnnotRef with state
   useEffect(() => { selAnnotRef.current = selAnnot; }, [selAnnot]);
@@ -3370,6 +3415,20 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       setDrawSaveErr("필기 저장 실패: " + (e.code === "permission-denied" ? "권한 없음" : e.message));
     }
   }, [user?.uid]);
+
+  const saveTeamDrawing = useCallback(async (songId, page, strokes) => {
+    if (!songId) return;
+    try {
+      await setDoc(
+        doc(db, "customSongs", `drw_TEAM_${songId}_p${page}`),
+        { strokes, updatedAt: serverTimestamp() }
+      );
+      setDrawSaveErr("");
+    } catch(e) {
+      console.error("팀 필기 저장 실패:", e);
+      setDrawSaveErr("팀 필기 저장 실패: " + (e.code === "permission-denied" ? "권한 없음" : e.message));
+    }
+  }, []);
 
   // 컨테이너 크기 추적 (ResizeObserver)
   useEffect(() => {
@@ -3894,7 +3953,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         // 듀얼: 좌우 두 곡 — 슬롯 크기 그대로 사용
         const halfW  = Math.floor(cSize.w / 2);
         const availH = cSize.h;
-        const renderTo = async (ref, drawRef, strokesRef2, pdfDoc, imgObj, pdfPageNum = 1, cropBox = null) => {
+        const renderTo = async (ref, drawRef, strokesRef2, teamDrawRef, teamStrokesRef2, pdfDoc, imgObj, pdfPageNum = 1, cropBox = null) => {
           if (!ref.current) return;
           if (!pdfDoc && !imgObj) { ref.current.width = 0; ref.current.height = 0; return; }
           if (imgObj && !pdfDoc) {
@@ -3921,9 +3980,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             drawRef.current.height = ref.current.height;
             drawStrokes(drawRef.current, strokesRef2.current);
           }
+          if (teamDrawRef.current) {
+            teamDrawRef.current.width  = ref.current.width;
+            teamDrawRef.current.height = ref.current.height;
+            if (teamStrokesRef2.current.length > 0) drawStrokes(teamDrawRef.current, teamStrokesRef2.current);
+          }
         };
-        await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, dualPdf1Ref.current, dualImg1Ref.current, dualLeftPage,  dualLeftCrop);
-        await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, dualPdf2Ref.current, dualImg2Ref.current, dualRightPage, dualRightCrop);
+        await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, teamDrawCanvas1Ref, teamStrokes1Ref, dualPdf1Ref.current, dualImg1Ref.current, dualLeftPage,  dualLeftCrop);
+        await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, teamDrawCanvas2Ref, teamStrokes2Ref, dualPdf2Ref.current, dualImg2Ref.current, dualRightPage, dualRightCrop);
         // 듀얼 FIT 모드: 새 곡 쌍이 렌더된 직후 좌/우 양쪽 분석 후 재적용
         if (needsFitRef.current) {
           needsFitRef.current = false;
@@ -3969,6 +4033,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             drawCanvas1Ref.current.height = dH;
             drawStrokes(drawCanvas1Ref.current, strokes1Ref.current);
           }
+          if (teamDrawCanvas1Ref.current) {
+            teamDrawCanvas1Ref.current.width  = dW;
+            teamDrawCanvas1Ref.current.height = dH;
+            if (teamStrokes1Ref.current.length > 0) drawStrokes(teamDrawCanvas1Ref.current, teamStrokes1Ref.current);
+          }
           return;
         }
         // 싱글: PDF 한 페이지 꽉 맞춤
@@ -3980,6 +4049,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           drawCanvas1Ref.current.width  = canvas1Ref.current.width;
           drawCanvas1Ref.current.height = canvas1Ref.current.height;
           drawStrokes(drawCanvas1Ref.current, strokes1Ref.current);
+        }
+        if (teamDrawCanvas1Ref.current) {
+          teamDrawCanvas1Ref.current.width  = canvas1Ref.current.width;
+          teamDrawCanvas1Ref.current.height = canvas1Ref.current.height;
+          if (teamStrokes1Ref.current.length > 0) drawStrokes(teamDrawCanvas1Ref.current, teamStrokes1Ref.current);
         }
         // 싱글 FIT 모드: 새 페이지/곡 렌더 직후 콘텐츠 자동 맞춤
         if (singleNeedsFitRef.current) {
@@ -4160,8 +4234,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setTextDot(null);
     if (!textInput || !textInput.value.trim()) { setTextInput(null); return; }
     const isC1 = textInput.canvasNum === 1;
-    const canvas = isC1 ? drawCanvas1Ref.current : drawCanvas2Ref.current;
-    const strokesRef = isC1 ? strokes1Ref : strokes2Ref;
+    const isTeam = teamDrawMode;
+    const canvas = isC1
+      ? (isTeam ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current)
+      : (isTeam ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current);
+    const strokesRef = isC1
+      ? (isTeam ? teamStrokes1Ref : strokes1Ref)
+      : (isTeam ? teamStrokes2Ref : strokes2Ref);
     const songId = isC1
       ? (dual ? dualLeftSongId : selectedSongId)
       : (dual ? dualRightSongId : selectedSongId);
@@ -4174,9 +4253,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const next = [...strokesRef.current, textStroke];
     strokesRef.current = next;
     if (canvas) drawStrokes(canvas, next);
-    await saveDrawing(songId, page, next);
+    await (isTeam ? saveTeamDrawing : saveDrawing)(songId, page, next);
     setTextInput(null);
-  }, [textInput, drawColor, drawWidth, dual, dualLeftSongId, dualRightSongId, selectedSongId, pageNum, saveDrawing]);
+  }, [textInput, drawColor, drawWidth, dual, dualLeftSongId, dualRightSongId, selectedSongId, pageNum, saveDrawing, saveTeamDrawing, teamDrawMode]);
 
   // ── Loupe update (stamp mode)
   const updateLoupe = useCallback((e, pdfCanvas, drawCanvas, sym, italic, color) => {
@@ -4287,7 +4366,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }
     isDrawing1Ref.current = true;
     curStroke1Ref.current = { ...makeStroke(), points: [getCanvasPt(e, canvas)] };
-    drawStrokes(canvas, strokes1Ref.current, curStroke1Ref.current);
+    { const rc = teamDrawMode && teamDrawCanvas1Ref.current ? teamDrawCanvas1Ref.current : canvas;
+      drawStrokes(rc, teamDrawMode ? teamStrokes1Ref.current : strokes1Ref.current, curStroke1Ref.current); }
   };
   const handleDraw1Move = (e) => {
     if (e.pointerType === "touch" && drawTool !== "select") return;
@@ -4320,12 +4400,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (drawTool === "shape" && shapeStart1Ref.current) {
       const pt = getCanvasPt(e, canvas);
       curStroke1Ref.current = { tool: shapeTool, points: [shapeStart1Ref.current, pt], color: drawColor, width: drawWidth };
-      drawStrokes(canvas, strokes1Ref.current, curStroke1Ref.current);
+      { const rc = teamDrawMode && teamDrawCanvas1Ref.current ? teamDrawCanvas1Ref.current : canvas;
+        drawStrokes(rc, teamDrawMode ? teamStrokes1Ref.current : strokes1Ref.current, curStroke1Ref.current); }
       return;
     }
     if (!isDrawing1Ref.current || !curStroke1Ref.current) return;
     curStroke1Ref.current.points.push(getCanvasPt(e, canvas));
-    drawStrokes(canvas, strokes1Ref.current, curStroke1Ref.current);
+    { const rc = teamDrawMode && teamDrawCanvas1Ref.current ? teamDrawCanvas1Ref.current : canvas;
+      drawStrokes(rc, teamDrawMode ? teamStrokes1Ref.current : strokes1Ref.current, curStroke1Ref.current); }
   };
   const handleDraw1Up = async (e) => {
     if (drawTool === "select") {
@@ -4340,32 +4422,35 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }
     if (drawTool === "stamp") {
       setLoupePos(null);
-      const canvas = drawCanvas1Ref.current;
+      const canvas = teamDrawMode ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current;
       if (!canvas) return;
-      const pt = e ? getCanvasPt(e, canvas) : lastPt1Ref.current;
+      const coordCanvas = drawCanvas1Ref.current || canvas;
+      const pt = e ? getCanvasPt(e, coordCanvas) : lastPt1Ref.current;
       const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
         color:drawColor, size:drawWidth * 3 + 8, points:[pt] };
-      const next = [...strokes1Ref.current, stamp];
-      strokes1Ref.current = next;
+      const sRef1 = teamDrawMode ? teamStrokes1Ref : strokes1Ref;
+      const next = [...sRef1.current, stamp];
+      sRef1.current = next;
       drawStrokes(canvas, next);
       const songId = dual ? dualLeftSongId : selectedSongId;
-      await saveDrawing(songId, dual ? 1 : pageNum, next);
+      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(songId, dual ? 1 : pageNum, next);
       return;
     }
     if (drawTool === "shape") {
       const shape = curStroke1Ref.current;
       curStroke1Ref.current = null;
       shapeStart1Ref.current = null;
+      const sRef1 = teamDrawMode ? teamStrokes1Ref : strokes1Ref;
       if (!shape || shape.points.length < 2) {
-        const canvas = drawCanvas1Ref.current;
-        if (canvas) drawStrokes(canvas, strokes1Ref.current);
+        const canvas = teamDrawMode ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current;
+        if (canvas) drawStrokes(canvas, sRef1.current);
         return;
       }
-      const next = [...strokes1Ref.current, shape];
-      strokes1Ref.current = next;
+      const next = [...sRef1.current, shape];
+      sRef1.current = next;
       const songId = dual ? dualLeftSongId : selectedSongId;
-      await saveDrawing(songId, dual ? 1 : pageNum, next);
-      const canvas = drawCanvas1Ref.current;
+      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(songId, dual ? 1 : pageNum, next);
+      const canvas = teamDrawMode ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current;
       if (canvas) drawStrokes(canvas, next);
       return;
     }
@@ -4373,22 +4458,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     isDrawing1Ref.current = false;
     const stroke = curStroke1Ref.current;
     curStroke1Ref.current = null;
+    const sRef1 = teamDrawMode ? teamStrokes1Ref : strokes1Ref;
     if (stroke.points.length > 0) {
-      const next = [...strokes1Ref.current, stroke];
-      strokes1Ref.current = next;
+      const next = [...sRef1.current, stroke];
+      sRef1.current = next;
       const songId = dual ? dualLeftSongId : selectedSongId;
-      await saveDrawing(songId, dual ? 1 : pageNum, next);
+      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(songId, dual ? 1 : pageNum, next);
     }
-    const canvas = drawCanvas1Ref.current;
-    if (canvas) drawStrokes(canvas, strokes1Ref.current);
+    { const canvas = teamDrawMode ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current;
+      if (canvas) drawStrokes(canvas, sRef1.current); }
   };
   const handleDraw1Cancel = () => {
     setLoupePos(null);
     shapeStart1Ref.current = null;
     isDrawing1Ref.current = false; curStroke1Ref.current = null;
     selDragRef.current = null;
-    const canvas = drawCanvas1Ref.current;
-    if (canvas) drawStrokes(canvas, strokes1Ref.current, null, selAnnotRef.current?.canvasNum === 1 ? selAnnotRef.current.idx : -1);
+    const canvas = teamDrawMode ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current;
+    const sRef1c = teamDrawMode ? teamStrokes1Ref : strokes1Ref;
+    const selIdx1 = !teamDrawMode && selAnnotRef.current?.canvasNum === 1 ? selAnnotRef.current.idx : -1;
+    if (canvas) drawStrokes(canvas, sRef1c.current, null, selIdx1);
   };
 
   // ── Canvas 2 handlers (dual right)
@@ -4443,7 +4531,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }
     isDrawing2Ref.current = true;
     curStroke2Ref.current = { ...makeStroke(), points: [getCanvasPt(e, canvas)] };
-    drawStrokes(canvas, strokes2Ref.current, curStroke2Ref.current);
+    { const rc = teamDrawMode && teamDrawCanvas2Ref.current ? teamDrawCanvas2Ref.current : canvas;
+      drawStrokes(rc, teamDrawMode ? teamStrokes2Ref.current : strokes2Ref.current, curStroke2Ref.current); }
   };
   const handleDraw2Move = (e) => {
     if (e.pointerType === "touch" && drawTool !== "select") return;
@@ -4476,12 +4565,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (drawTool === "shape" && shapeStart2Ref.current) {
       const pt = getCanvasPt(e, canvas);
       curStroke2Ref.current = { tool: shapeTool, points: [shapeStart2Ref.current, pt], color: drawColor, width: drawWidth };
-      drawStrokes(canvas, strokes2Ref.current, curStroke2Ref.current);
+      { const rc = teamDrawMode && teamDrawCanvas2Ref.current ? teamDrawCanvas2Ref.current : canvas;
+        drawStrokes(rc, teamDrawMode ? teamStrokes2Ref.current : strokes2Ref.current, curStroke2Ref.current); }
       return;
     }
     if (!isDrawing2Ref.current || !curStroke2Ref.current) return;
     curStroke2Ref.current.points.push(getCanvasPt(e, canvas));
-    drawStrokes(canvas, strokes2Ref.current, curStroke2Ref.current);
+    { const rc = teamDrawMode && teamDrawCanvas2Ref.current ? teamDrawCanvas2Ref.current : canvas;
+      drawStrokes(rc, teamDrawMode ? teamStrokes2Ref.current : strokes2Ref.current, curStroke2Ref.current); }
   };
   const handleDraw2Up = async (e) => {
     if (drawTool === "select") {
@@ -4495,30 +4586,33 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }
     if (drawTool === "stamp") {
       setLoupePos(null);
-      const canvas = drawCanvas2Ref.current;
+      const canvas = teamDrawMode ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
       if (!canvas) return;
-      const pt = e ? getCanvasPt(e, canvas) : lastPt2Ref.current;
+      const coordCanvas = drawCanvas2Ref.current || canvas;
+      const pt = e ? getCanvasPt(e, coordCanvas) : lastPt2Ref.current;
       const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
         color:drawColor, size:drawWidth * 3 + 8, points:[pt] };
-      const next = [...strokes2Ref.current, stamp];
-      strokes2Ref.current = next;
+      const sRef2 = teamDrawMode ? teamStrokes2Ref : strokes2Ref;
+      const next = [...sRef2.current, stamp];
+      sRef2.current = next;
       drawStrokes(canvas, next);
-      await saveDrawing(dualRightSongId, 1, next);
+      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(dualRightSongId, 1, next);
       return;
     }
     if (drawTool === "shape") {
       const shape = curStroke2Ref.current;
       curStroke2Ref.current = null;
       shapeStart2Ref.current = null;
+      const sRef2 = teamDrawMode ? teamStrokes2Ref : strokes2Ref;
       if (!shape || shape.points.length < 2) {
-        const canvas = drawCanvas2Ref.current;
-        if (canvas) drawStrokes(canvas, strokes2Ref.current);
+        const canvas = teamDrawMode ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
+        if (canvas) drawStrokes(canvas, sRef2.current);
         return;
       }
-      const next = [...strokes2Ref.current, shape];
-      strokes2Ref.current = next;
-      await saveDrawing(dualRightSongId, 1, next);
-      const canvas = drawCanvas2Ref.current;
+      const next = [...sRef2.current, shape];
+      sRef2.current = next;
+      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(dualRightSongId, 1, next);
+      const canvas = teamDrawMode ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
       if (canvas) drawStrokes(canvas, next);
       return;
     }
@@ -4526,44 +4620,52 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     isDrawing2Ref.current = false;
     const stroke = curStroke2Ref.current;
     curStroke2Ref.current = null;
+    const sRef2 = teamDrawMode ? teamStrokes2Ref : strokes2Ref;
     if (stroke.points.length > 0) {
-      const next = [...strokes2Ref.current, stroke];
-      strokes2Ref.current = next;
-      await saveDrawing(dualRightSongId, 1, next);
+      const next = [...sRef2.current, stroke];
+      sRef2.current = next;
+      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(dualRightSongId, 1, next);
     }
-    const canvas = drawCanvas2Ref.current;
-    if (canvas) drawStrokes(canvas, strokes2Ref.current);
+    { const canvas = teamDrawMode ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
+      if (canvas) drawStrokes(canvas, sRef2.current); }
   };
   const handleDraw2Cancel = () => {
     setLoupePos(null);
     shapeStart2Ref.current = null;
     isDrawing2Ref.current = false; curStroke2Ref.current = null;
     selDragRef.current = null;
-    const canvas = drawCanvas2Ref.current;
-    if (canvas) drawStrokes(canvas, strokes2Ref.current, null, selAnnotRef.current?.canvasNum === 2 ? selAnnotRef.current.idx : -1);
+    const canvas = teamDrawMode ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
+    const sRef2c = teamDrawMode ? teamStrokes2Ref : strokes2Ref;
+    const selIdx2 = !teamDrawMode && selAnnotRef.current?.canvasNum === 2 ? selAnnotRef.current.idx : -1;
+    if (canvas) drawStrokes(canvas, sRef2c.current, null, selIdx2);
   };
 
   // ── Undo: acts on the last-drawn side
   const handleUndo = async () => {
     setSelAnnot(null);
     const side = lastSideRef.current;
-    const sRef  = side === 2 ? strokes2Ref  : strokes1Ref;
-    const dcRef = side === 2 ? drawCanvas2Ref : drawCanvas1Ref;
-    const pRef  = side === 2 ? preClearRef2  : preClearRef1;
+    const isTeam = teamDrawMode;
+    const sRef  = isTeam ? (side === 2 ? teamStrokes2Ref : teamStrokes1Ref)
+                          : (side === 2 ? strokes2Ref     : strokes1Ref);
+    const dcRef = isTeam ? (side === 2 ? teamDrawCanvas2Ref : teamDrawCanvas1Ref)
+                          : (side === 2 ? drawCanvas2Ref     : drawCanvas1Ref);
+    const pRef  = isTeam ? (side === 2 ? preClearTeamRef2 : preClearTeamRef1)
+                          : (side === 2 ? preClearRef2     : preClearRef1);
     const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
+    const saveFn = isTeam ? saveTeamDrawing : saveDrawing;
     // 필기 삭제 직후라면 스냅샷 복원
     if (sRef.current.length === 0 && pRef.current !== null) {
       const restored = pRef.current;
       pRef.current = null;
       sRef.current = restored;
-      await saveDrawing(songId, dual ? 1 : pageNum, restored);
+      await saveFn(songId, dual ? 1 : pageNum, restored);
       if (dcRef.current) drawStrokes(dcRef.current, restored);
       return;
     }
     if (sRef.current.length === 0) return;
     const next = sRef.current.slice(0, -1);
     sRef.current = next;
-    await saveDrawing(songId, dual ? 1 : pageNum, next);
+    await saveFn(songId, dual ? 1 : pageNum, next);
     if (dcRef.current) drawStrokes(dcRef.current, next);
   };
 
@@ -4572,14 +4674,42 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const confirmClearPage = async () => {
     setClearConfirm(false);
     const side = lastSideRef.current;
-    const sRef  = side === 2 ? strokes2Ref  : strokes1Ref;
-    const dcRef = side === 2 ? drawCanvas2Ref : drawCanvas1Ref;
-    const pRef  = side === 2 ? preClearRef2  : preClearRef1;
+    const isTeam = teamDrawMode;
+    const sRef  = isTeam ? (side === 2 ? teamStrokes2Ref : teamStrokes1Ref)
+                          : (side === 2 ? strokes2Ref     : strokes1Ref);
+    const dcRef = isTeam ? (side === 2 ? teamDrawCanvas2Ref : teamDrawCanvas1Ref)
+                          : (side === 2 ? drawCanvas2Ref     : drawCanvas1Ref);
+    const pRef  = isTeam ? (side === 2 ? preClearTeamRef2 : preClearTeamRef1)
+                          : (side === 2 ? preClearRef2     : preClearRef1);
     const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
-    pRef.current  = sRef.current;  // undo용 스냅샷 저장
-    sRef.current  = [];
-    await saveDrawing(songId, dual ? 1 : pageNum, []);
+    pRef.current = sRef.current;
+    sRef.current = [];
+    await (isTeam ? saveTeamDrawing : saveDrawing)(songId, dual ? 1 : pageNum, []);
     if (dcRef.current) dcRef.current.getContext("2d").clearRect(0, 0, dcRef.current.width, dcRef.current.height);
+  };
+
+  const downloadAnnotatedScore = () => {
+    const pdfCanvas = canvas1Ref.current;
+    if (!pdfCanvas || !pdfCanvas.width) { showToast("악보가 아직 로드되지 않았습니다"); return; }
+    const W = pdfCanvas.width, H = pdfCanvas.height;
+    const off = document.createElement("canvas");
+    off.width = W; off.height = H;
+    const ctx = off.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, H);
+    ctx.drawImage(pdfCanvas, 0, 0);
+    const tdc = teamDrawCanvas1Ref.current;
+    if (tdc && tdc.width === W && tdc.height === H) ctx.drawImage(tdc, 0, 0);
+    const pdc = drawCanvas1Ref.current;
+    if (pdc && pdc.width === W && pdc.height === H) ctx.drawImage(pdc, 0, 0);
+    off.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${song?.title || "score"}_p${pageNum}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }, "image/png");
   };
 
   const tbNarrow = (cSize.w || window.innerWidth) < 600;
@@ -4709,8 +4839,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     FIT
                   </button>
                   {sep}
-                  {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
-                  {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
+                  {toolBtn("pen",      drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
+                  {toolBtn("note",     showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
+                  {toolBtn("download", false,         downloadAnnotatedScore, "악보 다운로드")}
                   {!isLibraryMode && sep}
                   {/* DUAL — 라이브러리 모드에서는 숨김 (svcSongs 없음) */}
                   {!isLibraryMode && (narrow ? (
@@ -4855,6 +4986,20 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   fontFamily:"inherit", lineHeight:1 }}>{t.label}</span>
               </button>
             ))}
+            {/* 팀 필기 토글 — 리더 전용 */}
+            {leader && drawTool !== "select" && (
+              <button onClick={() => setTeamDrawMode(p => !p)} style={{
+                display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+                padding:"4px 7px",
+                background: teamDrawMode ? `${C.acc}22` : "transparent",
+                border:`1px solid ${teamDrawMode ? C.acc : C.bdr}`,
+                borderRadius:7, cursor:"pointer", flexShrink:0,
+              }}>
+                <span style={{ fontSize:11, lineHeight:1 }}>👥</span>
+                <span style={{ fontSize:8, fontWeight:700,
+                  color: teamDrawMode ? C.acc : C.dim, fontFamily:"inherit", lineHeight:1 }}>팀필기</span>
+              </button>
+            )}
             {/* 손가락 사용 안내 (선택 모드 아닐 때) */}
             {drawTool !== "select" && (
               <div style={{ marginLeft:"auto", flexShrink:0, padding:"0 8px", borderLeft:`1px solid ${C.bdr}`, lineHeight:1.6 }}>
@@ -5367,6 +5512,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 {(svcSongs[dualIdx]?.pdfUrl || svcSongs[dualIdx]?.imageUrl)
                   ? <div style={{ position:"relative", display:"inline-block", lineHeight:0 }}>
                       <canvas ref={canvas1Ref} style={{ display:"block" }} />
+                      <canvas ref={teamDrawCanvas1Ref} style={{
+                        position:"absolute", top:0, left:0, width:"100%", height:"100%",
+                        borderRadius:4, pointerEvents:"none",
+                      }} />
                       <canvas ref={drawCanvas1Ref} style={{
                         position:"absolute", top:0, left:0, width:"100%", height:"100%",
                         borderRadius:4, touchAction:"none",
@@ -5432,6 +5581,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   ? (svcSongs[dualIdx + 1].pdfUrl || svcSongs[dualIdx + 1].imageUrl)
                     ? <div style={{ position:"relative", display:"inline-block", lineHeight:0 }}>
                         <canvas ref={canvas2Ref} style={{ display:"block" }} />
+                        <canvas ref={teamDrawCanvas2Ref} style={{
+                          position:"absolute", top:0, left:0, width:"100%", height:"100%",
+                          borderRadius:4, pointerEvents:"none",
+                        }} />
                         <canvas ref={drawCanvas2Ref} style={{
                           position:"absolute", top:0, left:0, width:"100%", height:"100%",
                           borderRadius:4, touchAction:"none",
@@ -5508,6 +5661,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   : <div style={{ position:"relative", display:"inline-block", lineHeight:0, flexShrink:0 }}>
                       <canvas ref={canvas1Ref} style={{ display:"block",
                         borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
+                      <canvas ref={teamDrawCanvas1Ref} style={{
+                        position:"absolute", top:0, left:0, width:"100%", height:"100%",
+                        borderRadius:4, pointerEvents:"none",
+                      }} />
                       <canvas ref={drawCanvas1Ref} style={{
                         position:"absolute", top:0, left:0, width:"100%", height:"100%",
                         borderRadius:4,
