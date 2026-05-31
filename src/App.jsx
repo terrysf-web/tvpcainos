@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.161";
+const APP_VERSION = "3.162";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -329,6 +329,7 @@ const STAMP_GROUPS = [
     { sym:"fp",  italic:true  },
   ]},
   { label:"아티큘", items:[
+    { sym:"●",   italic:false },
     { sym:"·",   italic:false },
     { sym:"–",   italic:false },
     { sym:">",   italic:false },
@@ -364,7 +365,6 @@ const STAMP_GROUPS = [
     { sym:"𝄫",  italic:false },
   ]},
   { label:"기타", items:[
-    { sym:"○", italic:false },
     { sym:"✓", italic:false },
     { sym:"★", italic:false },
     { sym:"!", italic:false },
