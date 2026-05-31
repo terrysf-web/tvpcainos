@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.137";
+const APP_VERSION = "3.138";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -4034,7 +4034,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     lastSideRef.current = 1;
     if (drawTool === "select") {
       const pt = getCanvasPt(e, canvas);
-      const HIT = Math.min(0.1, 50 / (canvas.width || 400));
+      const HIT = 0.07; // 7% of canvas CSS width ≈ 35–45px touch radius
       let bestIdx = -1, bestDist = HIT;
       strokes1Ref.current.forEach((s, i) => {
         if (s.tool !== "text" && s.tool !== "stamp") return;
@@ -4190,7 +4190,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     lastSideRef.current = 2;
     if (drawTool === "select") {
       const pt = getCanvasPt(e, canvas);
-      const HIT = Math.min(0.1, 50 / (canvas.width || 400));
+      const HIT = 0.07;
       let bestIdx = -1, bestDist = HIT;
       strokes2Ref.current.forEach((s, i) => {
         if (s.tool !== "text" && s.tool !== "stamp") return;
@@ -4976,15 +4976,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       {textDot && (
         <div style={{
           position:"fixed",
-          left: textDot.sx - 18, top: textDot.sy - 18,
-          width:36, height:36, borderRadius:"50%",
-          background:"rgba(255,214,0,0.85)",
-          boxShadow:"0 0 0 3px rgba(255,214,0,0.4), 0 2px 8px rgba(0,0,0,0.3)",
+          left: textDot.sx - 10, top: textDot.sy - 10,
+          width:20, height:20, borderRadius:"50%",
+          background:"rgba(255,214,0,0.9)",
+          boxShadow:"0 0 0 2px rgba(255,214,0,0.35), 0 1px 5px rgba(0,0,0,0.25)",
           display:"flex", alignItems:"center", justifyContent:"center",
           pointerEvents:"none", zIndex:1210,
-          transition:"left 0.05s, top 0.05s",
+          transition:"left 0.04s, top 0.04s",
         }}>
-          <span style={{ fontSize:16, fontWeight:900, color:"rgba(0,0,0,0.7)", lineHeight:1, userSelect:"none" }}>T</span>
+          <span style={{ fontSize:9, fontWeight:900, color:"rgba(0,0,0,0.75)", lineHeight:1, userSelect:"none" }}>T</span>
         </div>
       )}
 
@@ -5108,7 +5108,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       <canvas ref={drawCanvas1Ref} style={{
                         position:"absolute", top:0, left:0, width:"100%", height:"100%",
                         borderRadius:4, touchAction:"none",
-                        cursor: drawMode ? (drawTool === "eraser" ? "cell" : "crosshair") : "default",
+                        cursor: drawMode ? (drawTool === "eraser" ? "cell" : drawTool === "select" ? "default" : "crosshair") : "default",
                         pointerEvents: drawMode ? "auto" : "none",
                       }}
                         onPointerDown={handleDraw1Down}
@@ -5172,7 +5172,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         <canvas ref={drawCanvas2Ref} style={{
                           position:"absolute", top:0, left:0, width:"100%", height:"100%",
                           borderRadius:4, touchAction:"none",
-                          cursor: drawMode ? (drawTool === "eraser" ? "cell" : "crosshair") : "default",
+                          cursor: drawMode ? (drawTool === "eraser" ? "cell" : drawTool === "select" ? "default" : "crosshair") : "default",
                           pointerEvents: drawMode ? "auto" : "none",
                         }}
                           onPointerDown={handleDraw2Down}
@@ -5246,7 +5246,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       <canvas ref={drawCanvas1Ref} style={{
                         position:"absolute", top:0, left:0, width:"100%", height:"100%",
                         borderRadius:4,
-                        cursor: drawMode ? (drawTool === "eraser" ? "cell" : "crosshair") : "default",
+                        cursor: drawMode ? (drawTool === "eraser" ? "cell" : drawTool === "select" ? "default" : "crosshair") : "default",
                         touchAction:"none",
                         pointerEvents: drawMode ? "auto" : "none",
                       }}
