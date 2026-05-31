@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.143";
+const APP_VERSION = "3.144";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3904,18 +3904,30 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (dual) {
       if (delta < 0) dualNext(); else dualPrev();
     } else if (svcSongs.length > 1 && songIdx >= 0) {
+      // 서비스 모드: 곡 간 이동
       if (delta < 0) {
         if (songIdx >= svcSongs.length - 1) { showToast("마지막 곡입니다"); return; }
         const target = svcSongs[songIdx + 1];
         flashBitmap(target.id, canvas1Ref, drawCanvas1Ref);
-        slideAnimate(1); // slides in from right
+        slideAnimate(1);
         nav("pdfViewer", { songId: target.id, svcSongIdx: songIdx + 1, backTo });
       } else {
         if (songIdx <= 0) { showToast("첫번째 곡입니다"); return; }
         const target = svcSongs[songIdx - 1];
         flashBitmap(target.id, canvas1Ref, drawCanvas1Ref);
-        slideAnimate(-1); // slides in from left
+        slideAnimate(-1);
         nav("pdfViewer", { songId: target.id, svcSongIdx: songIdx - 1, backTo });
+      }
+    } else if (numPages > 1) {
+      // 라이브러리 모드 (또는 단일 곡): PDF 페이지 이동
+      if (delta < 0) {
+        if (pageNum >= numPages) { showToast("마지막 페이지입니다"); return; }
+        slideAnimate(1);
+        setPageNum(p => p + 1);
+      } else {
+        if (pageNum <= 1) { showToast("첫번째 페이지입니다"); return; }
+        slideAnimate(-1);
+        setPageNum(p => p - 1);
       }
     }
   };
@@ -4493,6 +4505,24 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     style={{ background:"none", border:"none", cursor:"pointer", padding:pad, display:"flex", borderRadius:8 }}>
                     <Icon n="zoomIn" size={iconSz} color={C.dim} />
                   </button>
+                  {/* 페이지 이동 — numPages > 1 이고 싱글 모드일 때 */}
+                  {!dual && numPages > 1 && <>
+                    <button onClick={() => { if (pageNum > 1) { slideAnimate(-1); setPageNum(p => p - 1); } }}
+                      disabled={pageNum <= 1}
+                      title="이전 페이지"
+                      style={{ background:"none", border:"none", cursor: pageNum <= 1 ? "not-allowed" : "pointer",
+                        padding:pad, display:"flex", borderRadius:8, opacity: pageNum <= 1 ? 0.3 : 1 }}>
+                      <Icon n="prev" size={iconSz} color={C.dim} />
+                    </button>
+                    <button onClick={() => { if (pageNum < numPages) { slideAnimate(1); setPageNum(p => p + 1); } }}
+                      disabled={pageNum >= numPages}
+                      title="다음 페이지"
+                      style={{ background:"none", border:"none", cursor: pageNum >= numPages ? "not-allowed" : "pointer",
+                        padding:pad, display:"flex", borderRadius:8, opacity: pageNum >= numPages ? 0.3 : 1 }}>
+                      <Icon n="next" size={iconSz} color={C.dim} />
+                    </button>
+                    {sep}
+                  </>}
                   {/* FIT */}
                   <button onClick={autoFit} title="여백 자동 제거 후 악보 꽉 채우기 (토글)"
                     style={{ display:"flex", alignItems:"center", gap: narrow ? 3 : 4,
