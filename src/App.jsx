@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.139";
+const APP_VERSION = "3.140";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -5501,26 +5501,111 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 /* ══════════════════════════════════════════════════════════════════
    NOTIFICATIONS SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead }) {
-  const [perm, setPerm] = useState(typeof Notification !== "undefined" ? Notification.permission : "unsupported");
+function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead, user }) {
+  const [perm,        setPerm]        = useState(typeof Notification !== "undefined" ? Notification.permission : "unsupported");
+  const [tab,         setTab]         = useState("service"); // "service" | "admin"
+  const [showCompose, setShowCompose] = useState(false);
+  const [compType,    setCompType]    = useState("공지");
+  const [compContent, setCompContent] = useState("");
+  const [compTitle,   setCompTitle]   = useState("");
+  const [sending,     setSending]     = useState(false);
 
-  const requestPerm = () => {
-    Notification.requestPermission().then(p => setPerm(p));
+  const isAdmin = user?.role === "admin";
+
+  const serviceNotifs = notifs.filter(n => !n.category || n.category === "service");
+  const adminNotifs   = notifs.filter(n => n.category === "admin");
+  const activeNotifs  = tab === "service" ? serviceNotifs : adminNotifs;
+
+  const serviceUnread = serviceNotifs.filter(n => !n.read).length;
+  const adminUnread   = adminNotifs.filter(n => !n.read).length;
+
+  const requestPerm = () => Notification.requestPermission().then(p => setPerm(p));
+
+  const sendAdminNotif = async () => {
+    if (!compContent.trim()) return;
+    setSending(true);
+    try {
+      await addDoc(collection(db, "notifications"), {
+        category:   "admin",
+        notifType:  compType,
+        type:       compType,
+        title:      compTitle.trim() || compType,
+        content:    compContent.trim(),
+        body:       compContent.trim(),
+        createdAt:  serverTimestamp(),
+        readBy:     [],
+        senderRole: "admin",
+      });
+      setCompContent(""); setCompTitle(""); setCompType("공지");
+      setShowCompose(false);
+    } finally {
+      setSending(false);
+    }
   };
+
+  const tabStyle = (active) => ({
+    flex:1, padding:"10px 0", border:"none", cursor:"pointer",
+    fontFamily:"inherit", fontWeight: active ? 700 : 500,
+    fontSize:14, background:"none",
+    color: active ? C.acc : C.dim,
+    borderBottom: active ? `2px solid ${C.acc}` : "2px solid transparent",
+    transition:"color 0.15s, border-color 0.15s",
+    position:"relative",
+  });
 
   return (
     <div style={{ height:"var(--app-h, 100dvh)", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-      <div style={{ background:C.surf, padding:"18px 16px", flexShrink:0,
-        paddingTop:"calc(18px + env(safe-area-inset-top))",
-        borderBottom:`1px solid ${C.bdr}`,
-        display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>알림</div>
-        <button onClick={markAllNotifRead}
-          style={{ background:"none", border:"none", color:C.acc, fontSize:13,
-            cursor:"pointer", fontWeight:600, fontFamily:"inherit" }}>
-          모두 읽음
-        </button>
+      {/* header */}
+      <div style={{ background:C.surf, flexShrink:0,
+        paddingTop:"env(safe-area-inset-top)",
+        borderBottom:`1px solid ${C.bdr}` }}>
+        <div style={{ padding:"18px 16px 0",
+          display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>알림</div>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            {isAdmin && tab === "admin" && (
+              <button onClick={() => setShowCompose(true)}
+                style={{ background:C.red, border:"none", borderRadius:8, color:"#fff",
+                  fontSize:12, fontWeight:700, padding:"6px 12px", cursor:"pointer",
+                  fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>
+                <span style={{ fontSize:16, lineHeight:1 }}>+</span> 공지 작성
+              </button>
+            )}
+            <button onClick={markAllNotifRead}
+              style={{ background:"none", border:"none", color:C.acc, fontSize:13,
+                cursor:"pointer", fontWeight:600, fontFamily:"inherit" }}>
+              모두 읽음
+            </button>
+          </div>
+        </div>
+        {/* tabs */}
+        <div style={{ display:"flex", paddingTop:4 }}>
+          <button style={tabStyle(tab === "service")} onClick={() => setTab("service")}>
+            예배 악보
+            {serviceUnread > 0 && (
+              <span style={{ position:"absolute", top:6, right:"calc(50% - 32px)",
+                background:C.acc, color:"#fff", borderRadius:"50%",
+                width:16, height:16, fontSize:10, fontWeight:700,
+                display:"inline-flex", alignItems:"center", justifyContent:"center" }}>
+                {serviceUnread}
+              </span>
+            )}
+          </button>
+          <button style={tabStyle(tab === "admin")} onClick={() => setTab("admin")}>
+            공지·참고
+            {adminUnread > 0 && (
+              <span style={{ position:"absolute", top:6, right:"calc(50% - 28px)",
+                background:C.red, color:"#fff", borderRadius:"50%",
+                width:16, height:16, fontSize:10, fontWeight:700,
+                display:"inline-flex", alignItems:"center", justifyContent:"center" }}>
+                {adminUnread}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* list */}
       <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:90 }}>
         {/* 알림 권한 배너 */}
         {perm === "default" && (
@@ -5552,17 +5637,22 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
             ✓ 브라우저 알림 활성화됨
           </div>
         )}
-        {notifs.length === 0 && (
+
+        {activeNotifs.length === 0 && (
           <div style={{ textAlign:"center", padding:"60px 0", color:C.dim }}>
-            <div style={{ fontSize:36, marginBottom:12 }}>🔔</div>새로운 알림이 없습니다
+            <div style={{ fontSize:36, marginBottom:12 }}>{tab === "admin" ? "📢" : "🔔"}</div>
+            {tab === "admin" ? "공지·참고 알림이 없습니다" : "새로운 알림이 없습니다"}
           </div>
         )}
-        {notifs.map((n, idx) => {
-          const num = notifs.length - idx;
-          const svcDate = n.serviceDate || (services || []).find(s => s.id === n.serviceId)?.date || "";
+
+        {activeNotifs.map((n, idx) => {
+          const num = activeNotifs.length - idx;
+          const isAdminNotif = n.category === "admin";
+          const notifType    = n.notifType || n.type || "";
+          const typeClr      = notifType === "공지" ? C.red : (notifType === "참고" ? C.acc : C.pur);
+          const themeClr     = isAdminNotif ? typeClr : C.pur;
+          const svcDate  = n.serviceDate || (services || []).find(s => s.id === n.serviceId)?.date || "";
           const svcTitle = n.serviceTitle || (services || []).find(s => s.id === n.serviceId)?.title || "";
-          const isAdmin = n.senderRole === "admin";
-          const themeClr = isAdmin ? C.red : C.pur;
           return (
             <div key={n.id} className="wFadeIn"
               onClick={() => markNotifRead(n.id)}
@@ -5578,20 +5668,23 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
                 display:"flex", alignItems:"center", justifyContent:"center",
                 fontWeight:700, fontSize:14, color: n.read ? C.dim : themeClr,
               }}>
-                {num}
+                {isAdminNotif ? (notifType === "공지" ? "📢" : "📌") : num}
               </div>
               <div style={{ flex:1 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
-                  {isAdmin && (
-                    <span style={{ fontSize:9, fontWeight:800, color:C.red,
-                      background:`${C.red}18`, border:`1px solid ${C.red}44`,
-                      borderRadius:4, padding:"1px 5px", letterSpacing:"0.04em" }}>어드민</span>
+                <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2, flexWrap:"wrap" }}>
+                  {isAdminNotif && notifType && (
+                    <span style={{ fontSize:10, fontWeight:800, color: typeClr,
+                      background:`${typeClr}18`, border:`1px solid ${typeClr}44`,
+                      borderRadius:4, padding:"1px 6px", letterSpacing:"0.04em" }}>{notifType}</span>
                   )}
                   <span style={{ fontWeight:700, fontSize:14 }}>
-                    {n.type ? `[${n.type}]` : ""} {svcTitle || n.title?.replace(/^\[.*?\]\s*/, "") || ""}
+                    {isAdminNotif
+                      ? (n.title && n.title !== notifType ? n.title : "")
+                      : `${n.type ? `[${n.type}]` : ""} ${svcTitle || n.title?.replace(/^\[.*?\]\s*/, "") || ""}`
+                    }
                   </span>
                 </div>
-                {svcDate && (
+                {!isAdminNotif && svcDate && (
                   <div style={{ fontSize:11, color:C.acc, fontWeight:600, marginBottom:3 }}>📅 {svcDate}</div>
                 )}
                 <div style={{ fontSize:13, color:C.dim, lineHeight:1.5 }}>{n.content || n.body}</div>
@@ -5604,7 +5697,78 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
             </div>
           );
         })}
-      </div>   {/* scrollable */}
+      </div>
+
+      {/* admin compose modal */}
+      {showCompose && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:3000,
+          display:"flex", alignItems:"flex-end", justifyContent:"center" }}
+          onClick={e => { if (e.target === e.currentTarget) setShowCompose(false); }}>
+          <div style={{ background:C.surf, borderRadius:"20px 20px 0 0", padding:20,
+            paddingBottom:"calc(20px + env(safe-area-inset-bottom))",
+            width:"100%", maxWidth:540 }}>
+            <div style={{ fontWeight:700, fontSize:17, marginBottom:16, color:C.txt }}>공지·참고 작성</div>
+
+            {/* type selector */}
+            <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+              {["공지","참고"].map(t => (
+                <button key={t} onClick={() => setCompType(t)}
+                  style={{ flex:1, padding:"10px 0", borderRadius:10, border:"none",
+                    fontFamily:"inherit", fontWeight:700, fontSize:14, cursor:"pointer",
+                    background: compType === t
+                      ? (t === "공지" ? C.red : C.acc)
+                      : C.bg,
+                    color: compType === t ? "#fff" : C.dim,
+                    transition:"background 0.15s, color 0.15s",
+                  }}>{t}</button>
+              ))}
+            </div>
+
+            {/* optional title */}
+            <input
+              placeholder="제목 (선택사항)"
+              value={compTitle}
+              onChange={e => setCompTitle(e.target.value)}
+              style={{ width:"100%", boxSizing:"border-box",
+                padding:"11px 14px", borderRadius:10,
+                border:`1px solid ${C.bdr}`, background:C.bg,
+                fontFamily:"inherit", fontSize:14, color:C.txt,
+                marginBottom:10, outline:"none" }}
+            />
+
+            {/* content */}
+            <textarea
+              placeholder="내용을 입력하세요..."
+              value={compContent}
+              onChange={e => setCompContent(e.target.value)}
+              rows={4}
+              style={{ width:"100%", boxSizing:"border-box",
+                padding:"11px 14px", borderRadius:10,
+                border:`1px solid ${C.bdr}`, background:C.bg,
+                fontFamily:"inherit", fontSize:14, color:C.txt,
+                resize:"none", outline:"none", marginBottom:14 }}
+            />
+
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={() => setShowCompose(false)}
+                style={{ flex:1, padding:"12px 0", borderRadius:10, border:"none",
+                  background:C.bg, color:C.dim, fontFamily:"inherit",
+                  fontWeight:600, fontSize:14, cursor:"pointer" }}>
+                취소
+              </button>
+              <button onClick={sendAdminNotif} disabled={sending || !compContent.trim()}
+                style={{ flex:2, padding:"12px 0", borderRadius:10, border:"none",
+                  background: compType === "공지" ? C.red : C.acc,
+                  color:"#fff", fontFamily:"inherit", fontWeight:700,
+                  fontSize:14, cursor: sending ? "wait" : "pointer",
+                  opacity: (!compContent.trim() || sending) ? 0.6 : 1,
+                  transition:"opacity 0.15s" }}>
+                {sending ? "전송 중..." : "전송"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -6750,6 +6914,7 @@ export default function App() {
           services={services}
           markNotifRead={markNotifRead}
           markAllNotifRead={markAllNotifRead}
+          user={user}
         />
       )}
       {view === "profile" && (
