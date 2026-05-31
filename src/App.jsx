@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.133";
+const APP_VERSION = "3.134";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2895,6 +2895,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [dualIdx,  setDualIdx]  = useState(Math.max(0, songIdx));
   const dualPdf1Ref = useRef(null);  // dual left song PDF doc
   const dualPdf2Ref = useRef(null);  // dual right song PDF doc
+  const dualImg1Ref = useRef(null);  // dual left song image
+  const dualImg2Ref = useRef(null);  // dual right song image
   const [dualKey,  setDualKey]  = useState(0); // bumped once when both PDFs are ready
   const [dualToast, setDualToast] = useState("");
   const touchStartX  = useRef(null);
@@ -3439,23 +3441,40 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   }, [song?.imageUrl, selectedSongId, dual, song?.pdfUrl]);
 
   // PDF 로드 (듀얼 모드) — Promise.all로 두 곡 동시 로드, 완료 후 한 번만 렌더 트리거
-  const dualLeftUrl   = svcSongs[dualIdx]?.pdfUrl      || null;
-  const dualRightUrl  = svcSongs[dualIdx + 1]?.pdfUrl  || null;
-  const dualLeftPage  = svcSongs[dualIdx]?.pdfPage      || 1;
-  const dualRightPage = svcSongs[dualIdx + 1]?.pdfPage  || 1;
+  const dualLeftUrl       = svcSongs[dualIdx]?.pdfUrl        || null;
+  const dualRightUrl      = svcSongs[dualIdx + 1]?.pdfUrl    || null;
+  const dualLeftPage      = svcSongs[dualIdx]?.pdfPage        || 1;
+  const dualRightPage     = svcSongs[dualIdx + 1]?.pdfPage    || 1;
+  const dualLeftImageUrl  = svcSongs[dualIdx]?.imageUrl       || null;
+  const dualRightImageUrl = svcSongs[dualIdx + 1]?.imageUrl   || null;
   useEffect(() => {
-    if (!dual || !pdfjsReady || !window.pdfjsLib) return;
+    if (!dual) return;
     dualPdf1Ref.current = null;
     dualPdf2Ref.current = null;
-    const load = (url) => url
+    dualImg1Ref.current = null;
+    dualImg2Ref.current = null;
+    const loadPdf = (url) => (url && pdfjsReady && window.pdfjsLib)
       ? window.pdfjsLib.getDocument({ url }).promise.catch(() => null)
       : Promise.resolve(null);
-    Promise.all([load(dualLeftUrl), load(dualRightUrl)]).then(([p1, p2]) => {
+    const loadImg = (url) => new Promise(resolve => {
+      if (!url) return resolve(null);
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload  = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+    Promise.all([
+      loadPdf(dualLeftUrl), loadPdf(dualRightUrl),
+      loadImg(dualLeftImageUrl), loadImg(dualRightImageUrl),
+    ]).then(([p1, p2, i1, i2]) => {
       dualPdf1Ref.current = p1;
       dualPdf2Ref.current = p2;
-      setDualKey(k => k + 1); // single render trigger after both are ready
+      dualImg1Ref.current = i1;
+      dualImg2Ref.current = i2;
+      setDualKey(k => k + 1); // single render trigger after all are ready
     });
-  }, [dual, dualIdx, dualLeftUrl, dualRightUrl, pdfjsReady]);
+  }, [dual, dualIdx, dualLeftUrl, dualRightUrl, dualLeftImageUrl, dualRightImageUrl, pdfjsReady]);
 
   // cropBox를 적용해 캔버스에 렌더링하는 헬퍼
   const renderWithCrop = async (canvas, pdfDoc, pdfPageNum, cropBox, availW, availH) => {
@@ -3507,18 +3526,31 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         // 듀얼: 좌우 두 곡 (각 곡의 pdfPage 기준 페이지)
         const halfW  = Math.floor(cSize.w / 2) - pad * 2;
         const availH = cSize.h - pad * 2;
-        const renderTo = async (ref, drawRef, strokesRef2, pdfDoc, pdfPageNum = 1, cropBox = null) => {
+        const renderTo = async (ref, drawRef, strokesRef2, pdfDoc, imgObj, pdfPageNum = 1, cropBox = null) => {
           if (!ref.current) return;
-          if (!pdfDoc) { ref.current.width = 0; ref.current.height = 0; return; }
-          await renderWithCrop(ref.current, pdfDoc, pdfPageNum, cropBox, halfW, availH);
+          if (!pdfDoc && !imgObj) { ref.current.width = 0; ref.current.height = 0; return; }
+          if (imgObj && !pdfDoc) {
+            // image song
+            const scale = Math.min(halfW / imgObj.width, availH / imgObj.height) * zoomMul;
+            const dW = Math.round(imgObj.width  * scale);
+            const dH = Math.round(imgObj.height * scale);
+            const off = document.createElement("canvas");
+            off.width = dW; off.height = dH;
+            off.getContext("2d").drawImage(imgObj, 0, 0, dW, dH);
+            ref.current.width  = dW;
+            ref.current.height = dH;
+            ref.current.getContext("2d").drawImage(off, 0, 0);
+          } else {
+            await renderWithCrop(ref.current, pdfDoc, pdfPageNum, cropBox, halfW, availH);
+          }
           if (drawRef.current) {
             drawRef.current.width  = ref.current.width;
             drawRef.current.height = ref.current.height;
             drawStrokes(drawRef.current, strokesRef2.current);
           }
         };
-        await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, dualPdf1Ref.current, dualLeftPage,  dualLeftCrop);
-        await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, dualPdf2Ref.current, dualRightPage, dualRightCrop);
+        await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, dualPdf1Ref.current, dualImg1Ref.current, dualLeftPage,  dualLeftCrop);
+        await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, dualPdf2Ref.current, dualImg2Ref.current, dualRightPage, dualRightCrop);
         // 듀얼 FIT 모드: 새 곡 쌍이 렌더된 직후 좌/우 양쪽 분석 후 재적용
         if (needsFitRef.current) {
           needsFitRef.current = false;
@@ -4718,7 +4750,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               <div style={{ width:"50%", height:"100%", display:"flex",
                 alignItems:"center", justifyContent:"center",
                 borderRight:`1px solid ${C.bdr}`, overflow:"hidden", padding:8 }}>
-                {svcSongs[dualIdx]?.pdfUrl
+                {(svcSongs[dualIdx]?.pdfUrl || svcSongs[dualIdx]?.imageUrl)
                   ? <div style={{ position:"relative", display:"inline-block", lineHeight:0 }}>
                       <canvas ref={canvas1Ref} style={{ display:"block",
                         borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
@@ -4782,7 +4814,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 alignItems:"center", justifyContent:"center",
                 overflow:"hidden", padding:8 }}>
                 {svcSongs[dualIdx + 1]
-                  ? svcSongs[dualIdx + 1].pdfUrl
+                  ? (svcSongs[dualIdx + 1].pdfUrl || svcSongs[dualIdx + 1].imageUrl)
                     ? <div style={{ position:"relative", display:"inline-block", lineHeight:0 }}>
                         <canvas ref={canvas2Ref} style={{ display:"block",
                           borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
