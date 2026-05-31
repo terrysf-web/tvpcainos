@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.135";
+const APP_VERSION = "3.136";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2901,6 +2901,9 @@ function detectContentBounds(pdfCanvas, drawCanvas) {
   return x0 < x1 && y0 < y1 ? { x0, y0, x1, y1, W, H } : null;
 }
 
+/* 세션 전체에서 공유되는 PDF 문서 캐시 (재파싱 방지) */
+const _pdfCache = {};
+
 function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady }) {
   const song = songs.find(s => s.id === selectedSongId);
 
@@ -2938,6 +2941,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const dualImg1Ref = useRef(null);  // dual left song image
   const dualImg2Ref = useRef(null);  // dual right song image
   const [dualKey,  setDualKey]  = useState(0); // bumped once when both PDFs are ready
+  const preBitmapRef  = useRef({}); // songId → pre-rendered HTMLCanvasElement
+  const preRenderBusy = useRef(new Set());
   const [dualToast, setDualToast] = useState("");
   const touchStartX  = useRef(null);
   const touchStartY  = useRef(null);
@@ -3456,15 +3461,21 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       { transposeSteps: newSteps, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
   };
 
-  // PDF 로드 (싱글 모드)
+  // PDF 로드 (싱글 모드) — _pdfCache로 재파싱 없이 즉시 사용
   useEffect(() => {
     if (dual) return;
     pdfDocRef.current = null;
     imageRef.current  = null;
     setPageNum(song?.pdfPage || 1); setNumPages(0); setLoadErr("");
     if (!song?.pdfUrl || !pdfjsReady || !window.pdfjsLib) return;
-    window.pdfjsLib.getDocument({ url: song.pdfUrl }).promise
-      .then(pdf => { pdfDocRef.current = pdf; setNumPages(pdf.numPages); })
+    const url = song.pdfUrl;
+    if (_pdfCache[url]) {
+      pdfDocRef.current = _pdfCache[url];
+      setNumPages(_pdfCache[url].numPages);
+      return;
+    }
+    window.pdfjsLib.getDocument({ url }).promise
+      .then(pdf => { _pdfCache[url] = pdf; pdfDocRef.current = pdf; setNumPages(pdf.numPages); })
       .catch(() => setLoadErr("PDF를 불러올 수 없습니다"));
   }, [song?.pdfUrl, pdfjsReady, selectedSongId, dual]);
 
@@ -3493,9 +3504,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     dualPdf2Ref.current = null;
     dualImg1Ref.current = null;
     dualImg2Ref.current = null;
-    const loadPdf = (url) => (url && pdfjsReady && window.pdfjsLib)
-      ? window.pdfjsLib.getDocument({ url }).promise.catch(() => null)
-      : Promise.resolve(null);
+    const loadPdf = (url) => {
+      if (!url || !pdfjsReady || !window.pdfjsLib) return Promise.resolve(null);
+      if (_pdfCache[url]) return Promise.resolve(_pdfCache[url]);
+      return window.pdfjsLib.getDocument({ url }).promise
+        .then(pdf => { _pdfCache[url] = pdf; return pdf; })
+        .catch(() => null);
+    };
     const loadImg = (url) => new Promise(resolve => {
       if (!url) return resolve(null);
       const img = new Image();
@@ -3553,6 +3568,91 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       canvas.height = off.height;
       canvas.getContext("2d").drawImage(off, 0, 0);
     }
+  };
+
+  // 즉시 캔버스에 캐시된 비트맵 표시 (스와이프 순간 반응)
+  const flashBitmap = (songId, cRef, dcRef) => {
+    const bmp = preBitmapRef.current[songId];
+    if (!bmp || !cRef.current) return false;
+    cRef.current.width  = bmp.width;
+    cRef.current.height = bmp.height;
+    cRef.current.getContext("2d").drawImage(bmp, 0, 0);
+    if (dcRef.current) {
+      dcRef.current.width  = bmp.width;
+      dcRef.current.height = bmp.height;
+      dcRef.current.getContext("2d").clearRect(0, 0, bmp.width, bmp.height);
+    }
+    return true;
+  };
+
+  // 인접 곡을 백그라운드에서 미리 렌더 → preBitmapRef 에 저장
+  const preRenderSongToCache = async (targetSong) => {
+    if (!targetSong || !cSize.w || !cSize.h) return;
+    if (!targetSong.pdfUrl && !targetSong.imageUrl) return;
+    const id = targetSong.id;
+    if (preBitmapRef.current[id] || preRenderBusy.current.has(id)) return;
+    preRenderBusy.current.add(id);
+    try {
+      const pad    = 8;
+      const availW = cSize.w - pad * 2;
+      const availH = cSize.h - pad * 2;
+      const off    = document.createElement("canvas");
+      if (targetSong.pdfUrl && pdfjsReady && window.pdfjsLib) {
+        const url = targetSong.pdfUrl;
+        let pdf = _pdfCache[url];
+        if (!pdf) {
+          pdf = await window.pdfjsLib.getDocument({ url }).promise;
+          _pdfCache[url] = pdf;
+        }
+        const pageN = targetSong.pdfPage || 1;
+        const page  = await pdf.getPage(pageN);
+        const base  = page.getViewport({ scale: 1 });
+        const cb    = targetSong.cropBox &&
+          (targetSong.cropBox.left > 0.001 || targetSong.cropBox.top > 0.001 ||
+           targetSong.cropBox.right < 0.999 || targetSong.cropBox.bottom < 0.999)
+          ? targetSong.cropBox : null;
+        let sc;
+        if (cb) {
+          const cw = (cb.right - cb.left) * base.width;
+          const ch = (cb.bottom - cb.top) * base.height;
+          sc = Math.min(availW / cw, availH / ch) * zoomMul;
+          off.width  = Math.round(cw * sc);
+          off.height = Math.round(ch * sc);
+          const fullVp = page.getViewport({ scale: sc });
+          const tmp = document.createElement("canvas");
+          tmp.width  = Math.round(fullVp.width);
+          tmp.height = Math.round(fullVp.height);
+          await page.render({ canvasContext: tmp.getContext("2d"), viewport: fullVp }).promise;
+          off.getContext("2d").drawImage(tmp, cb.left * fullVp.width, cb.top * fullVp.height, off.width, off.height, 0, 0, off.width, off.height);
+        } else {
+          sc = Math.min(availW / base.width, availH / base.height) * zoomMul;
+          off.width  = Math.round(base.width  * sc);
+          off.height = Math.round(base.height * sc);
+          await page.render({ canvasContext: off.getContext("2d"), viewport: page.getViewport({ scale: sc }) }).promise;
+        }
+      } else if (targetSong.imageUrl) {
+        const img = await new Promise(resolve => {
+          const i = new Image(); i.crossOrigin = "anonymous";
+          i.onload = () => resolve(i); i.onerror = () => resolve(null);
+          i.src = targetSong.imageUrl;
+        });
+        if (!img) return;
+        const cb = targetSong.cropBox &&
+          (targetSong.cropBox.left > 0.001 || targetSong.cropBox.top > 0.001 ||
+           targetSong.cropBox.right < 0.999 || targetSong.cropBox.bottom < 0.999)
+          ? targetSong.cropBox : null;
+        const srcX = cb ? cb.left  * img.width  : 0;
+        const srcY = cb ? cb.top   * img.height : 0;
+        const srcW = cb ? (cb.right  - cb.left)  * img.width  : img.width;
+        const srcH = cb ? (cb.bottom - cb.top)   * img.height : img.height;
+        const sc   = Math.min(availW / srcW, availH / srcH) * zoomMul;
+        off.width  = Math.round(srcW * sc);
+        off.height = Math.round(srcH * sc);
+        off.getContext("2d").drawImage(img, srcX, srcY, srcW, srcH, 0, 0, off.width, off.height);
+      }
+      if (off.width > 0 && off.height > 0) preBitmapRef.current[id] = off;
+    } catch { /* ignore — 다음 기회에 다시 시도 */ }
+    finally { preRenderBusy.current.delete(id); }
   };
 
   // 페이지 렌더링 — 컨테이너에 꼭 맞게
@@ -3688,6 +3788,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (!dual && singleFitModeRef.current) singleNeedsFitRef.current = true;
   }, [selectedSongId, pageNum, dual]);
 
+  // 인접 곡 미리 렌더 (싱글 모드) — 현재 곡 렌더 완료 후 백그라운드 실행
+  useEffect(() => {
+    if (dual || !cSize.w || !cSize.h) return;
+    const prev = svcSongs[songIdx - 1];
+    const next = svcSongs[songIdx + 1];
+    if (prev) preRenderSongToCache(prev);
+    if (next) preRenderSongToCache(next);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSongId, dual, cSize.w, cSize.h, zoomMul, pdfjsReady]);
+
+  // 인접 곡 미리 렌더 (듀얼 모드)
+  useEffect(() => {
+    if (!dual || !cSize.w || !cSize.h) return;
+    [svcSongs[dualIdx - 1], svcSongs[dualIdx + 2], svcSongs[dualIdx + 3]]
+      .filter(Boolean)
+      .forEach(s => preRenderSongToCache(s));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dualIdx, dual, cSize.w, cSize.h, zoomMul, pdfjsReady]);
+
   const showToast = useCallback((msg) => {
     setDualToast(msg);
     clearTimeout(toastTimer.current);
@@ -3696,13 +3815,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   const dualPrev = useCallback(() => {
     if (dualIdx <= 0) { showToast("첫번째 곡입니다"); return; }
+    const l = svcSongs[dualIdx - 1];
+    const r = svcSongs[dualIdx];
+    if (l) flashBitmap(l.id, canvas1Ref, drawCanvas1Ref);
+    if (r) flashBitmap(r.id, canvas2Ref, drawCanvas2Ref);
     setDualIdx(i => i - 1);
-  }, [dualIdx, showToast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dualIdx, svcSongs, showToast]);
 
   const dualNext = useCallback(() => {
     if (dualIdx >= svcSongs.length - 1) { showToast("마지막 곡입니다"); return; }
+    const l = svcSongs[dualIdx + 1];
+    const r = svcSongs[dualIdx + 2];
+    if (l) flashBitmap(l.id, canvas1Ref, drawCanvas1Ref);
+    if (r) flashBitmap(r.id, canvas2Ref, drawCanvas2Ref);
     setDualIdx(i => i + 1);
-  }, [dualIdx, svcSongs.length, showToast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dualIdx, svcSongs, showToast]);
 
   const handleTouchStart = (e) => {
     if (drawModeRef.current) return;
@@ -3717,11 +3846,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       if (delta < 0) dualNext(); else dualPrev();
     } else if (svcSongs.length > 1 && songIdx >= 0) {
       if (delta < 0) {
-        if (songIdx >= svcSongs.length - 1) showToast("마지막 곡입니다");
-        else nav("pdfViewer", { songId: svcSongs[songIdx + 1].id, svcSongIdx: songIdx + 1, backTo });
+        if (songIdx >= svcSongs.length - 1) { showToast("마지막 곡입니다"); return; }
+        const target = svcSongs[songIdx + 1];
+        flashBitmap(target.id, canvas1Ref, drawCanvas1Ref); // 캐시 있으면 즉시 표시
+        nav("pdfViewer", { songId: target.id, svcSongIdx: songIdx + 1, backTo });
       } else {
-        if (songIdx <= 0) showToast("첫번째 곡입니다");
-        else nav("pdfViewer", { songId: svcSongs[songIdx - 1].id, svcSongIdx: songIdx - 1, backTo });
+        if (songIdx <= 0) { showToast("첫번째 곡입니다"); return; }
+        const target = svcSongs[songIdx - 1];
+        flashBitmap(target.id, canvas1Ref, drawCanvas1Ref);
+        nav("pdfViewer", { songId: target.id, svcSongIdx: songIdx - 1, backTo });
       }
     }
   };
