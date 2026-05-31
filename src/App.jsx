@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.157";
+const APP_VERSION = "3.158";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1148,7 +1148,29 @@ function AddSongModal({ onClose, onAdd }) {
     setPdfPageCount(0);
     setSplitEntries([]);
     setCropBox(null);
-    if (!file || !window.pdfjsLib) return;
+    if (!file) return;
+    if (!window.pdfjsLib) {
+      await new Promise(resolve => {
+        const existing = document.querySelector('script[src*="pdf.min.js"]');
+        if (existing) {
+          existing.addEventListener('load', resolve, { once: true });
+          existing.addEventListener('error', resolve, { once: true });
+        } else {
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+          s.onload = () => {
+            if (window.pdfjsLib) {
+              window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+                "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+            }
+            resolve();
+          };
+          s.onerror = resolve;
+          document.head.appendChild(s);
+        }
+      });
+    }
+    if (!window.pdfjsLib) return;
     try {
       const buf = await file.arrayBuffer();
       const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
