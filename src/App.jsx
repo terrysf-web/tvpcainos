@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.158";
+const APP_VERSION = "3.159";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1184,7 +1184,7 @@ function AddSongModal({ onClose, onAdd }) {
     setSplitEntries(
       Array.from({ length: pdfPageCount }, (_, i) => ({
         title: title ? `${title} (${i + 1})` : `페이지 ${i + 1}`,
-        artist, key, bpm,
+        artist, key, bpm, selected: true,
       }))
     );
   };
@@ -1201,12 +1201,14 @@ function AddSongModal({ onClose, onAdd }) {
     setSaving(true);
     try {
       if (splitMode && pdfPageCount > 1) {
-        // Upload PDF once using first song's id, then reuse url
-        const first = splitEntries[0];
-        setSavingPage(`1/${pdfPageCount}`);
+        const toSave = splitEntries
+          .map((e, i) => ({ ...e, pageNum: i + 1 }))
+          .filter(e => e.selected);
+        setSavingPage(`1/${toSave.length}`);
+        const first = toSave[0];
         const firstRef = await onAdd({
           title: first.title, artist: first.artist,
-          key: first.key, bpm: Number(first.bpm) || 80, pdfPage: 1,
+          key: first.key, bpm: Number(first.bpm) || 80, pdfPage: first.pageNum,
         });
         let sharedUrl = null;
         if (pdfFile && firstRef?.id) {
@@ -1215,12 +1217,12 @@ function AddSongModal({ onClose, onAdd }) {
           if (cropBox) extra.cropBox = cropBox;
           await updateDoc(doc(db, "songs", firstRef.id), extra);
         }
-        for (let i = 1; i < splitEntries.length; i++) {
-          const e = splitEntries[i];
-          setSavingPage(`${i + 1}/${pdfPageCount}`);
+        for (let i = 1; i < toSave.length; i++) {
+          const e = toSave[i];
+          setSavingPage(`${i + 1}/${toSave.length}`);
           const ref = await onAdd({
             title: e.title, artist: e.artist,
-            key: e.key, bpm: Number(e.bpm) || 80, pdfPage: i + 1,
+            key: e.key, bpm: Number(e.bpm) || 80, pdfPage: e.pageNum,
           });
           if (sharedUrl && ref?.id) {
             const extra = { pdfUrl: sharedUrl };
@@ -1249,8 +1251,9 @@ function AddSongModal({ onClose, onAdd }) {
     }
   };
 
+  const selectedEntries = splitEntries.filter(e => e.selected);
   const canAdd = splitMode
-    ? splitEntries.length > 0 && splitEntries.every(e => e.title.trim())
+    ? selectedEntries.length > 0 && selectedEntries.every(e => e.title.trim())
     : !!title.trim();
 
   return (
@@ -1467,21 +1470,39 @@ function AddSongModal({ onClose, onAdd }) {
           }}>
             <div style={{ fontSize:11, color:C.pur, fontWeight:700, letterSpacing:"0.06em",
               textTransform:"uppercase" }}>
-              분할 저장 — {pdfPageCount}페이지
+              분할 저장 — {selectedEntries.length}/{pdfPageCount} 선택
             </div>
-            <button onClick={() => setSplitMode(false)} style={{
-              background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
-              padding:"2px 8px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit",
-            }}>취소</button>
+            <div style={{ display:"flex", gap:5 }}>
+              <button onClick={() => setSplitEntries(p => p.map(e => ({ ...e, selected: true })))} style={{
+                background:"transparent", border:`1px solid ${C.pur}66`, borderRadius:6,
+                padding:"2px 8px", cursor:"pointer", fontSize:11, color:C.pur, fontFamily:"inherit",
+              }}>전체선택</button>
+              <button onClick={() => setSplitMode(false)} style={{
+                background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
+                padding:"2px 8px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit",
+              }}>취소</button>
+            </div>
           </div>
           <div style={{ maxHeight:280, overflowY:"auto", display:"flex", flexDirection:"column", gap:8 }}>
             {splitEntries.map((e, i) => (
               <div key={i} style={{
-                background:C.card, borderRadius:10, padding:"10px 12px",
-                border:`1px solid ${C.bdr}`,
+                background: e.selected ? C.card : C.bg,
+                borderRadius:10, padding:"10px 12px",
+                border:`1px solid ${e.selected ? C.bdr : C.bdr + "55"}`,
+                opacity: e.selected ? 1 : 0.5,
               }}>
-                <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:6 }}>
-                  페이지 {i + 1}
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+                  <div style={{ fontSize:11, color:C.dim, fontWeight:700 }}>
+                    페이지 {i + 1}
+                  </div>
+                  <button onClick={() => updateEntry(i, "selected", !e.selected)} style={{
+                    background: e.selected ? `${C.grn}20` : C.card,
+                    border:`1px solid ${e.selected ? C.grn : C.bdr}`,
+                    borderRadius:6, padding:"2px 10px", cursor:"pointer",
+                    fontSize:11, color: e.selected ? C.grn : C.dim, fontFamily:"inherit", fontWeight:600,
+                  }}>
+                    {e.selected ? "✓ 포함" : "제외"}
+                  </button>
                 </div>
                 <input
                   value={e.title}
@@ -1540,7 +1561,7 @@ function AddSongModal({ onClose, onAdd }) {
       )}
 
       <Btn
-        label={saving ? (savingPage ? `저장 중... ${savingPage}` : "추가 중...") : (splitMode ? `${pdfPageCount}개 곡 추가하기` : "추가하기")}
+        label={saving ? (savingPage ? `저장 중... ${savingPage}` : "추가 중...") : (splitMode ? `${selectedEntries.length}개 곡 추가하기` : "추가하기")}
         icon="plus" onClick={handleAdd} full disabled={saving || !canAdd}
       />
     </Modal>
@@ -1774,9 +1795,9 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
         }}>
         <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:10 }}>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontWeight: first ? 800 : 700, fontSize: first ? 17 : 16 }}>{svc.title}</div>
+            <div style={{ fontWeight: first ? 800 : 700, fontSize: first ? 17 : 16 }}>{fmtDate(svc.date)}</div>
             <div style={{ color: first ? C.acc : C.dim, fontSize:13, marginTop:3, fontWeight: first ? 600 : 400 }}>
-              📅 {fmtDate(svc.date)}{svc.time ? ` · ${svc.time}` : ""}
+              {svc.title}{svc.time ? ` · ${svc.time}` : ""}
             </div>
           </div>
           {svc.notified && (
