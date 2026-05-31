@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.142";
+const APP_VERSION = "3.143";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3755,8 +3755,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         if (needsFitRef.current) {
           needsFitRef.current = false;
           const PAD = 16;
-          const fw = Math.floor(cSize.w / 2) - 16;
-          const fh = cSize.h - 16;
+          const fw = Math.floor(cSize.w / 2); // dual renders pad=0, so slot = full half width
+          const fh = cSize.h;
           let best = Infinity;
           for (const [pc, dc] of [
             [canvas1Ref.current, drawCanvas1Ref.current],
@@ -3773,11 +3773,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           }
         }
       } else {
-        // 싱글: 이미지 악보 렌더
+        // 싱글: 이미지 악보 렌더 (패딩 8px 유지 — FIT panOffset과 center 정렬 기준 맞춤)
         if (!pdfDocRef.current && imageRef.current && canvas1Ref.current) {
           const img    = imageRef.current;
-          const availW = cSize.w;
-          const availH = cSize.h;
+          const availW = cSize.w - 16;
+          const availH = cSize.h - 16;
           const cb     = song?.cropBox;
           const hasCb  = cb && (cb.left > 0.001 || cb.top > 0.001 || cb.right < 0.999 || cb.bottom < 0.999);
           let srcX = 0, srcY = 0, srcW = img.width, srcH = img.height;
@@ -3800,8 +3800,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         }
         // 싱글: PDF 한 페이지 꽉 맞춤
         if (!pdfDocRef.current || !canvas1Ref.current) return;
-        const availW = cSize.w;
-        const availH = cSize.h;
+        const availW = cSize.w - 16;
+        const availH = cSize.h - 16;
         await renderWithCrop(canvas1Ref.current, pdfDocRef.current, pageNum, song?.cropBox || null, availW, availH);
         if (drawCanvas1Ref.current) {
           drawCanvas1Ref.current.width  = canvas1Ref.current.width;
@@ -3848,8 +3848,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (dual || !cSize.w || !cSize.h) return;
     const prev = svcSongs[songIdx - 1];
     const next = svcSongs[songIdx + 1];
-    if (prev) preRenderSongToCache(prev);
-    if (next) preRenderSongToCache(next);
+    // single mode renders at cSize.w-16, pass that as slotW for consistent bitmaps
+    if (prev) preRenderSongToCache(prev, cSize.w - 16);
+    if (next) preRenderSongToCache(next, cSize.w - 16);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSongId, dual, cSize.w, cSize.h, zoomMul, pdfjsReady]);
 
@@ -5262,7 +5263,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           ) : (
             // ── 싱글 모드 (panOffset transform으로 D-패드 이동)
             <div style={{ width:"100%", height:"100%", display:"flex",
-              alignItems:"flex-start", justifyContent:"center", background:"#fff",
+              alignItems:"center", justifyContent:"center", padding:8,
               transform: panOffset.x !== 0 || panOffset.y !== 0
                 ? `translate(${panOffset.x}px,${panOffset.y}px)` : undefined,
               willChange: panOffset.x !== 0 || panOffset.y !== 0 ? "transform" : undefined,
@@ -5271,7 +5272,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 loadErr
                   ? <div style={{ color:C.red, fontSize:13 }}>{loadErr}</div>
                   : <div style={{ position:"relative", display:"inline-block", lineHeight:0, flexShrink:0 }}>
-                      <canvas ref={canvas1Ref} style={{ display:"block" }} />
+                      <canvas ref={canvas1Ref} style={{ display:"block",
+                        borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
                       <canvas ref={drawCanvas1Ref} style={{
                         position:"absolute", top:0, left:0, width:"100%", height:"100%",
                         borderRadius:4,
