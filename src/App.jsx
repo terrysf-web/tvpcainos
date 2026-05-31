@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.160";
+const APP_VERSION = "3.161";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -364,6 +364,7 @@ const STAMP_GROUPS = [
     { sym:"𝄫",  italic:false },
   ]},
   { label:"기타", items:[
+    { sym:"○", italic:false },
     { sym:"✓", italic:false },
     { sym:"★", italic:false },
     { sym:"!", italic:false },
@@ -3261,6 +3262,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const preClearTeamRef1   = useRef(null);
   const preClearTeamRef2   = useRef(null);
   const [teamDrawMode, setTeamDrawMode] = useState(false);
+  const stampPressed1Ref   = useRef(false); // Apple Pencil hover guard
+  const stampPressed2Ref   = useRef(false);
 
   const myNotes   = annotations[selectedSongId]     || [];
   const teamNotes = (teamAnnotations || {})[selectedSongId] || [];
@@ -4435,6 +4438,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (drawTool === "stamp") {
+      stampPressed1Ref.current = true;
       const pt = getCanvasPt(e, canvas);
       lastPt1Ref.current = pt;
       updateLoupe(e, canvas1Ref.current, canvas, stampSymbol, stampItalic, drawColor);
@@ -4475,6 +4479,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (drawTool === "stamp") {
+      if (!stampPressed1Ref.current && e.buttons === 0) return; // pencil hover - ignore
       lastPt1Ref.current = getCanvasPt(e, canvas);
       updateLoupe(e, canvas1Ref.current, canvas, stampSymbol, stampItalic, drawColor);
       setLoupePos({ x: e.clientX, y: e.clientY });
@@ -4505,6 +4510,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }
     if (drawTool === "stamp") {
       setLoupePos(null);
+      if (!stampPressed1Ref.current) return; // hover exit — not a real tap
+      stampPressed1Ref.current = false;
       const canvas = teamDrawMode ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current;
       if (!canvas) return;
       const coordCanvas = drawCanvas1Ref.current || canvas;
@@ -4553,6 +4560,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
   const handleDraw1Cancel = () => {
     setLoupePos(null);
+    stampPressed1Ref.current = false;
     shapeStart1Ref.current = null;
     isDrawing1Ref.current = false; curStroke1Ref.current = null;
     selDragRef.current = null;
@@ -4600,6 +4608,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (drawTool === "stamp") {
+      stampPressed2Ref.current = true;
       const pt = getCanvasPt(e, canvas);
       lastPt2Ref.current = pt;
       updateLoupe(e, canvas2Ref.current, canvas, stampSymbol, stampItalic, drawColor);
@@ -4640,6 +4649,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (drawTool === "stamp") {
+      if (!stampPressed2Ref.current && e.buttons === 0) return; // pencil hover - ignore
       lastPt2Ref.current = getCanvasPt(e, canvas);
       updateLoupe(e, canvas2Ref.current, canvas, stampSymbol, stampItalic, drawColor);
       setLoupePos({ x: e.clientX, y: e.clientY });
@@ -4669,6 +4679,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }
     if (drawTool === "stamp") {
       setLoupePos(null);
+      if (!stampPressed2Ref.current) return; // hover exit — not a real tap
+      stampPressed2Ref.current = false;
       const canvas = teamDrawMode ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
       if (!canvas) return;
       const coordCanvas = drawCanvas2Ref.current || canvas;
@@ -4714,6 +4726,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
   const handleDraw2Cancel = () => {
     setLoupePos(null);
+    stampPressed2Ref.current = false;
     shapeStart2Ref.current = null;
     isDrawing2Ref.current = false; curStroke2Ref.current = null;
     selDragRef.current = null;
@@ -5258,29 +5271,29 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               padding:"8px 10px", display:"flex", flexDirection:"column", gap:3,
             }}>
               {STAMP_GROUPS.map(group => (
-                <div key={group.label} style={{ display:"flex", alignItems:"center", gap:3 }}>
-                  <span style={{ fontSize:8, color:C.dim, fontWeight:700, width:26, textAlign:"right",
+                <div key={group.label} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                  <span style={{ fontSize:9, color:C.dim, fontWeight:700, width:32, textAlign:"right",
                     flexShrink:0, letterSpacing:"0.04em" }}>{group.label}</span>
                   {group.items.map(st => (
                     <button key={st.sym}
                       onClick={() => { setStampSymbol(st.sym); setStampItalic(st.italic); }}
                       style={{
-                        width:28, height:24,
+                        width:38, height:32,
                         display:"flex", alignItems:"center", justifyContent:"center",
                         background: stampSymbol === st.sym ? `${C.acc}22` : "transparent",
                         border:`1px solid ${stampSymbol === st.sym ? C.acc : C.bdr}`,
-                        borderRadius:5, cursor:"pointer", padding:0, flexShrink:0,
+                        borderRadius:6, cursor:"pointer", padding:0, flexShrink:0,
                       }}>
                       {st.sym === "staff" ? (
-                        <svg width="20" height="12" viewBox="0 0 20 12" style={{ display:"block" }}>
+                        <svg width="24" height="14" viewBox="0 0 24 14" style={{ display:"block" }}>
                           {[0,1,2,3,4].map(i => (
-                            <line key={i} x1="1" y1={1+i*2.5} x2="19" y2={1+i*2.5}
-                              stroke={stampSymbol === "staff" ? C.acc : C.dim} strokeWidth="0.9" />
+                            <line key={i} x1="1" y1={1+i*3} x2="23" y2={1+i*3}
+                              stroke={stampSymbol === "staff" ? C.acc : C.dim} strokeWidth="1" />
                           ))}
                         </svg>
                       ) : (
                         <span style={{
-                          fontSize:11, fontWeight:700,
+                          fontSize:13, fontWeight:700,
                           color: stampSymbol === st.sym ? C.acc : C.txt,
                           fontStyle: st.italic ? "italic" : "normal",
                           fontFamily: st.italic ? '"Times New Roman", Georgia, serif' : "inherit",
@@ -5659,7 +5672,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         onPointerMove={handleDraw1Move}
                         onPointerUp={handleDraw1Up}
                         onPointerCancel={handleDraw1Cancel}
-                        onPointerLeave={() => { if (drawTool === "text" && !textInput) setTextDot(null); }}
+                        onPointerLeave={() => {
+                          if (drawTool === "text" && !textInput) setTextDot(null);
+                          if (drawTool === "stamp") { stampPressed1Ref.current = false; setLoupePos(null); }
+                        }}
                       />
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 400;
@@ -5728,7 +5744,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           onPointerMove={handleDraw2Move}
                           onPointerUp={handleDraw2Up}
                           onPointerCancel={handleDraw2Cancel}
-                          onPointerLeave={() => { if (drawTool === "text" && !textInput) setTextDot(null); }}
+                          onPointerLeave={() => {
+                            if (drawTool === "text" && !textInput) setTextDot(null);
+                            if (drawTool === "stamp") { stampPressed2Ref.current = false; setLoupePos(null); }
+                          }}
                         />
                         {transposeMode && chordData2.length > 0 && (() => {
                           const cw = canvas2Ref.current?.offsetWidth  || 400;
@@ -5809,7 +5828,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         onPointerMove={handleDraw1Move}
                         onPointerUp={handleDraw1Up}
                         onPointerCancel={handleDraw1Cancel}
-                        onPointerLeave={() => { if (drawTool === "text" && !textInput) setTextDot(null); }}
+                        onPointerLeave={() => {
+                          if (drawTool === "text" && !textInput) setTextDot(null);
+                          if (drawTool === "stamp") { stampPressed1Ref.current = false; setLoupePos(null); }
+                        }}
                       />
                       {/* 전조 코드 오버레이 */}
                       {transposeMode && chordData.length > 0 && (() => {
