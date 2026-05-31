@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.149";
+const APP_VERSION = "3.150";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -951,12 +951,56 @@ function ServiceTitleField({ value, onChange }) {
   );
 }
 
+const SVC_TIME_PRESETS = [
+  { label:"주일 2부", time:"11:00" },
+  { label:"주일 1부", time:"09:00" },
+  { label:"금요 예배", time:"20:00" },
+];
+
+function TimeSelector({ time, setTime, showCustom, setShowCustom }) {
+  return (
+    <div style={{ marginBottom:14 }}>
+      <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+        textTransform:"uppercase", marginBottom:8 }}>시간</div>
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom: showCustom ? 8 : 0 }}>
+        {SVC_TIME_PRESETS.map(p => (
+          <button key={p.label} onClick={() => { setTime(p.time); setShowCustom(false); }}
+            style={{
+              padding:"6px 14px", borderRadius:8, border:"none", cursor:"pointer",
+              fontSize:13, fontFamily:"inherit",
+              background: !showCustom && time === p.time ? C.acc : C.card,
+              color:      !showCustom && time === p.time ? "#111" : C.dim,
+              fontWeight: !showCustom && time === p.time ? 700 : 400,
+            }}>{p.label}</button>
+        ))}
+        <button onClick={() => setShowCustom(true)}
+          style={{
+            padding:"6px 14px", borderRadius:8, cursor:"pointer", fontFamily:"inherit",
+            border:`1px solid ${showCustom ? C.pur : C.bdr}`, fontSize:13,
+            background: showCustom ? `${C.pur}22` : "transparent",
+            color:      showCustom ? C.pur : C.dim,
+            fontWeight: showCustom ? 700 : 400,
+          }}>직접 입력</button>
+      </div>
+      {showCustom && (
+        <input type="time" value={time} onChange={e => setTime(e.target.value)}
+          style={{
+            width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
+            color:C.txt, padding:"9px 12px", borderRadius:10,
+            fontSize:14, outline:"none", fontFamily:"inherit", boxSizing:"border-box",
+          }} />
+      )}
+    </div>
+  );
+}
+
 function CreateServiceModal({ songs, onClose, onCreate }) {
-  const [title,    setTitle]    = useState("주일 2부");
-  const [date,     setDate]     = useState(() => new Date().toISOString().slice(0, 10));
-  const [time,     setTime]     = useState("09:00");
-  const [selected, setSelected] = useState([]);
-  const [saving,   setSaving]   = useState(false);
+  const [title,      setTitle]      = useState("주일 2부");
+  const [date,       setDate]       = useState(() => new Date().toISOString().slice(0, 10));
+  const [time,       setTime]       = useState("11:00");  // 주일 2부 기본값
+  const [showCustom, setShowCustom] = useState(false);
+  const [selected,   setSelected]   = useState([]);
+  const [saving,     setSaving]     = useState(false);
 
   const toggle = id =>
     setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
@@ -973,7 +1017,7 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
     <Modal title="새 예배 일정 만들기" onClose={onClose}>
       <ServiceTitleField value={title} onChange={setTitle} />
       <Input label="날짜" value={date} onChange={setDate} type="date" />
-      <Input label="시간" value={time} onChange={setTime} type="time" />
+      <TimeSelector time={time} setTime={setTime} showCustom={showCustom} setShowCustom={setShowCustom} />
 
       <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
         textTransform:"uppercase", marginBottom:8 }}>
@@ -1020,10 +1064,11 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
    EDIT SERVICE MODAL
 ══════════════════════════════════════════════════════════════════ */
 function EditServiceModal({ svc, onClose, onSave }) {
-  const [title, setTitle] = useState(svc.title || "주일 2부");
-  const [date,  setDate]  = useState(svc.date  || "");
-  const [time,  setTime]  = useState(svc.time  || "");
-  const [saving, setSaving] = useState(false);
+  const [title,      setTitle]      = useState(svc.title || "주일 2부");
+  const [date,       setDate]       = useState(svc.date  || "");
+  const [time,       setTime]       = useState(svc.time  || "");
+  const [showCustom, setShowCustom] = useState(!SVC_TIME_PRESETS.some(p => p.time === (svc.time || "")));
+  const [saving,     setSaving]     = useState(false);
 
   const handleSave = async () => {
     if (!title) return;
@@ -1037,7 +1082,7 @@ function EditServiceModal({ svc, onClose, onSave }) {
     <Modal title="예배 정보 수정" onClose={onClose}>
       <ServiceTitleField value={title} onChange={setTitle} />
       <Input label="날짜" value={date} onChange={setDate} type="date" />
-      <Input label="시간" value={time} onChange={setTime} type="time" />
+      <TimeSelector time={time} setTime={setTime} showCustom={showCustom} setShowCustom={setShowCustom} />
       <Btn label={saving ? "저장 중..." : "저장"} icon="check"
         onClick={handleSave} full disabled={saving || !title} />
     </Modal>
