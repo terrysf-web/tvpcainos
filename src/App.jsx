@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.131";
+const APP_VERSION = "3.132";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1724,7 +1724,7 @@ function SongPickerModal({ songs, currentIds, onClose, onSave, addSong, user }) 
   const [quickPreview, setQuickPreview] = useState(null);   // blob URL
   const [quickSaving,  setQuickSaving]  = useState(false);
   const [quickErr,     setQuickErr]     = useState("");
-  const pasteAreaRef = useRef(null);
+  const pasteAreaRef = useRef(null); // unused but kept for safety
 
   const filtered = songs.filter(s =>
     s.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -1771,6 +1771,26 @@ function SongPickerModal({ songs, currentIds, onClose, onSave, addSong, user }) 
     }
   };
 
+  // 📋 버튼 클릭 → Clipboard API (모바일 포함)
+  const handleClipboardBtn = async () => {
+    try {
+      if (!navigator.clipboard?.read) throw new Error("not supported");
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imgType = item.types.find(t => t.startsWith("image/"));
+        if (imgType) {
+          const blob = await item.getType(imgType);
+          const file = new File([blob], `paste.${imgType.split("/")[1]}`, { type: imgType });
+          applyImageFile(file);
+          return;
+        }
+      }
+      setQuickErr("클립보드에 이미지가 없습니다");
+    } catch {
+      setQuickErr("클립보드 접근 실패 — 아래 '파일 선택'을 이용해주세요");
+    }
+  };
+
   return (
     <Modal title={`곡 선택 (${selected.length}곡)`} onClose={onClose}>
       {/* 빠른 추가 (이미지) 토글 */}
@@ -1793,44 +1813,63 @@ function SongPickerModal({ songs, currentIds, onClose, onSave, addSong, user }) 
       {showQuick && (
         <div style={{ background:C.card, borderRadius:12, padding:14, marginBottom:12,
           border:`1.5px solid ${C.acc}44` }}>
-          {/* 이미지 붙여넣기 / 파일 선택 */}
-          <div
-            ref={pasteAreaRef}
-            tabIndex={0}
-            onPaste={handlePaste}
-            onFocus={e => e.currentTarget.style.borderColor = C.acc}
-            onBlur={e => e.currentTarget.style.borderColor = C.bdr}
-            style={{
-              width:"100%", minHeight:90, borderRadius:10,
-              border:`2px dashed ${C.bdr}`, marginBottom:10,
-              display:"flex", flexDirection:"column",
-              alignItems:"center", justifyContent:"center",
-              cursor:"pointer", outline:"none", position:"relative",
-              background: quickPreview ? "transparent" : C.surf,
-              overflow:"hidden",
+
+          {/* 이미지 미리보기 */}
+          {quickPreview && (
+            <div style={{ marginBottom:10, borderRadius:10, overflow:"hidden",
+              border:`1px solid ${C.bdr}`, lineHeight:0 }}>
+              <img src={quickPreview} alt="preview"
+                style={{ width:"100%", maxHeight:160, objectFit:"contain",
+                  background:C.surf, display:"block" }} />
+            </div>
+          )}
+
+          {/* 버튼 2개: 붙여넣기 + 파일선택 */}
+          <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+            <button onClick={handleClipboardBtn}
+              style={{
+                flex:1, padding:"12px 0", borderRadius:10, cursor:"pointer",
+                background: C.pur, border:"none",
+                fontFamily:"inherit", fontSize:13, fontWeight:700, color:"#fff",
+                display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+              }}>
+              📋 붙여넣기
+            </button>
+            <label style={{
+              flex:1, padding:"12px 0", borderRadius:10, cursor:"pointer",
+              background:"transparent", border:`1.5px solid ${C.bdr}`,
+              fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.dim,
+              display:"flex", alignItems:"center", justifyContent:"center", gap:6,
             }}>
-            {quickPreview
-              ? <img src={quickPreview} alt="preview"
-                  style={{ maxWidth:"100%", maxHeight:160, borderRadius:8, display:"block" }} />
-              : <>
-                  <div style={{ fontSize:28, marginBottom:4 }}>📋</div>
-                  <div style={{ fontSize:12, color:C.dim, textAlign:"center", lineHeight:1.6 }}>
-                    여기를 탭한 뒤 <strong>붙여넣기(Ctrl+V)</strong><br />또는 아래 버튼으로 파일 선택
-                  </div>
-                </>
-            }
+              📁 파일 선택
+              <input type="file" accept="image/*" style={{ display:"none" }}
+                onChange={e => applyImageFile(e.target.files?.[0])} />
+            </label>
           </div>
-          <label style={{
-            display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-            padding:"7px 0", borderRadius:8, cursor:"pointer",
-            background:"transparent", border:`1px solid ${C.bdr}`,
-            fontSize:12, color:C.dim, fontFamily:"inherit", fontWeight:600,
-            marginBottom:10,
-          }}>
-            <span>📁 파일 선택</span>
-            <input type="file" accept="image/*" style={{ display:"none" }}
-              onChange={e => applyImageFile(e.target.files?.[0])} />
-          </label>
+
+          {/* contenteditable 영역 — 모바일 꾹 누르기 → 붙여넣기 지원 */}
+          <div
+            contentEditable
+            suppressContentEditableWarning
+            onPaste={e => {
+              e.preventDefault();
+              const items = e.clipboardData?.items;
+              if (!items) return;
+              for (const item of Array.from(items)) {
+                if (item.type.startsWith("image/")) {
+                  applyImageFile(item.getAsFile());
+                  break;
+                }
+              }
+            }}
+            style={{
+              minHeight:36, borderRadius:8, border:`1px dashed ${C.bdr}`,
+              padding:"8px 12px", fontSize:12, color:C.dim, outline:"none",
+              marginBottom:10, background:C.surf, textAlign:"center",
+            }}>
+            또는 여기를 꾹 눌러 붙여넣기
+          </div>
+
           <input value={quickTitle} onChange={e => setQuickTitle(e.target.value)}
             placeholder="곡 제목 *"
             style={{
