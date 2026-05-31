@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.155";
+const APP_VERSION = "3.156";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -192,7 +192,8 @@ function HelpModal({ onClose }) {
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)", zIndex:2000, display:"flex", flexDirection:"column" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background:C.surf, display:"flex", flexDirection:"column",
-        height:"100%", maxWidth:560, width:"100%", margin:"0 auto" }}>
+        height:"100%", maxWidth:560, width:"100%", margin:"0 auto",
+        paddingTop:"env(safe-area-inset-top)" }}>
         <div style={{ padding:"16px 16px 12px", borderBottom:`1px solid ${C.bdr}`,
           display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
           <div style={{ flex:1, fontWeight:700, fontSize:18 }}>도움말</div>
@@ -247,9 +248,18 @@ function HelpModal({ onClose }) {
             ))
           }
         </div>
-        <div style={{ padding:"10px 16px", borderTop:`1px solid ${C.bdr}`, flexShrink:0,
-          textAlign:"center", fontSize:11, color:C.dim }}>
-          총 {filtered.length}개 기능
+        <div style={{ padding:"12px 16px", paddingBottom:"calc(16px + env(safe-area-inset-bottom))",
+          borderTop:`1px solid ${C.bdr}`, flexShrink:0,
+          display:"flex", alignItems:"center", gap:12 }}>
+          <span style={{ flex:1, fontSize:12, color:C.dim }}>총 {filtered.length}개 기능</span>
+          <button onClick={onClose} style={{
+            background:C.pur, border:"none", borderRadius:12, cursor:"pointer",
+            padding:"12px 32px", display:"flex", alignItems:"center", gap:8,
+            boxShadow:"0 2px 10px rgba(107,93,231,0.35)",
+          }}>
+            <Icon n="xmark" size={18} color="#fff" />
+            <span style={{ color:"#fff", fontWeight:700, fontSize:15, fontFamily:"inherit" }}>닫기</span>
+          </button>
         </div>
       </div>
     </div>
