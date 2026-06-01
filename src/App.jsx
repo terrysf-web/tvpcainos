@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.175";
+const APP_VERSION = "3.176";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -106,6 +106,12 @@ const P = {
   rect:    "M3 5h18v14H3z",
   circle:  "M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0",
   help:    "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01",
+  play:    "M5 3l14 9-14 9V3z",
+  pause:   "M6 4h4v16H6zM14 4h4v16h-4z",
+  radio:   "M12 1v4M4.22 4.22l2.83 2.83M1 12h4M4.22 19.78l2.83-2.83M12 23v-4M19.78 19.78l-2.83-2.83M23 12h-4M19.78 4.22l-2.83 2.83M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
+  megaphone:"M3 11v2a1 1 0 0 0 1 1h2l5 4V7l-5 4H4a1 1 0 0 0-1 1zM19 12a7 7 0 0 0-3-5.83M15.54 16.46A5 5 0 0 0 17 12a5 5 0 0 0-1.46-3.54",
+  stop:    "M6 6h12v12H6z",
+  repeat:  "M17 2l4 4-4 4M21 6H7a4 4 0 0 0 0 8h1M7 22l-4-4 4-4M3 18h14a4 4 0 0 0 0-8h-1",
 };
 
 /* ══════════════════════════════════════════════════════════════════
@@ -7167,6 +7173,14 @@ const LIVE_TEAMS = [
   { id:"lighting", label:"조명팀",  icon:"💡" },
 ];
 
+const QUICK_CUES = [
+  { id:"next",   label:"다음 곡",   color:"#5856D6" },
+  { id:"prev",   label:"이전 곡",   color:"#34C759" },
+  { id:"hold",   label:"HOLD",     color:"#FF9500" },
+  { id:"repeat", label:"반복",     color:"#1A73E8" },
+  { id:"end",    label:"예배 종료", color:"#FF3B30" },
+];
+
 function LiveScreen({ user, services, songs, nav }) {
   const leader = isLeader(user.role);
   const [liveTab,       setLiveTab]       = useState("live");
@@ -7175,27 +7189,33 @@ function LiveScreen({ user, services, songs, nav }) {
   const [cues,          setCues]          = useState({});
   const [elapsed,       setElapsed]       = useState(0);
   const [showSvcPicker, setShowSvcPicker] = useState(false);
+  const [chatMessages,  setChatMessages]  = useState([]);
+  const [chatInput,     setChatInput]     = useState("");
+  const [announcMsg,    setAnnouncMsg]    = useState("");
+  const [showAnnounce,  setShowAnnounce]  = useState(false);
+  const [songDuration,  setSongDuration]  = useState(() => {
+    try { return parseInt(localStorage.getItem("tvpc_songDuration") || "240", 10); } catch { return 240; }
+  });
   const [ppConfig,      setPpConfig]      = useState(() => {
     try { return JSON.parse(localStorage.getItem("tvpc_ppConfig") || "{}"); } catch { return {}; }
   });
   const [ppConnected,   setPpConnected]   = useState(false);
-  const [ppCurrent,     setPpCurrent]     = useState(null);
   const [ppChecking,    setPpChecking]    = useState(false);
-  const timerRef = useRef(null);
+  const timerRef  = useRef(null);
+  const chatEndRef = useRef(null);
 
   const recentServices = useMemo(() => {
     const cutoff = new Date(Date.now() - 21 * 86400000).toISOString().slice(0,10);
     return [...services]
       .filter(s => s.date >= cutoff)
       .sort((a,b) => b.date.localeCompare(a.date))
-      .slice(0,8);
+      .slice(0, 8);
   }, [services]);
 
   useEffect(() => {
     if (!selSvcId && recentServices.length > 0) setSelSvcId(recentServices[0].id);
   }, [recentServices, selSvcId]);
 
-  // Realtime liveSession
   useEffect(() => {
     if (!selSvcId) return;
     return onSnapshot(doc(db, "liveSession", selSvcId), snap =>
@@ -7203,7 +7223,6 @@ function LiveScreen({ user, services, songs, nav }) {
     );
   }, [selSvcId]);
 
-  // Realtime team cues
   useEffect(() => {
     if (!selSvcId) return;
     return onSnapshot(doc(db, "liveCues", selSvcId), snap =>
@@ -7211,7 +7230,22 @@ function LiveScreen({ user, services, songs, nav }) {
     );
   }, [selSvcId]);
 
-  // Timer tick
+  useEffect(() => {
+    if (!selSvcId) return;
+    const q = query(
+      collection(db, "liveChat", selSvcId, "messages"),
+      orderBy("createdAt", "asc"),
+      limit(100)
+    );
+    return onSnapshot(q, snap =>
+      setChatMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+  }, [selSvcId]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
   useEffect(() => {
     clearInterval(timerRef.current);
     if (session?.timerRunning) {
@@ -7228,17 +7262,17 @@ function LiveScreen({ user, services, songs, nav }) {
     return () => clearInterval(timerRef.current);
   }, [session?.timerRunning, session?.timerStartedAt, session?.timerElapsed]);
 
-  const selSvc = services.find(s => s.id === selSvcId);
-  const svcSongs = useMemo(() =>
+  const selSvc     = services.find(s => s.id === selSvcId);
+  const svcSongs   = useMemo(() =>
     (selSvc?.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean),
     [selSvc, songs]
   );
-  const activeIdx    = session?.activeSongIdx ?? 0;
-  const currentSong  = svcSongs[activeIdx];
-  const nextSong     = svcSongs[activeIdx + 1];
-  const fmtSec = (s) => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  const activeIdx  = session?.activeSongIdx ?? 0;
+  const currentSong = svcSongs[activeIdx];
+  const nextSong   = svcSongs[activeIdx + 1];
+  const fmtSec     = (s) => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  const progress   = Math.min(1, songDuration > 0 ? elapsed / songDuration : 0);
 
-  // Firestore helpers
   const setActiveIdx = async (idx) => {
     if (!selSvcId) return;
     await setDoc(doc(db, "liveSession", selSvcId), {
@@ -7286,8 +7320,24 @@ function LiveScreen({ user, services, songs, nav }) {
     }, { merge: true });
   };
 
-  // ProPresenter API (via local-ssl-proxy on port 1027)
-  const ppBase = ppConfig.ip ? `https://${ppConfig.ip}:${ppConfig.proxyPort || "1027"}` : null;
+  const sendChat = async (text) => {
+    if (!selSvcId || !text.trim()) return;
+    await addDoc(collection(db, "liveChat", selSvcId, "messages"), {
+      text: text.trim(), createdAt: serverTimestamp(),
+      uid: user.uid, name: user.name || user.email, type: "chat",
+    });
+  };
+
+  const sendAnnounce = async () => {
+    if (!selSvcId || !announcMsg.trim()) return;
+    await addDoc(collection(db, "liveChat", selSvcId, "messages"), {
+      text: announcMsg.trim(), createdAt: serverTimestamp(),
+      uid: user.uid, name: user.name || user.email, type: "announce",
+    });
+    setAnnouncMsg(""); setShowAnnounce(false); setLiveTab("chat");
+  };
+
+  const ppBase  = ppConfig.ip ? `https://${ppConfig.ip}:${ppConfig.proxyPort || "1027"}` : null;
   const ppFetch = useCallback(async (path, method = "GET") => {
     if (!ppBase) return null;
     try {
@@ -7300,10 +7350,12 @@ function LiveScreen({ user, services, songs, nav }) {
     setPpChecking(true);
     const data = await ppFetch("/v1/version");
     setPpConnected(!!data);
-    if (data) setPpCurrent(await ppFetch("/v1/presentation/focused/slide"));
     setPpChecking(false);
     localStorage.setItem("tvpc_ppConfig", JSON.stringify(ppConfig));
   };
+
+  const statusColor = (st) =>
+    st === "ready" ? C.grn : st === "done" ? C.acc : st === "issue" ? C.red : C.bdr;
 
   const tabStyle = (active) => ({
     flex:1, padding:"10px 0", background:"none", border:"none",
@@ -7322,38 +7374,42 @@ function LiveScreen({ user, services, songs, nav }) {
       paddingBottom:"calc(64px + env(safe-area-inset-bottom))" }}>
 
       {/* ── Header */}
-      <div style={{ padding:"calc(16px + env(safe-area-inset-top)) 16px 0",
-        background:C.surf, borderBottom:`1px solid ${C.bdr}`, position:"relative" }}>
+      <div style={{ padding:"calc(12px + env(safe-area-inset-top)) 16px 0",
+        background:C.surf, borderBottom:`1px solid ${C.bdr}` }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:17, fontWeight:800, color:C.txt }}>📻 LIVE</span>
+          <button onClick={() => setShowSvcPicker(p => !p)} style={{
+            display:"flex", alignItems:"center", gap:6, background:"none",
+            border:"none", cursor:"pointer", padding:0, minWidth:0,
+          }}>
+            <div style={{ minWidth:0 }}>
+              <div style={{ fontSize:16, fontWeight:800, color:C.txt, textAlign:"left",
+                fontFamily:"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:220 }}>
+                {selSvc
+                  ? `${new Date(selSvc.date+"T00:00:00").toLocaleDateString("ko-KR",{month:"numeric",day:"numeric",weekday:"short"})} ${selSvc.title||""}`
+                  : "예배 선택"}
+              </div>
+              <div style={{ fontSize:10, color:C.dim, textAlign:"left" }}>탭하여 예배 변경</div>
+            </div>
+            <Icon n="chevD" size={12} color={C.dim} />
+          </button>
+          <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
             {session?.timerRunning && (
               <span style={{ fontSize:10, color:"#fff", background:C.red,
-                borderRadius:6, padding:"2px 8px", fontWeight:700, letterSpacing:"0.06em" }}>ON AIR</span>
+                borderRadius:6, padding:"2px 8px", fontWeight:700, letterSpacing:"0.06em" }}>● LIVE</span>
             )}
+            <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+              <div style={{ width:8, height:8, borderRadius:"50%", background: ppConnected ? C.grn : C.bdr }} />
+              <span style={{ fontSize:10, color: ppConnected ? C.grn : C.dim }}>PP</span>
+            </div>
           </div>
-          {/* Service picker button */}
-          <button onClick={() => setShowSvcPicker(p => !p)} style={{
-            display:"flex", alignItems:"center", gap:4, padding:"6px 10px",
-            background:C.card, border:`1px solid ${C.bdr}`, borderRadius:8, cursor:"pointer",
-          }}>
-            <span style={{ fontSize:11, color:C.dim, maxWidth:150, overflow:"hidden",
-              textOverflow:"ellipsis", whiteSpace:"nowrap", fontFamily:"inherit" }}>
-              {selSvc
-                ? `${new Date(selSvc.date+"T00:00:00").toLocaleDateString("ko-KR",{month:"numeric",day:"numeric"})} ${selSvc.title||""}`
-                : "예배 선택"}
-            </span>
-            <Icon n="chevron-down" size={10} color={C.dim} />
-          </button>
         </div>
 
-        {/* Dropdown */}
         {showSvcPicker && (
           <div onClick={() => setShowSvcPicker(false)} style={{ position:"fixed", inset:0, zIndex:150 }}>
             <div onClick={e => e.stopPropagation()} style={{
-              position:"absolute", top:"calc(env(safe-area-inset-top) + 56px)", right:16, zIndex:151,
+              position:"absolute", top:"calc(env(safe-area-inset-top) + 60px)", left:16, zIndex:151,
               background:C.surf, border:`1px solid ${C.bdr}`, borderRadius:12,
-              boxShadow:"0 6px 24px rgba(0,0,0,0.18)", minWidth:210, overflow:"hidden",
+              boxShadow:"0 6px 24px rgba(0,0,0,0.18)", minWidth:240, overflow:"hidden",
             }}>
               {recentServices.length === 0
                 ? <div style={{ padding:14, fontSize:12, color:C.dim }}>최근 예배가 없습니다</div>
@@ -7363,8 +7419,7 @@ function LiveScreen({ user, services, songs, nav }) {
                     background: s.id===selSvcId ? `${C.acc}18` : "none",
                     border:"none", borderBottom:`1px solid ${C.bdr}`, cursor:"pointer", textAlign:"left",
                   }}>
-                    <span style={{ fontSize:13, color:C.txt, fontWeight: s.id===selSvcId ? 700 : 500,
-                      fontFamily:"inherit" }}>
+                    <span style={{ fontSize:13, color:C.txt, fontWeight: s.id===selSvcId ? 700 : 500, fontFamily:"inherit" }}>
                       {new Date(s.date+"T00:00:00").toLocaleDateString("ko-KR",{month:"long",day:"numeric",weekday:"short"})} {s.title}
                     </span>
                   </button>
@@ -7373,9 +7428,8 @@ function LiveScreen({ user, services, songs, nav }) {
           </div>
         )}
 
-        {/* Tabs */}
         <div style={{ display:"flex" }}>
-          {[["live","LIVE 모드"],["team","팀 CUE"],["pp","ProPresenter"]].map(([id,label]) => (
+          {[["live","LIVE 모드"],["team","팀 상태"],["chat","채팅"],["settings","설정"]].map(([id,label]) => (
             <button key={id} style={tabStyle(liveTab===id)} onClick={() => setLiveTab(id)}>{label}</button>
           ))}
         </div>
@@ -7386,118 +7440,247 @@ function LiveScreen({ user, services, songs, nav }) {
 
         {/* ════ LIVE 모드 ════ */}
         {liveTab === "live" && (<>
-          {/* Current song */}
-          <div style={{ background:C.card, borderRadius:14, padding:16, border:`1px solid ${C.bdr}` }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
-              <span style={{ fontSize:11, fontWeight:700, color:C.pur }}>현재 진행</span>
-              {session?.timerRunning && (
-                <span style={{ fontSize:10, color:"#fff", background:C.red,
-                  borderRadius:5, padding:"2px 7px", fontWeight:700 }}>진행 중</span>
+
+          {/* 현재 진행 card */}
+          <div style={{ background:C.surf, borderRadius:16, border:`1px solid ${C.bdr}`,
+            overflow:"hidden", boxShadow:"0 2px 10px rgba(0,0,0,0.06)" }}>
+            <div style={{ padding:"14px 16px 0" }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+                <span style={{ fontSize:11, fontWeight:700, color:C.dim, letterSpacing:"0.04em" }}>현재 진행</span>
+                {session?.timerRunning ? (
+                  <span style={{ fontSize:10, color:"#fff", background:C.red,
+                    borderRadius:6, padding:"2px 8px", fontWeight:700 }}>진행 중</span>
+                ) : elapsed > 0 ? (
+                  <span style={{ fontSize:10, color:C.dim, background:C.bdr,
+                    borderRadius:6, padding:"2px 8px", fontWeight:600 }}>일시정지</span>
+                ) : null}
+              </div>
+              {currentSong ? (
+                <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
+                  <div style={{ width:44, height:44, borderRadius:"50%", flexShrink:0,
+                    background:"#6b5de7", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <Icon n="music" size={20} color="#fff" />
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:16, fontWeight:800, color:C.txt,
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {currentSong.title}
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
+                      {currentSong.key && (
+                        <span style={{ fontSize:10, fontWeight:700, color:"#fff",
+                          background: keyColor(currentSong.key), borderRadius:5, padding:"1px 7px" }}>
+                          {currentSong.key}
+                        </span>
+                      )}
+                      {currentSong.artist && (
+                        <span style={{ fontSize:11, color:C.dim }}>{currentSong.artist}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ color:C.dim, fontSize:13, textAlign:"center", padding:"16px 0" }}>
+                  예배를 선택하면 곡 목록이 표시됩니다
+                </div>
               )}
             </div>
-            {currentSong ? (<>
-              <div style={{ fontSize:17, fontWeight:800, color:C.txt }}>{currentSong.title}</div>
-              {currentSong.artist && <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>{currentSong.artist}</div>}
-              {/* Timer display */}
-              <div style={{ fontSize:48, fontWeight:900, color:C.acc, letterSpacing:"-0.03em",
-                textAlign:"center", margin:"10px 0 6px" }}>
-                {fmtSec(elapsed)}
+
+            {currentSong && (<>
+              <div style={{ padding:"0 16px", marginBottom:4 }}>
+                <div style={{ height:4, background:C.bdr, borderRadius:2, overflow:"hidden" }}>
+                  <div style={{
+                    width:`${progress * 100}%`, height:"100%", borderRadius:2,
+                    background: progress > 0.9 ? C.red : C.acc,
+                    transition:"width 0.5s linear",
+                  }} />
+                </div>
               </div>
-              {/* Timer controls (leader only) */}
+              <div style={{ padding:"2px 16px 14px", display:"flex", justifyContent:"space-between", alignItems:"baseline" }}>
+                <span style={{ fontSize:42, fontWeight:900, color:C.acc, letterSpacing:"-0.03em", lineHeight:1 }}>
+                  {fmtSec(elapsed)}
+                </span>
+                <span style={{ fontSize:12, color:C.dim }}>/ {fmtSec(songDuration)}</span>
+              </div>
               {leader && (
-                <div style={{ display:"flex", gap:8, justifyContent:"center" }}>
+                <div style={{ borderTop:`1px solid ${C.bdr}`, padding:"10px 12px",
+                  display:"flex", gap:8, alignItems:"center" }}>
                   <button onClick={toggleTimer} style={{
-                    display:"flex", alignItems:"center", gap:6, padding:"10px 22px",
-                    background: session?.timerRunning ? C.red : C.grn, border:"none",
-                    borderRadius:10, cursor:"pointer", color:"#fff",
-                    fontSize:13, fontWeight:700, fontFamily:"inherit",
+                    flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                    padding:"11px 0", background: session?.timerRunning ? C.red : C.grn,
+                    border:"none", borderRadius:10, cursor:"pointer",
+                    color:"#fff", fontSize:13, fontWeight:700, fontFamily:"inherit",
                   }}>
-                    <Icon n={session?.timerRunning ? "pause" : "play"} size={13} color="#fff" />
+                    <Icon n={session?.timerRunning ? "pause" : "play"} size={14} color="#fff" />
                     {session?.timerRunning ? "일시정지" : elapsed > 0 ? "계속" : "시작"}
                   </button>
                   <button onClick={resetTimer} style={{
-                    padding:"10px 14px", background:C.surf, border:`1px solid ${C.bdr}`,
-                    borderRadius:10, cursor:"pointer", color:C.dim,
-                    fontSize:13, fontWeight:600, fontFamily:"inherit",
-                  }}>초기화</button>
+                    width:48, height:44, display:"flex", alignItems:"center", justifyContent:"center",
+                    background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:10,
+                    cursor:"pointer", fontFamily:"inherit",
+                  }}>
+                    <Icon n="refresh" size={16} color={C.dim} />
+                  </button>
+                  <button
+                    onClick={() => activeIdx < svcSongs.length - 1 && setActiveIdx(activeIdx + 1)}
+                    disabled={activeIdx >= svcSongs.length - 1}
+                    style={{
+                      flex:1, padding:"11px 0", background:C.acc, border:"none", borderRadius:10,
+                      cursor: activeIdx >= svcSongs.length-1 ? "not-allowed" : "pointer",
+                      opacity: activeIdx >= svcSongs.length-1 ? 0.35 : 1,
+                      color:"#111", fontSize:13, fontWeight:700, fontFamily:"inherit",
+                      display:"flex", alignItems:"center", justifyContent:"center", gap:4,
+                    }}>
+                    다음 곡 <Icon n="next" size={13} color="#111" />
+                  </button>
                 </div>
               )}
-            </>) : (
-              <div style={{ color:C.dim, fontSize:13, textAlign:"center", padding:"12px 0" }}>
-                예배를 선택하면 곡 목록이 표시됩니다
-              </div>
-            )}
+            </>)}
           </div>
 
-          {/* Song list */}
-          {svcSongs.length > 0 && (
-            <div style={{ background:C.card, borderRadius:14, border:`1px solid ${C.bdr}`, overflow:"hidden" }}>
-              {svcSongs.map((s, i) => (
-                <button key={i} onClick={() => leader && setActiveIdx(i)} style={{
-                  width:"100%", display:"flex", alignItems:"center", gap:12,
-                  padding:"12px 14px",
-                  background: i===activeIdx ? `${C.acc}18` : "none",
-                  border:"none", borderBottom: i<svcSongs.length-1 ? `1px solid ${C.bdr}` : "none",
-                  cursor: leader ? "pointer" : "default", textAlign:"left",
-                }}>
-                  <span style={{
-                    width:24, height:24, borderRadius:"50%", flexShrink:0,
-                    background: i===activeIdx ? C.acc : C.bdr,
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    fontSize:11, fontWeight:700, color: i===activeIdx ? "#fff" : C.dim,
-                  }}>{i+1}</span>
-                  <span style={{ flex:1, fontSize:14, fontWeight: i===activeIdx ? 700 : 500,
-                    color: i===activeIdx ? C.acc : C.txt, fontFamily:"inherit" }}>{s.title}</span>
-                  {i===activeIdx && <Icon n="chevron-right" size={12} color={C.acc} />}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Prev / Next buttons */}
-          {leader && svcSongs.length > 0 && (
-            <div style={{ display:"flex", gap:8 }}>
-              {[["이전 곡","chevron-left",activeIdx===0,() => setActiveIdx(Math.max(0,activeIdx-1)), C.surf, C.txt, `1px solid ${C.bdr}`],
-                ["다음 곡","chevron-right",activeIdx===svcSongs.length-1,() => setActiveIdx(Math.min(svcSongs.length-1,activeIdx+1)), C.acc,"#111","none"]
-              ].map(([label, icon, disabled, fn, bg, col, border]) => (
-                <button key={label} onClick={fn} disabled={disabled} style={{
-                  flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-                  padding:"12px 0", background:bg, border, borderRadius:10,
-                  cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.35 : 1,
-                  fontSize:13, fontWeight:700, color:col, fontFamily:"inherit",
-                }}>
-                  {icon === "chevron-left" && <Icon n={icon} size={13} color={col} />}
-                  {label}
-                  {icon === "chevron-right" && <Icon n={icon} size={13} color={col} />}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Next song hint */}
+          {/* 다음 순서 */}
           {nextSong && (
-            <div style={{ background:`${C.acc}0a`, borderRadius:12, padding:"10px 14px",
-              border:`1px solid ${C.acc}30`, display:"flex", alignItems:"center", gap:10 }}>
-              <span style={{ fontSize:11, color:C.acc, fontWeight:700, flexShrink:0 }}>다음</span>
-              <span style={{ fontSize:13, color:C.txt }}>{nextSong.title}</span>
+            <div style={{ background:C.surf, borderRadius:14, padding:"12px 14px",
+              border:`1px solid ${C.bdr}`, display:"flex", alignItems:"center", gap:12 }}>
+              <div style={{
+                width:32, height:32, borderRadius:"50%", flexShrink:0,
+                background:`${C.pur}18`, border:`1.5px solid ${C.pur}40`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:13, fontWeight:700, color:C.pur,
+              }}>{activeIdx + 2}</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:11, color:C.dim, marginBottom:1 }}>다음 순서</div>
+                <div style={{ fontSize:14, fontWeight:700, color:C.txt,
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {nextSong.title}
+                </div>
+              </div>
+              {nextSong.key && (
+                <span style={{ fontSize:10, fontWeight:700, color:"#fff",
+                  background: keyColor(nextSong.key), borderRadius:5, padding:"2px 7px", flexShrink:0 }}>
+                  {nextSong.key}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* 팀 상황 2×2 grid */}
+          <div>
+            <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:8,
+              letterSpacing:"0.05em", textTransform:"uppercase" }}>팀 상황 / CUE</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+              {LIVE_TEAMS.map(team => {
+                const cue = cues[team.id];
+                const stCol = statusColor(cue?.status);
+                return (
+                  <div key={team.id} style={{
+                    background:C.surf, borderRadius:12, padding:"10px 12px",
+                    border:`1.5px solid ${stCol === C.bdr ? C.bdr : stCol + "55"}`,
+                    display:"flex", alignItems:"center", gap:8,
+                  }}>
+                    <span style={{ fontSize:16 }}>{team.icon}</span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:12, fontWeight:700, color:C.txt }}>{team.label}</div>
+                      <div style={{ fontSize:10, fontWeight:600, marginTop:1,
+                        color: stCol === C.bdr ? C.dim : stCol }}>
+                        {cue?.status === "ready" ? "준비완료" : cue?.status === "done" ? "완료" : cue?.status === "issue" ? "⚠️ 문제" : "대기중"}
+                      </div>
+                    </div>
+                    <div style={{ width:8, height:8, borderRadius:"50%", flexShrink:0, background:stCol }} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 빠른 실행 */}
+          {leader && (
+            <div>
+              <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:8,
+                letterSpacing:"0.05em", textTransform:"uppercase" }}>빠른 실행</div>
+              <div style={{ display:"flex", gap:10, overflowX:"auto", paddingBottom:4 }}>
+                {QUICK_CUES.map(qc => (
+                  <button key={qc.id} onClick={async () => {
+                    if (qc.id === "next") setActiveIdx(Math.min(svcSongs.length - 1, activeIdx + 1));
+                    else if (qc.id === "prev") setActiveIdx(Math.max(0, activeIdx - 1));
+                    else {
+                      for (const t of LIVE_TEAMS) {
+                        await sendCue(t.id, qc.label,
+                          qc.id === "hold" ? "issue" : qc.id === "end" ? "done" : "ready");
+                      }
+                    }
+                  }} style={{
+                    flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", gap:5,
+                    background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", padding:0,
+                  }}>
+                    <div style={{
+                      width:52, height:52, borderRadius:"50%", background:qc.color,
+                      boxShadow:`0 3px 10px ${qc.color}50`,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                    }}>
+                      <Icon n={
+                        qc.id === "next" ? "next" : qc.id === "prev" ? "prev" :
+                        qc.id === "repeat" ? "repeat" : "stop"
+                      } size={20} color="#fff" />
+                    </div>
+                    <span style={{ fontSize:10, color:C.txt, fontWeight:600, whiteSpace:"nowrap" }}>
+                      {qc.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 공지 메시지 보내기 */}
+          {leader && (
+            <button onClick={() => setShowAnnounce(p => !p)} style={{
+              width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+              padding:"14px 16px", background:C.surf, border:`1px solid ${C.bdr}`,
+              borderRadius:14, cursor:"pointer", fontFamily:"inherit",
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ width:34, height:34, borderRadius:"50%",
+                  background:`${C.pur}15`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <Icon n="megaphone" size={16} color={C.pur} />
+                </div>
+                <span style={{ fontSize:14, fontWeight:600, color:C.txt }}>공지 메시지 보내기</span>
+              </div>
+              <Icon n={showAnnounce ? "chevU" : "chevR"} size={14} color={C.dim} />
+            </button>
+          )}
+          {leader && showAnnounce && (
+            <div style={{ background:C.surf, borderRadius:14, padding:14,
+              border:`1px solid ${C.pur}40`, marginTop:-8 }}>
+              <textarea value={announcMsg} onChange={e => setAnnouncMsg(e.target.value)}
+                placeholder="전체 채팅에 공지할 메시지를 입력하세요..." rows={3} style={{
+                  width:"100%", padding:"10px 12px", border:`1px solid ${C.bdr}`,
+                  borderRadius:10, background:C.bg, color:C.txt, fontSize:13,
+                  fontFamily:"inherit", resize:"none", boxSizing:"border-box",
+                }} />
+              <button onClick={sendAnnounce} style={{
+                width:"100%", marginTop:8, padding:"10px 0",
+                background:C.pur, border:"none", borderRadius:10,
+                cursor:"pointer", color:"#fff", fontSize:13, fontWeight:700, fontFamily:"inherit",
+              }}>채팅으로 공지 보내기</button>
             </div>
           )}
         </>)}
 
-        {/* ════ 팀 CUE ════ */}
+        {/* ════ 팀 상태 ════ */}
         {liveTab === "team" && LIVE_TEAMS.map(team => {
           const cue = cues[team.id];
-          const stCol = cue?.status==="ready" ? C.grn : cue?.status==="done" ? C.acc : cue?.status==="issue" ? C.red : C.bdr;
+          const stCol = statusColor(cue?.status);
           return (
-            <div key={team.id} style={{ background:C.card, borderRadius:14, padding:14,
-              border:`1.5px solid ${stCol}` }}>
+            <div key={team.id} style={{ background:C.surf, borderRadius:14, padding:14,
+              border:`1.5px solid ${stCol === C.bdr ? C.bdr : stCol}` }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                   <span style={{ fontSize:18 }}>{team.icon}</span>
                   <span style={{ fontSize:14, fontWeight:700, color:C.txt }}>{team.label}</span>
                 </div>
                 <span style={{ fontSize:10, color:"#fff", borderRadius:6, padding:"2px 9px", fontWeight:700,
-                  background: cue?.status==="ready" ? C.grn : cue?.status==="done" ? C.acc : cue?.status==="issue" ? C.red : C.dim }}>
+                  background: stCol === C.bdr ? C.dim : stCol }}>
                   {cue?.status==="ready" ? "준비완료" : cue?.status==="done" ? "완료" : cue?.status==="issue" ? "문제있음" : "대기중"}
                 </span>
               </div>
@@ -7521,21 +7704,95 @@ function LiveScreen({ user, services, songs, nav }) {
           );
         })}
 
-        {/* ════ ProPresenter ════ */}
-        {liveTab === "pp" && (<>
-          {/* Config */}
-          <div style={{ background:C.card, borderRadius:14, padding:16, border:`1px solid ${C.bdr}` }}>
-            <div style={{ fontSize:14, fontWeight:700, color:C.txt, marginBottom:12 }}>연결 설정</div>
-            {[
-              ["Tailscale IP", "ip", "100.116.199.35"],
-              ["프록시 포트 (HTTPS)", "proxyPort", "1027"],
-            ].map(([label, key, ph]) => (
+        {/* ════ 채팅 ════ */}
+        {liveTab === "chat" && (
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:2 }}>
+              {QUICK_CUES.map(qc => (
+                <button key={qc.id} onClick={() => sendChat(`📣 ${qc.label}`)} style={{
+                  flexShrink:0, padding:"7px 14px",
+                  background:`${qc.color}18`, border:`1.5px solid ${qc.color}60`,
+                  borderRadius:20, cursor:"pointer", fontFamily:"inherit",
+                  fontSize:12, fontWeight:700, color:qc.color, whiteSpace:"nowrap",
+                }}>{qc.label}</button>
+              ))}
+            </div>
+            <div style={{ background:C.surf, borderRadius:14, border:`1px solid ${C.bdr}`,
+              padding:12, overflowY:"auto", minHeight:200, maxHeight:360,
+              display:"flex", flexDirection:"column", gap:6 }}>
+              {chatMessages.length === 0 ? (
+                <div style={{ color:C.dim, fontSize:13, textAlign:"center", margin:"auto" }}>
+                  채팅 메시지가 없습니다
+                </div>
+              ) : chatMessages.map(msg => (
+                <div key={msg.id} style={{
+                  display:"flex", flexDirection:"column",
+                  alignItems: msg.uid === user.uid ? "flex-end" : "flex-start",
+                }}>
+                  {msg.type === "announce" ? (
+                    <div style={{ background:`${C.pur}15`, border:`1px solid ${C.pur}40`,
+                      borderRadius:10, padding:"8px 12px", maxWidth:"90%" }}>
+                      <div style={{ fontSize:10, color:C.pur, fontWeight:700, marginBottom:3 }}>
+                        📣 공지 · {msg.name}
+                      </div>
+                      <div style={{ fontSize:13, color:C.txt }}>{msg.text}</div>
+                    </div>
+                  ) : (
+                    <div style={{ background: msg.uid === user.uid ? C.acc : C.card,
+                      borderRadius:10, padding:"7px 11px", maxWidth:"80%" }}>
+                      {msg.uid !== user.uid && (
+                        <div style={{ fontSize:10, color:C.dim, marginBottom:2 }}>{msg.name}</div>
+                      )}
+                      <div style={{ fontSize:13, color: msg.uid === user.uid ? "#111" : C.txt }}>
+                        {msg.text}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+            <div style={{ display:"flex", gap:8 }}>
+              <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { sendChat(chatInput); setChatInput(""); }}}
+                placeholder="메시지 입력..." style={{
+                  flex:1, padding:"11px 14px", border:`1px solid ${C.bdr}`,
+                  borderRadius:10, background:C.surf, color:C.txt,
+                  fontSize:13, fontFamily:"inherit", outline:"none",
+                }} />
+              <button onClick={() => { sendChat(chatInput); setChatInput(""); }} style={{
+                padding:"11px 16px", background:C.acc, border:"none", borderRadius:10,
+                cursor:"pointer", fontFamily:"inherit",
+              }}>
+                <Icon n="send" size={16} color="#111" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ════ 설정 ════ */}
+        {liveTab === "settings" && (<>
+          <div style={{ background:C.surf, borderRadius:14, padding:16, border:`1px solid ${C.bdr}` }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
+              <div style={{ width:32, height:32, borderRadius:8, background:`${C.acc}18`,
+                display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <Icon n="radio" size={16} color={C.acc} />
+              </div>
+              <span style={{ fontSize:14, fontWeight:700, color:C.txt }}>ProPresenter 연결</span>
+              <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:4 }}>
+                <div style={{ width:8, height:8, borderRadius:"50%", background: ppConnected ? C.grn : C.bdr }} />
+                <span style={{ fontSize:11, color: ppConnected ? C.grn : C.dim }}>
+                  {ppConnected ? "연결됨" : "연결 안됨"}
+                </span>
+              </div>
+            </div>
+            {[["Tailscale IP","ip","100.116.199.35"],["프록시 포트","proxyPort","1027"]].map(([label,key,ph]) => (
               <div key={key} style={{ marginBottom:10 }}>
                 <div style={{ fontSize:11, color:C.dim, marginBottom:4 }}>{label}</div>
                 <input value={ppConfig[key] || ""} onChange={e => setPpConfig(p => ({...p,[key]:e.target.value}))}
                   placeholder={ph} style={{
                     width:"100%", padding:"9px 12px", border:`1px solid ${C.bdr}`,
-                    borderRadius:9, background:C.surf, color:C.txt, fontSize:13,
+                    borderRadius:9, background:C.bg, color:C.txt, fontSize:13,
                     fontFamily:"inherit", boxSizing:"border-box",
                   }} />
               </div>
@@ -7549,29 +7806,38 @@ function LiveScreen({ user, services, songs, nav }) {
             </button>
           </div>
 
-          {/* Slide controls */}
-          <div style={{ background:C.card, borderRadius:14, padding:16, border:`1px solid ${C.bdr}`,
-            opacity: ppConnected ? 1 : 0.45 }}>
-            <div style={{ fontSize:14, fontWeight:700, color:C.txt, marginBottom:10 }}>슬라이드 컨트롤</div>
-            {ppCurrent && (
-              <div style={{ fontSize:12, color:C.dim, padding:"8px 10px", background:C.surf,
-                borderRadius:8, marginBottom:10, wordBreak:"break-all" }}>
-                {JSON.stringify(ppCurrent).slice(0, 120)}
-              </div>
-            )}
-            <div style={{ display:"flex", gap:10 }}>
-              <button onClick={() => ppFetch("/v1/trigger/previous","POST")} disabled={!ppConnected} style={{
-                flex:1, padding:"16px 0", background:C.surf, border:`1px solid ${C.bdr}`,
-                borderRadius:12, cursor: ppConnected?"pointer":"not-allowed", fontSize:26, fontFamily:"inherit",
-              }}>⏮</button>
-              <button onClick={() => ppFetch("/v1/trigger/next","POST")} disabled={!ppConnected} style={{
-                flex:1, padding:"16px 0", background:C.acc, border:"none",
-                borderRadius:12, cursor: ppConnected?"pointer":"not-allowed", fontSize:26, fontFamily:"inherit",
-              }}>⏭</button>
+          <div style={{ background:C.surf, borderRadius:14, padding:16, border:`1px solid ${C.bdr}` }}>
+            <div style={{ fontSize:14, fontWeight:700, color:C.txt, marginBottom:4 }}>기본 곡 시간</div>
+            <div style={{ fontSize:11, color:C.dim, marginBottom:10 }}>진행 바 계산에 사용됩니다</div>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              <input type="number" value={songDuration}
+                onChange={e => {
+                  const v = Math.max(30, parseInt(e.target.value) || 240);
+                  setSongDuration(v);
+                  localStorage.setItem("tvpc_songDuration", String(v));
+                }}
+                min={30} max={1200} step={30} style={{
+                  flex:1, padding:"9px 12px", border:`1px solid ${C.bdr}`,
+                  borderRadius:9, background:C.bg, color:C.txt, fontSize:13,
+                  fontFamily:"inherit", boxSizing:"border-box",
+                }} />
+              <span style={{ fontSize:12, color:C.dim, whiteSpace:"nowrap" }}>
+                초 ({Math.floor(songDuration/60)}분 {songDuration%60}초)
+              </span>
+            </div>
+            <div style={{ display:"flex", gap:6, marginTop:10, flexWrap:"wrap" }}>
+              {[[120,"2분"],[180,"3분"],[240,"4분"],[300,"5분"],[360,"6분"]].map(([s,l]) => (
+                <button key={s} onClick={() => { setSongDuration(s); localStorage.setItem("tvpc_songDuration",String(s)); }} style={{
+                  padding:"6px 12px", borderRadius:8, fontSize:12, fontWeight:600,
+                  background: songDuration===s ? C.acc : C.bg,
+                  border:`1px solid ${songDuration===s ? C.acc : C.bdr}`,
+                  color: songDuration===s ? "#111" : C.dim,
+                  cursor:"pointer", fontFamily:"inherit",
+                }}>{l}</button>
+              ))}
             </div>
           </div>
 
-          {/* Setup guide */}
           <div style={{ background:`${C.acc}0a`, borderRadius:12, padding:"12px 14px",
             border:`1px solid ${C.acc}30` }}>
             <div style={{ fontSize:12, fontWeight:700, color:C.acc, marginBottom:6 }}>교회 맥 설정 방법</div>
