@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.171";
+const APP_VERSION = "3.172";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -429,7 +429,7 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
         }
       }
       if (s.team && s.points?.[0]) {
-        const mSz = Math.max(4, canvas.width * 0.015);
+        const mSz = Math.max(3, canvas.width * 0.0075);
         ctx.save(); ctx.font = `${mSz}px system-ui`; ctx.textAlign = "left";
         ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.65;
         ctx.fillText("👥", s.points[0].x * canvas.width, s.points[0].y * canvas.height - 2);
@@ -451,7 +451,7 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
       ctx.textAlign = "left";
       ctx.fillText(s.text || "", px, py);
       if (s.team) {
-        const mSz = Math.max(4, canvas.width * 0.015);
+        const mSz = Math.max(3, canvas.width * 0.0075);
         ctx.save(); ctx.font = `${mSz}px system-ui`; ctx.textAlign = "left";
         ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.65;
         ctx.fillText("👥", px, py - sz * 0.55); ctx.restore();
@@ -499,7 +499,7 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
       }
       ctx.restore();
       if (s.team) {
-        const mSz = Math.max(4, canvas.width * 0.015);
+        const mSz = Math.max(3, canvas.width * 0.0075);
         ctx.save(); ctx.font = `${mSz}px system-ui`; ctx.textAlign = "left";
         ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.65;
         ctx.fillText("👥", px - mSz * 0.3, py - sz * 0.55); ctx.restore();
@@ -559,7 +559,7 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
     }
     ctx.restore();
     if (s.team && pts.length > 0) {
-      const mSz = Math.max(4, canvas.width * 0.015);
+      const mSz = Math.max(3, canvas.width * 0.0075);
       ctx.save(); ctx.font = `${mSz}px system-ui`; ctx.textAlign = "left";
       ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.65;
       ctx.fillText("👥", pts[0][0], pts[0][1] - 2); ctx.restore();
