@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.172";
+const APP_VERSION = "3.173";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -558,7 +558,7 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
       ctx.stroke();
     }
     ctx.restore();
-    if (s.team && pts.length > 0) {
+    if (s.team && pts.length > 0 && !isEraser && !isCover) {
       const mSz = Math.max(3, canvas.width * 0.0075);
       ctx.save(); ctx.font = `${mSz}px system-ui`; ctx.textAlign = "left";
       ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.65;
