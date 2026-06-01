@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.168";
+const APP_VERSION = "3.170";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -4294,39 +4294,54 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const deleteNote = id => onDeleteAnnotation(selectedSongId, id);
 
   // 선택된 텍스트/스탬프 삭제
+  const selStrokesRef = (sel) => {
+    if (!sel) return strokes1Ref;
+    return sel.canvasNum === 1
+      ? (sel.isTeam ? teamStrokes1Ref : strokes1Ref)
+      : (sel.isTeam ? teamStrokes2Ref : strokes2Ref);
+  };
+  const selCanvasRef = (sel) => {
+    if (!sel) return drawCanvas1Ref;
+    return sel.canvasNum === 1
+      ? (sel.isTeam ? teamDrawCanvas1Ref : drawCanvas1Ref)
+      : (sel.isTeam ? teamDrawCanvas2Ref : drawCanvas2Ref);
+  };
+  const selSaveFn = (sel) => sel?.isTeam ? saveTeamDrawing : saveDrawing;
+  const selSongId = (sel) => {
+    if (!sel) return selectedSongId;
+    return sel.canvasNum === 1 ? (dual ? dualLeftSongId : selectedSongId) : dualRightSongId;
+  };
+  const selPage = (sel) => sel?.canvasNum === 1 ? (dual ? 1 : pageNum) : 1;
+
   const deleteSelAnnot = async () => {
     const sel = selAnnotRef.current;
     if (!sel) return;
-    const isC1 = sel.canvasNum === 1;
-    const strokesRef = isC1 ? strokes1Ref : strokes2Ref;
-    const dcRef      = isC1 ? drawCanvas1Ref : drawCanvas2Ref;
-    const newStrokes = strokesRef.current.filter((_, i) => i !== sel.idx);
-    strokesRef.current = newStrokes;
-    drawStrokes(dcRef.current, newStrokes);
-    const songId = isC1 ? (dual ? dualLeftSongId : selectedSongId) : dualRightSongId;
-    await saveDrawing(songId, dual ? 1 : pageNum, newStrokes);
+    const sRef = selStrokesRef(sel);
+    const dc   = selCanvasRef(sel);
+    const newStrokes = sRef.current.filter((_, i) => i !== sel.idx);
+    sRef.current = newStrokes;
+    drawStrokes(dc.current, newStrokes);
+    await selSaveFn(sel)(selSongId(sel), selPage(sel), newStrokes);
     setSelAnnot(null);
   };
 
-  // 선택된 텍스트 크기 조절
+  // 선택된 텍스트/스탬프 크기 조절
   const resizeSelText = async (delta) => {
     const sel = selAnnotRef.current;
     if (!sel) return;
-    const isC1 = sel.canvasNum === 1;
-    const strokesRef = isC1 ? strokes1Ref : strokes2Ref;
-    const dcRef      = isC1 ? drawCanvas1Ref : drawCanvas2Ref;
-    const s = strokesRef.current[sel.idx];
+    const sRef = selStrokesRef(sel);
+    const dc   = selCanvasRef(sel);
+    const s = sRef.current[sel.idx];
     if (!s || (s.tool !== "text" && s.tool !== "stamp")) return;
     const cur = s.tool === "text" ? (s.size || 15) : (s.size || 12);
     const newSize = Math.max(4, Math.min(80, cur + delta));
-    const next = strokesRef.current.map((st, i) =>
+    const next = sRef.current.map((st, i) =>
       i === sel.idx ? { ...st, size: newSize } : st
     );
-    strokesRef.current = next;
-    drawStrokes(dcRef.current, next, null, sel.idx);
+    sRef.current = next;
+    drawStrokes(dc.current, next, null, sel.idx);
     setSelAnnot({ ...sel });
-    const songId = isC1 ? (dual ? dualLeftSongId : selectedSongId) : dualRightSongId;
-    await saveDrawing(songId, dual ? 1 : pageNum, next);
+    await selSaveFn(sel)(selSongId(sel), selPage(sel), next);
   };
 
   // ── Text tool confirm
@@ -4436,22 +4451,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const pt = getCanvasPt(e, canvas);
       const HIT = 0.07; // 7% of canvas CSS width ≈ 35–45px touch radius
       let bestIdx = -1, bestDist = HIT;
-      strokes1Ref.current.forEach((s, i) => {
+      const isTeam1 = teamDrawMode;
+      const searchStrokes1 = isTeam1 ? teamStrokes1Ref : strokes1Ref;
+      const renderCanvas1 = isTeam1 ? (teamDrawCanvas1Ref.current || canvas) : canvas;
+      searchStrokes1.current.forEach((s, i) => {
         if (s.tool !== "text" && s.tool !== "stamp") return;
         const sp = s.points?.[0]; if (!sp) return;
         const d = Math.sqrt((sp.x - pt.x)**2 + (sp.y - pt.y)**2);
         if (d < bestDist) { bestDist = d; bestIdx = i; }
       });
       if (bestIdx >= 0) {
-        const s = strokes1Ref.current[bestIdx];
-        const newSel = { idx: bestIdx, canvasNum: 1 };
+        const s = searchStrokes1.current[bestIdx];
+        const newSel = { idx: bestIdx, canvasNum: 1, isTeam: isTeam1 };
         setSelAnnot(newSel); selAnnotRef.current = newSel;
         selDragRef.current = { startX: pt.x, startY: pt.y, origX: s.points[0].x, origY: s.points[0].y };
-        drawStrokes(canvas, strokes1Ref.current, null, bestIdx);
+        drawStrokes(renderCanvas1, searchStrokes1.current, null, bestIdx);
       } else {
         setSelAnnot(null); selAnnotRef.current = null;
         selDragRef.current = null;
-        drawStrokes(canvas, strokes1Ref.current);
+        drawStrokes(renderCanvas1, searchStrokes1.current);
       }
       return;
     }
@@ -4492,10 +4510,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const newX = Math.max(0.01, Math.min(0.99, origX + (pt.x - startX)));
       const newY = Math.max(0.01, Math.min(0.99, origY + (pt.y - startY)));
       const idx = selAnnotRef.current.idx;
-      strokes1Ref.current = strokes1Ref.current.map((s, i) =>
+      const sRef1m = selAnnotRef.current.isTeam ? teamStrokes1Ref : strokes1Ref;
+      const dc1m = selAnnotRef.current.isTeam ? (teamDrawCanvas1Ref.current || canvas) : canvas;
+      sRef1m.current = sRef1m.current.map((s, i) =>
         i === idx ? { ...s, points: [{ x: newX, y: newY }] } : s
       );
-      drawStrokes(canvas, strokes1Ref.current, null, idx);
+      drawStrokes(dc1m, sRef1m.current, null, idx);
       return;
     }
     if (drawTool === "text") {
@@ -4525,10 +4545,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (drawTool === "select") {
       if (selDragRef.current && selAnnotRef.current?.canvasNum === 1) {
         selDragRef.current = null;
+        const sRef1u = selAnnotRef.current.isTeam ? teamStrokes1Ref : strokes1Ref;
+        const dc1u = selAnnotRef.current.isTeam ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current;
         const songId = dual ? dualLeftSongId : selectedSongId;
-        await saveDrawing(songId, dual ? 1 : pageNum, strokes1Ref.current);
-        const canvas = drawCanvas1Ref.current;
-        if (canvas) drawStrokes(canvas, strokes1Ref.current, null, selAnnotRef.current.idx);
+        await (selAnnotRef.current.isTeam ? saveTeamDrawing : saveDrawing)(songId, dual ? 1 : pageNum, sRef1u.current);
+        if (dc1u) drawStrokes(dc1u, sRef1u.current, null, selAnnotRef.current.idx);
       }
       return;
     }
@@ -4588,9 +4609,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     shapeStart1Ref.current = null;
     isDrawing1Ref.current = false; curStroke1Ref.current = null;
     selDragRef.current = null;
-    const canvas = teamDrawMode ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current;
-    const sRef1c = teamDrawMode ? teamStrokes1Ref : strokes1Ref;
-    const selIdx1 = !teamDrawMode && selAnnotRef.current?.canvasNum === 1 ? selAnnotRef.current.idx : -1;
+    const sel1 = selAnnotRef.current?.canvasNum === 1 ? selAnnotRef.current : null;
+    const useTeam1 = sel1 ? !!sel1.isTeam : teamDrawMode;
+    const canvas = useTeam1 ? (teamDrawCanvas1Ref.current || drawCanvas1Ref.current) : drawCanvas1Ref.current;
+    const sRef1c = useTeam1 ? teamStrokes1Ref : strokes1Ref;
+    const selIdx1 = sel1 ? sel1.idx : -1;
     if (canvas) drawStrokes(canvas, sRef1c.current, null, selIdx1);
   };
 
@@ -4606,22 +4629,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const pt = getCanvasPt(e, canvas);
       const HIT = 0.07;
       let bestIdx = -1, bestDist = HIT;
-      strokes2Ref.current.forEach((s, i) => {
+      const isTeam2 = teamDrawMode;
+      const searchStrokes2 = isTeam2 ? teamStrokes2Ref : strokes2Ref;
+      const renderCanvas2 = isTeam2 ? (teamDrawCanvas2Ref.current || canvas) : canvas;
+      searchStrokes2.current.forEach((s, i) => {
         if (s.tool !== "text" && s.tool !== "stamp") return;
         const sp = s.points?.[0]; if (!sp) return;
         const d = Math.sqrt((sp.x - pt.x)**2 + (sp.y - pt.y)**2);
         if (d < bestDist) { bestDist = d; bestIdx = i; }
       });
       if (bestIdx >= 0) {
-        const s = strokes2Ref.current[bestIdx];
-        const newSel = { idx: bestIdx, canvasNum: 2 };
+        const s = searchStrokes2.current[bestIdx];
+        const newSel = { idx: bestIdx, canvasNum: 2, isTeam: isTeam2 };
         setSelAnnot(newSel); selAnnotRef.current = newSel;
         selDragRef.current = { startX: pt.x, startY: pt.y, origX: s.points[0].x, origY: s.points[0].y };
-        drawStrokes(canvas, strokes2Ref.current, null, bestIdx);
+        drawStrokes(renderCanvas2, searchStrokes2.current, null, bestIdx);
       } else {
         setSelAnnot(null); selAnnotRef.current = null;
         selDragRef.current = null;
-        drawStrokes(canvas, strokes2Ref.current);
+        drawStrokes(renderCanvas2, searchStrokes2.current);
       }
       return;
     }
@@ -4662,10 +4688,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const newX = Math.max(0.01, Math.min(0.99, origX + (pt.x - startX)));
       const newY = Math.max(0.01, Math.min(0.99, origY + (pt.y - startY)));
       const idx = selAnnotRef.current.idx;
-      strokes2Ref.current = strokes2Ref.current.map((s, i) =>
+      const sRef2m = selAnnotRef.current.isTeam ? teamStrokes2Ref : strokes2Ref;
+      const dc2m = selAnnotRef.current.isTeam ? (teamDrawCanvas2Ref.current || canvas) : canvas;
+      sRef2m.current = sRef2m.current.map((s, i) =>
         i === idx ? { ...s, points: [{ x: newX, y: newY }] } : s
       );
-      drawStrokes(canvas, strokes2Ref.current, null, idx);
+      drawStrokes(dc2m, sRef2m.current, null, idx);
       return;
     }
     if (drawTool === "text") {
@@ -4695,9 +4723,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (drawTool === "select") {
       if (selDragRef.current && selAnnotRef.current?.canvasNum === 2) {
         selDragRef.current = null;
-        await saveDrawing(dualRightSongId, 1, strokes2Ref.current);
-        const canvas = drawCanvas2Ref.current;
-        if (canvas) drawStrokes(canvas, strokes2Ref.current, null, selAnnotRef.current.idx);
+        const sRef2u = selAnnotRef.current.isTeam ? teamStrokes2Ref : strokes2Ref;
+        const dc2u = selAnnotRef.current.isTeam ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
+        await (selAnnotRef.current.isTeam ? saveTeamDrawing : saveDrawing)(dualRightSongId, 1, sRef2u.current);
+        if (dc2u) drawStrokes(dc2u, sRef2u.current, null, selAnnotRef.current.idx);
       }
       return;
     }
@@ -4754,9 +4783,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     shapeStart2Ref.current = null;
     isDrawing2Ref.current = false; curStroke2Ref.current = null;
     selDragRef.current = null;
-    const canvas = teamDrawMode ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
-    const sRef2c = teamDrawMode ? teamStrokes2Ref : strokes2Ref;
-    const selIdx2 = !teamDrawMode && selAnnotRef.current?.canvasNum === 2 ? selAnnotRef.current.idx : -1;
+    const sel2 = selAnnotRef.current?.canvasNum === 2 ? selAnnotRef.current : null;
+    const useTeam2 = sel2 ? !!sel2.isTeam : teamDrawMode;
+    const canvas = useTeam2 ? (teamDrawCanvas2Ref.current || drawCanvas2Ref.current) : drawCanvas2Ref.current;
+    const sRef2c = useTeam2 ? teamStrokes2Ref : strokes2Ref;
+    const selIdx2 = sel2 ? sel2.idx : -1;
     if (canvas) drawStrokes(canvas, sRef2c.current, null, selIdx2);
   };
 
