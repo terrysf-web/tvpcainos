@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.174";
+const APP_VERSION = "3.175";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7601,7 +7601,7 @@ function BottomNav({ view, nav, unread, user }) {
   const tabs = [
     { id:"services",      icon:"home",       label:"예배"   },
     { id:"library",       icon:"music",      label:"악보"   },
-    ...(isBroadcast(user?.role) ? [{ id:"live", icon:"radio", label:"LIVE" }] : []),
+    ...(user?.role === "admin" ? [{ id:"live", icon:"radio", label:"LIVE" }] : []),
     { id:"notifications", icon:"bell",       label:"알림"   },
     { id:"profile",       icon:"user",       label:"프로필" },
   ];
@@ -8087,7 +8087,7 @@ export default function App() {
           nav={nav}
         />
       )}
-      {view === "live" && isBroadcast(user?.role) && (
+      {view === "live" && user?.role === "admin" && (
         <LiveScreen user={user} services={services} songs={songs} nav={nav} />
       )}
       {view === "profile" && (
