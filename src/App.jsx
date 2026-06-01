@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.170";
+const APP_VERSION = "3.171";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -428,6 +428,13 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
           ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
         }
       }
+      if (s.team && s.points?.[0]) {
+        const mSz = Math.max(4, canvas.width * 0.015);
+        ctx.save(); ctx.font = `${mSz}px system-ui`; ctx.textAlign = "left";
+        ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.65;
+        ctx.fillText("👥", s.points[0].x * canvas.width, s.points[0].y * canvas.height - 2);
+        ctx.restore();
+      }
       ctx.restore(); continue;
     }
     if (!s.points || s.points.length < 1) { ctx.restore(); continue; }
@@ -443,6 +450,12 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
       ctx.textBaseline = "middle";
       ctx.textAlign = "left";
       ctx.fillText(s.text || "", px, py);
+      if (s.team) {
+        const mSz = Math.max(4, canvas.width * 0.015);
+        ctx.save(); ctx.font = `${mSz}px system-ui`; ctx.textAlign = "left";
+        ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.65;
+        ctx.fillText("👥", px, py - sz * 0.55); ctx.restore();
+      }
       ctx.restore(); continue;
     }
     if (s.tool === "stamp") {
@@ -485,6 +498,12 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
         ctx.fillText(s.symbol || "f", px, py);
       }
       ctx.restore();
+      if (s.team) {
+        const mSz = Math.max(4, canvas.width * 0.015);
+        ctx.save(); ctx.font = `${mSz}px system-ui`; ctx.textAlign = "left";
+        ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.65;
+        ctx.fillText("👥", px - mSz * 0.3, py - sz * 0.55); ctx.restore();
+      }
       continue;
     }
     const isEraser     = s.tool === "eraser"     || s.eraser;
@@ -539,6 +558,12 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
       ctx.stroke();
     }
     ctx.restore();
+    if (s.team && pts.length > 0) {
+      const mSz = Math.max(4, canvas.width * 0.015);
+      ctx.save(); ctx.font = `${mSz}px system-ui`; ctx.textAlign = "left";
+      ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.65;
+      ctx.fillText("👥", pts[0][0], pts[0][1] - 2); ctx.restore();
+    }
   }
   // Selection indicator
   if (selectedIdx >= 0 && selectedIdx < all.length && !cur) {
@@ -4344,6 +4369,20 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     await selSaveFn(sel)(selSongId(sel), selPage(sel), next);
   };
 
+  const recolorSelAnnot = async (color) => {
+    const sel = selAnnotRef.current;
+    if (!sel) return;
+    const sRef = selStrokesRef(sel);
+    const dc   = selCanvasRef(sel);
+    const s = sRef.current[sel.idx];
+    if (!s || (s.tool !== "text" && s.tool !== "stamp")) return;
+    const next = sRef.current.map((st, i) => i === sel.idx ? { ...st, color } : st);
+    sRef.current = next;
+    drawStrokes(dc.current, next, null, sel.idx);
+    setSelAnnot({ ...sel });
+    await selSaveFn(sel)(selSongId(sel), selPage(sel), next);
+  };
+
   // ── Text tool confirm
   const confirmText = useCallback(async () => {
     setTextDot(null);
@@ -4364,6 +4403,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       tool: "text", text: textInput.value.trim(),
       color: drawColor, size: ({ 1: 8, 2: 15, 4: 28 })[drawWidth] || 15,
       points: [{ x: textInput.x, y: textInput.y }],
+      ...(isTeam && { team: true }),
     };
     const next = [...strokesRef.current, textStroke];
     strokesRef.current = next;
@@ -4562,7 +4602,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const coordCanvas = drawCanvas1Ref.current || canvas;
       const pt = e ? getCanvasPt(e, coordCanvas) : lastPt1Ref.current;
       const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
-        color:drawColor, size:stampSize, points:[pt] };
+        color:drawColor, size:stampSize, points:[pt], ...(teamDrawMode && { team: true }) };
       const sRef1 = teamDrawMode ? teamStrokes1Ref : strokes1Ref;
       const next = [...sRef1.current, stamp];
       sRef1.current = next;
@@ -4581,7 +4621,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         if (canvas) drawStrokes(canvas, sRef1.current);
         return;
       }
-      const next = [...sRef1.current, shape];
+      const committedShape1 = teamDrawMode ? { ...shape, team: true } : shape;
+      const next = [...sRef1.current, committedShape1];
       sRef1.current = next;
       const songId = dual ? dualLeftSongId : selectedSongId;
       await (teamDrawMode ? saveTeamDrawing : saveDrawing)(songId, dual ? 1 : pageNum, next);
@@ -4595,7 +4636,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     curStroke1Ref.current = null;
     const sRef1 = teamDrawMode ? teamStrokes1Ref : strokes1Ref;
     if (stroke.points.length > 0) {
-      const next = [...sRef1.current, stroke];
+      const committed1 = teamDrawMode ? { ...stroke, team: true } : stroke;
+      const next = [...sRef1.current, committed1];
       sRef1.current = next;
       const songId = dual ? dualLeftSongId : selectedSongId;
       await (teamDrawMode ? saveTeamDrawing : saveDrawing)(songId, dual ? 1 : pageNum, next);
@@ -4739,7 +4781,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const coordCanvas = drawCanvas2Ref.current || canvas;
       const pt = e ? getCanvasPt(e, coordCanvas) : lastPt2Ref.current;
       const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
-        color:drawColor, size:stampSize, points:[pt] };
+        color:drawColor, size:stampSize, points:[pt], ...(teamDrawMode && { team: true }) };
       const sRef2 = teamDrawMode ? teamStrokes2Ref : strokes2Ref;
       const next = [...sRef2.current, stamp];
       sRef2.current = next;
@@ -4757,7 +4799,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         if (canvas) drawStrokes(canvas, sRef2.current);
         return;
       }
-      const next = [...sRef2.current, shape];
+      const committedShape2 = teamDrawMode ? { ...shape, team: true } : shape;
+      const next = [...sRef2.current, committedShape2];
       sRef2.current = next;
       await (teamDrawMode ? saveTeamDrawing : saveDrawing)(dualRightSongId, 1, next);
       const canvas = teamDrawMode ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
@@ -4770,7 +4813,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     curStroke2Ref.current = null;
     const sRef2 = teamDrawMode ? teamStrokes2Ref : strokes2Ref;
     if (stroke.points.length > 0) {
-      const next = [...sRef2.current, stroke];
+      const committed2 = teamDrawMode ? { ...stroke, team: true } : stroke;
+      const next = [...sRef2.current, committed2];
       sRef2.current = next;
       await (teamDrawMode ? saveTeamDrawing : saveDrawing)(dualRightSongId, 1, next);
     }
@@ -5194,43 +5238,63 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               background: selAnnot ? `${C.pur}0e` : "transparent" }}>
               {selAnnot ? (
                 <>
-                  <span style={{ fontSize:12, color:C.pur, fontWeight:700, flexShrink:0 }}>✓ 선택됨</span>
-                  {/* 텍스트/스탬프 크기 조절 */}
+                  {/* 선택됨 / 팀 배지 */}
+                  <span style={{ fontSize:11, color: selAnnot.isTeam ? C.acc : C.pur,
+                    fontWeight:700, flexShrink:0, whiteSpace:"nowrap" }}>
+                    {selAnnot.isTeam ? "👥 팀선택" : "✓ 선택됨"}
+                  </span>
+                  {/* 텍스트/스탬프 크기 + 색상 조절 */}
                   {(() => {
-                    const sRef = selAnnot.canvasNum === 1 ? strokes1Ref : strokes2Ref;
+                    const sRef = selStrokesRef(selAnnot);
                     const s = sRef.current[selAnnot.idx];
                     if (!s || (s.tool !== "text" && s.tool !== "stamp")) return null;
                     const curSz = s.tool === "text" ? (s.size || 15) : (s.size || 12);
+                    const curClr = s.color || "#e8383b";
                     return (
                       <>
                         <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
                         <button onClick={() => resizeSelText(-4)} style={{
                           background:C.card, border:`1px solid ${C.bdr}`,
-                          borderRadius:8, padding:"5px 11px", cursor:"pointer", flexShrink:0,
+                          borderRadius:8, padding:"5px 10px", cursor:"pointer", flexShrink:0,
                           fontSize:14, fontWeight:700, color:C.txt, fontFamily:"inherit",
                         }}>A-</button>
                         <span style={{ fontSize:13, fontWeight:700, color:C.pur,
-                          minWidth:26, textAlign:"center", flexShrink:0 }}>{curSz}</span>
+                          minWidth:24, textAlign:"center", flexShrink:0 }}>{curSz}</span>
                         <button onClick={() => resizeSelText(4)} style={{
                           background:C.card, border:`1px solid ${C.bdr}`,
-                          borderRadius:8, padding:"5px 11px", cursor:"pointer", flexShrink:0,
+                          borderRadius:8, padding:"5px 10px", cursor:"pointer", flexShrink:0,
                           fontSize:14, fontWeight:700, color:C.txt, fontFamily:"inherit",
                         }}>A+</button>
+                        <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+                        {["#e8383b","#1a73e8","#1c1c1e","#34c759","#e8a93e","#9b59b6"].map(clr => (
+                          <button key={clr} onClick={() => recolorSelAnnot(clr)} style={{
+                            width:20, height:20, borderRadius:"50%", background:clr, padding:0,
+                            border: curClr === clr ? "2.5px solid #fff" : "2px solid transparent",
+                            outline: curClr === clr ? `2px solid ${clr}` : "none",
+                            cursor:"pointer", flexShrink:0,
+                          }} />
+                        ))}
                       </>
                     );
                   })()}
                   <div style={{ flex:1 }} />
                   <button onClick={deleteSelAnnot} style={{
                     display:"flex", alignItems:"center", gap:5,
-                    padding:"7px 16px", background:C.red, border:"none",
+                    padding:"7px 14px", background:C.red, border:"none",
                     borderRadius:8, cursor:"pointer", flexShrink:0,
                   }}>
                     <Icon n="trash" size={14} color="#fff" />
                     <span style={{ fontSize:12, fontWeight:700, color:"#fff", fontFamily:"inherit" }}>삭제</span>
                   </button>
-                  <button onClick={() => { setSelAnnot(null); drawStrokes(drawCanvas1Ref.current, strokes1Ref.current); drawStrokes(drawCanvas2Ref.current, strokes2Ref.current); }} style={{
+                  <button onClick={() => {
+                    setSelAnnot(null);
+                    drawStrokes(drawCanvas1Ref.current, strokes1Ref.current);
+                    drawStrokes(drawCanvas2Ref.current, strokes2Ref.current);
+                    if (teamDrawCanvas1Ref.current) drawStrokes(teamDrawCanvas1Ref.current, teamStrokes1Ref.current);
+                    if (teamDrawCanvas2Ref.current) drawStrokes(teamDrawCanvas2Ref.current, teamStrokes2Ref.current);
+                  }} style={{
                     display:"flex", alignItems:"center", gap:5,
-                    padding:"7px 14px", background:C.surf, border:`1px solid ${C.bdr}`,
+                    padding:"7px 12px", background:C.surf, border:`1px solid ${C.bdr}`,
                     borderRadius:8, cursor:"pointer", flexShrink:0,
                   }}>
                     <Icon n="xmark" size={14} color={C.dim} />
