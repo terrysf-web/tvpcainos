@@ -7870,7 +7870,7 @@ function LiveScreen({ user, services, songs, nav }) {
                     </div>
                   </div>
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
-                    {[["Tailscale IP","ip","100.116.199.35"],["프록시 포트","proxyPort","1027"]].map(([label,key,ph]) => (
+                    {[["Mac IP (교회 WiFi)","ip","192.168.1.21"],["프록시 포트","proxyPort","1027"]].map(([label,key,ph]) => (
                       <div key={key}>
                         <div style={{ fontSize:11, color:C.dim, marginBottom:4 }}>{label}</div>
                         <input value={ppConfig[key]||""} onChange={e => setPpConfig(p => ({...p,[key]:e.target.value}))}
@@ -8443,7 +8443,7 @@ function LiveScreen({ user, services, songs, nav }) {
                 </span>
               </div>
             </div>
-            {[["Tailscale IP","ip","100.116.199.35"],["프록시 포트","proxyPort","1027"]].map(([label,key,ph]) => (
+            {[["Mac IP (교회 WiFi)","ip","192.168.1.21"],["프록시 포트","proxyPort","1027"]].map(([label,key,ph]) => (
               <div key={key} style={{ marginBottom:10 }}>
                 <div style={{ fontSize:11, color:C.dim, marginBottom:4 }}>{label}</div>
                 <input value={ppConfig[key] || ""} onChange={e => setPpConfig(p => ({...p,[key]:e.target.value}))}
@@ -8497,17 +8497,14 @@ function LiveScreen({ user, services, songs, nav }) {
 
           <div style={{ background:`${C.acc}0a`, borderRadius:12, padding:"12px 14px",
             border:`1px solid ${C.acc}30` }}>
-            <div style={{ fontSize:12, fontWeight:700, color:C.acc, marginBottom:6 }}>교회 맥 설정 방법</div>
+            <div style={{ fontSize:12, fontWeight:700, color:C.acc, marginBottom:6 }}>처음 한 번만 — 기기별 인증서 수락</div>
             <div style={{ fontSize:11, color:C.dim, lineHeight:1.8 }}>
-              <b>1.</b> ProPresenter → Preferences → Network → Enable Network ✓<br/>
-              <b>2.</b> 터미널에서:<br/>
+              <b>1.</b> 이 기기 브라우저에서 아래 주소 열기:<br/>
               <code style={{ background:C.surf, padding:"2px 6px", borderRadius:4, fontSize:10 }}>
-                npm i -g local-ssl-proxy
+                https://192.168.1.21:1027/v1/doc/index.html
               </code><br/>
-              <code style={{ background:C.surf, padding:"2px 6px", borderRadius:4, fontSize:10 }}>
-                local-ssl-proxy --source 1027 --target 1025
-              </code><br/>
-              <b>3.</b> 위 IP · 포트 입력 후 연결 테스트
+              <b>2.</b> "안전하지 않음" 경고 → 고급 → 계속 진행<br/>
+              <b>3.</b> 위로 돌아와서 연결 테스트
             </div>
           </div>
         </>)}
