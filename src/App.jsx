@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.195";
+const APP_VERSION = "3.196";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7200,11 +7200,13 @@ function LiveScreen({ user, services, songs, nav }) {
   const [ppChecking,     setPpChecking]     = useState(false);
   const [ppPresentation, setPpPresentation] = useState(null);
   const [ppSlideRaw,     setPpSlideRaw]     = useState(null);
+  const [ppWsConnected,  setPpWsConnected]  = useState(false);
   const [isDesktop,      setIsDesktop]      = useState(() => window.innerWidth >= 900);
   const [ytLive,         setYtLive]         = useState(null);
   const timerRef      = useRef(null);
   const chatEndRef    = useRef(null);
   const ppLastSyncRef = useRef(null);
+  const ppWsRef       = useRef(null);
 
   useEffect(() => {
     const h = () => setIsDesktop(window.innerWidth >= 900);
@@ -7461,6 +7463,72 @@ function LiveScreen({ user, services, songs, nav }) {
     const id = setInterval(poll, 2000);
     return () => clearInterval(id);
   }, [ppConnected, ppFetch]);
+
+  // WebSocket connection to PP for real-time slide events
+  useEffect(() => {
+    if (!ppConnected || !ppConfig.ip) {
+      setPpWsConnected(false);
+      setPpSlideRaw(null);
+      return;
+    }
+    const wsPort = ppConfig.wsPort || "1028";
+    let ws = null;
+    let retryTimer = null;
+
+    const connect = () => {
+      try {
+        ws = new WebSocket(`wss://${ppConfig.ip}:${wsPort}/`);
+        ppWsRef.current = ws;
+
+        ws.onopen = () => setPpWsConnected(true);
+
+        ws.onmessage = (evt) => {
+          try {
+            const msg = JSON.parse(evt.data);
+            // PP7 WebSocket mirrors the REST response format
+            // Active presentation update: { url: "/v1/presentation/active", data: { presentation: {...} } }
+            const pres = msg?.data?.presentation ?? msg?.presentation;
+            if (pres) {
+              if (pres.id?.name) setPpPresentation(pres);
+              const idx = pres.id?.index;
+              if (idx !== undefined && idx < 0xFFFFFFFE) {
+                // Valid index — extract slide text
+                let count = 0;
+                for (const group of (pres.groups || [])) {
+                  for (const slide of (group.slides || [])) {
+                    if (count === idx) {
+                      setPpSlideRaw({ text: slide.text || "" });
+                      return;
+                    }
+                    count++;
+                  }
+                }
+              }
+            }
+            // Fallback: direct text field in message
+            if (msg?.text) setPpSlideRaw({ text: msg.text });
+          } catch {}
+        };
+
+        ws.onclose = () => {
+          setPpWsConnected(false);
+          retryTimer = setTimeout(connect, 3000);
+        };
+
+        ws.onerror = () => {
+          ws.close();
+        };
+      } catch {}
+    };
+
+    connect();
+    return () => {
+      clearTimeout(retryTimer);
+      ws?.close();
+      ppWsRef.current = null;
+      setPpWsConnected(false);
+    };
+  }, [ppConnected, ppConfig.ip, ppConfig.wsPort]);
 
   // Auto-sync active song when PP presentation changes
   useEffect(() => {
@@ -7977,8 +8045,8 @@ function LiveScreen({ user, services, songs, nav }) {
                       </span>
                     </div>
                   </div>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
-                    {[["Mac IP (교회 WiFi)","ip","192.168.1.21"],["프록시 포트","proxyPort","1027"]].map(([label,key,ph]) => (
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:12 }}>
+                    {[["Mac IP (교회 WiFi)","ip","192.168.1.21"],["REST 포트","proxyPort","1027"],["WS 포트","wsPort","1028"]].map(([label,key,ph]) => (
                       <div key={key}>
                         <div style={{ fontSize:11, color:C.dim, marginBottom:4 }}>{label}</div>
                         <input value={ppConfig[key]||""} onChange={e => setPpConfig(p => ({...p,[key]:e.target.value}))}
@@ -7988,10 +8056,19 @@ function LiveScreen({ user, services, songs, nav }) {
                       </div>
                     ))}
                   </div>
-                  <button onClick={ppConnect} style={{
-                    padding:"10px 24px", background: ppConnected ? C.grn : C.acc, border:"none", borderRadius:10,
-                    cursor:"pointer", color:"#111", fontSize:13, fontWeight:700, fontFamily:"inherit",
-                  }}>{ppChecking?"연결 중...":ppConnected?"✓ 연결됨 (재테스트)":"연결 테스트"}</button>
+                  <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
+                    <button onClick={ppConnect} style={{
+                      padding:"10px 24px", background: ppConnected ? C.grn : C.acc, border:"none", borderRadius:10,
+                      cursor:"pointer", color:"#111", fontSize:13, fontWeight:700, fontFamily:"inherit",
+                    }}>{ppChecking?"연결 중...":ppConnected?"✓ 연결됨 (재테스트)":"연결 테스트"}</button>
+                    <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                      <div style={{ width:7, height:7, borderRadius:"50%",
+                        background: ppWsConnected ? C.grn : C.bdr }} />
+                      <span style={{ fontSize:11, color: ppWsConnected ? C.grn : C.dim }}>
+                        WS {ppWsConnected ? "연결됨" : "대기"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <div style={{ background:C.surf, borderRadius:14, padding:18, border:`1px solid ${C.bdr}` }}>
                   <div style={{ fontSize:14, fontWeight:700, color:C.txt, marginBottom:10 }}>기본 곡 시간</div>
@@ -8502,7 +8579,7 @@ function LiveScreen({ user, services, songs, nav }) {
                 </span>
               </div>
             </div>
-            {[["Mac IP (교회 WiFi)","ip","192.168.1.21"],["프록시 포트","proxyPort","1027"]].map(([label,key,ph]) => (
+            {[["Mac IP (교회 WiFi)","ip","192.168.1.21"],["REST 포트","proxyPort","1027"],["WS 포트","wsPort","1028"]].map(([label,key,ph]) => (
               <div key={key} style={{ marginBottom:10 }}>
                 <div style={{ fontSize:11, color:C.dim, marginBottom:4 }}>{label}</div>
                 <input value={ppConfig[key] || ""} onChange={e => setPpConfig(p => ({...p,[key]:e.target.value}))}
@@ -8520,6 +8597,13 @@ function LiveScreen({ user, services, songs, nav }) {
             }}>
               {ppChecking ? "연결 중..." : ppConnected ? "✓ 연결됨 (재테스트)" : "연결 테스트"}
             </button>
+            <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:8 }}>
+              <div style={{ width:7, height:7, borderRadius:"50%",
+                background: ppWsConnected ? C.grn : C.bdr }} />
+              <span style={{ fontSize:11, color: ppWsConnected ? C.grn : C.dim }}>
+                WebSocket {ppWsConnected ? "연결됨" : "대기 (pp_ws_proxy.py 실행 필요)"}
+              </span>
+            </div>
           </div>
 
           <div style={{ background:C.surf, borderRadius:14, padding:16, border:`1px solid ${C.bdr}` }}>
