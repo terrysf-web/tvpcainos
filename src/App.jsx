@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.193";
+const APP_VERSION = "3.194";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7199,6 +7199,7 @@ function LiveScreen({ user, services, songs, nav }) {
   const [ppConnected,    setPpConnected]    = useState(false);
   const [ppChecking,     setPpChecking]     = useState(false);
   const [ppPresentation, setPpPresentation] = useState(null);
+  const [ppSlideRaw,     setPpSlideRaw]     = useState(null);
   const [isDesktop,      setIsDesktop]      = useState(() => window.innerWidth >= 900);
   const [ytLive,         setYtLive]         = useState(null);
   const timerRef      = useRef(null);
@@ -7293,22 +7294,30 @@ function LiveScreen({ user, services, songs, nav }) {
   const nextExpected = fmtHHMM(new Date(Date.now() + Math.max(0, songDuration - elapsed) * 1000));
 
   const ppCurrentSlideText = useMemo(() => {
+    const parseText = (raw) => {
+      if (!raw) return null;
+      const lines = raw.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+      return lines.length > 0 ? lines.join("\n") : null;
+    };
+    // Try /v1/presentation/active/slide response first
+    if (ppSlideRaw) {
+      const t = ppSlideRaw.text ?? ppSlideRaw.slide?.text ?? ppSlideRaw.data?.text;
+      const parsed = parseText(t);
+      if (parsed) return parsed;
+    }
+    // Fallback: id.index in active presentation
     if (!ppPresentation) return null;
     const idx = ppPresentation.id?.index;
     if (idx === undefined || idx >= 0xFFFFFFFE) return null;
     let count = 0;
     for (const group of (ppPresentation.groups || [])) {
       for (const slide of (group.slides || [])) {
-        if (count === idx) {
-          const raw = slide.text || "";
-          const lines = raw.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
-          return lines.length > 0 ? lines.join("\n") : null;
-        }
+        if (count === idx) return parseText(slide.text || "");
         count++;
       }
     }
     return null;
-  }, [ppPresentation]);
+  }, [ppPresentation, ppSlideRaw]);
 
   const setActiveIdx = async (idx) => {
     if (!selSvcId) return;
@@ -7441,12 +7450,17 @@ function LiveScreen({ user, services, songs, nav }) {
     if (ppConfig.ip) ppConnect();
   }, []); // eslint-disable-line
 
-  // Poll ProPresenter for current presentation every 2s
+  // Poll ProPresenter for current presentation + slide every 2s
   useEffect(() => {
-    if (!ppConnected) { setPpPresentation(null); return; }
+    if (!ppConnected) { setPpPresentation(null); setPpSlideRaw(null); return; }
     const poll = async () => {
-      const data = await ppFetch("/v1/presentation/active");
-      if (data?.presentation) setPpPresentation(data.presentation);
+      const [presData, slideData] = await Promise.all([
+        ppFetch("/v1/presentation/active"),
+        ppFetch("/v1/presentation/active/slide"),
+      ]);
+      if (presData?.presentation) setPpPresentation(presData.presentation);
+      // /v1/presentation/active/slide returns the current slide object if supported
+      if (slideData) setPpSlideRaw(slideData);
     };
     poll();
     const id = setInterval(poll, 2000);
