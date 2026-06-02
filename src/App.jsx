@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.188";
+const APP_VERSION = "3.189";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -8536,7 +8536,7 @@ function BottomNav({ view, nav, unread, user }) {
           </button>
         );
       })}
-      <button onClick={() => window.location.reload()}
+      <button onClick={() => { localStorage.setItem("tvpc_view", view); window.location.reload(); }}
         style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2,
           background:"none", border:"none", cursor:"pointer", padding:"2px 8px", flexShrink:0 }}>
         <div style={{ width:44, height:44, borderRadius:12, background:`${C.pur}18`,
@@ -8556,7 +8556,7 @@ export default function App() {
   const [user,        setUser]        = useState(undefined); // undefined = loading
   const [loginErr,        setLoginErr]        = useState("");
   const [loginBlockedUser,setLoginBlockedUser] = useState(null); // { email, name } 미등록 로그인 시도
-  const [view,        setView]        = useState("services");
+  const [view,        setView]        = useState(() => localStorage.getItem("tvpc_view") || "services");
   const [songs,       setSongs]       = useState([]);
   const [services,    setServices]    = useState([]);
   const [notifs,      setNotifs]      = useState([]);
@@ -8949,6 +8949,7 @@ export default function App() {
     if (params.svcSongIdx  !== undefined) setSelSvcSongIdx(params.svcSongIdx);
     if (params.backTo      !== undefined) setBackTo(params.backTo);
     setView(newView);
+    localStorage.setItem("tvpc_view", newView);
   };
 
   const unread = notifs.filter(n => !n.read).length;
