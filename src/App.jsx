@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.200";
+const APP_VERSION = "3.201";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2415,9 +2415,9 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg }}>
-      {/* 헤더 */}
-      <div style={{ background:C.surf, padding:"18px 16px",
+    <div style={{ height:"100dvh", display:"flex", flexDirection:"column", background:C.bg, overflow:"hidden" }}>
+      {/* 헤더 — 고정 */}
+      <div style={{ flexShrink:0, background:C.surf, padding:"18px 16px",
         paddingTop:"calc(18px + env(safe-area-inset-top))",
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", gap:12 }}>
@@ -2496,6 +2496,9 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           </button>
         )}
       </div>
+
+      {/* 스크롤 영역 */}
+      <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
 
       <div style={{ padding:16, paddingBottom:90 }}>
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
@@ -2691,6 +2694,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           </div>
         </div>
       )}
+
+      </div>{/* /스크롤 영역 */}
 
       {showPicker && (
         <SongPickerModal songs={songs} currentIds={svc.songIds || []}
