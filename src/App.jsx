@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.178";
+const APP_VERSION = "3.181";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7785,14 +7785,22 @@ function LiveScreen({ user, services, songs, nav }) {
                             </div>
                           )}
                           <div style={{ display:"flex", gap:4, marginTop:8, flexWrap:"wrap" }}>
-                            {[["ready","준비완료",C.grn],["done","완료",C.acc],["issue","문제",C.red]].map(([st,lbl,c]) => (
-                              <button key={st} onClick={() => sendCue(team.id, lbl, st)} style={{
-                                padding:"3px 8px", borderRadius:6, fontSize:10, fontWeight:700, cursor:"pointer",
-                                background: cue?.status===st ? c : `${c}15`,
-                                border:`1px solid ${c}60`,
-                                color: cue?.status===st ? "#fff" : c, fontFamily:"inherit",
-                              }}>{lbl}</button>
-                            ))}
+                            {cue?.status ? (
+                              <button onClick={() => sendCue(team.id, "대기 중", null)} style={{
+                                padding:"3px 10px", borderRadius:6, fontSize:10, fontWeight:700,
+                                cursor:"pointer", border:"none", color:"#fff", fontFamily:"inherit",
+                                background: cue.status==="ready" ? C.grn : cue.status==="done" ? C.acc : C.red,
+                              }}>
+                                {cue.status==="ready" ? "✓ 준비완료" : cue.status==="done" ? "✓ 완료" : "⚠ 문제"}
+                              </button>
+                            ) : (
+                              [["ready","준비완료",C.grn],["done","완료",C.acc],["issue","문제",C.red]].map(([st,lbl,c]) => (
+                                <button key={st} onClick={() => sendCue(team.id, lbl, st)} style={{
+                                  padding:"3px 8px", borderRadius:6, fontSize:10, fontWeight:700, cursor:"pointer",
+                                  background:`${c}15`, border:`1px solid ${c}60`, color:c, fontFamily:"inherit",
+                                }}>{lbl}</button>
+                              ))
+                            )}
                           </div>
                         </div>
                       );
@@ -7898,14 +7906,22 @@ function LiveScreen({ user, services, songs, nav }) {
                       </div>
                     </>}
                     <div style={{ display:"flex", gap:8, marginTop:12 }}>
-                      {[["ready","준비완료",C.grn],["done","완료",C.acc],["issue","문제있음",C.red]].map(([st,lbl,col]) => (
-                        <button key={st} onClick={() => sendCue(team.id, lbl, st)} style={{
-                          padding:"7px 16px", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer",
-                          background: cue?.status===st ? col : `${col}18`,
-                          border:`1px solid ${col}`, color: cue?.status===st ? "#fff" : col,
-                          fontFamily:"inherit",
-                        }}>{lbl}</button>
-                      ))}
+                      {cue?.status ? (
+                        <button onClick={() => sendCue(team.id, "대기 중", null)} style={{
+                          padding:"7px 18px", borderRadius:8, fontSize:12, fontWeight:700,
+                          cursor:"pointer", border:"none", color:"#fff", fontFamily:"inherit",
+                          background: cue.status==="ready" ? C.grn : cue.status==="done" ? C.acc : C.red,
+                        }}>
+                          {cue.status==="ready" ? "✓ 준비완료" : cue.status==="done" ? "✓ 완료" : "⚠ 문제있음"}
+                        </button>
+                      ) : (
+                        [["ready","준비완료",C.grn],["done","완료",C.acc],["issue","문제있음",C.red]].map(([st,lbl,col]) => (
+                          <button key={st} onClick={() => sendCue(team.id, lbl, st)} style={{
+                            padding:"7px 16px", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer",
+                            background:`${col}18`, border:`1px solid ${col}`, color:col, fontFamily:"inherit",
+                          }}>{lbl}</button>
+                        ))
+                      )}
                     </div>
                   </div>
                 );
@@ -8033,7 +8049,7 @@ function LiveScreen({ user, services, songs, nav }) {
   /* ────────────────────────── MOBILE LAYOUT ────────────────────────── */
   return (
     <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.bg,
-      paddingBottom:"calc(64px + env(safe-area-inset-bottom))" }}>
+      paddingBottom:"calc(90px + env(safe-area-inset-bottom))" }}>
 
       {/* ── Header */}
       <div style={{ padding:"calc(12px + env(safe-area-inset-top)) 16px 0",
@@ -8367,10 +8383,20 @@ function LiveScreen({ user, services, songs, nav }) {
                 <div style={{ fontSize:12, color:C.dim }}>대기 중...</div>
               )}
               <div style={{ display:"flex", gap:6, marginTop:10, flexWrap:"wrap" }}>
-                {[["ready","준비완료",C.grn],["done","완료",C.acc],["issue","문제있음",C.red]].map(([st,lbl,col]) => (
-                  <button key={st} onClick={() => sendCue(team.id, lbl, st)}
-                    style={cueBtn(cue?.status===st, col)}>{lbl}</button>
-                ))}
+                {cue?.status ? (
+                  <button onClick={() => sendCue(team.id, "대기 중", null)} style={{
+                    padding:"7px 18px", borderRadius:8, fontSize:12, fontWeight:700,
+                    cursor:"pointer", border:"none", color:"#fff", fontFamily:"inherit",
+                    background: cue.status==="ready" ? C.grn : cue.status==="done" ? C.acc : C.red,
+                  }}>
+                    {cue.status==="ready" ? "✓ 준비완료" : cue.status==="done" ? "✓ 완료" : "⚠ 문제있음"}
+                  </button>
+                ) : (
+                  [["ready","준비완료",C.grn],["done","완료",C.acc],["issue","문제있음",C.red]].map(([st,lbl,col]) => (
+                    <button key={st} onClick={() => sendCue(team.id, lbl, st)}
+                      style={cueBtn(false, col)}>{lbl}</button>
+                  ))
+                )}
               </div>
             </div>
           );
