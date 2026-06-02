@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.185";
+const APP_VERSION = "3.186";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -108,7 +108,7 @@ const P = {
   help:    "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01",
   play:    "M5 3l14 9-14 9V3z",
   pause:   "M6 4h4v16H6zM14 4h4v16h-4z",
-  radio:   "M12 1v4M4.22 4.22l2.83 2.83M1 12h4M4.22 19.78l2.83-2.83M12 23v-4M19.78 19.78l-2.83-2.83M23 12h-4M19.78 4.22l-2.83 2.83M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
+  antenna: "M12 22L12 12M9 12a3 3 0 0 0 6 0M6 12a6 6 0 0 0 12 0",
   megaphone:"M3 11v2a1 1 0 0 0 1 1h2l5 4V7l-5 4H4a1 1 0 0 0-1 1zM19 12a7 7 0 0 0-3-5.83M15.54 16.46A5 5 0 0 0 17 12a5 5 0 0 0-1.46-3.54",
   stop:    "M6 6h12v12H6z",
   repeat:  "M17 2l4 4-4 4M21 6H7a4 4 0 0 0 0 8h1M7 22l-4-4 4-4M3 18h14a4 4 0 0 0 0-8h-1",
@@ -7609,11 +7609,11 @@ function LiveScreen({ user, services, songs, nav }) {
               </button>
               {selSvc && (
                 <div style={{ marginTop:10 }}>
-                  <div style={{ fontSize:14, fontWeight:800, color:C.txt }}>{selSvc.title}</div>
-                  <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>
-                    {new Date(selSvc.date+"T00:00:00").toLocaleDateString("ko-KR",{month:"long",day:"numeric",weekday:"short"})}
+                  <div style={{ fontSize:15, fontWeight:800, color:C.txt }}>
+                    {new Date(selSvc.date+"T00:00:00").toLocaleDateString("ko-KR",{month:"numeric",day:"numeric",weekday:"short"})}
                     {selSvc.time ? ` · ${selSvc.time}` : ""}
                   </div>
+                  <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>{selSvc.title}</div>
                   <div style={{ display:"flex", gap:6, marginTop:8 }}>
                     <span style={{ fontSize:10, color:C.pur, background:`${C.pur}15`,
                       borderRadius:5, padding:"2px 8px", fontWeight:600 }}>
@@ -7925,7 +7925,7 @@ function LiveScreen({ user, services, songs, nav }) {
               {liveTab === "settings" && (<>
                 <div style={{ background:C.surf, borderRadius:14, padding:18, border:`1px solid ${C.bdr}` }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
-                    <Icon n="radio" size={16} color={C.acc} />
+                    <Icon n="antenna" size={16} color={C.acc} />
                     <span style={{ fontSize:14, fontWeight:700, color:C.txt }}>ProPresenter 연결</span>
                     <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:4 }}>
                       <div style={{ width:8, height:8, borderRadius:"50%", background: ppConnected ? C.grn : C.bdr }} />
@@ -8416,7 +8416,7 @@ function LiveScreen({ user, services, songs, nav }) {
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
               <div style={{ width:32, height:32, borderRadius:8, background:`${C.acc}18`,
                 display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <Icon n="radio" size={16} color={C.acc} />
+                <Icon n="antenna" size={16} color={C.acc} />
               </div>
               <span style={{ fontSize:14, fontWeight:700, color:C.txt }}>ProPresenter 연결</span>
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:4 }}>
@@ -8504,7 +8504,7 @@ function BottomNav({ view, nav, unread, user }) {
   const tabs = [
     { id:"services",      icon:"home",       label:"예배"   },
     { id:"library",       icon:"music",      label:"악보"   },
-    ...(user?.role === "admin" ? [{ id:"live", icon:"radio", label:"LIVE" }] : []),
+    ...(user?.role === "admin" ? [{ id:"live", icon:"antenna", label:"LIVE" }] : []),
     { id:"notifications", icon:"bell",       label:"알림"   },
     { id:"profile",       icon:"user",       label:"프로필" },
   ];
