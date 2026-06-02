@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.201";
+const APP_VERSION = "3.202";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1871,7 +1871,7 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
   };
 
   return (
-    <div style={{ height:"var(--app-h, 100dvh)", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div style={{ height:"100%", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* 헤더 */}
       <div style={{ background:C.surf, padding:"20px 20px 16px", flexShrink:0,
         paddingTop:"calc(20px + env(safe-area-inset-top))",
@@ -2415,7 +2415,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   };
 
   return (
-    <div style={{ height:"100dvh", display:"flex", flexDirection:"column", background:C.bg, overflow:"hidden" }}>
+    <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.bg, overflow:"hidden" }}>
       {/* 헤더 — 고정 */}
       <div style={{ flexShrink:0, background:C.surf, padding:"18px 16px",
         paddingTop:"calc(18px + env(safe-area-inset-top))",
@@ -2980,7 +2980,7 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
   };
 
   return (
-    <div style={{ height:"var(--app-h, 100dvh)", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div style={{ height:"100%", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* 고정 헤더 */}
       <div style={{ background:C.surf, flexShrink:0,
         paddingTop:"calc(18px + env(safe-area-inset-top))",
@@ -6415,7 +6415,7 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
   });
 
   return (
-    <div style={{ height:"var(--app-h, 100dvh)", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div style={{ height:"100%", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* header */}
       <div style={{ background:C.surf, flexShrink:0,
         paddingTop:"env(safe-area-inset-top)",
@@ -7116,7 +7116,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
   };
 
   return (
-    <div style={{ height:"var(--app-h, 100dvh)", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div style={{ height:"100%", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* 헤더 */}
       <div style={{ background:C.surf, padding:"18px 20px", flexShrink:0,
         paddingTop:"calc(18px + env(safe-area-inset-top))",
@@ -8797,15 +8797,7 @@ export default function App() {
     }
   }, []);
 
-  // ── 실제 뷰포트 높이 CSS 변수 고정 (Android 브라우저 URL바 대응)
-  useEffect(() => {
-    const setVh = () => {
-      document.documentElement.style.setProperty("--app-h", `${window.innerHeight}px`);
-    };
-    setVh();
-    window.addEventListener("resize", setVh);
-    return () => window.removeEventListener("resize", setVh);
-  }, []);
+  // (removed: --app-h resize listener — app root is now position:fixed so no resize jumps)
 
 
 
@@ -9183,7 +9175,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ width:"100%", height:"var(--app-h, 100dvh)", background:C.bg, position:"relative", overflow:"hidden" }}>
+    <div style={{ position:"fixed", inset:0, background:C.bg, overflow:"hidden" }}>
       {view === "services"      && <ServicesScreen      {...shared} />}
       {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
       {view === "library"       && <SongLibraryScreen   {...shared} />}
