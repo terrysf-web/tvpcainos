@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.203";
+const APP_VERSION = "3.204";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2650,61 +2650,95 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             📺 ProPresenter 가사
           </div>
 
-          {/* 형식 가이드 (입력 전에만) */}
-          {leader && !ppLyricsText.trim() && (
-            <div style={{ background:C.card, borderRadius:8, padding:"10px 12px", marginBottom:8,
-              border:`1px solid ${C.bdr}`, fontSize:12, color:C.dim, lineHeight:2,
-              fontFamily:"'Menlo','Courier New',monospace" }}>
-              <span style={{ color:C.acc, fontWeight:700 }}>[1절]</span>{"\n"}
-              1절 첫번째슬라이드 첫줄{"\n"}
-              1절 첫번째슬라이드 둘째줄{"\n\n"}
-              1절 두번째슬라이드 첫줄 {" "}
-              <span style={{ color:C.dim, fontSize:11 }}>← 빈 줄로 슬라이드 구분</span>{"\n\n"}
-              <span style={{ color:"#e88c3e", fontWeight:700 }}>[후렴]</span>{"\n"}
-              후렴 가사 첫줄{"\n"}
-              후렴 가사 둘째줄
-            </div>
-          )}
-
-          {/* 입력 (리더) */}
+          {/* 리더 입력 */}
           {leader && (
-            <textarea
-              value={ppLyricsText}
-              onChange={e => { ppLyricsEditedRef.current = true; setPpLyricsText(e.target.value); }}
-              placeholder={"[1절]\n첫째줄\n둘째줄\n\n셋째줄\n넷째줄\n\n[후렴]\n후렴 첫째줄\n후렴 둘째줄"}
-              rows={10}
-              style={{ width:"100%", padding:"10px 12px", borderRadius:10,
-                border:`1px solid ${C.bdr}`, background:C.card, fontSize:13,
-                color:C.txt, fontFamily:"'Menlo','Courier New',monospace",
-                outline:"none", resize:"vertical", boxSizing:"border-box", lineHeight:1.8 }}
-            />
-          )}
-
-          {/* 섹션/슬라이드 미리보기 */}
-          {ppGroups.length > 0 && (
-            <div style={{ marginTop:8, display:"flex", flexWrap:"wrap", gap:6, alignItems:"center" }}>
-              {ppGroups.map((g, i) => (
-                <div key={i} style={{ background:`${C.acc}18`, border:`1px solid ${C.acc}33`,
-                  borderRadius:8, padding:"3px 10px", fontSize:12 }}>
-                  <span style={{ color:C.acc, fontWeight:700 }}>{g.name}</span>
-                  <span style={{ color:C.dim, marginLeft:5 }}>{g.slides.length}슬라이드</span>
+            <>
+              {!ppLyricsText.trim() && (
+                <div style={{ background:"#111", borderRadius:8, padding:"10px 12px", marginBottom:8,
+                  border:"1px solid rgba(255,255,255,0.08)", fontSize:12, color:"rgba(255,255,255,0.4)",
+                  fontFamily:"monospace", lineHeight:1.9, whiteSpace:"pre" }}>
+                  <span style={{ color:"#7799ff" }}>[1절]</span>{"\n"}{"가사 첫줄\n가사 둘째줄\n\n가사 셋째줄  "}
+                  <span style={{ color:"rgba(255,255,255,0.25)", fontSize:11 }}>← 빈 줄 = 새 슬라이드</span>{"\n\n"}
+                  <span style={{ color:"#ff9966" }}>[후렴]</span>{"\n"}{"후렴 가사 첫줄\n후렴 가사 둘째줄"}
                 </div>
-              ))}
-              <span style={{ fontSize:11, color:C.dim, marginLeft:2 }}>
-                총 {ppGroups.reduce((a,g)=>a+g.slides.length,0)}슬라이드
-              </span>
+              )}
+              <textarea
+                value={ppLyricsText}
+                onChange={e => { ppLyricsEditedRef.current = true; setPpLyricsText(e.target.value); }}
+                placeholder={"[1절]\n첫줄\n둘째줄\n\n셋째줄\n\n[후렴]\n후렴 첫줄\n후렴 둘째줄"}
+                rows={9}
+                style={{ width:"100%", padding:"10px 12px", borderRadius:10,
+                  border:`1px solid ${C.bdr}`, background:C.card, fontSize:13,
+                  color:C.txt, fontFamily:"monospace",
+                  outline:"none", resize:"vertical", boxSizing:"border-box", lineHeight:1.8 }}
+              />
+            </>
+          )}
+
+          {/* 슬라이드 미리보기 — PP 화면처럼 */}
+          {ppGroups.length > 0 && (
+            <div style={{ marginTop:10, borderRadius:12, overflow:"hidden",
+              border:"1px solid rgba(255,255,255,0.08)", background:"#080810" }}>
+              {ppGroups.map((group, gi) => {
+                const groupColors = ["#3355ff","#cc4422","#22aa44","#bb22bb","#cc8800"];
+                const clr = groupColors[gi % groupColors.length];
+                return (
+                  <div key={gi}>
+                    {/* 섹션 이름 바 */}
+                    <div style={{ padding:"5px 12px", background:`${clr}33`,
+                      borderBottom:"1px solid rgba(255,255,255,0.06)",
+                      display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ fontSize:11, fontWeight:800, color:clr }}>{gi+1}</span>
+                      <span style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.8)" }}>{group.name}</span>
+                      <span style={{ fontSize:10, color:"rgba(255,255,255,0.3)", marginLeft:"auto" }}>{group.slides.length}슬라이드</span>
+                    </div>
+                    {/* 슬라이드 썸네일 2열 그리드 */}
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:3, padding:6 }}>
+                      {group.slides.map((text, si) => (
+                        <div key={si} style={{
+                          aspectRatio:"16/9",
+                          background:"#111118",
+                          borderRadius:6,
+                          border:"1px solid rgba(255,255,255,0.1)",
+                          display:"flex", alignItems:"center", justifyContent:"center",
+                          padding:"6px 8px", position:"relative", overflow:"hidden",
+                        }}>
+                          {/* 왼쪽·오른쪽 텍스트 박스 (PP 이중 모니터 레이아웃) */}
+                          <div style={{ position:"absolute", inset:0, display:"flex", gap:3, padding:"5px 6px" }}>
+                            {[0,1].map(col => (
+                              <div key={col} style={{
+                                flex:1, display:"flex", alignItems:"center", justifyContent:"center",
+                                background:"rgba(255,255,255,0.03)", borderRadius:4,
+                                padding:"3px 5px",
+                              }}>
+                                <div style={{
+                                  fontSize:8, color:"rgba(255,255,255,0.88)", textAlign:"center",
+                                  lineHeight:1.5, whiteSpace:"pre-line", fontWeight:500,
+                                  overflow:"hidden",
+                                }}>{text}</div>
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ position:"absolute", bottom:3, right:5,
+                            fontSize:8, color:"rgba(255,255,255,0.2)" }}>{si+1}</div>
+                        </div>
+                      ))}
+                      {group.slides.length % 2 === 1 && (
+                        <div style={{ aspectRatio:"16/9", borderRadius:6,
+                          background:"rgba(255,255,255,0.02)",
+                          border:"1px dashed rgba(255,255,255,0.05)" }} />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ padding:"6px 12px", borderTop:"1px solid rgba(255,255,255,0.06)",
+                fontSize:10, color:"rgba(255,255,255,0.25)" }}>
+                총 {ppGroups.reduce((a,g)=>a+g.slides.length,0)}슬라이드 · {ppGroups.length}섹션
+              </div>
             </div>
           )}
 
-          {/* 읽기 전용 (방송팀) */}
-          {!leader && ppLyricsText && (
-            <div style={{ background:C.card, borderRadius:10, padding:"10px 12px",
-              border:`1px solid ${C.bdr}`, fontSize:13, color:C.txt,
-              fontFamily:"'Menlo','Courier New',monospace", lineHeight:1.8,
-              whiteSpace:"pre-wrap", marginBottom:8 }}>
-              {ppLyricsText}
-            </div>
-          )}
           {!leader && !ppLyricsText && (
             <div style={{ textAlign:"center", padding:"20px 0", color:C.dim, fontSize:13 }}>
               리더가 아직 가사를 등록하지 않았습니다
