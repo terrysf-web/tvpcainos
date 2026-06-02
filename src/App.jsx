@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.204";
+const APP_VERSION = "3.205";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2284,6 +2284,10 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     return unsub;
   }, [svc?.id]); // eslint-disable-line
 
+  // ── 이 두 훅은 early return 앞에 위치해야 함 (Rules of Hooks)
+  const ppGroups = useMemo(() => parsePpLyrics(ppLyricsText), [ppLyricsText]); // eslint-disable-line
+  const [ppCopied, setPpCopied] = useState(false); // eslint-disable-line
+
   if (!svc) return null;
 
   // Map from svc.songIds — keep raw index (i) for duplicate support
@@ -2302,8 +2306,6 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     setPpLyricsSaving(false);
   };
 
-  const ppGroups = useMemo(() => parsePpLyrics(ppLyricsText), [ppLyricsText]);
-
   const exportPro6 = () => {
     if (!ppGroups.length) return;
     const xml = generatePro6(svc.title || "찬양", ppGroups);
@@ -2316,7 +2318,6 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     URL.revokeObjectURL(url);
   };
 
-  const [ppCopied, setPpCopied] = useState(false);
   const copyLyrics = () => {
     navigator.clipboard?.writeText(ppLyricsText).then(() => {
       setPpCopied(true);
