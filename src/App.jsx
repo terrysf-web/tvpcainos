@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.202";
+const APP_VERSION = "3.203";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2302,12 +2302,11 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     setPpLyricsSaving(false);
   };
 
+  const ppGroups = useMemo(() => parsePpLyrics(ppLyricsText), [ppLyricsText]);
+
   const exportPro6 = () => {
-    const src = ppLyricsText.trim();
-    if (!src) return;
-    const groups = parsePpLyrics(src);
-    if (!groups.length) return;
-    const xml = generatePro6(svc.title || "찬양", groups);
+    if (!ppGroups.length) return;
+    const xml = generatePro6(svc.title || "찬양", ppGroups);
     const blob = new Blob([xml], { type: "text/xml" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -2315,6 +2314,14 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     a.download = `${(svc.title || "찬양").replace(/[\\/:*?"<>|]/g, "_")}.pro6`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const [ppCopied, setPpCopied] = useState(false);
+  const copyLyrics = () => {
+    navigator.clipboard?.writeText(ppLyricsText).then(() => {
+      setPpCopied(true);
+      setTimeout(() => setPpCopied(false), 2000);
+    });
   };
 
   const sendNotif = async () => {
@@ -2643,53 +2650,98 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             📺 ProPresenter 가사
           </div>
 
+          {/* 형식 가이드 (입력 전에만) */}
+          {leader && !ppLyricsText.trim() && (
+            <div style={{ background:C.card, borderRadius:8, padding:"10px 12px", marginBottom:8,
+              border:`1px solid ${C.bdr}`, fontSize:12, color:C.dim, lineHeight:2,
+              fontFamily:"'Menlo','Courier New',monospace" }}>
+              <span style={{ color:C.acc, fontWeight:700 }}>[1절]</span>{"\n"}
+              1절 첫번째슬라이드 첫줄{"\n"}
+              1절 첫번째슬라이드 둘째줄{"\n\n"}
+              1절 두번째슬라이드 첫줄 {" "}
+              <span style={{ color:C.dim, fontSize:11 }}>← 빈 줄로 슬라이드 구분</span>{"\n\n"}
+              <span style={{ color:"#e88c3e", fontWeight:700 }}>[후렴]</span>{"\n"}
+              후렴 가사 첫줄{"\n"}
+              후렴 가사 둘째줄
+            </div>
+          )}
+
+          {/* 입력 (리더) */}
           {leader && (
             <textarea
               value={ppLyricsText}
               onChange={e => { ppLyricsEditedRef.current = true; setPpLyricsText(e.target.value); }}
-              placeholder={"[1절]\n가사 첫째줄\n가사 둘째줄\n\n가사 셋째줄 (빈줄=새슬라이드)\n\n[후렴]\n후렴 가사"}
-              rows={8}
+              placeholder={"[1절]\n첫째줄\n둘째줄\n\n셋째줄\n넷째줄\n\n[후렴]\n후렴 첫째줄\n후렴 둘째줄"}
+              rows={10}
               style={{ width:"100%", padding:"10px 12px", borderRadius:10,
                 border:`1px solid ${C.bdr}`, background:C.card, fontSize:13,
                 color:C.txt, fontFamily:"'Menlo','Courier New',monospace",
-                outline:"none", resize:"vertical", boxSizing:"border-box", lineHeight:1.7 }}
+                outline:"none", resize:"vertical", boxSizing:"border-box", lineHeight:1.8 }}
             />
           )}
 
+          {/* 섹션/슬라이드 미리보기 */}
+          {ppGroups.length > 0 && (
+            <div style={{ marginTop:8, display:"flex", flexWrap:"wrap", gap:6, alignItems:"center" }}>
+              {ppGroups.map((g, i) => (
+                <div key={i} style={{ background:`${C.acc}18`, border:`1px solid ${C.acc}33`,
+                  borderRadius:8, padding:"3px 10px", fontSize:12 }}>
+                  <span style={{ color:C.acc, fontWeight:700 }}>{g.name}</span>
+                  <span style={{ color:C.dim, marginLeft:5 }}>{g.slides.length}슬라이드</span>
+                </div>
+              ))}
+              <span style={{ fontSize:11, color:C.dim, marginLeft:2 }}>
+                총 {ppGroups.reduce((a,g)=>a+g.slides.length,0)}슬라이드
+              </span>
+            </div>
+          )}
+
+          {/* 읽기 전용 (방송팀) */}
           {!leader && ppLyricsText && (
             <div style={{ background:C.card, borderRadius:10, padding:"10px 12px",
               border:`1px solid ${C.bdr}`, fontSize:13, color:C.txt,
-              fontFamily:"'Menlo','Courier New',monospace", lineHeight:1.7,
+              fontFamily:"'Menlo','Courier New',monospace", lineHeight:1.8,
               whiteSpace:"pre-wrap", marginBottom:8 }}>
               {ppLyricsText}
             </div>
           )}
-
           {!leader && !ppLyricsText && (
             <div style={{ textAlign:"center", padding:"20px 0", color:C.dim, fontSize:13 }}>
               리더가 아직 가사를 등록하지 않았습니다
             </div>
           )}
 
-          <div style={{ display:"flex", gap:8, marginTop:8 }}>
+          {/* 버튼 */}
+          <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
             {leader && (
               <button onClick={savePpLyrics} disabled={ppLyricsSaving}
-                style={{ flex:1, padding:"11px 0", borderRadius:10,
+                style={{ flex:1, minWidth:80, padding:"11px 0", borderRadius:10,
                   background: ppLyricsSaving ? C.bdr : C.acc,
                   border:"none", color:"#fff", fontWeight:700, fontSize:14,
                   cursor: ppLyricsSaving ? "default" : "pointer", fontFamily:"inherit" }}>
                 {ppLyricsSaving ? "저장 중..." : "저장"}
               </button>
             )}
-            {ppLyricsText.trim() && (
-              <button onClick={exportPro6}
-                style={{ padding:"11px 18px", borderRadius:10,
-                  background:"#1a1a2e", border:`1px solid ${C.bdr}`,
-                  color:C.txt, fontWeight:700, fontSize:14,
-                  cursor:"pointer", fontFamily:"inherit",
-                  display:"flex", alignItems:"center", gap:6 }}>
-                ⬇ .pro6 다운로드
-              </button>
+            {ppGroups.length > 0 && (
+              <>
+                <button onClick={exportPro6}
+                  style={{ padding:"11px 16px", borderRadius:10,
+                    background:"#1a1a2e", border:`1px solid ${C.bdr}`,
+                    color:C.txt, fontWeight:700, fontSize:13,
+                    cursor:"pointer", fontFamily:"inherit",
+                    display:"flex", alignItems:"center", gap:5 }}>
+                  ⬇ .pro6
+                </button>
+                <button onClick={copyLyrics}
+                  style={{ padding:"11px 16px", borderRadius:10,
+                    background: ppCopied ? `${C.grn}22` : C.card,
+                    border:`1px solid ${ppCopied ? C.grn : C.bdr}`,
+                    color: ppCopied ? C.grn : C.txt, fontWeight:700, fontSize:13,
+                    cursor:"pointer", fontFamily:"inherit",
+                    display:"flex", alignItems:"center", gap:5 }}>
+                  {ppCopied ? "✓ 복사됨" : "📋 텍스트 복사"}
+                </button>
+              </>
             )}
           </div>
         </div>
