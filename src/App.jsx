@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.205";
+const APP_VERSION = "3.206";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -9262,7 +9262,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ position:"fixed", inset:0, background:C.bg, overflow:"hidden" }}>
+    <div style={{ width:"100%", height:"100%", background:C.bg, overflow:"hidden" }}>
       {view === "services"      && <ServicesScreen      {...shared} />}
       {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
       {view === "library"       && <SongLibraryScreen   {...shared} />}
