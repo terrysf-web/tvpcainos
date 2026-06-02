@@ -7201,8 +7201,10 @@ function LiveScreen({ user, services, songs, nav }) {
   });
   const [ppConnected,   setPpConnected]   = useState(false);
   const [ppChecking,    setPpChecking]    = useState(false);
+  const [ppPresentation, setPpPresentation] = useState(null);
   const timerRef  = useRef(null);
   const chatEndRef = useRef(null);
+  const ppLastSyncRef = useRef(null);
 
   const recentServices = useMemo(() => {
     const cutoff = new Date(Date.now() - 21 * 86400000).toISOString().slice(0,10);
@@ -7354,6 +7356,33 @@ function LiveScreen({ user, services, songs, nav }) {
     localStorage.setItem("tvpc_ppConfig", JSON.stringify(ppConfig));
   };
 
+  // Poll ProPresenter for current presentation every 2s
+  useEffect(() => {
+    if (!ppConnected) { setPpPresentation(null); return; }
+    const poll = async () => {
+      const data = await ppFetch("/v1/presentation/active");
+      if (data?.presentation) setPpPresentation(data.presentation);
+    };
+    poll();
+    const id = setInterval(poll, 2000);
+    return () => clearInterval(id);
+  }, [ppConnected, ppFetch]);
+
+  // Auto-sync active song when PP presentation changes
+  useEffect(() => {
+    if (!ppPresentation?.id?.name || !svcSongs.length || !selSvcId) return;
+    const ppName = ppPresentation.id.name.toLowerCase().trim();
+    if (ppName === ppLastSyncRef.current) return;
+    const idx = svcSongs.findIndex(s => {
+      const t = s.title.toLowerCase().trim();
+      return ppName.includes(t) || t.includes(ppName) || t === ppName;
+    });
+    if (idx !== -1 && idx !== activeIdx) {
+      ppLastSyncRef.current = ppName;
+      setActiveIdx(idx);
+    }
+  }, [ppPresentation, svcSongs, selSvcId]);
+
   const statusColor = (st) =>
     st === "ready" ? C.grn : st === "done" ? C.acc : st === "issue" ? C.red : C.bdr;
 
@@ -7447,13 +7476,23 @@ function LiveScreen({ user, services, songs, nav }) {
             <div style={{ padding:"14px 16px 0" }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
                 <span style={{ fontSize:11, fontWeight:700, color:C.dim, letterSpacing:"0.04em" }}>현재 진행</span>
-                {session?.timerRunning ? (
-                  <span style={{ fontSize:10, color:"#fff", background:C.red,
-                    borderRadius:6, padding:"2px 8px", fontWeight:700 }}>진행 중</span>
-                ) : elapsed > 0 ? (
-                  <span style={{ fontSize:10, color:C.dim, background:C.bdr,
-                    borderRadius:6, padding:"2px 8px", fontWeight:600 }}>일시정지</span>
-                ) : null}
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  {ppPresentation?.id?.name && (
+                    <span style={{ fontSize:10, color:C.grn, background:`${C.grn}15`,
+                      borderRadius:6, padding:"2px 8px", fontWeight:600,
+                      maxWidth:130, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}
+                      title={ppPresentation.id.name}>
+                      ▶ {ppPresentation.id.name}
+                    </span>
+                  )}
+                  {session?.timerRunning ? (
+                    <span style={{ fontSize:10, color:"#fff", background:C.red,
+                      borderRadius:6, padding:"2px 8px", fontWeight:700 }}>진행 중</span>
+                  ) : elapsed > 0 ? (
+                    <span style={{ fontSize:10, color:C.dim, background:C.bdr,
+                      borderRadius:6, padding:"2px 8px", fontWeight:600 }}>일시정지</span>
+                  ) : null}
+                </div>
               </div>
               {currentSong ? (
                 <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
