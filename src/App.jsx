@@ -7352,11 +7352,20 @@ function LiveScreen({ user, services, songs, nav }) {
     }, { merge: true });
   };
 
+  const roleLbl = (r) => ({leader:"리더",broadcast:"방송팀",admin:"어드민",member:"멤버"})[r] || "";
+  const avatarColor = (uid) => {
+    const cols = ["#5856D6","#34C759","#1A73E8","#FF9500","#AF52DE","#32ADE6","#FF6B6B"];
+    let h = 0;
+    for (let i = 0; i < (uid||"").length; i++) h = (h * 31 + uid.charCodeAt(i)) & 0xFFFFFF;
+    return cols[Math.abs(h) % cols.length];
+  };
+
   const sendChat = async (text) => {
     if (!selSvcId || !text.trim()) return;
     await addDoc(collection(db, "liveChat", selSvcId, "messages"), {
       text: text.trim(), createdAt: serverTimestamp(),
-      uid: user.uid, name: user.name || user.email, type: "chat",
+      uid: user.uid, name: user.name || user.email,
+      role: user.role, type: "chat",
     });
   };
 
@@ -7364,9 +7373,45 @@ function LiveScreen({ user, services, songs, nav }) {
     if (!selSvcId || !announcMsg.trim()) return;
     await addDoc(collection(db, "liveChat", selSvcId, "messages"), {
       text: announcMsg.trim(), createdAt: serverTimestamp(),
-      uid: user.uid, name: user.name || user.email, type: "announce",
+      uid: user.uid, name: user.name || user.email,
+      role: user.role, type: "announce",
     });
     setAnnouncMsg(""); setShowAnnounce(false); setLiveTab("chat");
+  };
+
+  const ChatMsg = ({ msg }) => {
+    const isOwn = msg.uid === user.uid;
+    const col   = avatarColor(msg.uid);
+    const parts = [roleLbl(msg.role), msg.name].filter(Boolean);
+    const displayName = parts.join(" ");
+    const timeStr = msg.createdAt?.toDate
+      ? new Date(msg.createdAt.toDate()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})
+      : "";
+    return (
+      <div style={{ display:"flex", gap:10, padding:"10px 0",
+        borderBottom:`1px solid ${C.bdr}` }}>
+        <div style={{ width:36, height:36, borderRadius:"50%", flexShrink:0,
+          background: col, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <Icon n="user" size={16} color="#fff" />
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:3 }}>
+            <span style={{ fontSize:13, fontWeight:700, color: isOwn ? C.pur : C.txt }}>
+              {displayName}{isOwn ? " (나)" : ""}
+            </span>
+            <span style={{ fontSize:11, color:C.dim, flexShrink:0, marginLeft:8 }}>{timeStr}</span>
+          </div>
+          {msg.type === "announce" ? (
+            <div style={{ fontSize:13, color:C.pur, fontWeight:600 }}>📣 {msg.text}</div>
+          ) : (
+            <div style={{ fontSize:13, color:C.txt, lineHeight:1.4 }}>{msg.text}</div>
+          )}
+        </div>
+        {isOwn && (
+          <Icon n="check" size={13} color={C.dim} />
+        )}
+      </div>
+    );
   };
 
   const ppBase  = ppConfig.ip ? `https://${ppConfig.ip}:${ppConfig.proxyPort || "1027"}` : null;
@@ -7938,47 +7983,7 @@ function LiveScreen({ user, services, songs, nav }) {
                   채팅 메시지가 없습니다
                 </div>
               ) : chatMessages.map(msg => (
-                <div key={msg.id} style={{ display:"flex", flexDirection:"column",
-                  alignItems: msg.uid===user.uid ? "flex-end" : "flex-start" }}>
-                  {msg.type === "announce" ? (
-                    <div style={{ background:`${C.pur}15`, border:`1px solid ${C.pur}40`,
-                      borderRadius:10, padding:"8px 12px", maxWidth:"95%" }}>
-                      <div style={{ fontSize:10, color:C.pur, fontWeight:700, marginBottom:3 }}>
-                        📣 공지 · {msg.name}
-                      </div>
-                      <div style={{ fontSize:13, color:C.txt }}>{msg.text}</div>
-                    </div>
-                  ) : (
-                    <div style={{ display:"flex", gap:8,
-                      flexDirection: msg.uid===user.uid ? "row-reverse" : "row",
-                      alignItems:"flex-end" }}>
-                      {msg.uid !== user.uid && (
-                        <div style={{ width:28, height:28, borderRadius:"50%", flexShrink:0,
-                          background:`${C.pur}20`, display:"flex", alignItems:"center",
-                          justifyContent:"center", fontSize:11, fontWeight:700, color:C.pur }}>
-                          {(msg.name||"?")[0]}
-                        </div>
-                      )}
-                      <div>
-                        {msg.uid !== user.uid && (
-                          <div style={{ fontSize:10, color:C.dim, marginBottom:3,
-                            paddingLeft:4 }}>{msg.name}</div>
-                        )}
-                        <div style={{ background: msg.uid===user.uid ? `${C.pur}20` : C.bg,
-                          borderRadius:10, padding:"7px 11px", maxWidth:220,
-                          border: msg.uid===user.uid ? `1px solid ${C.pur}40` : `1px solid ${C.bdr}` }}>
-                          <div style={{ fontSize:13, color:C.txt }}>{msg.text}</div>
-                        </div>
-                        {msg.createdAt?.toDate && (
-                          <div style={{ fontSize:10, color:C.dim, marginTop:2,
-                            textAlign: msg.uid===user.uid ? "right" : "left", paddingLeft:4 }}>
-                            {new Date(msg.createdAt.toDate()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <ChatMsg key={msg.id} msg={msg} />
               ))}
               <div ref={chatEndRef} />
             </div>
@@ -8392,30 +8397,7 @@ function LiveScreen({ user, services, songs, nav }) {
                   채팅 메시지가 없습니다
                 </div>
               ) : chatMessages.map(msg => (
-                <div key={msg.id} style={{
-                  display:"flex", flexDirection:"column",
-                  alignItems: msg.uid === user.uid ? "flex-end" : "flex-start",
-                }}>
-                  {msg.type === "announce" ? (
-                    <div style={{ background:`${C.pur}15`, border:`1px solid ${C.pur}40`,
-                      borderRadius:10, padding:"8px 12px", maxWidth:"90%" }}>
-                      <div style={{ fontSize:10, color:C.pur, fontWeight:700, marginBottom:3 }}>
-                        📣 공지 · {msg.name}
-                      </div>
-                      <div style={{ fontSize:13, color:C.txt }}>{msg.text}</div>
-                    </div>
-                  ) : (
-                    <div style={{ background: msg.uid === user.uid ? C.acc : C.card,
-                      borderRadius:10, padding:"7px 11px", maxWidth:"80%" }}>
-                      {msg.uid !== user.uid && (
-                        <div style={{ fontSize:10, color:C.dim, marginBottom:2 }}>{msg.name}</div>
-                      )}
-                      <div style={{ fontSize:13, color: msg.uid === user.uid ? "#111" : C.txt }}>
-                        {msg.text}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <ChatMsg key={msg.id} msg={msg} />
               ))}
               <div ref={chatEndRef} />
             </div>
