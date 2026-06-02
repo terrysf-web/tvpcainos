@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.191";
+const APP_VERSION = "3.192";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7201,7 +7201,6 @@ function LiveScreen({ user, services, songs, nav }) {
   const [ppPresentation, setPpPresentation] = useState(null);
   const [isDesktop,      setIsDesktop]      = useState(() => window.innerWidth >= 900);
   const [ytLive,         setYtLive]         = useState(null);
-  const [ppThumbTs,      setPpThumbTs]      = useState(0);
   const timerRef      = useRef(null);
   const chatEndRef    = useRef(null);
   const ppLastSyncRef = useRef(null);
@@ -7426,10 +7425,10 @@ function LiveScreen({ user, services, songs, nav }) {
 
   // Poll ProPresenter for current presentation every 2s
   useEffect(() => {
-    if (!ppConnected) { setPpPresentation(null); setPpThumbTs(0); return; }
+    if (!ppConnected) { setPpPresentation(null); return; }
     const poll = async () => {
       const data = await ppFetch("/v1/presentation/active");
-      if (data?.presentation) { setPpPresentation(data.presentation); setPpThumbTs(Date.now()); }
+      if (data?.presentation) setPpPresentation(data.presentation);
     };
     poll();
     const id = setInterval(poll, 2000);
@@ -7681,21 +7680,6 @@ function LiveScreen({ user, services, songs, nav }) {
                         : null}
                     </div>
                   </div>
-                  {ppConnected && ppThumbTs > 0 && ppBase && (
-                    <div style={{ background:"#000", position:"relative" }}>
-                      <img
-                        key={ppThumbTs}
-                        src={`${ppBase}/v1/presentation/active/thumbnail?t=${ppThumbTs}`}
-                        alt="PP slide"
-                        style={{ width:"100%", display:"block", maxHeight:200, objectFit:"contain" }}
-                        onError={e => { e.target.style.display="none"; e.target.nextSibling.style.display="flex"; }}
-                      />
-                      <div style={{ display:"none", alignItems:"center", justifyContent:"center",
-                        padding:"10px", fontSize:11, color:"#666" }}>
-                        슬라이드 미리보기 미지원
-                      </div>
-                    </div>
-                  )}
                   {currentSong ? (
                     <div style={{ padding:"16px 20px", display:"flex", alignItems:"center", gap:20 }}>
                       <div style={{ width:52, height:52, borderRadius:"50%", flexShrink:0,
@@ -8167,17 +8151,6 @@ function LiveScreen({ user, services, songs, nav }) {
               )}
             </div>
 
-            {ppConnected && ppThumbTs > 0 && ppBase && (
-              <div style={{ background:"#000" }}>
-                <img
-                  key={ppThumbTs}
-                  src={`${ppBase}/v1/presentation/active/thumbnail?t=${ppThumbTs}`}
-                  alt="PP slide"
-                  style={{ width:"100%", display:"block", maxHeight:160, objectFit:"contain" }}
-                  onError={e => { e.target.style.display="none"; }}
-                />
-              </div>
-            )}
             {currentSong && (<>
               <div style={{ padding:"0 16px", marginBottom:4 }}>
                 <div style={{ height:4, background:C.bdr, borderRadius:2, overflow:"hidden" }}>
