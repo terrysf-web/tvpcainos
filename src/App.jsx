@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.210";
+const APP_VERSION = "3.211";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -8862,7 +8862,11 @@ export default function App() {
   const [user,        setUser]        = useState(undefined); // undefined = loading
   const [loginErr,        setLoginErr]        = useState("");
   const [loginBlockedUser,setLoginBlockedUser] = useState(null); // { email, name } 미등록 로그인 시도
-  const [view,        setView]        = useState(() => localStorage.getItem("tvpc_view") || "services");
+  const [view,        setView]        = useState(() => {
+    const saved = localStorage.getItem("tvpc_view") || "services";
+    // pdfViewer/svcDetail는 selSongId/selSvcId가 필요한데 새로고침 시 사라지므로 services로 복원
+    return (saved === "pdfViewer" || saved === "svcDetail") ? "services" : saved;
+  });
   const [songs,       setSongs]       = useState([]);
   const [services,    setServices]    = useState([]);
   const [notifs,      setNotifs]      = useState([]);
