@@ -75,15 +75,16 @@ jobs:
           rs_name = rs["name"]
           print(f"Ruleset: {rs_name}")
 
-          rel_body = {"name": f"projects/{pid}/releases/cloud.firestore", "rulesetName": rs_name}
+          # Firebase Admin SDK 방식: body를 {"release": {...}} 로 감싸야 함
+          inner = {"name": f"projects/{pid}/releases/cloud.firestore", "rulesetName": rs_name}
           rel_url = f"https://firebaserules.googleapis.com/v1/projects/{pid}/releases/cloud.firestore"
           try:
-              call(rel_url + "?updateMask=rulesetName", "PATCH", rel_body)
+              call(rel_url + "?updateMask=rulesetName", "PATCH", {"release": inner})
               print("✓ Firestore Rules 배포 완료 (updated)")
           except urllib.error.HTTPError as e:
               if e.code == 404:
                   call(f"https://firebaserules.googleapis.com/v1/projects/{pid}/releases",
-                       "POST", rel_body)
+                       "POST", inner)
                   print("✓ Firestore Rules 배포 완료 (created)")
               else:
                   raise
