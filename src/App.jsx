@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.199";
+const APP_VERSION = "3.200";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2634,7 +2634,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
       {/* ── ProPresenter 가사 ───────────────────────────────────────── */}
       {isBroadcast(user.role) && (
-        <div style={{ padding:"0 16px 24px" }}>
+        <div style={{ padding:"0 16px 100px" }}>
           <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
             textTransform:"uppercase", marginBottom:10 }}>
             📺 ProPresenter 가사
