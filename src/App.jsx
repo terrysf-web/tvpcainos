@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.196";
+const APP_VERSION = "3.197";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7199,14 +7199,11 @@ function LiveScreen({ user, services, songs, nav }) {
   const [ppConnected,    setPpConnected]    = useState(false);
   const [ppChecking,     setPpChecking]     = useState(false);
   const [ppPresentation, setPpPresentation] = useState(null);
-  const [ppSlideRaw,     setPpSlideRaw]     = useState(null);
-  const [ppWsConnected,  setPpWsConnected]  = useState(false);
   const [isDesktop,      setIsDesktop]      = useState(() => window.innerWidth >= 900);
   const [ytLive,         setYtLive]         = useState(null);
   const timerRef      = useRef(null);
   const chatEndRef    = useRef(null);
   const ppLastSyncRef = useRef(null);
-  const ppWsRef       = useRef(null);
 
   useEffect(() => {
     const h = () => setIsDesktop(window.innerWidth >= 900);
@@ -7295,31 +7292,17 @@ function LiveScreen({ user, services, songs, nav }) {
   const progress = Math.min(1, songDuration > 0 ? elapsed / songDuration : 0);
   const nextExpected = fmtHHMM(new Date(Date.now() + Math.max(0, songDuration - elapsed) * 1000));
 
-  const ppCurrentSlideText = useMemo(() => {
-    const parseText = (raw) => {
-      if (!raw) return null;
-      const lines = raw.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
-      return lines.length > 0 ? lines.join("\n") : null;
-    };
-    // Try /v1/presentation/active/slide response first
-    if (ppSlideRaw) {
-      const t = ppSlideRaw.text ?? ppSlideRaw.slide?.text ?? ppSlideRaw.data?.text;
-      const parsed = parseText(t);
-      if (parsed) return parsed;
-    }
-    // Fallback: id.index in active presentation
-    if (!ppPresentation) return null;
-    const idx = ppPresentation.id?.index;
-    if (idx === undefined || idx >= 0xFFFFFFFE) return null;
-    let count = 0;
-    for (const group of (ppPresentation.groups || [])) {
+  const ppAllSlides = useMemo(() => {
+    if (!ppPresentation?.groups) return [];
+    const result = [];
+    for (const group of ppPresentation.groups) {
       for (const slide of (group.slides || [])) {
-        if (count === idx) return parseText(slide.text || "");
-        count++;
+        const lines = (slide.text || "").split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+        if (lines.length > 0) result.push(lines.join("\n"));
       }
     }
-    return null;
-  }, [ppPresentation, ppSlideRaw]);
+    return result;
+  }, [ppPresentation]);
 
   const setActiveIdx = async (idx) => {
     if (!selSvcId) return;
@@ -7464,71 +7447,7 @@ function LiveScreen({ user, services, songs, nav }) {
     return () => clearInterval(id);
   }, [ppConnected, ppFetch]);
 
-  // WebSocket connection to PP for real-time slide events
-  useEffect(() => {
-    if (!ppConnected || !ppConfig.ip) {
-      setPpWsConnected(false);
-      setPpSlideRaw(null);
-      return;
-    }
-    const wsPort = ppConfig.wsPort || "1028";
-    let ws = null;
-    let retryTimer = null;
 
-    const connect = () => {
-      try {
-        ws = new WebSocket(`wss://${ppConfig.ip}:${wsPort}/`);
-        ppWsRef.current = ws;
-
-        ws.onopen = () => setPpWsConnected(true);
-
-        ws.onmessage = (evt) => {
-          try {
-            const msg = JSON.parse(evt.data);
-            // PP7 WebSocket mirrors the REST response format
-            // Active presentation update: { url: "/v1/presentation/active", data: { presentation: {...} } }
-            const pres = msg?.data?.presentation ?? msg?.presentation;
-            if (pres) {
-              if (pres.id?.name) setPpPresentation(pres);
-              const idx = pres.id?.index;
-              if (idx !== undefined && idx < 0xFFFFFFFE) {
-                // Valid index — extract slide text
-                let count = 0;
-                for (const group of (pres.groups || [])) {
-                  for (const slide of (group.slides || [])) {
-                    if (count === idx) {
-                      setPpSlideRaw({ text: slide.text || "" });
-                      return;
-                    }
-                    count++;
-                  }
-                }
-              }
-            }
-            // Fallback: direct text field in message
-            if (msg?.text) setPpSlideRaw({ text: msg.text });
-          } catch {}
-        };
-
-        ws.onclose = () => {
-          setPpWsConnected(false);
-          retryTimer = setTimeout(connect, 3000);
-        };
-
-        ws.onerror = () => {
-          ws.close();
-        };
-      } catch {}
-    };
-
-    connect();
-    return () => {
-      clearTimeout(retryTimer);
-      ws?.close();
-      ppWsRef.current = null;
-      setPpWsConnected(false);
-    };
-  }, [ppConnected, ppConfig.ip, ppConfig.wsPort]);
 
   // Auto-sync active song when PP presentation changes
   useEffect(() => {
@@ -7840,35 +7759,32 @@ function LiveScreen({ user, services, songs, nav }) {
                   )}
                 </div>
 
-                {/* PP 슬라이드 디스플레이 */}
-                {ppConnected && (
+                {/* PP 슬라이드 목록 */}
+                {ppConnected && ppAllSlides.length > 0 && (
                   <div style={{ background:"#12121f", borderRadius:16, overflow:"hidden",
                     border:`1px solid rgba(255,255,255,0.08)`, boxShadow:"0 2px 12px rgba(0,0,0,0.18)" }}>
                     <div style={{ padding:"8px 16px", borderBottom:"1px solid rgba(255,255,255,0.08)",
                       display:"flex", alignItems:"center", gap:8 }}>
-                      <div style={{ width:7, height:7, borderRadius:"50%",
-                        background: ppCurrentSlideText ? "#ff3b30" : "rgba(255,255,255,0.2)" }} />
                       <span style={{ fontSize:10, fontWeight:800, color:"rgba(255,255,255,0.4)",
-                        letterSpacing:"0.1em" }}>SLIDE</span>
+                        letterSpacing:"0.1em" }}>SLIDES</span>
                       {ppPresentation?.id?.name && (
-                        <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginLeft:4,
+                        <span style={{ fontSize:10, color:"rgba(255,255,255,0.3)", flex:1,
                           overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                           {ppPresentation.id.name}
                         </span>
                       )}
+                      <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)" }}>{ppAllSlides.length}장</span>
                     </div>
-                    <div style={{ padding:"20px 24px", minHeight:72,
-                      display:"flex", alignItems:"center", justifyContent:"center" }}>
-                      {ppCurrentSlideText ? (
-                        <div style={{ fontSize:16, fontWeight:600, color:"#fff",
-                          textAlign:"center", lineHeight:1.7, whiteSpace:"pre-line", width:"100%" }}>
-                          {ppCurrentSlideText}
+                    <div style={{ maxHeight:220, overflowY:"auto", padding:"8px 0" }}>
+                      {ppAllSlides.map((text, i) => (
+                        <div key={i} style={{ padding:"6px 16px", display:"flex", gap:10, alignItems:"flex-start",
+                          borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+                          <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", flexShrink:0,
+                            minWidth:18, paddingTop:2 }}>{i+1}</span>
+                          <span style={{ fontSize:12, color:"rgba(255,255,255,0.75)", lineHeight:1.6,
+                            whiteSpace:"pre-line" }}>{text}</span>
                         </div>
-                      ) : (
-                        <span style={{ fontSize:12, color:"rgba(255,255,255,0.25)", letterSpacing:"0.04em" }}>
-                          슬라이드 대기 중...
-                        </span>
-                      )}
+                      ))}
                     </div>
                   </div>
                 )}
@@ -8045,8 +7961,8 @@ function LiveScreen({ user, services, songs, nav }) {
                       </span>
                     </div>
                   </div>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:12 }}>
-                    {[["Mac IP (교회 WiFi)","ip","192.168.1.21"],["REST 포트","proxyPort","1027"],["WS 포트","wsPort","1028"]].map(([label,key,ph]) => (
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
+                    {[["Mac IP (교회 WiFi)","ip","192.168.1.21"],["프록시 포트","proxyPort","1027"]].map(([label,key,ph]) => (
                       <div key={key}>
                         <div style={{ fontSize:11, color:C.dim, marginBottom:4 }}>{label}</div>
                         <input value={ppConfig[key]||""} onChange={e => setPpConfig(p => ({...p,[key]:e.target.value}))}
@@ -8056,19 +7972,11 @@ function LiveScreen({ user, services, songs, nav }) {
                       </div>
                     ))}
                   </div>
-                  <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
-                    <button onClick={ppConnect} style={{
-                      padding:"10px 24px", background: ppConnected ? C.grn : C.acc, border:"none", borderRadius:10,
-                      cursor:"pointer", color:"#111", fontSize:13, fontWeight:700, fontFamily:"inherit",
-                    }}>{ppChecking?"연결 중...":ppConnected?"✓ 연결됨 (재테스트)":"연결 테스트"}</button>
-                    <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                      <div style={{ width:7, height:7, borderRadius:"50%",
-                        background: ppWsConnected ? C.grn : C.bdr }} />
-                      <span style={{ fontSize:11, color: ppWsConnected ? C.grn : C.dim }}>
-                        WS {ppWsConnected ? "연결됨" : "대기"}
-                      </span>
-                    </div>
-                  </div>
+                  <button onClick={ppConnect} style={{
+                    padding:"10px 24px", background: ppConnected ? C.grn : C.acc, border:"none", borderRadius:10,
+                    cursor:"pointer", color:"#111", fontSize:13, fontWeight:700, fontFamily:"inherit",
+                    marginBottom:12,
+                  }}>{ppChecking?"연결 중...":ppConnected?"✓ 연결됨 (재테스트)":"연결 테스트"}</button>
                 </div>
                 <div style={{ background:C.surf, borderRadius:14, padding:18, border:`1px solid ${C.bdr}` }}>
                   <div style={{ fontSize:14, fontWeight:700, color:C.txt, marginBottom:10 }}>기본 곡 시간</div>
@@ -8340,35 +8248,32 @@ function LiveScreen({ user, services, songs, nav }) {
             </>)}
           </div>
 
-          {/* PP 슬라이드 디스플레이 (mobile) */}
-          {ppConnected && (
+          {/* PP 슬라이드 목록 (mobile) */}
+          {ppConnected && ppAllSlides.length > 0 && (
             <div style={{ background:"#12121f", borderRadius:16, overflow:"hidden",
               border:`1px solid rgba(255,255,255,0.08)`, boxShadow:"0 2px 10px rgba(0,0,0,0.18)" }}>
               <div style={{ padding:"7px 14px", borderBottom:"1px solid rgba(255,255,255,0.08)",
                 display:"flex", alignItems:"center", gap:7 }}>
-                <div style={{ width:6, height:6, borderRadius:"50%",
-                  background: ppCurrentSlideText ? "#ff3b30" : "rgba(255,255,255,0.2)" }} />
                 <span style={{ fontSize:10, fontWeight:800, color:"rgba(255,255,255,0.4)",
-                  letterSpacing:"0.1em" }}>SLIDE</span>
+                  letterSpacing:"0.1em" }}>SLIDES</span>
                 {ppPresentation?.id?.name && (
-                  <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginLeft:2,
-                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
+                  <span style={{ fontSize:10, color:"rgba(255,255,255,0.3)", flex:1,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                     {ppPresentation.id.name}
                   </span>
                 )}
+                <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)" }}>{ppAllSlides.length}장</span>
               </div>
-              <div style={{ padding:"16px 18px", minHeight:60,
-                display:"flex", alignItems:"center", justifyContent:"center" }}>
-                {ppCurrentSlideText ? (
-                  <div style={{ fontSize:14, fontWeight:600, color:"#fff",
-                    textAlign:"center", lineHeight:1.7, whiteSpace:"pre-line", width:"100%" }}>
-                    {ppCurrentSlideText}
+              <div style={{ maxHeight:200, overflowY:"auto", padding:"6px 0" }}>
+                {ppAllSlides.map((text, i) => (
+                  <div key={i} style={{ padding:"5px 14px", display:"flex", gap:9, alignItems:"flex-start",
+                    borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+                    <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", flexShrink:0,
+                      minWidth:16, paddingTop:2 }}>{i+1}</span>
+                    <span style={{ fontSize:11, color:"rgba(255,255,255,0.75)", lineHeight:1.6,
+                      whiteSpace:"pre-line" }}>{text}</span>
                   </div>
-                ) : (
-                  <span style={{ fontSize:11, color:"rgba(255,255,255,0.25)", letterSpacing:"0.04em" }}>
-                    슬라이드 대기 중...
-                  </span>
-                )}
+                ))}
               </div>
             </div>
           )}
@@ -8579,7 +8484,7 @@ function LiveScreen({ user, services, songs, nav }) {
                 </span>
               </div>
             </div>
-            {[["Mac IP (교회 WiFi)","ip","192.168.1.21"],["REST 포트","proxyPort","1027"],["WS 포트","wsPort","1028"]].map(([label,key,ph]) => (
+            {[["Mac IP (교회 WiFi)","ip","192.168.1.21"],["프록시 포트","proxyPort","1027"]].map(([label,key,ph]) => (
               <div key={key} style={{ marginBottom:10 }}>
                 <div style={{ fontSize:11, color:C.dim, marginBottom:4 }}>{label}</div>
                 <input value={ppConfig[key] || ""} onChange={e => setPpConfig(p => ({...p,[key]:e.target.value}))}
@@ -8597,13 +8502,6 @@ function LiveScreen({ user, services, songs, nav }) {
             }}>
               {ppChecking ? "연결 중..." : ppConnected ? "✓ 연결됨 (재테스트)" : "연결 테스트"}
             </button>
-            <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:8 }}>
-              <div style={{ width:7, height:7, borderRadius:"50%",
-                background: ppWsConnected ? C.grn : C.bdr }} />
-              <span style={{ fontSize:11, color: ppWsConnected ? C.grn : C.dim }}>
-                WebSocket {ppWsConnected ? "연결됨" : "대기 (pp_ws_proxy.py 실행 필요)"}
-              </span>
-            </div>
           </div>
 
           <div style={{ background:C.surf, borderRadius:14, padding:16, border:`1px solid ${C.bdr}` }}>
