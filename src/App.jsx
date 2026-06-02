@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.198";
+const APP_VERSION = "3.199";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2215,6 +2215,50 @@ function SongPickerModal({ songs, currentIds, onClose, onSave, addSong, user }) 
   );
 }
 
+/* ══ ProPresenter .pro6 helper functions ══════════════════════════ */
+function parsePpLyrics(text) {
+  const groups = [];
+  let cur = null, lines = [];
+  for (const raw of (text + "\n").split("\n")) {
+    const t = raw.trimEnd();
+    const hm = t.match(/^\[(.+)\]$/);
+    if (hm) {
+      if (cur) { const s = lines.join("\n").trim(); if (s) cur.slides.push(s); groups.push(cur); }
+      cur = { name: hm[1], slides: [] }; lines = [];
+    } else if (t.trim() === "") {
+      if (cur) { const s = lines.join("\n").trim(); if (s) { cur.slides.push(s); lines = []; } }
+    } else {
+      if (!cur) { cur = { name: "가사", slides: [] }; }
+      lines.push(t.trim());
+    }
+  }
+  if (cur) { const s = lines.join("\n").trim(); if (s) cur.slides.push(s); if (cur.slides.length) groups.push(cur); }
+  return groups;
+}
+function _rtfChar(ch) {
+  const c = ch.codePointAt(0);
+  if (c < 128) {
+    if (ch === "\\") return "\\\\"; if (ch === "{") return "\\{"; if (ch === "}") return "\\}";
+    return ch;
+  }
+  return `\\uc0\\u${c > 32767 ? c - 65536 : c} `;
+}
+function buildSlideRtf(text) {
+  const body = text.split("\n").map(l => [...l].map(_rtfChar).join("")).join("\\line\n");
+  return `{\\rtf1\\ansi\\ansicpg949\\cocoartf2639\n{\\fonttbl\\f0\\fnil\\fcharset129 AppleGothic;}\n{\\colortbl;\\red255\\green255\\blue255;}\n\\pard\\pardirnatural\\qc\\f0\\fs160\\cf1 ${body}}`;
+}
+function generatePro6(title, groups) {
+  const uu = () => crypto.randomUUID().toUpperCase();
+  const toB64 = s => { const b = new TextEncoder().encode(s); let r = ""; b.forEach(x => r += String.fromCharCode(x)); return btoa(r); };
+  const slidesXml = slides => slides.map((text, si) =>
+    `        <RVDisplaySlide backgroundColor="0 0 0 1" enabled="1" highlightColor="0 0 0 0" hotKey="" label="" notes="" slideType="1" sort_index="${si}" UUID="${uu()}" drawingBackgroundColor="1" chordChartPath="" serialization-native-version="3" presentation=""><array rvXMLIvarName="cues"/><array rvXMLIvarName="displayElements"><RVTextElement displayDelay="0" displayName="Default" locked="0" persistent="0" typeID="0" fromTemplate="0" bezelRadius="0" drawingFill="0" drawingShadow="0" drawingStroke="0" fillColor="1 1 1 0" rotation="0" source="" scaleBehavior="0" width="1820" height="980" UUID="${uu()}" xPosition="50" yPosition="50" displayElements=""><NSString rvXMLIvarName="RTFData">${toB64(buildSlideRtf(text))}</NSString></RVTextElement></array></RVDisplaySlide>`
+  ).join("\n");
+  const groupsXml = groups.map(g =>
+    `    <RVSlideGrouping name="${g.name}" uuid="${uu()}" color="0 0 0 0" serialization-native-version="3" presentation=""><array rvXMLIvarName="slides">\n${slidesXml(g.slides)}\n    </array></RVSlideGrouping>`
+  ).join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<RVPresentationDocument height="1080" width="1920" versionNumber="600" docType="0" creatorCode="1349676880" lastDateUsed="${new Date().toISOString().slice(0,19)}" usedCount="0" category="Song" resourcesDirectory="" backgroundColor="0 0 0 1" drawingBackgroundColor="1" notes="" artist="" author="" album="" CCLIDisplay="0" CCLIArtistCredits="" CCLISongTitle="${title.replace(/"/g,"&quot;")}" CCLIPublisher="" CCLICopyrightInfo="" CCLILicenseNumber="" chordChartPath="">\n  <array rvXMLIvarName="groups">\n${groupsXml}\n  </array>\n  <array rvXMLIvarName="arrangements"/>\n</RVPresentationDocument>`;
+}
+
 function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotations, notifs, nav, selectedSvcId, onUpdateService, addSong }) {
   const svc = services.find(s => s.id === selectedSvcId);
   const [showPicker,     setShowPicker]     = useState(false);
@@ -2226,6 +2270,19 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [drag, setDrag]           = useState(null);
   const [dropIdx, setDropIdx]     = useState(null);
   const cardRefs = useRef([]);
+  const [ppLyricsText,   setPpLyricsText]   = useState("");
+  const [ppLyricsSaving, setPpLyricsSaving] = useState(false);
+  const ppLyricsEditedRef = useRef(false);
+
+  useEffect(() => { // eslint-disable-line react-hooks/rules-of-hooks
+    if (!svc) return;
+    ppLyricsEditedRef.current = false;
+    const unsub = onSnapshot(doc(db, "ppLyrics", svc.id), snap => {
+      if (!ppLyricsEditedRef.current)
+        setPpLyricsText(snap.exists() ? (snap.data().text || "") : "");
+    });
+    return unsub;
+  }, [svc?.id]); // eslint-disable-line
 
   if (!svc) return null;
 
@@ -2237,6 +2294,28 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
   const leader = isLeader(user.role);
   const svcNotifCount = (notifs || []).filter(n => n.serviceId === svc.id).length;
+
+  const savePpLyrics = async () => {
+    setPpLyricsSaving(true);
+    await setDoc(doc(db, "ppLyrics", svc.id), { text: ppLyricsText, updatedAt: serverTimestamp() });
+    ppLyricsEditedRef.current = false;
+    setPpLyricsSaving(false);
+  };
+
+  const exportPro6 = () => {
+    const src = ppLyricsText.trim();
+    if (!src) return;
+    const groups = parsePpLyrics(src);
+    if (!groups.length) return;
+    const xml = generatePro6(svc.title || "찬양", groups);
+    const blob = new Blob([xml], { type: "text/xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(svc.title || "찬양").replace(/[\\/:*?"<>|]/g, "_")}.pro6`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const sendNotif = async () => {
     if (!notifContent.trim()) return;
@@ -2552,6 +2631,66 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           );
         })}
       </div>
+
+      {/* ── ProPresenter 가사 ───────────────────────────────────────── */}
+      {isBroadcast(user.role) && (
+        <div style={{ padding:"0 16px 24px" }}>
+          <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+            textTransform:"uppercase", marginBottom:10 }}>
+            📺 ProPresenter 가사
+          </div>
+
+          {leader && (
+            <textarea
+              value={ppLyricsText}
+              onChange={e => { ppLyricsEditedRef.current = true; setPpLyricsText(e.target.value); }}
+              placeholder={"[1절]\n가사 첫째줄\n가사 둘째줄\n\n가사 셋째줄 (빈줄=새슬라이드)\n\n[후렴]\n후렴 가사"}
+              rows={8}
+              style={{ width:"100%", padding:"10px 12px", borderRadius:10,
+                border:`1px solid ${C.bdr}`, background:C.card, fontSize:13,
+                color:C.txt, fontFamily:"'Menlo','Courier New',monospace",
+                outline:"none", resize:"vertical", boxSizing:"border-box", lineHeight:1.7 }}
+            />
+          )}
+
+          {!leader && ppLyricsText && (
+            <div style={{ background:C.card, borderRadius:10, padding:"10px 12px",
+              border:`1px solid ${C.bdr}`, fontSize:13, color:C.txt,
+              fontFamily:"'Menlo','Courier New',monospace", lineHeight:1.7,
+              whiteSpace:"pre-wrap", marginBottom:8 }}>
+              {ppLyricsText}
+            </div>
+          )}
+
+          {!leader && !ppLyricsText && (
+            <div style={{ textAlign:"center", padding:"20px 0", color:C.dim, fontSize:13 }}>
+              리더가 아직 가사를 등록하지 않았습니다
+            </div>
+          )}
+
+          <div style={{ display:"flex", gap:8, marginTop:8 }}>
+            {leader && (
+              <button onClick={savePpLyrics} disabled={ppLyricsSaving}
+                style={{ flex:1, padding:"11px 0", borderRadius:10,
+                  background: ppLyricsSaving ? C.bdr : C.acc,
+                  border:"none", color:"#fff", fontWeight:700, fontSize:14,
+                  cursor: ppLyricsSaving ? "default" : "pointer", fontFamily:"inherit" }}>
+                {ppLyricsSaving ? "저장 중..." : "저장"}
+              </button>
+            )}
+            {ppLyricsText.trim() && (
+              <button onClick={exportPro6}
+                style={{ padding:"11px 18px", borderRadius:10,
+                  background:"#1a1a2e", border:`1px solid ${C.bdr}`,
+                  color:C.txt, fontWeight:700, fontSize:14,
+                  cursor:"pointer", fontFamily:"inherit",
+                  display:"flex", alignItems:"center", gap:6 }}>
+                ⬇ .pro6 다운로드
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {showPicker && (
         <SongPickerModal songs={songs} currentIds={svc.songIds || []}
