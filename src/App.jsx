@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.186";
+const APP_VERSION = "3.187";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -108,7 +108,7 @@ const P = {
   help:    "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01",
   play:    "M5 3l14 9-14 9V3z",
   pause:   "M6 4h4v16H6zM14 4h4v16h-4z",
-  antenna: "M12 22L12 12M9 12a3 3 0 0 0 6 0M6 12a6 6 0 0 0 12 0",
+  antenna: "M12 9A3 3 0 0 0 12 15M12 9A3 3 0 0 1 12 15M12 6A6 6 0 0 0 12 18M12 6A6 6 0 0 1 12 18M12 10.8a1.2 1.2 0 1 0 0 2.4a1.2 1.2 0 1 0 0-2.4",
   megaphone:"M3 11v2a1 1 0 0 0 1 1h2l5 4V7l-5 4H4a1 1 0 0 0-1 1zM19 12a7 7 0 0 0-3-5.83M15.54 16.46A5 5 0 0 0 17 12a5 5 0 0 0-1.46-3.54",
   stop:    "M6 6h12v12H6z",
   repeat:  "M17 2l4 4-4 4M21 6H7a4 4 0 0 0 0 8h1M7 22l-4-4 4-4M3 18h14a4 4 0 0 0 0-8h-1",
