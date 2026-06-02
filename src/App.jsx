@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.182";
+const APP_VERSION = "3.183";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7843,40 +7843,38 @@ function LiveScreen({ user, services, songs, nav }) {
                   </div>
                 </div>
 
-                {/* YouTube 라이브 상태 */}
+                {/* YouTube 라이브 */}
                 <div>
                   <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:10,
                     letterSpacing:"0.05em", textTransform:"uppercase" }}>YouTube 라이브</div>
                   <div style={{ background:C.surf, borderRadius:14, border:`1.5px solid ${ytLive ? "#FF000040" : C.bdr}`,
                     overflow:"hidden" }}>
-                    {ytLive ? (
-                      <div style={{ display:"flex", gap:0 }}>
-                        {ytLive.thumb && (
-                          <a href={`https://www.youtube.com/watch?v=${ytLive.videoId}`} target="_blank" rel="noreferrer"
-                            style={{ flexShrink:0, display:"block", width:140 }}>
-                            <img src={ytLive.thumb} alt="thumbnail"
-                              style={{ width:140, height:79, objectFit:"cover", display:"block" }} />
-                          </a>
-                        )}
-                        <div style={{ flex:1, padding:"12px 14px", minWidth:0 }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5 }}>
-                            <span style={{ fontSize:10, fontWeight:800, color:"#fff", background:"#FF0000",
-                              borderRadius:5, padding:"2px 7px", letterSpacing:"0.05em" }}>● LIVE</span>
-                            {ytLive.viewers !== null && (
-                              <span style={{ fontSize:11, color:C.dim }}>👥 {Number(ytLive.viewers).toLocaleString()}명 시청 중</span>
-                            )}
-                          </div>
-                          <div style={{ fontSize:13, fontWeight:700, color:C.txt,
-                            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                            {ytLive.title}
-                          </div>
-                          <a href={`https://www.youtube.com/watch?v=${ytLive.videoId}`} target="_blank" rel="noreferrer"
-                            style={{ fontSize:11, color:C.acc, textDecoration:"none", marginTop:4, display:"inline-block" }}>
-                            YouTube에서 보기 →
-                          </a>
+                    {ytLive ? (<>
+                      <div style={{ padding:"10px 14px", display:"flex", alignItems:"center",
+                        justifyContent:"space-between", borderBottom:`1px solid ${C.bdr}` }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          <span style={{ fontSize:10, fontWeight:800, color:"#fff", background:"#FF0000",
+                            borderRadius:5, padding:"2px 7px", letterSpacing:"0.05em" }}>● LIVE</span>
+                          {ytLive.viewers !== null && (
+                            <span style={{ fontSize:11, color:C.dim }}>👥 {Number(ytLive.viewers).toLocaleString()}명 시청 중</span>
+                          )}
                         </div>
+                        <a href={`https://www.youtube.com/watch?v=${ytLive.videoId}`} target="_blank" rel="noreferrer"
+                          style={{ fontSize:11, color:C.acc, textDecoration:"none" }}>새 탭 →</a>
                       </div>
-                    ) : (
+                      <div style={{ fontSize:13, fontWeight:600, color:C.txt, padding:"8px 14px 6px",
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {ytLive.title}
+                      </div>
+                      <div style={{ position:"relative", paddingBottom:"56.25%", height:0, overflow:"hidden" }}>
+                        <iframe
+                          src={`https://www.youtube.com/embed/${ytLive.videoId}?autoplay=0&rel=0`}
+                          style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", border:"none" }}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
+                    </>) : (
                       <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px" }}>
                         <div style={{ width:36, height:36, borderRadius:"50%", background:`${C.dim}20`,
                           display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
@@ -7885,51 +7883,12 @@ function LiveScreen({ user, services, songs, nav }) {
                         <div>
                           <div style={{ fontSize:13, fontWeight:700, color:C.dim }}>현재 라이브 방송 없음</div>
                           <a href="https://www.youtube.com/@tri-valley/streams" target="_blank" rel="noreferrer"
-                            style={{ fontSize:11, color:C.acc, textDecoration:"none" }}>
-                            채널 바로가기 →
-                          </a>
+                            style={{ fontSize:11, color:C.acc, textDecoration:"none" }}>채널 바로가기 →</a>
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
-
-                {/* 공지 */}
-                {leader && (
-                  <>
-                    <button onClick={() => setShowAnnounce(p => !p)} style={{
-                      width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
-                      padding:"14px 18px", background:C.surf, border:`1px solid ${C.bdr}`,
-                      borderRadius:14, cursor:"pointer", fontFamily:"inherit",
-                    }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                        <div style={{ width:32, height:32, borderRadius:"50%", background:`${C.pur}15`,
-                          display:"flex", alignItems:"center", justifyContent:"center" }}>
-                          <Icon n="megaphone" size={15} color={C.pur} />
-                        </div>
-                        <span style={{ fontSize:14, fontWeight:600, color:C.txt }}>
-                          공지 메시지 보내기 (모든 팀에 알림)
-                        </span>
-                      </div>
-                      <Icon n={showAnnounce ? "chevU" : "chevR"} size={14} color={C.dim} />
-                    </button>
-                    {showAnnounce && (
-                      <div style={{ background:C.surf, borderRadius:14, padding:16,
-                        border:`1px solid ${C.pur}40`, marginTop:-8 }}>
-                        <textarea value={announcMsg} onChange={e => setAnnouncMsg(e.target.value)}
-                          placeholder="전체 채팅에 공지할 메시지..." rows={2} style={{
-                            width:"100%", padding:"10px 12px", border:`1px solid ${C.bdr}`,
-                            borderRadius:10, background:C.bg, color:C.txt, fontSize:13,
-                            fontFamily:"inherit", resize:"none", boxSizing:"border-box",
-                          }} />
-                        <button onClick={sendAnnounce} style={{
-                          marginTop:8, padding:"9px 20px", background:C.pur, border:"none", borderRadius:10,
-                          cursor:"pointer", color:"#fff", fontSize:13, fontWeight:700, fontFamily:"inherit",
-                        }}>공지 보내기</button>
-                      </div>
-                    )}
-                  </>
-                )}
               </>)}
 
               {/* ══ 팀 상태 ══ */}
@@ -8332,86 +8291,49 @@ function LiveScreen({ user, services, songs, nav }) {
             </div>
           </div>
 
-          {/* YouTube 라이브 상태 */}
+          {/* YouTube 라이브 */}
           <div>
             <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:8,
               letterSpacing:"0.05em", textTransform:"uppercase" }}>YouTube 라이브</div>
             <div style={{ background:C.surf, borderRadius:12, border:`1.5px solid ${ytLive ? "#FF000040" : C.bdr}`,
               overflow:"hidden" }}>
-              {ytLive ? (
-                <div>
-                  {ytLive.thumb && (
-                    <a href={`https://www.youtube.com/watch?v=${ytLive.videoId}`} target="_blank" rel="noreferrer">
-                      <img src={ytLive.thumb} alt="thumbnail"
-                        style={{ width:"100%", height:120, objectFit:"cover", display:"block" }} />
-                    </a>
-                  )}
-                  <div style={{ padding:"10px 12px" }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
-                      <span style={{ fontSize:10, fontWeight:800, color:"#fff", background:"#FF0000",
-                        borderRadius:5, padding:"2px 7px" }}>● LIVE</span>
-                      {ytLive.viewers !== null && (
-                        <span style={{ fontSize:11, color:C.dim }}>👥 {Number(ytLive.viewers).toLocaleString()}명</span>
-                      )}
-                    </div>
-                    <div style={{ fontSize:13, fontWeight:700, color:C.txt,
-                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                      {ytLive.title}
-                    </div>
-                    <a href={`https://www.youtube.com/watch?v=${ytLive.videoId}`} target="_blank" rel="noreferrer"
-                      style={{ fontSize:11, color:C.acc, textDecoration:"none", marginTop:3, display:"inline-block" }}>
-                      YouTube에서 보기 →
-                    </a>
+              {ytLive ? (<>
+                <div style={{ padding:"8px 12px", display:"flex", alignItems:"center",
+                  justifyContent:"space-between", borderBottom:`1px solid ${C.bdr}` }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <span style={{ fontSize:10, fontWeight:800, color:"#fff", background:"#FF0000",
+                      borderRadius:5, padding:"2px 7px" }}>● LIVE</span>
+                    {ytLive.viewers !== null && (
+                      <span style={{ fontSize:11, color:C.dim }}>👥 {Number(ytLive.viewers).toLocaleString()}명</span>
+                    )}
                   </div>
+                  <a href={`https://www.youtube.com/watch?v=${ytLive.videoId}`} target="_blank" rel="noreferrer"
+                    style={{ fontSize:11, color:C.acc, textDecoration:"none" }}>새 탭 →</a>
                 </div>
-              ) : (
+                <div style={{ fontSize:12, fontWeight:600, color:C.txt, padding:"6px 12px 4px",
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {ytLive.title}
+                </div>
+                <div style={{ position:"relative", paddingBottom:"56.25%", height:0, overflow:"hidden" }}>
+                  <iframe
+                    src={`https://www.youtube.com/embed/${ytLive.videoId}?autoplay=0&rel=0`}
+                    style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", border:"none" }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              </>) : (
                 <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 14px" }}>
                   <span style={{ fontSize:18 }}>📺</span>
                   <div>
                     <div style={{ fontSize:12, fontWeight:700, color:C.dim }}>현재 라이브 방송 없음</div>
                     <a href="https://www.youtube.com/@tri-valley/streams" target="_blank" rel="noreferrer"
-                      style={{ fontSize:11, color:C.acc, textDecoration:"none" }}>
-                      채널 바로가기 →
-                    </a>
+                      style={{ fontSize:11, color:C.acc, textDecoration:"none" }}>채널 바로가기 →</a>
                   </div>
                 </div>
               )}
             </div>
           </div>
-
-          {/* 공지 메시지 보내기 */}
-          {leader && (
-            <button onClick={() => setShowAnnounce(p => !p)} style={{
-              width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
-              padding:"14px 16px", background:C.surf, border:`1px solid ${C.bdr}`,
-              borderRadius:14, cursor:"pointer", fontFamily:"inherit",
-            }}>
-              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <div style={{ width:34, height:34, borderRadius:"50%",
-                  background:`${C.pur}15`, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                  <Icon n="megaphone" size={16} color={C.pur} />
-                </div>
-                <span style={{ fontSize:14, fontWeight:600, color:C.txt }}>공지 메시지 보내기</span>
-              </div>
-              <Icon n={showAnnounce ? "chevU" : "chevR"} size={14} color={C.dim} />
-            </button>
-          )}
-          {leader && showAnnounce && (
-            <div style={{ background:C.surf, borderRadius:14, padding:14,
-              border:`1px solid ${C.pur}40`, marginTop:-8 }}>
-              <textarea value={announcMsg} onChange={e => setAnnouncMsg(e.target.value)}
-                placeholder="전체 채팅에 공지할 메시지를 입력하세요..." rows={3} style={{
-                  width:"100%", padding:"10px 12px", border:`1px solid ${C.bdr}`,
-                  borderRadius:10, background:C.bg, color:C.txt, fontSize:13,
-                  fontFamily:"inherit", resize:"none", boxSizing:"border-box",
-                }} />
-              <button onClick={sendAnnounce} style={{
-                width:"100%", marginTop:8, padding:"10px 0",
-                background:C.pur, border:"none", borderRadius:10,
-                cursor:"pointer", color:"#fff", fontSize:13, fontWeight:700, fontFamily:"inherit",
-              }}>채팅으로 공지 보내기</button>
-            </div>
-          )}
         </>)}
 
         {/* ════ 팀 상태 ════ */}
