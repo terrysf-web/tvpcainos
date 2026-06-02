@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.189";
+const APP_VERSION = "3.190";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7384,7 +7384,7 @@ function LiveScreen({ user, services, songs, nav }) {
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:3 }}>
             <span style={{ fontSize:13, fontWeight:700, color: isOwn ? C.pur : C.txt }}>
-              {displayName}{isOwn ? " (나)" : ""}
+              {displayName}
             </span>
             <span style={{ fontSize:11, color:C.dim, flexShrink:0, marginLeft:8 }}>{timeStr}</span>
           </div>
