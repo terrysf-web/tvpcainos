@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.197";
+const APP_VERSION = "3.198";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7437,7 +7437,7 @@ function LiveScreen({ user, services, songs, nav }) {
 
   // Poll ProPresenter for current presentation every 2s
   useEffect(() => {
-    if (!ppConnected) { setPpPresentation(null); setPpSlideRaw(null); return; }
+    if (!ppConnected) { setPpPresentation(null); return; }
     const poll = async () => {
       const data = await ppFetch("/v1/presentation/active");
       if (data?.presentation) setPpPresentation(data.presentation);
