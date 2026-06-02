@@ -7225,10 +7225,20 @@ function LiveScreen({ user, services, songs, nav }) {
   }, []);
 
   const recentServices = useMemo(() => {
+    const today = new Date().toISOString().slice(0,10);
     const cutoff = new Date(Date.now() - 21 * 86400000).toISOString().slice(0,10);
     return [...services]
       .filter(s => s.date >= cutoff)
-      .sort((a,b) => b.date.localeCompare(a.date))
+      .sort((a,b) => {
+        // 오늘 이후 예배(다음 예배)를 앞으로, 그 중 가장 가까운 날짜 우선
+        const aFuture = a.date >= today;
+        const bFuture = b.date >= today;
+        if (aFuture && !bFuture) return -1;
+        if (!aFuture && bFuture) return 1;
+        return aFuture
+          ? a.date.localeCompare(b.date)   // 미래: 가장 가까운 날 먼저
+          : b.date.localeCompare(a.date);  // 과거: 가장 최근 먼저
+      })
       .slice(0, 8);
   }, [services]);
 
@@ -7436,31 +7446,30 @@ function LiveScreen({ user, services, songs, nav }) {
       <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.bg, overflow:"hidden" }}>
 
         {/* ─ Desktop Header ─ */}
-        <div style={{ height:56, background:C.surf, borderBottom:`1px solid ${C.bdr}`,
-          display:"flex", alignItems:"center", padding:"0 20px", gap:14, flexShrink:0,
-          paddingTop:"env(safe-area-inset-top)" }}>
-          <span style={{ fontSize:15, fontWeight:900, color:C.pur, flexShrink:0, letterSpacing:"-0.02em" }}>
-            TVPC Worship
-          </span>
-          <div style={{ width:1, height:20, background:C.bdr }} />
+        <div style={{ background:C.surf, borderBottom:`1px solid ${C.bdr}`, flexShrink:0 }}>
+          {/* Safe-area spacer */}
+          <div style={{ height:"env(safe-area-inset-top)" }} />
+          <div style={{ height:52, display:"flex", alignItems:"center", padding:"0 20px", gap:14 }}>
           <button onClick={() => setShowSvcPicker(p => !p)} style={{
             display:"flex", alignItems:"center", gap:8, background:"none", border:"none",
-            cursor:"pointer", padding:0, fontFamily:"inherit",
+            cursor:"pointer", padding:0, fontFamily:"inherit", minWidth:0,
           }}>
-            <span style={{ fontSize:15, fontWeight:700, color:C.txt }}>
+            <span style={{ fontSize:16, fontWeight:800, color:C.txt, letterSpacing:"-0.02em",
+              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:300 }}>
               {selSvc
                 ? `${new Date(selSvc.date+"T00:00:00").toLocaleDateString("ko-KR",{month:"numeric",day:"numeric",weekday:"short"})} ${selSvc.title||""}`
                 : "예배 선택"}
             </span>
             {session?.timerRunning && (
               <span style={{ fontSize:11, color:"#fff", background:C.red,
-                borderRadius:6, padding:"2px 8px", fontWeight:700 }}>LIVE</span>
+                borderRadius:6, padding:"2px 8px", fontWeight:700, flexShrink:0 }}>LIVE</span>
             )}
             {selSvc?.time && (
-              <span style={{ fontSize:13, color:C.dim }}>{selSvc.time}</span>
+              <span style={{ fontSize:13, color:C.dim, flexShrink:0 }}>{selSvc.time}</span>
             )}
             <Icon n="chevD" size={11} color={C.dim} />
           </button>
+          <div style={{ width:1, height:20, background:C.bdr }} />
           {showSvcPicker && (
             <div onClick={() => setShowSvcPicker(false)} style={{ position:"fixed", inset:0, zIndex:200 }}>
               <div onClick={e => e.stopPropagation()} style={{
@@ -7502,7 +7511,8 @@ function LiveScreen({ user, services, songs, nav }) {
               </div>
             </div>
           </div>
-        </div>
+          </div>{/* end inner 52px row */}
+        </div>{/* end header */}
 
         {/* ─ Desktop Body ─ */}
         <div style={{ flex:1, display:"flex", overflow:"hidden" }}>

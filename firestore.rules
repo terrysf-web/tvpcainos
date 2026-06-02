@@ -88,5 +88,24 @@ service cloud.firestore {
       allow create: if true;
       allow read, delete: if isLeader();
     }
+
+    // LIVE 예배 세션 — 읽기 인증된 모두, 쓰기 리더/어드민
+    match /liveSession/{svcId} {
+      allow read: if isAuthed();
+      allow write: if isLeader();
+    }
+
+    // LIVE 팀 CUE — 인증된 모두 읽기/쓰기 (팀원이 자기 상태 업데이트)
+    match /liveCues/{svcId} {
+      allow read, write: if isAuthed();
+    }
+
+    // LIVE 팀 채팅 — 인증된 모두 읽기/쓰기
+    match /liveChat/{svcId}/messages/{msgId} {
+      allow read, write: if isAuthed();
+    }
+    match /liveChat/{svcId} {
+      allow read: if isAuthed();
+    }
   }
 }
