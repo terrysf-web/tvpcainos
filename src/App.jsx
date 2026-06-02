@@ -7376,6 +7376,11 @@ function LiveScreen({ user, services, songs, nav }) {
     localStorage.setItem("tvpc_ppConfig", JSON.stringify(ppConfig));
   };
 
+  // Auto-connect on mount if config already saved
+  useEffect(() => {
+    if (ppConfig.ip) ppConnect();
+  }, []); // eslint-disable-line
+
   // Poll ProPresenter for current presentation every 2s
   useEffect(() => {
     if (!ppConnected) { setPpPresentation(null); return; }
