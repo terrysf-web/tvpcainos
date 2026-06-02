@@ -7348,7 +7348,7 @@ function LiveScreen({ user, services, songs, nav }) {
 
   const ppConnect = async () => {
     setPpChecking(true);
-    const data = await ppFetch("/v1/version");
+    const data = await ppFetch("/v1/presentation/active");
     setPpConnected(!!data);
     setPpChecking(false);
     localStorage.setItem("tvpc_ppConfig", JSON.stringify(ppConfig));
