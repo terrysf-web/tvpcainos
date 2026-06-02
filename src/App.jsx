@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.176";
+const APP_VERSION = "3.178";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7181,6 +7181,17 @@ const QUICK_CUES = [
   { id:"end",    label:"예배 종료", color:"#FF3B30" },
 ];
 
+const QUICK_MSGS = [
+  { label:"준비 완료",     color:"#34C759", emoji:"✅" },
+  { label:"다음 곡 준비",  color:"#5856D6", emoji:"▶️" },
+  { label:"볼륨 조금 올림", color:"#FF9500", emoji:"🔊" },
+  { label:"볼륨 조금 내림", color:"#FF9500", emoji:"🔉" },
+  { label:"영상 2번 준비",  color:"#1A73E8", emoji:"📹" },
+  { label:"마이크 ON",     color:"#34C759", emoji:"🎤" },
+  { label:"마이크 OFF",    color:"#8E8E93", emoji:"🔇" },
+  { label:"문제 있음",     color:"#FF3B30", emoji:"⚠️" },
+];
+
 function LiveScreen({ user, services, songs, nav }) {
   const leader = isLeader(user.role);
   const [liveTab,       setLiveTab]       = useState("live");
@@ -7199,12 +7210,19 @@ function LiveScreen({ user, services, songs, nav }) {
   const [ppConfig,      setPpConfig]      = useState(() => {
     try { return JSON.parse(localStorage.getItem("tvpc_ppConfig") || "{}"); } catch { return {}; }
   });
-  const [ppConnected,   setPpConnected]   = useState(false);
-  const [ppChecking,    setPpChecking]    = useState(false);
+  const [ppConnected,    setPpConnected]    = useState(false);
+  const [ppChecking,     setPpChecking]     = useState(false);
   const [ppPresentation, setPpPresentation] = useState(null);
-  const timerRef  = useRef(null);
-  const chatEndRef = useRef(null);
+  const [isDesktop,      setIsDesktop]      = useState(() => window.innerWidth >= 900);
+  const timerRef      = useRef(null);
+  const chatEndRef    = useRef(null);
   const ppLastSyncRef = useRef(null);
+
+  useEffect(() => {
+    const h = () => setIsDesktop(window.innerWidth >= 900);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
 
   const recentServices = useMemo(() => {
     const cutoff = new Date(Date.now() - 21 * 86400000).toISOString().slice(0,10);
@@ -7272,8 +7290,10 @@ function LiveScreen({ user, services, songs, nav }) {
   const activeIdx  = session?.activeSongIdx ?? 0;
   const currentSong = svcSongs[activeIdx];
   const nextSong   = svcSongs[activeIdx + 1];
-  const fmtSec     = (s) => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
-  const progress   = Math.min(1, songDuration > 0 ? elapsed / songDuration : 0);
+  const fmtSec  = (s) => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  const fmtHHMM = (d) => `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  const progress = Math.min(1, songDuration > 0 ? elapsed / songDuration : 0);
+  const nextExpected = fmtHHMM(new Date(Date.now() + Math.max(0, songDuration - elapsed) * 1000));
 
   const setActiveIdx = async (idx) => {
     if (!selSvcId) return;
@@ -7398,6 +7418,599 @@ function LiveScreen({ user, services, songs, nav }) {
     fontSize:11, fontWeight:700, color: active ? "#fff" : col, fontFamily:"inherit",
   });
 
+  /* ────────────────────────── DESKTOP LAYOUT ────────────────────────── */
+  if (isDesktop) {
+    const dTabStyle = (active) => ({
+      padding:"14px 20px", background:"none", border:"none",
+      borderBottom:`2px solid ${active ? C.pur : "transparent"}`,
+      color: active ? C.pur : C.dim, fontSize:13, fontWeight: active ? 700 : 500,
+      cursor:"pointer", fontFamily:"inherit", whiteSpace:"nowrap",
+    });
+    const teamColor = { audio:"#34C759", video:"#1A73E8", subtitle:"#5856D6", lighting:"#FF9500" };
+    return (
+      <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.bg, overflow:"hidden" }}>
+
+        {/* ─ Desktop Header ─ */}
+        <div style={{ height:56, background:C.surf, borderBottom:`1px solid ${C.bdr}`,
+          display:"flex", alignItems:"center", padding:"0 20px", gap:14, flexShrink:0,
+          paddingTop:"env(safe-area-inset-top)" }}>
+          <span style={{ fontSize:15, fontWeight:900, color:C.pur, flexShrink:0, letterSpacing:"-0.02em" }}>
+            TVPC Worship
+          </span>
+          <div style={{ width:1, height:20, background:C.bdr }} />
+          <button onClick={() => setShowSvcPicker(p => !p)} style={{
+            display:"flex", alignItems:"center", gap:8, background:"none", border:"none",
+            cursor:"pointer", padding:0, fontFamily:"inherit",
+          }}>
+            <span style={{ fontSize:15, fontWeight:700, color:C.txt }}>
+              {selSvc
+                ? `${new Date(selSvc.date+"T00:00:00").toLocaleDateString("ko-KR",{month:"numeric",day:"numeric",weekday:"short"})} ${selSvc.title||""}`
+                : "예배 선택"}
+            </span>
+            {session?.timerRunning && (
+              <span style={{ fontSize:11, color:"#fff", background:C.red,
+                borderRadius:6, padding:"2px 8px", fontWeight:700 }}>LIVE</span>
+            )}
+            {selSvc?.time && (
+              <span style={{ fontSize:13, color:C.dim }}>{selSvc.time}</span>
+            )}
+            <Icon n="chevD" size={11} color={C.dim} />
+          </button>
+          {showSvcPicker && (
+            <div onClick={() => setShowSvcPicker(false)} style={{ position:"fixed", inset:0, zIndex:200 }}>
+              <div onClick={e => e.stopPropagation()} style={{
+                position:"absolute", top:60, left:200, zIndex:201,
+                background:C.surf, border:`1px solid ${C.bdr}`, borderRadius:12,
+                boxShadow:"0 6px 24px rgba(0,0,0,0.15)", minWidth:260, overflow:"hidden",
+              }}>
+                {recentServices.map(s => (
+                  <button key={s.id} onClick={() => { setSelSvcId(s.id); setShowSvcPicker(false); }} style={{
+                    width:"100%", display:"block", padding:"11px 16px", background: s.id===selSvcId ? `${C.pur}10` : "none",
+                    border:"none", borderBottom:`1px solid ${C.bdr}`, cursor:"pointer", textAlign:"left",
+                  }}>
+                    <span style={{ fontSize:13, color:C.txt, fontWeight: s.id===selSvcId ? 700 : 500, fontFamily:"inherit" }}>
+                      {new Date(s.date+"T00:00:00").toLocaleDateString("ko-KR",{month:"long",day:"numeric",weekday:"short"})} {s.title}
+                      {s.time ? ` · ${s.time}` : ""}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div style={{ flex:1 }} />
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <div style={{ width:8, height:8, borderRadius:"50%", background: ppConnected ? C.grn : C.bdr }} />
+            <span style={{ fontSize:12, color: ppConnected ? C.grn : C.dim, fontWeight:600 }}>
+              ProPresenter {ppConnected ? "연결됨" : "연결 안됨"}
+            </span>
+          </div>
+          <div style={{ width:1, height:20, background:C.bdr }} />
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ width:32, height:32, borderRadius:"50%", background:`${C.pur}20`,
+              display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <Icon n="user" size={16} color={C.pur} />
+            </div>
+            <div>
+              <div style={{ fontSize:12, fontWeight:700, color:C.txt }}>{user.name || user.email}</div>
+              <div style={{ fontSize:10, color:C.dim }}>
+                {user.role === "admin" ? "어드민" : user.role === "leader" ? "리더" : user.role === "broadcast" ? "방송팀" : "멤버"}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ─ Desktop Body ─ */}
+        <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
+
+          {/* ── Left Sidebar ── */}
+          <div style={{ width:280, borderRight:`1px solid ${C.bdr}`, display:"flex",
+            flexDirection:"column", background:C.surf, flexShrink:0 }}>
+            <div style={{ padding:"12px 16px", borderBottom:`1px solid ${C.bdr}` }}>
+              <button onClick={() => nav("services")} style={{
+                display:"flex", alignItems:"center", gap:6, background:"none", border:"none",
+                cursor:"pointer", color:C.dim, fontSize:12, fontFamily:"inherit", padding:0,
+              }}>
+                <Icon n="back" size={13} color={C.dim} /> 예배 일정으로
+              </button>
+              {selSvc && (
+                <div style={{ marginTop:10 }}>
+                  <div style={{ fontSize:14, fontWeight:800, color:C.txt }}>{selSvc.title}</div>
+                  <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>
+                    {new Date(selSvc.date+"T00:00:00").toLocaleDateString("ko-KR",{month:"long",day:"numeric",weekday:"short"})}
+                    {selSvc.time ? ` · ${selSvc.time}` : ""}
+                  </div>
+                  <div style={{ display:"flex", gap:6, marginTop:8 }}>
+                    <span style={{ fontSize:10, color:C.pur, background:`${C.pur}15`,
+                      borderRadius:5, padding:"2px 8px", fontWeight:600 }}>
+                      {svcSongs.length}곡 선택됨
+                    </span>
+                    {session?.timerRunning && (
+                      <span style={{ fontSize:10, color:C.red, background:`${C.red}15`,
+                        borderRadius:5, padding:"2px 8px", fontWeight:700 }}>진행 중</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div style={{ flex:1, overflowY:"auto" }}>
+              {svcSongs.map((s, i) => (
+                <button key={i} onClick={() => leader && setActiveIdx(i)} style={{
+                  width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 16px",
+                  background: i===activeIdx ? `${C.pur}12` : "none",
+                  border:"none", borderBottom:`1px solid ${C.bdr}`,
+                  cursor: leader ? "pointer" : "default", textAlign:"left",
+                }}>
+                  <div style={{
+                    width:26, height:26, borderRadius:"50%", flexShrink:0,
+                    background: i===activeIdx ? C.pur : C.bdr,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:11, fontWeight:700, color: i===activeIdx ? "#fff" : C.dim,
+                  }}>{i+1}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight: i===activeIdx ? 700 : 500,
+                      color: i===activeIdx ? C.pur : C.txt,
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {s.title}
+                    </div>
+                    {s.artist && <div style={{ fontSize:10, color:C.dim, marginTop:1 }}>{s.artist}</div>}
+                  </div>
+                  {s.key && (
+                    <span style={{ fontSize:10, fontWeight:700, color:"#fff",
+                      background: keyColor(s.key), borderRadius:5, padding:"1px 6px", flexShrink:0 }}>
+                      {s.key}
+                    </span>
+                  )}
+                  {i===activeIdx && (
+                    <div style={{ width:6, height:6, borderRadius:"50%", background:C.pur, flexShrink:0 }} />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Center ── */}
+          <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+            {/* Tabs */}
+            <div style={{ borderBottom:`1px solid ${C.bdr}`, display:"flex", background:C.surf,
+              padding:"0 4px", flexShrink:0 }}>
+              {[["live","LIVE 모드"],["team","팀 상태"],["settings","설정"]].map(([id,label]) => (
+                <button key={id} style={dTabStyle(liveTab===id)} onClick={() => setLiveTab(id)}>{label}</button>
+              ))}
+            </div>
+
+            <div style={{ flex:1, overflowY:"auto", padding:20, display:"flex", flexDirection:"column", gap:16 }}>
+
+              {/* ══ LIVE 모드 ══ */}
+              {liveTab === "live" && (<>
+
+                {/* 현재 진행 */}
+                <div style={{ background:C.surf, borderRadius:16, border:`1px solid ${C.bdr}`,
+                  overflow:"hidden", boxShadow:"0 1px 6px rgba(0,0,0,0.06)" }}>
+                  <div style={{ padding:"14px 20px", borderBottom:`1px solid ${C.bdr}`,
+                    display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                    <span style={{ fontSize:12, fontWeight:700, color:C.dim, letterSpacing:"0.04em" }}>현재 진행</span>
+                    <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                      {ppPresentation?.id?.name && (
+                        <span style={{ fontSize:11, color:C.grn, background:`${C.grn}15`,
+                          borderRadius:6, padding:"2px 10px", fontWeight:600 }}>
+                          ▶ {ppPresentation.id.name}
+                        </span>
+                      )}
+                      {session?.timerRunning
+                        ? <span style={{ fontSize:11, color:"#fff", background:C.red, borderRadius:6, padding:"2px 10px", fontWeight:700 }}>진행 중</span>
+                        : elapsed > 0 ? <span style={{ fontSize:11, color:C.dim, background:C.bdr, borderRadius:6, padding:"2px 10px", fontWeight:600 }}>일시정지</span>
+                        : null}
+                    </div>
+                  </div>
+                  {currentSong ? (
+                    <div style={{ padding:"16px 20px", display:"flex", alignItems:"center", gap:20 }}>
+                      <div style={{ width:52, height:52, borderRadius:"50%", flexShrink:0,
+                        background:C.pur, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        <Icon n="music" size={22} color="#fff" />
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:20, fontWeight:800, color:C.txt,
+                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                          {currentSong.title}
+                        </div>
+                        {currentSong.artist && (
+                          <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>{currentSong.artist}</div>
+                        )}
+                        <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:8 }}>
+                          <div style={{ flex:1, height:5, background:C.bdr, borderRadius:3, overflow:"hidden" }}>
+                            <div style={{
+                              width:`${progress*100}%`, height:"100%", borderRadius:3,
+                              background: progress > 0.9 ? C.red : C.pur, transition:"width 0.5s linear",
+                            }} />
+                          </div>
+                          <span style={{ fontSize:11, color:C.dim, flexShrink:0 }}>
+                            {fmtSec(elapsed)} / {fmtSec(songDuration)}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign:"right", flexShrink:0 }}>
+                        <div style={{ fontSize:44, fontWeight:900, color:C.pur,
+                          letterSpacing:"-0.03em", lineHeight:1 }}>{fmtSec(elapsed)}</div>
+                        <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>진행 시간</div>
+                      </div>
+                      {leader && (
+                        <div style={{ display:"flex", flexDirection:"column", gap:8, flexShrink:0 }}>
+                          <button onClick={() => activeIdx < svcSongs.length-1 && setActiveIdx(activeIdx+1)}
+                            disabled={activeIdx >= svcSongs.length-1} style={{
+                            padding:"10px 22px", background:C.pur, border:"none", borderRadius:10,
+                            cursor: activeIdx >= svcSongs.length-1 ? "not-allowed" : "pointer",
+                            opacity: activeIdx >= svcSongs.length-1 ? 0.35 : 1,
+                            color:"#fff", fontSize:13, fontWeight:700, fontFamily:"inherit",
+                          }}>다음 곡</button>
+                          <div style={{ display:"flex", gap:6 }}>
+                            <button onClick={toggleTimer} style={{
+                              flex:1, padding:"8px 0", background: session?.timerRunning ? C.red : C.grn,
+                              border:"none", borderRadius:8, cursor:"pointer",
+                              color:"#fff", fontSize:12, fontWeight:700, fontFamily:"inherit",
+                            }}>
+                              {session?.timerRunning ? "일시정지" : elapsed > 0 ? "계속" : "시작"}
+                            </button>
+                            <button onClick={resetTimer} style={{
+                              padding:"8px 10px", background:C.bg, border:`1px solid ${C.bdr}`,
+                              borderRadius:8, cursor:"pointer", fontFamily:"inherit",
+                            }}>
+                              <Icon n="refresh" size={14} color={C.dim} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ padding:24, color:C.dim, fontSize:13, textAlign:"center" }}>
+                      예배를 선택하면 곡 목록이 표시됩니다
+                    </div>
+                  )}
+                </div>
+
+                {/* 다음 순서 */}
+                {nextSong && (
+                  <div style={{ background:C.surf, borderRadius:14, padding:"12px 20px",
+                    border:`1px solid ${C.bdr}`, display:"flex", alignItems:"center", gap:14 }}>
+                    <div style={{ width:34, height:34, borderRadius:"50%", flexShrink:0,
+                      background:`${C.pur}15`, border:`1.5px solid ${C.pur}30`,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      fontSize:14, fontWeight:700, color:C.pur }}>
+                      {activeIdx + 2}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:11, color:C.dim, marginBottom:2 }}>다음 순서</div>
+                      <div style={{ fontSize:15, fontWeight:700, color:C.txt,
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {nextSong.title}
+                      </div>
+                      <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>
+                        예상 시작: {nextExpected}
+                      </div>
+                    </div>
+                    {nextSong.key && (
+                      <span style={{ fontSize:11, fontWeight:700, color:"#fff",
+                        background: keyColor(nextSong.key), borderRadius:6, padding:"3px 10px", flexShrink:0 }}>
+                        {nextSong.key}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* 팀 상황 / CUE — horizontal */}
+                <div>
+                  <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:10,
+                    letterSpacing:"0.05em", textTransform:"uppercase" }}>팀 상황 / CUE</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:10 }}>
+                    {LIVE_TEAMS.map(team => {
+                      const cue = cues[team.id];
+                      const col = teamColor[team.id] || C.acc;
+                      const stCol = cue?.status==="ready" ? C.grn : cue?.status==="done" ? C.acc : cue?.status==="issue" ? C.red : C.bdr;
+                      return (
+                        <div key={team.id} style={{ background:C.surf, borderRadius:14, padding:"12px 14px",
+                          border:`1.5px solid ${stCol === C.bdr ? C.bdr : stCol + "60"}` }}>
+                          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                              <span style={{ fontSize:17 }}>{team.icon}</span>
+                              <span style={{ fontSize:13, fontWeight:700, color:C.txt }}>{team.label}</span>
+                            </div>
+                            <div style={{ width:8, height:8, borderRadius:"50%", background:stCol }} />
+                          </div>
+                          <div style={{ fontSize:11, color:C.dim, minHeight:16,
+                            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                            {cue?.msg || "대기 중"}
+                          </div>
+                          {cue?.updatedAt?.toDate && (
+                            <div style={{ fontSize:10, color:C.dim, marginTop:3 }}>
+                              {new Date(cue.updatedAt.toDate()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}
+                            </div>
+                          )}
+                          <div style={{ display:"flex", gap:4, marginTop:8, flexWrap:"wrap" }}>
+                            {[["ready","준비완료",C.grn],["done","완료",C.acc],["issue","문제",C.red]].map(([st,lbl,c]) => (
+                              <button key={st} onClick={() => sendCue(team.id, lbl, st)} style={{
+                                padding:"3px 8px", borderRadius:6, fontSize:10, fontWeight:700, cursor:"pointer",
+                                background: cue?.status===st ? c : `${c}15`,
+                                border:`1px solid ${c}60`,
+                                color: cue?.status===st ? "#fff" : c, fontFamily:"inherit",
+                              }}>{lbl}</button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 빠른 실행 */}
+                {leader && (
+                  <div>
+                    <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:10,
+                      letterSpacing:"0.05em", textTransform:"uppercase" }}>빠른 실행 (Quick Cue)</div>
+                    <div style={{ display:"flex", gap:16 }}>
+                      {QUICK_CUES.map(qc => (
+                        <button key={qc.id} onClick={async () => {
+                          if (qc.id === "next") setActiveIdx(Math.min(svcSongs.length-1, activeIdx+1));
+                          else if (qc.id === "prev") setActiveIdx(Math.max(0, activeIdx-1));
+                          else for (const t of LIVE_TEAMS) await sendCue(t.id, qc.label,
+                            qc.id === "hold" ? "issue" : qc.id === "end" ? "done" : "ready");
+                        }} style={{
+                          display:"flex", flexDirection:"column", alignItems:"center", gap:6,
+                          background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", padding:0,
+                        }}>
+                          <div style={{ width:52, height:52, borderRadius:"50%", background:qc.color,
+                            boxShadow:`0 3px 10px ${qc.color}50`,
+                            display:"flex", alignItems:"center", justifyContent:"center" }}>
+                            <Icon n={qc.id==="next"?"next":qc.id==="prev"?"prev":qc.id==="repeat"?"repeat":"stop"} size={20} color="#fff" />
+                          </div>
+                          <span style={{ fontSize:11, color:C.txt, fontWeight:600, whiteSpace:"nowrap" }}>
+                            {qc.id==="hold" ? "잠시 멈춤" : qc.id==="end" ? "예배 종료" : qc.label}
+                          </span>
+                          {(qc.id==="hold"||qc.id==="repeat"||qc.id==="end") && (
+                            <span style={{ fontSize:9, color:C.dim, marginTop:-4 }}>
+                              ({qc.id.toUpperCase()})
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 공지 */}
+                {leader && (
+                  <>
+                    <button onClick={() => setShowAnnounce(p => !p)} style={{
+                      width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+                      padding:"14px 18px", background:C.surf, border:`1px solid ${C.bdr}`,
+                      borderRadius:14, cursor:"pointer", fontFamily:"inherit",
+                    }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                        <div style={{ width:32, height:32, borderRadius:"50%", background:`${C.pur}15`,
+                          display:"flex", alignItems:"center", justifyContent:"center" }}>
+                          <Icon n="megaphone" size={15} color={C.pur} />
+                        </div>
+                        <span style={{ fontSize:14, fontWeight:600, color:C.txt }}>
+                          공지 메시지 보내기 (모든 팀에 알림)
+                        </span>
+                      </div>
+                      <Icon n={showAnnounce ? "chevU" : "chevR"} size={14} color={C.dim} />
+                    </button>
+                    {showAnnounce && (
+                      <div style={{ background:C.surf, borderRadius:14, padding:16,
+                        border:`1px solid ${C.pur}40`, marginTop:-8 }}>
+                        <textarea value={announcMsg} onChange={e => setAnnouncMsg(e.target.value)}
+                          placeholder="전체 채팅에 공지할 메시지..." rows={2} style={{
+                            width:"100%", padding:"10px 12px", border:`1px solid ${C.bdr}`,
+                            borderRadius:10, background:C.bg, color:C.txt, fontSize:13,
+                            fontFamily:"inherit", resize:"none", boxSizing:"border-box",
+                          }} />
+                        <button onClick={sendAnnounce} style={{
+                          marginTop:8, padding:"9px 20px", background:C.pur, border:"none", borderRadius:10,
+                          cursor:"pointer", color:"#fff", fontSize:13, fontWeight:700, fontFamily:"inherit",
+                        }}>공지 보내기</button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>)}
+
+              {/* ══ 팀 상태 ══ */}
+              {liveTab === "team" && LIVE_TEAMS.map(team => {
+                const cue = cues[team.id];
+                const stCol = cue?.status==="ready" ? C.grn : cue?.status==="done" ? C.acc : cue?.status==="issue" ? C.red : C.bdr;
+                return (
+                  <div key={team.id} style={{ background:C.surf, borderRadius:14, padding:16,
+                    border:`1.5px solid ${stCol}` }}>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <span style={{ fontSize:20 }}>{team.icon}</span>
+                        <span style={{ fontSize:15, fontWeight:700, color:C.txt }}>{team.label}</span>
+                      </div>
+                      <span style={{ fontSize:11, color:"#fff", borderRadius:7, padding:"3px 10px", fontWeight:700,
+                        background: stCol === C.bdr ? C.dim : stCol }}>
+                        {cue?.status==="ready"?"준비완료":cue?.status==="done"?"완료":cue?.status==="issue"?"문제있음":"대기중"}
+                      </span>
+                    </div>
+                    {cue && <>
+                      <div style={{ fontSize:13, color:C.txt }}>{cue.msg}</div>
+                      <div style={{ fontSize:11, color:C.dim, marginTop:4 }}>
+                        {cue.updatedByName} · {cue.updatedAt?.toDate
+                          ? new Date(cue.updatedAt.toDate()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}) : ""}
+                      </div>
+                    </>}
+                    <div style={{ display:"flex", gap:8, marginTop:12 }}>
+                      {[["ready","준비완료",C.grn],["done","완료",C.acc],["issue","문제있음",C.red]].map(([st,lbl,col]) => (
+                        <button key={st} onClick={() => sendCue(team.id, lbl, st)} style={{
+                          padding:"7px 16px", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer",
+                          background: cue?.status===st ? col : `${col}18`,
+                          border:`1px solid ${col}`, color: cue?.status===st ? "#fff" : col,
+                          fontFamily:"inherit",
+                        }}>{lbl}</button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* ══ 설정 ══ */}
+              {liveTab === "settings" && (<>
+                <div style={{ background:C.surf, borderRadius:14, padding:18, border:`1px solid ${C.bdr}` }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
+                    <Icon n="radio" size={16} color={C.acc} />
+                    <span style={{ fontSize:14, fontWeight:700, color:C.txt }}>ProPresenter 연결</span>
+                    <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:4 }}>
+                      <div style={{ width:8, height:8, borderRadius:"50%", background: ppConnected ? C.grn : C.bdr }} />
+                      <span style={{ fontSize:11, color: ppConnected ? C.grn : C.dim }}>
+                        {ppConnected ? "연결됨" : "연결 안됨"}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
+                    {[["Tailscale IP","ip","100.116.199.35"],["프록시 포트","proxyPort","1027"]].map(([label,key,ph]) => (
+                      <div key={key}>
+                        <div style={{ fontSize:11, color:C.dim, marginBottom:4 }}>{label}</div>
+                        <input value={ppConfig[key]||""} onChange={e => setPpConfig(p => ({...p,[key]:e.target.value}))}
+                          placeholder={ph} style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.bdr}`,
+                            borderRadius:9, background:C.bg, color:C.txt, fontSize:13,
+                            fontFamily:"inherit", boxSizing:"border-box" }} />
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={ppConnect} style={{
+                    padding:"10px 24px", background: ppConnected ? C.grn : C.acc, border:"none", borderRadius:10,
+                    cursor:"pointer", color:"#111", fontSize:13, fontWeight:700, fontFamily:"inherit",
+                  }}>{ppChecking?"연결 중...":ppConnected?"✓ 연결됨 (재테스트)":"연결 테스트"}</button>
+                </div>
+                <div style={{ background:C.surf, borderRadius:14, padding:18, border:`1px solid ${C.bdr}` }}>
+                  <div style={{ fontSize:14, fontWeight:700, color:C.txt, marginBottom:10 }}>기본 곡 시간</div>
+                  <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
+                    <input type="number" value={songDuration}
+                      onChange={e => { const v=Math.max(30,parseInt(e.target.value)||240); setSongDuration(v); localStorage.setItem("tvpc_songDuration",String(v)); }}
+                      min={30} max={1200} step={30} style={{ width:100, padding:"9px 12px", border:`1px solid ${C.bdr}`,
+                        borderRadius:9, background:C.bg, color:C.txt, fontSize:13, fontFamily:"inherit" }} />
+                    <span style={{ fontSize:13, color:C.dim }}>초 ({Math.floor(songDuration/60)}분 {songDuration%60}초)</span>
+                  </div>
+                  <div style={{ display:"flex", gap:6 }}>
+                    {[[120,"2분"],[180,"3분"],[240,"4분"],[300,"5분"],[360,"6분"]].map(([s,l]) => (
+                      <button key={s} onClick={() => { setSongDuration(s); localStorage.setItem("tvpc_songDuration",String(s)); }} style={{
+                        padding:"6px 14px", borderRadius:8, fontSize:12, fontWeight:600, cursor:"pointer",
+                        background: songDuration===s ? C.acc : C.bg, border:`1px solid ${songDuration===s ? C.acc : C.bdr}`,
+                        color: songDuration===s ? "#111" : C.dim, fontFamily:"inherit",
+                      }}>{l}</button>
+                    ))}
+                  </div>
+                </div>
+              </>)}
+
+            </div>
+          </div>
+
+          {/* ── Right Chat Panel ── */}
+          <div style={{ width:320, borderLeft:`1px solid ${C.bdr}`, display:"flex",
+            flexDirection:"column", background:C.surf, flexShrink:0 }}>
+            {/* Chat header */}
+            <div style={{ padding:"14px 16px", borderBottom:`1px solid ${C.bdr}`, flexShrink:0,
+              display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <span style={{ fontSize:14, fontWeight:700, color:C.txt }}>팀 채팅</span>
+              {chatMessages.length > 0 && (
+                <span style={{ fontSize:11, color:C.dim }}>{chatMessages.length}개의 메시지</span>
+              )}
+            </div>
+            {/* Messages */}
+            <div style={{ flex:1, overflowY:"auto", padding:"10px 14px",
+              display:"flex", flexDirection:"column", gap:8 }}>
+              {chatMessages.length === 0 ? (
+                <div style={{ color:C.dim, fontSize:13, textAlign:"center", marginTop:40 }}>
+                  채팅 메시지가 없습니다
+                </div>
+              ) : chatMessages.map(msg => (
+                <div key={msg.id} style={{ display:"flex", flexDirection:"column",
+                  alignItems: msg.uid===user.uid ? "flex-end" : "flex-start" }}>
+                  {msg.type === "announce" ? (
+                    <div style={{ background:`${C.pur}15`, border:`1px solid ${C.pur}40`,
+                      borderRadius:10, padding:"8px 12px", maxWidth:"95%" }}>
+                      <div style={{ fontSize:10, color:C.pur, fontWeight:700, marginBottom:3 }}>
+                        📣 공지 · {msg.name}
+                      </div>
+                      <div style={{ fontSize:13, color:C.txt }}>{msg.text}</div>
+                    </div>
+                  ) : (
+                    <div style={{ display:"flex", gap:8,
+                      flexDirection: msg.uid===user.uid ? "row-reverse" : "row",
+                      alignItems:"flex-end" }}>
+                      {msg.uid !== user.uid && (
+                        <div style={{ width:28, height:28, borderRadius:"50%", flexShrink:0,
+                          background:`${C.pur}20`, display:"flex", alignItems:"center",
+                          justifyContent:"center", fontSize:11, fontWeight:700, color:C.pur }}>
+                          {(msg.name||"?")[0]}
+                        </div>
+                      )}
+                      <div>
+                        {msg.uid !== user.uid && (
+                          <div style={{ fontSize:10, color:C.dim, marginBottom:3,
+                            paddingLeft:4 }}>{msg.name}</div>
+                        )}
+                        <div style={{ background: msg.uid===user.uid ? `${C.pur}20` : C.bg,
+                          borderRadius:10, padding:"7px 11px", maxWidth:220,
+                          border: msg.uid===user.uid ? `1px solid ${C.pur}40` : `1px solid ${C.bdr}` }}>
+                          <div style={{ fontSize:13, color:C.txt }}>{msg.text}</div>
+                        </div>
+                        {msg.createdAt?.toDate && (
+                          <div style={{ fontSize:10, color:C.dim, marginTop:2,
+                            textAlign: msg.uid===user.uid ? "right" : "left", paddingLeft:4 }}>
+                            {new Date(msg.createdAt.toDate()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+            {/* Input */}
+            <div style={{ borderTop:`1px solid ${C.bdr}`, padding:"10px 12px", flexShrink:0 }}>
+              <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+                <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+                  onKeyDown={e => { if (e.key==="Enter"&&!e.shiftKey) { sendChat(chatInput); setChatInput(""); }}}
+                  placeholder="메시지 입력..." style={{
+                    flex:1, padding:"9px 12px", border:`1px solid ${C.bdr}`,
+                    borderRadius:9, background:C.bg, color:C.txt,
+                    fontSize:13, fontFamily:"inherit", outline:"none",
+                  }} />
+                <button onClick={() => { sendChat(chatInput); setChatInput(""); }} style={{
+                  padding:"9px 14px", background:C.pur, border:"none", borderRadius:9,
+                  cursor:"pointer", fontFamily:"inherit",
+                }}>
+                  <Icon n="send" size={15} color="#fff" />
+                </button>
+              </div>
+              {/* Quick messages */}
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                <span style={{ fontSize:11, fontWeight:700, color:C.dim }}>빠른 메시지 / CUE</span>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:5 }}>
+                {QUICK_MSGS.map(qm => (
+                  <button key={qm.label} onClick={() => sendChat(qm.label)} style={{
+                    padding:"6px 4px", borderRadius:8, fontSize:11, fontWeight:600,
+                    background:`${qm.color}12`, border:`1px solid ${qm.color}50`,
+                    color:qm.color, cursor:"pointer", fontFamily:"inherit",
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:3,
+                    whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+                  }}>
+                    <span style={{ fontSize:12 }}>{qm.emoji}</span>
+                    <span style={{ overflow:"hidden", textOverflow:"ellipsis" }}>{qm.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  /* ────────────────────────── MOBILE LAYOUT ────────────────────────── */
   return (
     <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.bg,
       paddingBottom:"calc(64px + env(safe-area-inset-bottom))" }}>
