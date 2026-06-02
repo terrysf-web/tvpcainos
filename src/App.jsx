@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.216";
+const APP_VERSION = "3.217";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1848,40 +1848,44 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav, tea
           )}
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:4, marginBottom:8 }}>
-          {svcSongs.map((s, i) => {
-            const teamNotes = (teamAnnotations || {})[s.id] || [];
-            return (
-              <div key={s.id} style={{
-                fontSize:12, background:C.bg,
-                border:`1px solid ${C.bdr}`,
-                borderRadius:8, padding:"5px 9px", color:C.txt,
-                display:"flex", alignItems:"center", gap:4,
-              }}>
-                <span style={{ color:C.dim, fontSize:11, flexShrink:0 }}>{i+1}.</span>
-                <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.title}</span>
-                {teamNotes.length > 0 && (
+          {svcSongs.map((s, i) => (
+            <div key={s.id} style={{
+              fontSize:12, background:C.bg,
+              border:`1px solid ${C.bdr}`,
+              borderRadius:8, padding:"5px 9px", color:C.txt,
+              display:"flex", alignItems:"center", gap:4,
+            }}>
+              <span style={{ color:C.dim, fontSize:11, flexShrink:0 }}>{i+1}.</span>
+              <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.title}</span>
+              <span style={{
+                background:`${keyColor(s.key)}22`, color:keyColor(s.key),
+                borderRadius:4, padding:"0 4px", fontSize:10, fontWeight:700, flexShrink:0,
+              }}>Key {s.key}</span>
+            </div>
+          ))}
+        </div>
+        {(() => {
+          const totalMemos = svcSongs.reduce((acc, s) => acc + ((teamAnnotations || {})[s.id]?.length || 0), 0);
+          return (
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <span style={{ fontSize:12, color:C.dim }}>{svcSongs.length}곡 선택됨</span>
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                {totalMemos > 0 && (
                   <span style={{
                     background:"#e5393518", color:"#e53935",
                     border:"1px solid #e5393540",
-                    borderRadius:4, padding:"0 5px", fontSize:10, fontWeight:700, flexShrink:0,
-                    display:"flex", alignItems:"center", gap:2,
+                    borderRadius:5, padding:"1px 6px", fontSize:11, fontWeight:700,
+                    display:"flex", alignItems:"center", gap:3,
                   }}>
-                    <Icon n="users" size={9} color="#e53935" sw={2.5} />
-                    {teamNotes.length}
+                    <Icon n="users" size={10} color="#e53935" sw={2.5} />
+                    팀메모 {totalMemos}개
                   </span>
                 )}
-                <span style={{
-                  background:`${keyColor(s.key)}22`, color:keyColor(s.key),
-                  borderRadius:4, padding:"0 4px", fontSize:10, fontWeight:700, flexShrink:0,
-                }}>Key {s.key}</span>
+                <Icon n="chevR" size={16} color={C.dim} />
               </div>
-            );
-          })}
-        </div>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          <span style={{ fontSize:12, color:C.dim }}>{svcSongs.length}곡 선택됨</span>
-          <Icon n="chevR" size={16} color={C.dim} />
-        </div>
+            </div>
+          );
+        })()}
       </div>
     );
   };
