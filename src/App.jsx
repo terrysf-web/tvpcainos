@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.187";
+const APP_VERSION = "3.188";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1891,16 +1891,6 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
               <Icon n="plus" size={18} color={C.acc} />
             </button>
           )}
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
-            <span style={{ fontSize:9, color:C.dim, letterSpacing:"0.03em", lineHeight:1 }}>v{APP_VERSION}</span>
-            <button onClick={() => window.location.reload()} title="새로고침" style={{
-              width:36, height:36, borderRadius:9, cursor:"pointer",
-              background:C.card, border:`1px solid ${C.bdr}`,
-              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
-            }}>
-              <Icon n="refresh" size={20} color={C.dim} />
-            </button>
-          </div>
           <button onClick={() => nav("notifications")} title="알림" style={{
             width:36, height:36, borderRadius:9, cursor:"pointer", position:"relative",
             background:C.card, border:`1px solid ${unread > 0 ? C.acc : C.bdr}`,
@@ -2854,13 +2844,6 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
         <div style={{ padding:"0 16px 10px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>악보 라이브러리</div>
           <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-            <button onClick={() => window.location.reload()} title="새로고침" style={{
-              width:36, height:36, borderRadius:9, cursor:"pointer",
-              background:C.card, border:`1px solid ${C.bdr}`,
-              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
-            }}>
-              <Icon n="refresh" size={20} color={C.dim} />
-            </button>
             {isLeader(user.role) && (
               <button onClick={() => setShowAdd(true)} title="곡 추가" style={{
                 width:36, height:36, borderRadius:9, cursor:"pointer",
@@ -8553,6 +8536,15 @@ function BottomNav({ view, nav, unread, user }) {
           </button>
         );
       })}
+      <button onClick={() => window.location.reload()}
+        style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+          background:"none", border:"none", cursor:"pointer", padding:"2px 8px", flexShrink:0 }}>
+        <div style={{ width:44, height:44, borderRadius:12, background:`${C.pur}18`,
+          display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <Icon n="refresh" size={20} color={`${C.pur}88`} />
+        </div>
+        <span style={{ fontSize:9, color:C.dim, letterSpacing:"0.02em" }}>v{APP_VERSION}</span>
+      </button>
     </div>
   );
 }
