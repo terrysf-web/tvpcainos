@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.183";
+const APP_VERSION = "3.184";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7810,33 +7810,15 @@ function LiveScreen({ user, services, songs, nav }) {
                             </div>
                             <div style={{ width:8, height:8, borderRadius:"50%", background:stCol }} />
                           </div>
-                          <div style={{ fontSize:11, color:C.dim, minHeight:16,
-                            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                            {cue?.msg || "대기 중"}
+                          <div style={{ fontSize:11, fontWeight:600, marginTop:4,
+                            color: stCol === C.bdr ? C.dim : stCol }}>
+                            {cue?.status==="ready" ? "✓ 준비완료" : cue?.status==="done" ? "✓ 완료" : cue?.status==="issue" ? "⚠ 문제" : "대기 중"}
                           </div>
                           {cue?.updatedAt?.toDate && (
-                            <div style={{ fontSize:10, color:C.dim, marginTop:3 }}>
+                            <div style={{ fontSize:10, color:C.dim, marginTop:2 }}>
                               {new Date(cue.updatedAt.toDate()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}
                             </div>
                           )}
-                          <div style={{ display:"flex", gap:4, marginTop:8, flexWrap:"wrap" }}>
-                            {cue?.status ? (
-                              <button onClick={() => sendCue(team.id, "대기 중", null)} style={{
-                                padding:"3px 10px", borderRadius:6, fontSize:10, fontWeight:700,
-                                cursor:"pointer", border:"none", color:"#fff", fontFamily:"inherit",
-                                background: cue.status==="ready" ? C.grn : cue.status==="done" ? C.acc : C.red,
-                              }}>
-                                {cue.status==="ready" ? "✓ 준비완료" : cue.status==="done" ? "✓ 완료" : "⚠ 문제"}
-                              </button>
-                            ) : (
-                              [["ready","준비완료",C.grn],["done","완료",C.acc],["issue","문제",C.red]].map(([st,lbl,c]) => (
-                                <button key={st} onClick={() => sendCue(team.id, lbl, st)} style={{
-                                  padding:"3px 8px", borderRadius:6, fontSize:10, fontWeight:700, cursor:"pointer",
-                                  background:`${c}15`, border:`1px solid ${c}60`, color:c, fontFamily:"inherit",
-                                }}>{lbl}</button>
-                              ))
-                            )}
-                          </div>
                         </div>
                       );
                     })}
