@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.194";
+const APP_VERSION = "3.195";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7450,17 +7450,12 @@ function LiveScreen({ user, services, songs, nav }) {
     if (ppConfig.ip) ppConnect();
   }, []); // eslint-disable-line
 
-  // Poll ProPresenter for current presentation + slide every 2s
+  // Poll ProPresenter for current presentation every 2s
   useEffect(() => {
     if (!ppConnected) { setPpPresentation(null); setPpSlideRaw(null); return; }
     const poll = async () => {
-      const [presData, slideData] = await Promise.all([
-        ppFetch("/v1/presentation/active"),
-        ppFetch("/v1/presentation/active/slide"),
-      ]);
-      if (presData?.presentation) setPpPresentation(presData.presentation);
-      // /v1/presentation/active/slide returns the current slide object if supported
-      if (slideData) setPpSlideRaw(slideData);
+      const data = await ppFetch("/v1/presentation/active");
+      if (data?.presentation) setPpPresentation(data.presentation);
     };
     poll();
     const id = setInterval(poll, 2000);
