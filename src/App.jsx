@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.218";
+const APP_VERSION = "3.219";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2278,7 +2278,7 @@ function generatePro6(title, groups) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<RVPresentationDocument height="1080" width="1920" versionNumber="600" docType="0" creatorCode="1349676880" lastDateUsed="${new Date().toISOString().slice(0,19)}" usedCount="0" category="Song" resourcesDirectory="" backgroundColor="0 0 0 1" drawingBackgroundColor="1" notes="" artist="" author="" album="" CCLIDisplay="0" CCLIArtistCredits="" CCLISongTitle="${title.replace(/"/g,"&quot;")}" CCLIPublisher="" CCLICopyrightInfo="" CCLILicenseNumber="" chordChartPath="">\n  <array rvXMLIvarName="groups">\n${groupsXml}\n  </array>\n  <array rvXMLIvarName="arrangements"/>\n</RVPresentationDocument>`;
 }
 
-function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotations, notifs, nav, selectedSvcId, onUpdateService, addSong }) {
+function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotations, userMap, notifs, nav, selectedSvcId, onUpdateService, addSong }) {
   const svc = services.find(s => s.id === selectedSvcId);
   const [showPicker,     setShowPicker]     = useState(false);
   const [showEdit,       setShowEdit]       = useState(false);
@@ -2546,7 +2546,6 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
         {entries.map(({ id, song, i }) => {
           if (!song) return null;
           const teamNotes = (teamAnnotations || {})[song.id] || [];
-          const firstNote = teamNotes[0];
           const isDragging = drag?.fromIdx === i;
           const dy = isDragging ? drag.curY - drag.startY : 0;
           const isDropTarget = !isDragging && dropIdx === i && drag !== null;
@@ -2621,7 +2620,6 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                       <KeyBadge k={song.key} />
                       {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF · 페이지${song.pdfPage}` : "PDF"} color={C.grn} />}
                       {!song.pdfUrl && song.imageUrl && <Badge label="🖼️ 이미지" color={C.acc} />}
-                      {teamNotes.length > 0 && <Badge label={`📋 ${teamNotes.length}`} color={C.acc} />}
                     </div>
                   </div>
 
@@ -2643,17 +2641,24 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                   )}
                 </div>
 
-                {/* 팀 메모 미리보기 */}
-                {firstNote && (
-                  <div style={{
-                    marginTop:10, padding:"8px 10px", borderRadius:8,
-                    background:`${C.acc}0d`, border:`1px solid ${C.acc}33`,
-                    fontSize:12, color:C.dim, lineHeight:1.5,
-                    overflow:"hidden", display:"-webkit-box",
-                    WebkitLineClamp:2, WebkitBoxOrient:"vertical",
-                  }}>
-                    📋 {firstNote.text}
-                    {teamNotes.length > 1 && <span style={{ color:C.acc, fontWeight:700 }}> +{teamNotes.length - 1}개</span>}
+                {/* 팀 메모 전체 */}
+                {teamNotes.length > 0 && (
+                  <div style={{ marginTop:10, display:"flex", flexDirection:"column", gap:6 }}>
+                    {teamNotes.map((m, mi) => {
+                      const authorName = m.authorName || (userMap || {})[m.userId] || "팀원";
+                      return (
+                        <div key={mi} style={{
+                          padding:"7px 10px", borderRadius:8,
+                          background:"#e5393510", border:"1px solid #e5393530",
+                        }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:3 }}>
+                            <Icon n="users" size={10} color="#e53935" sw={2.5} />
+                            <span style={{ fontSize:11, fontWeight:700, color:"#e53935" }}>{authorName}</span>
+                          </div>
+                          <div style={{ fontSize:12, color:C.txt, lineHeight:1.5 }}>{m.text}</div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -8891,6 +8896,7 @@ export default function App() {
   const [notifs,      setNotifs]      = useState([]);
   const [annotations,     setAnnotations]     = useState({}); // 개인 메모
   const [teamAnnotations, setTeamAnnotations] = useState({}); // 팀 공유 메모
+  const [userMap,         setUserMap]         = useState({}); // uid -> displayName
   const [selSvcId,      setSelSvcId]      = useState(null);
   const [selSongId,     setSelSongId]     = useState(null);
   const [selSvcSongIdx, setSelSvcSongIdx] = useState(-1); // 서비스 내 곡 인덱스 (복사 곡 대응)
@@ -9112,6 +9118,16 @@ export default function App() {
   }, [user?.uid]);
 
 
+  // ── Firestore: 유저 이름 맵 (uid -> displayName)
+  useEffect(() => {
+    if (!user?.uid) return;
+    return onSnapshot(collection(db, "users"), snap => {
+      const m = {};
+      snap.docs.forEach(d => { m[d.id] = d.data().displayName || d.data().name || d.data().email || ""; });
+      setUserMap(m);
+    });
+  }, [user?.uid]);
+
   // ── PDF.js 로더
   useEffect(() => {
     if (window.pdfjsLib) { setPdfjsReady(true); return; }
@@ -9180,6 +9196,7 @@ export default function App() {
       ...noteData,
       songId,
       userId: user.uid,
+      authorName: user.displayName || user.email || "",
       shared: noteData.shared ?? false,
       createdAt: serverTimestamp(),
     });
@@ -9276,7 +9293,7 @@ export default function App() {
   const unread = notifs.filter(n => !n.read).length;
 
   const shared = {
-    user, songs, services, notifs, annotations, teamAnnotations,
+    user, songs, services, notifs, annotations, teamAnnotations, userMap,
     addSong, createService, updateService,
     onAddAnnotation: addAnnotation,
     onDeleteAnnotation: deleteAnnotation,
