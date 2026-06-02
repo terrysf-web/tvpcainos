@@ -56,21 +56,37 @@ jobs:
           with open("firestore.rules") as f:
               rules = f.read()
 
+          import sys
+
           def call(url, method, body=None):
               req = urllib.request.Request(url,
                   data=json.dumps(body).encode() if body else None,
                   headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json"},
                   method=method)
-              return json.loads(urllib.request.urlopen(req).read())
+              try:
+                  return json.loads(urllib.request.urlopen(req).read())
+              except urllib.error.HTTPError as e:
+                  err = e.read().decode()
+                  print(f"HTTP {e.code} {method} {url}: {err}", file=sys.stderr)
+                  raise
 
           rs = call(f"https://firebaserules.googleapis.com/v1/projects/{pid}/rulesets",
                     "POST", {"source": {"files": [{"name": "firestore.rules", "content": rules}]}})
           rs_name = rs["name"]
           print(f"Ruleset: {rs_name}")
 
-          call(f"https://firebaserules.googleapis.com/v1/projects/{pid}/releases/cloud.firestore",
-               "PATCH", {"name": f"projects/{pid}/releases/cloud.firestore", "rulesetName": rs_name})
-          print("✓ Firestore Rules 배포 완료")
+          rel_body = {"name": f"projects/{pid}/releases/cloud.firestore", "rulesetName": rs_name}
+          rel_url = f"https://firebaserules.googleapis.com/v1/projects/{pid}/releases/cloud.firestore"
+          try:
+              call(rel_url + "?updateMask=rulesetName", "PATCH", rel_body)
+              print("✓ Firestore Rules 배포 완료 (updated)")
+          except urllib.error.HTTPError as e:
+              if e.code == 404:
+                  call(f"https://firebaserules.googleapis.com/v1/projects/{pid}/releases",
+                       "POST", rel_body)
+                  print("✓ Firestore Rules 배포 완료 (created)")
+              else:
+                  raise
           EOF
 
   # ── Job 2: Supabase Edge Function (SUPABASE_ACCESS_TOKEN 있을 때만)
