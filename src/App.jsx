@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.192";
+const APP_VERSION = "3.193";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7292,6 +7292,24 @@ function LiveScreen({ user, services, songs, nav }) {
   const progress = Math.min(1, songDuration > 0 ? elapsed / songDuration : 0);
   const nextExpected = fmtHHMM(new Date(Date.now() + Math.max(0, songDuration - elapsed) * 1000));
 
+  const ppCurrentSlideText = useMemo(() => {
+    if (!ppPresentation) return null;
+    const idx = ppPresentation.id?.index;
+    if (idx === undefined || idx >= 0xFFFFFFFE) return null;
+    let count = 0;
+    for (const group of (ppPresentation.groups || [])) {
+      for (const slide of (group.slides || [])) {
+        if (count === idx) {
+          const raw = slide.text || "";
+          const lines = raw.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+          return lines.length > 0 ? lines.join("\n") : null;
+        }
+        count++;
+      }
+    }
+    return null;
+  }, [ppPresentation]);
+
   const setActiveIdx = async (idx) => {
     if (!selSvcId) return;
     await setDoc(doc(db, "liveSession", selSvcId), {
@@ -7744,6 +7762,39 @@ function LiveScreen({ user, services, songs, nav }) {
                     </div>
                   )}
                 </div>
+
+                {/* PP 슬라이드 디스플레이 */}
+                {ppConnected && (
+                  <div style={{ background:"#12121f", borderRadius:16, overflow:"hidden",
+                    border:`1px solid rgba(255,255,255,0.08)`, boxShadow:"0 2px 12px rgba(0,0,0,0.18)" }}>
+                    <div style={{ padding:"8px 16px", borderBottom:"1px solid rgba(255,255,255,0.08)",
+                      display:"flex", alignItems:"center", gap:8 }}>
+                      <div style={{ width:7, height:7, borderRadius:"50%",
+                        background: ppCurrentSlideText ? "#ff3b30" : "rgba(255,255,255,0.2)" }} />
+                      <span style={{ fontSize:10, fontWeight:800, color:"rgba(255,255,255,0.4)",
+                        letterSpacing:"0.1em" }}>SLIDE</span>
+                      {ppPresentation?.id?.name && (
+                        <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginLeft:4,
+                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                          {ppPresentation.id.name}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ padding:"20px 24px", minHeight:72,
+                      display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      {ppCurrentSlideText ? (
+                        <div style={{ fontSize:16, fontWeight:600, color:"#fff",
+                          textAlign:"center", lineHeight:1.7, whiteSpace:"pre-line", width:"100%" }}>
+                          {ppCurrentSlideText}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize:12, color:"rgba(255,255,255,0.25)", letterSpacing:"0.04em" }}>
+                          슬라이드 대기 중...
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* 다음 순서 */}
                 {nextSong && (
@@ -8202,6 +8253,39 @@ function LiveScreen({ user, services, songs, nav }) {
               )}
             </>)}
           </div>
+
+          {/* PP 슬라이드 디스플레이 (mobile) */}
+          {ppConnected && (
+            <div style={{ background:"#12121f", borderRadius:16, overflow:"hidden",
+              border:`1px solid rgba(255,255,255,0.08)`, boxShadow:"0 2px 10px rgba(0,0,0,0.18)" }}>
+              <div style={{ padding:"7px 14px", borderBottom:"1px solid rgba(255,255,255,0.08)",
+                display:"flex", alignItems:"center", gap:7 }}>
+                <div style={{ width:6, height:6, borderRadius:"50%",
+                  background: ppCurrentSlideText ? "#ff3b30" : "rgba(255,255,255,0.2)" }} />
+                <span style={{ fontSize:10, fontWeight:800, color:"rgba(255,255,255,0.4)",
+                  letterSpacing:"0.1em" }}>SLIDE</span>
+                {ppPresentation?.id?.name && (
+                  <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginLeft:2,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
+                    {ppPresentation.id.name}
+                  </span>
+                )}
+              </div>
+              <div style={{ padding:"16px 18px", minHeight:60,
+                display:"flex", alignItems:"center", justifyContent:"center" }}>
+                {ppCurrentSlideText ? (
+                  <div style={{ fontSize:14, fontWeight:600, color:"#fff",
+                    textAlign:"center", lineHeight:1.7, whiteSpace:"pre-line", width:"100%" }}>
+                    {ppCurrentSlideText}
+                  </div>
+                ) : (
+                  <span style={{ fontSize:11, color:"rgba(255,255,255,0.25)", letterSpacing:"0.04em" }}>
+                    슬라이드 대기 중...
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* 다음 순서 */}
           {nextSong && (
