@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.184";
+const APP_VERSION = "3.185";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7810,12 +7810,14 @@ function LiveScreen({ user, services, songs, nav }) {
                             </div>
                             <div style={{ width:8, height:8, borderRadius:"50%", background:stCol }} />
                           </div>
-                          <div style={{ fontSize:11, fontWeight:600, marginTop:4,
-                            color: stCol === C.bdr ? C.dim : stCol }}>
-                            {cue?.status==="ready" ? "✓ 준비완료" : cue?.status==="done" ? "✓ 완료" : cue?.status==="issue" ? "⚠ 문제" : "대기 중"}
+                          <div style={{ marginTop:6 }}>
+                            <span style={{ fontSize:10, fontWeight:700, color:"#fff", borderRadius:6,
+                              padding:"2px 8px", background: stCol === C.bdr ? C.dim : stCol }}>
+                              {cue?.status==="ready" ? "준비완료" : cue?.status==="done" ? "완료" : cue?.status==="issue" ? "문제있음" : "대기중"}
+                            </span>
                           </div>
                           {cue?.updatedAt?.toDate && (
-                            <div style={{ fontSize:10, color:C.dim, marginTop:2 }}>
+                            <div style={{ fontSize:10, color:C.dim, marginTop:3 }}>
                               {new Date(cue.updatedAt.toDate()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}
                             </div>
                           )}
