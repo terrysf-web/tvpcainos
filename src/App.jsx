@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.217";
+const APP_VERSION = "3.218";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -1847,21 +1847,20 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav, tea
             <span style={{ fontSize:11, color:C.dim, marginLeft:8, marginTop:2 }}>✓ 알림완료</span>
           )}
         </div>
-        <div style={{ display:"flex", flexDirection:"column", gap:4, marginBottom:8 }}>
+        <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:8 }}>
           {svcSongs.map((s, i) => (
-            <div key={s.id} style={{
-              fontSize:12, background:C.bg,
-              border:`1px solid ${C.bdr}`,
-              borderRadius:8, padding:"5px 9px", color:C.txt,
+            <span key={s.id} style={{
+              fontSize:12, background:C.bg, border:`1px solid ${C.bdr}`,
+              borderRadius:6, padding:"3px 8px", color:C.txt,
               display:"flex", alignItems:"center", gap:4,
             }}>
-              <span style={{ color:C.dim, fontSize:11, flexShrink:0 }}>{i+1}.</span>
-              <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.title}</span>
+              <span style={{ color:C.dim, fontSize:11 }}>{i+1}.</span>
+              {s.title}
               <span style={{
                 background:`${keyColor(s.key)}22`, color:keyColor(s.key),
-                borderRadius:4, padding:"0 4px", fontSize:10, fontWeight:700, flexShrink:0,
+                borderRadius:4, padding:"0 4px", fontSize:10, fontWeight:700,
               }}>Key {s.key}</span>
-            </div>
+            </span>
           ))}
         </div>
         {(() => {
