@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.181";
+const APP_VERSION = "3.182";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7192,6 +7192,9 @@ const QUICK_MSGS = [
   { label:"문제 있음",     color:"#FF3B30", emoji:"⚠️" },
 ];
 
+const YT_API_KEY    = "AIzaSyAovkFPiwtvsAc66ihHjSdwdkLOqkoXgDo";
+const YT_CHANNEL_ID = "UCZrRfMxUpuVv7e4JqlesJ1w";
+
 function LiveScreen({ user, services, songs, nav }) {
   const leader = isLeader(user.role);
   const [liveTab,       setLiveTab]       = useState("live");
@@ -7214,6 +7217,7 @@ function LiveScreen({ user, services, songs, nav }) {
   const [ppChecking,     setPpChecking]     = useState(false);
   const [ppPresentation, setPpPresentation] = useState(null);
   const [isDesktop,      setIsDesktop]      = useState(() => window.innerWidth >= 900);
+  const [ytLive,         setYtLive]         = useState(null);
   const timerRef      = useRef(null);
   const chatEndRef    = useRef(null);
   const ppLastSyncRef = useRef(null);
@@ -7462,6 +7466,37 @@ function LiveScreen({ user, services, songs, nav }) {
       setActiveIdx(idx);
     }
   }, [ppPresentation, svcSongs, selSvcId]);
+
+  // YouTube live status polling
+  useEffect(() => {
+    const fetchYt = async () => {
+      try {
+        const searchRes = await fetch(
+          `https://www.googleapis.com/youtube/v3/search?part=id,snippet&channelId=${YT_CHANNEL_ID}&eventType=live&type=video&key=${YT_API_KEY}`
+        );
+        const searchData = await searchRes.json();
+        if (searchData.items?.length > 0) {
+          const item = searchData.items[0];
+          const videoId = item.id.videoId;
+          const title   = item.snippet.title;
+          const thumb   = item.snippet.thumbnails?.medium?.url;
+          const detailRes = await fetch(
+            `https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id=${videoId}&key=${YT_API_KEY}`
+          );
+          const detailData = await detailRes.json();
+          const viewers = detailData.items?.[0]?.liveStreamingDetails?.concurrentViewers ?? null;
+          setYtLive({ title, viewers, videoId, thumb });
+        } else {
+          setYtLive(null);
+        }
+      } catch (e) {
+        console.error("YT fetch error", e);
+      }
+    };
+    fetchYt();
+    const id = setInterval(fetchYt, 30000);
+    return () => clearInterval(id);
+  }, []);
 
   const statusColor = (st) =>
     st === "ready" ? C.grn : st === "done" ? C.acc : st === "issue" ? C.red : C.bdr;
@@ -7808,40 +7843,56 @@ function LiveScreen({ user, services, songs, nav }) {
                   </div>
                 </div>
 
-                {/* 빠른 실행 */}
-                {leader && (
-                  <div>
-                    <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:10,
-                      letterSpacing:"0.05em", textTransform:"uppercase" }}>빠른 실행 (Quick Cue)</div>
-                    <div style={{ display:"flex", gap:16 }}>
-                      {QUICK_CUES.map(qc => (
-                        <button key={qc.id} onClick={async () => {
-                          if (qc.id === "next") setActiveIdx(Math.min(svcSongs.length-1, activeIdx+1));
-                          else if (qc.id === "prev") setActiveIdx(Math.max(0, activeIdx-1));
-                          else for (const t of LIVE_TEAMS) await sendCue(t.id, qc.label,
-                            qc.id === "hold" ? "issue" : qc.id === "end" ? "done" : "ready");
-                        }} style={{
-                          display:"flex", flexDirection:"column", alignItems:"center", gap:6,
-                          background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", padding:0,
-                        }}>
-                          <div style={{ width:52, height:52, borderRadius:"50%", background:qc.color,
-                            boxShadow:`0 3px 10px ${qc.color}50`,
-                            display:"flex", alignItems:"center", justifyContent:"center" }}>
-                            <Icon n={qc.id==="next"?"next":qc.id==="prev"?"prev":qc.id==="repeat"?"repeat":"stop"} size={20} color="#fff" />
+                {/* YouTube 라이브 상태 */}
+                <div>
+                  <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:10,
+                    letterSpacing:"0.05em", textTransform:"uppercase" }}>YouTube 라이브</div>
+                  <div style={{ background:C.surf, borderRadius:14, border:`1.5px solid ${ytLive ? "#FF000040" : C.bdr}`,
+                    overflow:"hidden" }}>
+                    {ytLive ? (
+                      <div style={{ display:"flex", gap:0 }}>
+                        {ytLive.thumb && (
+                          <a href={`https://www.youtube.com/watch?v=${ytLive.videoId}`} target="_blank" rel="noreferrer"
+                            style={{ flexShrink:0, display:"block", width:140 }}>
+                            <img src={ytLive.thumb} alt="thumbnail"
+                              style={{ width:140, height:79, objectFit:"cover", display:"block" }} />
+                          </a>
+                        )}
+                        <div style={{ flex:1, padding:"12px 14px", minWidth:0 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5 }}>
+                            <span style={{ fontSize:10, fontWeight:800, color:"#fff", background:"#FF0000",
+                              borderRadius:5, padding:"2px 7px", letterSpacing:"0.05em" }}>● LIVE</span>
+                            {ytLive.viewers !== null && (
+                              <span style={{ fontSize:11, color:C.dim }}>👥 {Number(ytLive.viewers).toLocaleString()}명 시청 중</span>
+                            )}
                           </div>
-                          <span style={{ fontSize:11, color:C.txt, fontWeight:600, whiteSpace:"nowrap" }}>
-                            {qc.id==="hold" ? "잠시 멈춤" : qc.id==="end" ? "예배 종료" : qc.label}
-                          </span>
-                          {(qc.id==="hold"||qc.id==="repeat"||qc.id==="end") && (
-                            <span style={{ fontSize:9, color:C.dim, marginTop:-4 }}>
-                              ({qc.id.toUpperCase()})
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
+                          <div style={{ fontSize:13, fontWeight:700, color:C.txt,
+                            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                            {ytLive.title}
+                          </div>
+                          <a href={`https://www.youtube.com/watch?v=${ytLive.videoId}`} target="_blank" rel="noreferrer"
+                            style={{ fontSize:11, color:C.acc, textDecoration:"none", marginTop:4, display:"inline-block" }}>
+                            YouTube에서 보기 →
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px" }}>
+                        <div style={{ width:36, height:36, borderRadius:"50%", background:`${C.dim}20`,
+                          display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                          <span style={{ fontSize:18 }}>📺</span>
+                        </div>
+                        <div>
+                          <div style={{ fontSize:13, fontWeight:700, color:C.dim }}>현재 라이브 방송 없음</div>
+                          <a href="https://www.youtube.com/@tri-valley/streams" target="_blank" rel="noreferrer"
+                            style={{ fontSize:11, color:C.acc, textDecoration:"none" }}>
+                            채널 바로가기 →
+                          </a>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
 
                 {/* 공지 */}
                 {leader && (
@@ -8281,44 +8332,52 @@ function LiveScreen({ user, services, songs, nav }) {
             </div>
           </div>
 
-          {/* 빠른 실행 */}
-          {leader && (
-            <div>
-              <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:8,
-                letterSpacing:"0.05em", textTransform:"uppercase" }}>빠른 실행</div>
-              <div style={{ display:"flex", gap:10, overflowX:"auto", paddingBottom:4 }}>
-                {QUICK_CUES.map(qc => (
-                  <button key={qc.id} onClick={async () => {
-                    if (qc.id === "next") setActiveIdx(Math.min(svcSongs.length - 1, activeIdx + 1));
-                    else if (qc.id === "prev") setActiveIdx(Math.max(0, activeIdx - 1));
-                    else {
-                      for (const t of LIVE_TEAMS) {
-                        await sendCue(t.id, qc.label,
-                          qc.id === "hold" ? "issue" : qc.id === "end" ? "done" : "ready");
-                      }
-                    }
-                  }} style={{
-                    flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center", gap:5,
-                    background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", padding:0,
-                  }}>
-                    <div style={{
-                      width:52, height:52, borderRadius:"50%", background:qc.color,
-                      boxShadow:`0 3px 10px ${qc.color}50`,
-                      display:"flex", alignItems:"center", justifyContent:"center",
-                    }}>
-                      <Icon n={
-                        qc.id === "next" ? "next" : qc.id === "prev" ? "prev" :
-                        qc.id === "repeat" ? "repeat" : "stop"
-                      } size={20} color="#fff" />
+          {/* YouTube 라이브 상태 */}
+          <div>
+            <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:8,
+              letterSpacing:"0.05em", textTransform:"uppercase" }}>YouTube 라이브</div>
+            <div style={{ background:C.surf, borderRadius:12, border:`1.5px solid ${ytLive ? "#FF000040" : C.bdr}`,
+              overflow:"hidden" }}>
+              {ytLive ? (
+                <div>
+                  {ytLive.thumb && (
+                    <a href={`https://www.youtube.com/watch?v=${ytLive.videoId}`} target="_blank" rel="noreferrer">
+                      <img src={ytLive.thumb} alt="thumbnail"
+                        style={{ width:"100%", height:120, objectFit:"cover", display:"block" }} />
+                    </a>
+                  )}
+                  <div style={{ padding:"10px 12px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                      <span style={{ fontSize:10, fontWeight:800, color:"#fff", background:"#FF0000",
+                        borderRadius:5, padding:"2px 7px" }}>● LIVE</span>
+                      {ytLive.viewers !== null && (
+                        <span style={{ fontSize:11, color:C.dim }}>👥 {Number(ytLive.viewers).toLocaleString()}명</span>
+                      )}
                     </div>
-                    <span style={{ fontSize:10, color:C.txt, fontWeight:600, whiteSpace:"nowrap" }}>
-                      {qc.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
+                    <div style={{ fontSize:13, fontWeight:700, color:C.txt,
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {ytLive.title}
+                    </div>
+                    <a href={`https://www.youtube.com/watch?v=${ytLive.videoId}`} target="_blank" rel="noreferrer"
+                      style={{ fontSize:11, color:C.acc, textDecoration:"none", marginTop:3, display:"inline-block" }}>
+                      YouTube에서 보기 →
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 14px" }}>
+                  <span style={{ fontSize:18 }}>📺</span>
+                  <div>
+                    <div style={{ fontSize:12, fontWeight:700, color:C.dim }}>현재 라이브 방송 없음</div>
+                    <a href="https://www.youtube.com/@tri-valley/streams" target="_blank" rel="noreferrer"
+                      style={{ fontSize:11, color:C.acc, textDecoration:"none" }}>
+                      채널 바로가기 →
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           {/* 공지 메시지 보내기 */}
           {leader && (
