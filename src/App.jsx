@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.212";
+const APP_VERSION = "3.213";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -112,6 +112,7 @@ const P = {
   megaphone:"M3 11v2a1 1 0 0 0 1 1h2l5 4V7l-5 4H4a1 1 0 0 0-1 1zM19 12a7 7 0 0 0-3-5.83M15.54 16.46A5 5 0 0 0 17 12a5 5 0 0 0-1.46-3.54",
   stop:    "M6 6h12v12H6z",
   repeat:  "M17 2l4 4-4 4M21 6H7a4 4 0 0 0 0 8h1M7 22l-4-4 4-4M3 18h14a4 4 0 0 0 0-8h-1",
+  users:   "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
 };
 
 /* ══════════════════════════════════════════════════════════════════
@@ -1797,7 +1798,7 @@ function CropModal({ pdfFile, pdfUrl, imageUrl, onClose, onConfirm, initialCrop 
 /* ══════════════════════════════════════════════════════════════════
    SERVICES SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
+function ServicesScreen({ user, services, songs, notifs, createService, nav, teamAnnotations }) {
   const [showCreate,   setShowCreate]   = useState(false);
   const [pastExpanded, setPastExpanded] = useState(false);
   const unread = notifs.filter(n => !n.read).length;
@@ -1814,6 +1815,7 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
 
   const SvcCard = ({ svc, past, first }) => {
     const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
+    const teamMemoCount = svcSongs.reduce((sum, s) => sum + ((teamAnnotations || {})[s.id] || []).length, 0);
     const borderStyle = past
       ? `1px solid ${C.bdr}`
       : first
@@ -1863,7 +1865,20 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav }) {
           ))}
         </div>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          <span style={{ fontSize:12, color:C.dim }}>{svcSongs.length}곡 선택됨</span>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:12, color:C.dim }}>{svcSongs.length}곡 선택됨</span>
+            {teamMemoCount > 0 && (
+              <span style={{
+                display:"flex", alignItems:"center", gap:4,
+                background:"#ff4757", color:"#fff",
+                borderRadius:8, padding:"2px 8px", fontSize:11, fontWeight:700,
+                letterSpacing:"0.01em",
+              }}>
+                <Icon n="users" size={11} color="#fff" />
+                팀메모 {teamMemoCount}개
+              </span>
+            )}
+          </div>
           <Icon n="chevR" size={16} color={C.dim} />
         </div>
       </div>
