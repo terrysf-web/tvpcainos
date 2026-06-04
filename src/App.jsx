@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.222";
+const APP_VERSION = "3.223";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3055,7 +3055,7 @@ function PdfPagePickerModal({ file, songTitle, onConfirm, onClose }) {
 /* ══════════════════════════════════════════════════════════════════
    SONG LIBRARY SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, userMap }) {
+function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotations, userMap }) {
   const [query,      setQuery]      = useState("");
   const [showAdd,    setShowAdd]    = useState(false);
   const [uploading,     setUploading]     = useState(null);
@@ -3069,12 +3069,16 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, userMap
   const [memoReplaceModal, setMemoReplaceModal] = useState(null); // { song, othersNotes, ownNotes, pendingUpload }
 
   const checkMemoBeforeReplace = (song, pendingUpload) => {
-    const allNotes = (teamAnnotations || {})[song.id] || [];
-    const ownNotes = allNotes.filter(n => n.userId === user.uid);
-    const othersNotes = allNotes.filter(n => n.userId !== user.uid);
+    const teamNotes = (teamAnnotations || {})[song.id] || [];
+    const personalNotes = (annotations || {})[song.id] || [];
+    const othersNotes = teamNotes.filter(n => n.userId !== user.uid);
+    const ownNotes = [
+      ...teamNotes.filter(n => n.userId === user.uid),
+      ...personalNotes.filter(n => n.userId === user.uid),
+    ];
     if (othersNotes.length > 0 || ownNotes.length > 0) {
       setMemoReplaceModal({ song, othersNotes, ownNotes, pendingUpload });
-      return true; // blocked
+      return true;
     }
     return false;
   };
