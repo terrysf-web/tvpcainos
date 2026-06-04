@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.228";
+const APP_VERSION = "3.229";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3275,10 +3275,11 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                     const authors = [...new Map(all.map(n => [n.userId, n])).values()]
                       .map(n => n.userId === user.uid ? "나" : (n.authorName || (userMap || {})[n.userId] || "팀원"));
                     if (draws.my && !authors.includes("나")) authors.unshift("나");
-                    if (draws.team) authors.push("팀 필기");
                     const parts = [];
                     if (all.length) parts.push(`메모 ${all.length}개`);
-                    if (draws.my || draws.team || draws.others) parts.push("필기 있음");
+                    if (draws.my) parts.push(`내 필기 p.${(draws.myPages||[]).sort((a,b)=>a-b).join(",")}`);
+                    if (draws.team) parts.push(`팀 필기 p.${(draws.teamPages||[]).sort((a,b)=>a-b).join(",")}`);
+                    if (draws.others) parts.push("타인 필기");
                     return (
                       <span style={{
                         display:"flex", alignItems:"center", gap:3,
@@ -9306,18 +9307,22 @@ export default function App() {
         snap.docs.forEach(d => {
           if (!(d.data().strokes || []).length) return;
           const id = d.id;
-          const teamMatch = id.match(/^drw_TEAM_(.+)_p\d+$/);
+          const teamMatch = id.match(/^drw_TEAM_(.+)_p(\d+)$/);
           if (teamMatch) {
             const sid = teamMatch[1];
-            m[sid] = { ...(m[sid] || {}), team: true };
+            const pg = Number(teamMatch[2]);
+            const prev = m[sid] || {};
+            m[sid] = { ...prev, team: true, teamPages: [...(prev.teamPages || []), pg] };
             return;
           }
-          const myMatch = id.match(/^drw_[^_]+_(.+)_p\d+$/);
+          const myMatch = id.match(/^drw_[^_]+_(.+)_p(\d+)$/);
           if (myMatch) {
             const sid = myMatch[1];
+            const pg = Number(myMatch[2]);
             const uid = id.split("_")[1];
-            if (uid === user.uid) m[sid] = { ...(m[sid] || {}), my: true };
-            else m[sid] = { ...(m[sid] || {}), others: true };
+            const prev = m[sid] || {};
+            if (uid === user.uid) m[sid] = { ...prev, my: true, myPages: [...(prev.myPages || []), pg] };
+            else m[sid] = { ...prev, others: true };
           }
         });
         setSongDrawings(m);
