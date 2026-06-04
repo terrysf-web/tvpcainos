@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.219";
+const APP_VERSION = "3.220";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2391,7 +2391,17 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     }
   };
 
+  const [memoBlockModal, setMemoBlockModal] = useState(null); // { song, notes }
+
   const removeSong = async (idx) => {
+    const song = entries[idx]?.song;
+    if (song) {
+      const songTeamNotes = (teamAnnotations || {})[song.id] || [];
+      if (songTeamNotes.length > 0) {
+        setMemoBlockModal({ song, notes: songTeamNotes });
+        return;
+      }
+    }
     const newIds = (svc.songIds || []).filter((_, i) => i !== idx);
     await updateDoc(doc(db, "services", svc.id), { songIds: newIds });
   };
@@ -2666,6 +2676,39 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           );
         })}
       </div>
+
+      {/* ── 팀메모 차단 모달 ───────────────────────────────────────── */}
+      {memoBlockModal && (
+        <Modal title="악보를 삭제할 수 없습니다" onClose={() => setMemoBlockModal(null)}>
+          <div style={{ padding:"0 4px 8px" }}>
+            <div style={{ fontSize:13, color:C.txt, marginBottom:14, lineHeight:1.6 }}>
+              <strong style={{ color:C.red }}>"{memoBlockModal.song.title}"</strong>에 작성된 팀 메모가 있습니다.
+              메모 작성자가 먼저 메모를 삭제해야 이 악보를 예배에서 제거할 수 있습니다.
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:16 }}>
+              {[...new Map(memoBlockModal.notes.map(n => [n.userId, n])).values()].map(n => {
+                const name = n.authorName || (userMap || {})[n.userId] || "팀원";
+                const count = memoBlockModal.notes.filter(m => m.userId === n.userId).length;
+                return (
+                  <div key={n.userId} style={{
+                    display:"flex", alignItems:"center", gap:8,
+                    padding:"8px 12px", borderRadius:8,
+                    background:"#e5393510", border:"1px solid #e5393530",
+                  }}>
+                    <Icon n="users" size={13} color="#e53935" sw={2.5} />
+                    <span style={{ fontSize:13, fontWeight:700, color:"#e53935", flex:1 }}>{name}</span>
+                    <span style={{ fontSize:12, color:C.dim }}>메모 {count}개</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ fontSize:12, color:C.dim, lineHeight:1.6, padding:"8px 10px",
+              background:C.bg, borderRadius:8, border:`1px solid ${C.bdr}` }}>
+              💡 악보를 열고 메모 패널에서 본인 메모를 삭제한 후 다시 시도하세요.
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* ── ProPresenter 가사 ───────────────────────────────────────── */}
       {isBroadcast(user.role) && (
@@ -6435,7 +6478,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     {n.page > 0 && <span style={{ fontSize:10, color:C.acc, fontWeight:700 }}>p.{n.page} </span>}
                     <span style={{ fontSize:13, lineHeight:1.5 }}>{n.text}</span>
                   </div>
-                  {leader && <button onClick={() => deleteNote(n.id)}
+                  {n.userId === user.uid && <button onClick={() => deleteNote(n.id)}
                     style={{ background:"none", border:"none", cursor:"pointer", padding:2, display:"flex" }}>
                     <Icon n="trash" size={14} color={C.red} />
                   </button>}
