@@ -13,11 +13,11 @@ import {
 } from "firebase/auth";
 import {
   collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc,
-  query, orderBy, where, getDoc, getDocs, setDoc, serverTimestamp, arrayUnion, limit, increment,
+  query, orderBy, where, getDoc, getDocs, setDoc, serverTimestamp, arrayUnion, limit, increment, documentId,
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.226";
+const APP_VERSION = "3.228";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3055,7 +3055,7 @@ function PdfPagePickerModal({ file, songTitle, onConfirm, onClose }) {
 /* ══════════════════════════════════════════════════════════════════
    SONG LIBRARY SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotations, userMap }) {
+function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotations, userMap, songDrawings }) {
   const [query,      setQuery]      = useState("");
   const [showAdd,    setShowAdd]    = useState(false);
   const [uploading,     setUploading]     = useState(null);
@@ -3068,13 +3068,30 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
   const [consonant,     setConsonant]     = useState("");
   const [memoReplaceModal, setMemoReplaceModal] = useState(null); // { song, othersNotes, ownNotes, pendingUpload }
 
-  const checkMemoBeforeReplace = (song, pendingUpload) => {
+  const checkMemoBeforeReplace = async (song, pendingUpload) => {
     const teamNotes = (teamAnnotations || {})[song.id] || [];
     const personalNotes = (annotations || {})[song.id] || [];
+    // 필기(드로잉) 확인 — customSongs: drw_{uid}_{songId}_p* and drw_TEAM_{songId}_p*
+    const sid = song.id;
+    const [myDrawSnap, teamDrawSnap] = await Promise.all([
+      getDocs(query(collection(db, "customSongs"),
+        where(documentId(), ">=", `drw_${user.uid}_${sid}_p`),
+        where(documentId(), "<=", `drw_${user.uid}_${sid}_p`))),
+      getDocs(query(collection(db, "customSongs"),
+        where(documentId(), ">=", `drw_TEAM_${sid}_p`),
+        where(documentId(), "<=", `drw_TEAM_${sid}_p`))),
+    ]);
+    const hasMyDraw    = myDrawSnap.docs.some(d => (d.data().strokes || []).length > 0);
+    const hasTeamDraw  = teamDrawSnap.docs.some(d => (d.data().strokes || []).length > 0);
+    const drawAuthors  = [];
+    if (hasMyDraw)   drawAuthors.push({ userId: user.uid, authorName: "나", _type: "draw" });
+    if (hasTeamDraw) drawAuthors.push({ userId: "TEAM",  authorName: "팀 필기", _type: "draw" });
+
     const allNotes = [...teamNotes, ...personalNotes];
-    if (allNotes.length > 0) {
-      const authorSet = [...new Map(allNotes.map(n => [n.userId, n])).values()];
-      setMemoReplaceModal({ song, authorSet, allNotes, pendingUpload });
+    const combined = [...allNotes, ...drawAuthors];
+    if (combined.length > 0) {
+      const authorSet = [...new Map([...allNotes, ...drawAuthors].map(n => [n.userId, n])).values()];
+      setMemoReplaceModal({ song, authorSet, allNotes: combined, pendingUpload });
       return true;
     }
     return false;
@@ -3113,7 +3130,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
     if (!file) return;
     e.target.value = "";
     const song = songs.find(s => s.id === songId);
-    if (song && checkMemoBeforeReplace(song, { type: "pdf", file, songId })) return;
+    if (song && await checkMemoBeforeReplace(song, { type: "pdf", file, songId })) return;
     await proceedUpload(songId, file);
   };
 
@@ -3149,7 +3166,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
     if (!file) return;
     e.target.value = "";
     const song = songs.find(s => s.id === songId);
-    if (song && checkMemoBeforeReplace(song, { type: "img", file, songId })) return;
+    if (song && await checkMemoBeforeReplace(song, { type: "img", file, songId })) return;
     setImgUploading(songId);
     try {
       const url = await uploadImage(file, songId);
@@ -3253,9 +3270,15 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                     const tNotes = (teamAnnotations || {})[song.id] || [];
                     const pNotes = (annotations || {})[song.id] || [];
                     const all = [...tNotes, ...pNotes];
-                    if (!all.length) return null;
+                    const draws = (songDrawings || {})[song.id] || {};
+                    if (!all.length && !draws.my && !draws.team && !draws.others) return null;
                     const authors = [...new Map(all.map(n => [n.userId, n])).values()]
                       .map(n => n.userId === user.uid ? "나" : (n.authorName || (userMap || {})[n.userId] || "팀원"));
+                    if (draws.my && !authors.includes("나")) authors.unshift("나");
+                    if (draws.team) authors.push("팀 필기");
+                    const parts = [];
+                    if (all.length) parts.push(`메모 ${all.length}개`);
+                    if (draws.my || draws.team || draws.others) parts.push("필기 있음");
                     return (
                       <span style={{
                         display:"flex", alignItems:"center", gap:3,
@@ -3263,7 +3286,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                         borderRadius:5, padding:"1px 6px", fontSize:10, fontWeight:700, color:"#e53935",
                       }}>
                         <Icon n="users" size={9} color="#e53935" sw={2.5} />
-                        메모 {all.length}개 · {authors.join(", ")}
+                        {parts.join(" · ")} · {authors.join(", ")}
                       </span>
                     );
                   })()}
@@ -9039,6 +9062,7 @@ export default function App() {
   const [annotations,     setAnnotations]     = useState({}); // 개인 메모
   const [teamAnnotations, setTeamAnnotations] = useState({}); // 팀 공유 메모
   const [userMap,         setUserMap]         = useState({}); // uid -> displayName
+  const [songDrawings,    setSongDrawings]    = useState({}); // songId -> { my: bool, team: bool }
   const [selSvcId,      setSelSvcId]      = useState(null);
   const [selSongId,     setSelSongId]     = useState(null);
   const [selSvcSongIdx, setSelSvcSongIdx] = useState(-1); // 서비스 내 곡 인덱스 (복사 곡 대응)
@@ -9270,6 +9294,37 @@ export default function App() {
     });
   }, [user?.uid]);
 
+  // ── Firestore: 드로잉 있는 곡 맵 (개인 + 팀)
+  useEffect(() => {
+    if (!user?.uid) return;
+    return onSnapshot(
+      query(collection(db, "customSongs"),
+        where(documentId(), ">=", `drw_`),
+        where(documentId(), "<=", `drw_`)),
+      snap => {
+        const m = {};
+        snap.docs.forEach(d => {
+          if (!(d.data().strokes || []).length) return;
+          const id = d.id;
+          const teamMatch = id.match(/^drw_TEAM_(.+)_p\d+$/);
+          if (teamMatch) {
+            const sid = teamMatch[1];
+            m[sid] = { ...(m[sid] || {}), team: true };
+            return;
+          }
+          const myMatch = id.match(/^drw_[^_]+_(.+)_p\d+$/);
+          if (myMatch) {
+            const sid = myMatch[1];
+            const uid = id.split("_")[1];
+            if (uid === user.uid) m[sid] = { ...(m[sid] || {}), my: true };
+            else m[sid] = { ...(m[sid] || {}), others: true };
+          }
+        });
+        setSongDrawings(m);
+      }
+    );
+  }, [user?.uid]);
+
   // ── PDF.js 로더
   useEffect(() => {
     if (window.pdfjsLib) { setPdfjsReady(true); return; }
@@ -9435,7 +9490,7 @@ export default function App() {
   const unread = notifs.filter(n => !n.read).length;
 
   const shared = {
-    user, songs, services, notifs, annotations, teamAnnotations, userMap,
+    user, songs, services, notifs, annotations, teamAnnotations, userMap, songDrawings,
     addSong, createService, updateService,
     onAddAnnotation: addAnnotation,
     onDeleteAnnotation: deleteAnnotation,
