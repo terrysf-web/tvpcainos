@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.220";
+const APP_VERSION = "3.221";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2396,14 +2396,23 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const removeSong = async (idx) => {
     const song = entries[idx]?.song;
     if (song) {
-      const songTeamNotes = (teamAnnotations || {})[song.id] || [];
-      if (songTeamNotes.length > 0) {
-        setMemoBlockModal({ song, notes: songTeamNotes });
+      const addedAt = (svc.songAddedAt || {})[song.id];
+      const allTeamNotes = (teamAnnotations || {})[song.id] || [];
+      const relevantNotes = addedAt
+        ? allTeamNotes.filter(n => {
+            const created = n.createdAt?.toDate?.() || (n.createdAt ? new Date(n.createdAt) : null);
+            return created && created >= new Date(addedAt);
+          })
+        : allTeamNotes;
+      if (relevantNotes.length > 0) {
+        setMemoBlockModal({ song, notes: relevantNotes });
         return;
       }
     }
     const newIds = (svc.songIds || []).filter((_, i) => i !== idx);
-    await updateDoc(doc(db, "services", svc.id), { songIds: newIds });
+    const newAddedAt = { ...(svc.songAddedAt || {}) };
+    if (song) delete newAddedAt[song.id];
+    await updateDoc(doc(db, "services", svc.id), { songIds: newIds, songAddedAt: newAddedAt });
   };
 
   const duplicateSong = async (idx) => {
@@ -2421,7 +2430,18 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   };
 
   const saveSongs = async (ids) => {
-    await updateDoc(doc(db, "services", svc.id), { songIds: ids });
+    const prevIds = svc.songIds || [];
+    const prevAddedAt = svc.songAddedAt || {};
+    const now = new Date().toISOString();
+    const newAddedAt = { ...prevAddedAt };
+    ids.forEach(id => {
+      if (!prevIds.includes(id)) newAddedAt[id] = now;
+    });
+    // clean up removed songs
+    Object.keys(newAddedAt).forEach(id => {
+      if (!ids.includes(id)) delete newAddedAt[id];
+    });
+    await updateDoc(doc(db, "services", svc.id), { songIds: ids, songAddedAt: newAddedAt });
     setShowPicker(false);
   };
 
