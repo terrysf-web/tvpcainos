@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.232";
+const APP_VERSION = "3.233";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3068,29 +3068,18 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
   const [consonant,     setConsonant]     = useState("");
   const [memoReplaceModal, setMemoReplaceModal] = useState(null); // { song, othersNotes, ownNotes, pendingUpload }
 
-  const checkMemoBeforeReplace = async (song, pendingUpload) => {
+  const checkMemoBeforeReplace = (song, pendingUpload) => {
     const teamNotes = (teamAnnotations || {})[song.id] || [];
     const personalNotes = (annotations || {})[song.id] || [];
-    // 필기(드로잉) 확인 — customSongs: drw_{uid}_{songId}_p* and drw_TEAM_{songId}_p*
-    const sid = song.id;
-    const [myDrawSnap, teamDrawSnap] = await Promise.all([
-      getDocs(query(collection(db, "customSongs"),
-        where(documentId(), ">=", `drw_${user.uid}_${sid}_p`),
-        where(documentId(), "<=", `drw_${user.uid}_${sid}_p`))),
-      getDocs(query(collection(db, "customSongs"),
-        where(documentId(), ">=", `drw_TEAM_${sid}_p`),
-        where(documentId(), "<=", `drw_TEAM_${sid}_p`))),
-    ]);
-    const hasMyDraw    = myDrawSnap.docs.some(d => (d.data().strokes || []).length > 0);
-    const hasTeamDraw  = teamDrawSnap.docs.some(d => (d.data().strokes || []).length > 0);
-    const drawAuthors  = [];
-    if (hasMyDraw)   drawAuthors.push({ userId: user.uid, authorName: "나", _type: "draw" });
-    if (hasTeamDraw) drawAuthors.push({ userId: "TEAM",  authorName: "팀 필기", _type: "draw" });
-
+    const draws = (songDrawings || {})[song.id] || {};
+    const drawAuthors = [];
+    if (draws.my)     drawAuthors.push({ userId: user.uid, authorName: "나",        _type: "draw" });
+    if (draws.team)   drawAuthors.push({ userId: "TEAM",   authorName: "팀 필기",   _type: "draw" });
+    if (draws.others) drawAuthors.push({ userId: "OTHERS", authorName: "팀원 필기", _type: "draw" });
     const allNotes = [...teamNotes, ...personalNotes];
     const combined = [...allNotes, ...drawAuthors];
     if (combined.length > 0) {
-      const authorSet = [...new Map([...allNotes, ...drawAuthors].map(n => [n.userId, n])).values()];
+      const authorSet = [...new Map(combined.map(n => [n.userId, n])).values()];
       setMemoReplaceModal({ song, authorSet, allNotes: combined, pendingUpload });
       return true;
     }
@@ -3130,7 +3119,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
     if (!file) return;
     e.target.value = "";
     const song = songs.find(s => s.id === songId);
-    if (song && await checkMemoBeforeReplace(song, { type: "pdf", file, songId })) return;
+    if (song && checkMemoBeforeReplace(song, { type: "pdf", file, songId })) return;
     await proceedUpload(songId, file);
   };
 
@@ -3166,7 +3155,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
     if (!file) return;
     e.target.value = "";
     const song = songs.find(s => s.id === songId);
-    if (song && await checkMemoBeforeReplace(song, { type: "img", file, songId })) return;
+    if (song && checkMemoBeforeReplace(song, { type: "img", file, songId })) return;
     setImgUploading(songId);
     try {
       const url = await uploadImage(file, songId);
@@ -3272,11 +3261,15 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                     const all = [...tNotes, ...pNotes];
                     const draws = (songDrawings || {})[song.id] || {};
                     if (!all.length && !draws.my && !draws.team && !draws.others) return null;
-                    const authors = [...new Map(all.map(n => [n.userId, n])).values()]
-                      .map(n => n.userId === user.uid ? "나" : (n.authorName || (userMap || {})[n.userId] || "팀원"));
-                    if (draws.my && !authors.includes("나")) authors.unshift("나");
+                    const authorMap = new Map();
+                    [...tNotes, ...pNotes].forEach(n => {
+                      const name = n.userId === user.uid ? "나" : (n.authorName || (userMap||{})[n.userId] || "팀원");
+                      const entry = authorMap.get(n.userId) || { name, cnt: 0 };
+                      entry.cnt++;
+                      authorMap.set(n.userId, entry);
+                    });
                     const parts = [];
-                    if (all.length) parts.push(`메모 ${all.length}개`);
+                    authorMap.forEach(({ name, cnt }) => parts.push(`${name} 메모 ${cnt}개`));
                     if (draws.my) parts.push("내 필기");
                     if (draws.team) parts.push("팀 필기");
                     if (draws.others) parts.push("팀원 필기");
@@ -3287,7 +3280,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                         borderRadius:5, padding:"1px 6px", fontSize:10, fontWeight:700, color:"#e53935",
                       }}>
                         <Icon n="users" size={9} color="#e53935" sw={2.5} />
-                        {parts.join(" · ")} · {authors.join(", ")}
+                        {parts.join(" · ")}
                       </span>
                     );
                   })()}
