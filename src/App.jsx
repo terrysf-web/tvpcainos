@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.230";
+const APP_VERSION = "3.231";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3277,8 +3277,8 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                     if (draws.my && !authors.includes("나")) authors.unshift("나");
                     const parts = [];
                     if (all.length) parts.push(`메모 ${all.length}개`);
-                    if (draws.my) parts.push(`내 필기 p.${(draws.myPages||[]).sort((a,b)=>a-b).join(",")}`);
-                    if (draws.team) parts.push(`팀 필기 p.${(draws.teamPages||[]).sort((a,b)=>a-b).join(",")}`);
+                    if (draws.my) parts.push("내 필기");
+                    if (draws.team) parts.push("팀 필기");
                     if (draws.others) parts.push("팀원 필기");
                     return (
                       <span style={{
