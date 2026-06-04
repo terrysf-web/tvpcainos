@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.234";
+const APP_VERSION = "3.235";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3068,7 +3068,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
   const [consonant,     setConsonant]     = useState("");
   const [memoReplaceModal, setMemoReplaceModal] = useState(null); // { song, othersNotes, ownNotes, pendingUpload }
 
-  const checkMemoBeforeReplace = (song, pendingUpload) => {
+  const checkMemoBeforeReplace = (song) => {
     const teamNotes = (teamAnnotations || {})[song.id] || [];
     const personalNotes = (annotations || {})[song.id] || [];
     const draws = (songDrawings || {})[song.id] || {};
@@ -3080,7 +3080,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
     const combined = [...allNotes, ...drawAuthors];
     if (combined.length > 0) {
       const authorSet = [...new Map(combined.map(n => [n.userId, n])).values()];
-      setMemoReplaceModal({ song, authorSet, allNotes: combined, pendingUpload });
+      setMemoReplaceModal({ song, authorSet, allNotes: combined });
       return true;
     }
     return false;
@@ -3118,8 +3118,6 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = "";
-    const song = songs.find(s => s.id === songId);
-    if (song && checkMemoBeforeReplace(song, { type: "pdf", file, songId })) return;
     await proceedUpload(songId, file);
   };
 
@@ -3154,8 +3152,6 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = "";
-    const song = songs.find(s => s.id === songId);
-    if (song && checkMemoBeforeReplace(song, { type: "img", file, songId })) return;
     setImgUploading(songId);
     try {
       const url = await uploadImage(file, songId);
@@ -3310,30 +3306,40 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                           <Icon n="fitCrop" size={14} color={song.cropBox ? C.acc : C.pur} />
                         </button>
                       )}
-                      {/* PDF 업로드 */}
+                      {/* PDF 업로드 — 클릭 시 메모 체크 후 파일 선택창 열기 */}
                       <input type="file" accept=".pdf,application/pdf"
                         style={{ display:"none" }} id={`up-${song.id}`}
                         onChange={e => handleUpload(e, song.id)} />
-                      <label htmlFor={`up-${song.id}`}
+                      <button
+                        onClick={() => {
+                          if (!checkMemoBeforeReplace(song)) {
+                            document.getElementById(`up-${song.id}`)?.click();
+                          }
+                        }}
                         title={song.pdfUrl ? "PDF 교체" : "PDF 업로드"}
                         style={{ display:"flex", alignItems:"center", justifyContent:"center",
                           width:34, height:34, borderRadius:9, cursor:"pointer",
                           background: song.pdfUrl ? `${C.grn}22` : C.surf,
                           border:`1px solid ${song.pdfUrl ? C.grn : C.bdr}` }}>
                         <Icon n="upload" size={14} color={song.pdfUrl ? C.grn : C.dim} />
-                      </label>
-                      {/* 이미지 업로드 */}
+                      </button>
+                      {/* 이미지 업로드 — 클릭 시 메모 체크 후 파일 선택창 열기 */}
                       <input type="file" accept="image/*"
                         style={{ display:"none" }} id={`img-${song.id}`}
                         onChange={e => handleImgUpload(e, song.id)} />
-                      <label htmlFor={`img-${song.id}`}
+                      <button
+                        onClick={() => {
+                          if (!checkMemoBeforeReplace(song)) {
+                            document.getElementById(`img-${song.id}`)?.click();
+                          }
+                        }}
                         title={song.imageUrl ? "이미지 교체" : "이미지 업로드"}
                         style={{ display:"flex", alignItems:"center", justifyContent:"center",
                           width:34, height:34, borderRadius:9, cursor:"pointer",
                           background: song.imageUrl ? `${C.acc}22` : C.surf,
                           border:`1px solid ${song.imageUrl ? C.acc+"55" : C.bdr}` }}>
                         <span style={{ fontSize:14 }}>🖼️</span>
-                      </label>
+                      </button>
                       <button onClick={() => setConfirmDel(song.id)}
                         title="곡 삭제"
                         style={{ display:"flex", alignItems:"center", justifyContent:"center",
