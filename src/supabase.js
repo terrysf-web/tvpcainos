@@ -143,7 +143,7 @@ export async function uploadPdf(file, songId) {
     .upload(path, file, { contentType: "application/pdf", upsert: true });
   if (error) throw error;
   const { data } = supabase.storage.from("pdfs").getPublicUrl(path);
-  return data.publicUrl;
+  return `${data.publicUrl}?t=${Date.now()}`;
 }
 
 export async function uploadImage(file, songId) {
@@ -154,5 +154,5 @@ export async function uploadImage(file, songId) {
     .upload(path, file, { contentType: file.type, upsert: true });
   if (error) throw error;
   const { data } = supabase.storage.from("pdfs").getPublicUrl(path);
-  return data.publicUrl;
+  return `${data.publicUrl}?t=${Date.now()}`;
 }
