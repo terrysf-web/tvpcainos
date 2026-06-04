@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.225";
+const APP_VERSION = "3.226";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3249,6 +3249,24 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                   <Badge label={`♩ ${song.bpm}`} color={C.dim} />
                   {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF · 페이지${song.pdfPage}` : "PDF"} color={C.grn} />}
                   {song.imageUrl && !song.pdfUrl && <Badge label="이미지" color={C.acc} />}
+                  {(() => {
+                    const tNotes = (teamAnnotations || {})[song.id] || [];
+                    const pNotes = (annotations || {})[song.id] || [];
+                    const all = [...tNotes, ...pNotes];
+                    if (!all.length) return null;
+                    const authors = [...new Map(all.map(n => [n.userId, n])).values()]
+                      .map(n => n.userId === user.uid ? "나" : (n.authorName || (userMap || {})[n.userId] || "팀원"));
+                    return (
+                      <span style={{
+                        display:"flex", alignItems:"center", gap:3,
+                        background:"#e5393514", border:"1px solid #e5393535",
+                        borderRadius:5, padding:"1px 6px", fontSize:10, fontWeight:700, color:"#e53935",
+                      }}>
+                        <Icon n="users" size={9} color="#e53935" sw={2.5} />
+                        메모 {all.length}개 · {authors.join(", ")}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
 
