@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.223";
+const APP_VERSION = "3.224";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3071,6 +3071,10 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
   const checkMemoBeforeReplace = (song, pendingUpload) => {
     const teamNotes = (teamAnnotations || {})[song.id] || [];
     const personalNotes = (annotations || {})[song.id] || [];
+    console.log("[memoCheck] song:", song.id, song.title,
+      "team:", teamNotes.length, "personal:", personalNotes.length,
+      "teamAnnotations keys:", Object.keys(teamAnnotations || {}),
+      "annotations keys:", Object.keys(annotations || {}));
     const othersNotes = teamNotes.filter(n => n.userId !== user.uid);
     const ownNotes = [
       ...teamNotes.filter(n => n.userId === user.uid),
