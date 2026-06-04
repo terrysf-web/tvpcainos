@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.221";
+const APP_VERSION = "3.222";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3055,7 +3055,7 @@ function PdfPagePickerModal({ file, songTitle, onConfirm, onClose }) {
 /* ══════════════════════════════════════════════════════════════════
    SONG LIBRARY SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function SongLibraryScreen({ user, songs, addSong, nav }) {
+function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, userMap }) {
   const [query,      setQuery]      = useState("");
   const [showAdd,    setShowAdd]    = useState(false);
   const [uploading,     setUploading]     = useState(null);
@@ -3066,6 +3066,18 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
   const [cropSong,      setCropSong]      = useState(null); // { id, pdfUrl, imageUrl, cropBox }
   const [imgUploading,  setImgUploading]  = useState(null);
   const [consonant,     setConsonant]     = useState("");
+  const [memoReplaceModal, setMemoReplaceModal] = useState(null); // { song, othersNotes, ownNotes, pendingUpload }
+
+  const checkMemoBeforeReplace = (song, pendingUpload) => {
+    const allNotes = (teamAnnotations || {})[song.id] || [];
+    const ownNotes = allNotes.filter(n => n.userId === user.uid);
+    const othersNotes = allNotes.filter(n => n.userId !== user.uid);
+    if (othersNotes.length > 0 || ownNotes.length > 0) {
+      setMemoReplaceModal({ song, othersNotes, ownNotes, pendingUpload });
+      return true; // blocked
+    }
+    return false;
+  };
 
   const CONSONANTS = ["ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ","A"];
 
@@ -3099,6 +3111,12 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = "";
+    const song = songs.find(s => s.id === songId);
+    if (song && checkMemoBeforeReplace(song, { type: "pdf", file, songId })) return;
+    await proceedUpload(songId, file);
+  };
+
+  const proceedUpload = async (songId, file) => {
     // 멀티페이지 PDF이면 페이지 선택 모달
     if (window.pdfjsLib) {
       try {
@@ -3129,6 +3147,8 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = "";
+    const song = songs.find(s => s.id === songId);
+    if (song && checkMemoBeforeReplace(song, { type: "img", file, songId })) return;
     setImgUploading(songId);
     try {
       const url = await uploadImage(file, songId);
@@ -3401,6 +3421,74 @@ function SongLibraryScreen({ user, songs, addSong, nav }) {
           }}
         />
       )}
+
+      {/* ── 악보 교체 메모 경고 모달 */}
+      {memoReplaceModal && (() => {
+        const { song, othersNotes, ownNotes, pendingUpload } = memoReplaceModal;
+        const hasOthers = othersNotes.length > 0;
+        const authorSet = [...new Map(othersNotes.map(n => [n.userId, n])).values()];
+        return (
+          <Modal
+            title={hasOthers ? "악보를 교체할 수 없습니다" : "악보 교체 확인"}
+            onClose={() => setMemoReplaceModal(null)}
+          >
+            <div style={{ padding:"0 4px 8px" }}>
+              {hasOthers ? (
+                <>
+                  <div style={{ fontSize:13, color:C.txt, marginBottom:14, lineHeight:1.6 }}>
+                    <strong style={{ color:C.red }}>"{song.title}"</strong>에 다른 팀원의 메모가 있습니다.
+                    메모 작성자의 동의가 필요합니다.
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
+                    {authorSet.map(n => {
+                      const name = n.authorName || (userMap || {})[n.userId] || "팀원";
+                      const cnt = othersNotes.filter(m => m.userId === n.userId).length;
+                      return (
+                        <div key={n.userId} style={{
+                          display:"flex", alignItems:"center", gap:8,
+                          padding:"8px 12px", borderRadius:8,
+                          background:"#e5393510", border:"1px solid #e5393530",
+                        }}>
+                          <Icon n="users" size={13} color="#e53935" sw={2.5} />
+                          <span style={{ fontSize:13, fontWeight:700, color:"#e53935", flex:1 }}>{name}</span>
+                          <span style={{ fontSize:12, color:C.dim }}>메모 {cnt}개</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize:12, color:C.dim, lineHeight:1.6, padding:"8px 10px",
+                    background:C.bg, borderRadius:8, border:`1px solid ${C.bdr}` }}>
+                    💡 메모 작성자가 메모를 삭제한 후 교체하거나, 새 악보를 추가하세요.
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize:13, color:C.txt, marginBottom:16, lineHeight:1.6 }}>
+                    <strong>"{song.title}"</strong>에 내 메모가 {ownNotes.length}개 있습니다.
+                    악보를 교체하면 메모는 유지되지만 페이지 위치가 맞지 않을 수 있습니다.
+                    그래도 교체하시겠습니까?
+                  </div>
+                  <div style={{ display:"flex", gap:10 }}>
+                    <Btn label="취소" onClick={() => setMemoReplaceModal(null)} />
+                    <Btn label="교체하기" variant="danger" onClick={async () => {
+                      setMemoReplaceModal(null);
+                      if (pendingUpload.type === "pdf") await proceedUpload(pendingUpload.songId, pendingUpload.file);
+                      else {
+                        setImgUploading(pendingUpload.songId);
+                        try {
+                          const url = await uploadImage(pendingUpload.file, pendingUpload.songId);
+                          await updateDoc(doc(db, "songs", pendingUpload.songId), { imageUrl: url });
+                        } catch (err) { alert("이미지 업로드 실패: " + err.message); }
+                        finally { setImgUploading(null); }
+                      }
+                    }} />
+                  </div>
+                </>
+              )}
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
