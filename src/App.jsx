@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.231";
+const APP_VERSION = "3.232";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3472,15 +3472,16 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
           <Modal title="악보를 교체할 수 없습니다" onClose={() => setMemoReplaceModal(null)}>
             <div style={{ padding:"0 4px 8px" }}>
               <div style={{ fontSize:13, color:C.txt, marginBottom:14, lineHeight:1.6 }}>
-                <strong style={{ color:C.red }}>"{song.title}"</strong>에 메모가 있습니다.
-                악보가 바뀌면 메모 위치가 맞지 않아 사용할 수 없습니다.
-                메모를 먼저 삭제한 후 교체하세요.
+                <strong style={{ color:C.red }}>"{song.title}"</strong>에 메모 또는 필기가 있습니다.
+                악보가 바뀌면 위치가 맞지 않아 사용할 수 없습니다.
+                먼저 삭제한 후 교체하세요.
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
                 {authorSet.map(n => {
                   const name = n.authorName || (userMap || {})[n.userId] || "팀원";
-                  const cnt = allNotes.filter(m => m.userId === n.userId).length;
                   const isMe = n.userId === user.uid;
+                  const isDraw = n._type === "draw";
+                  const memoCnt = allNotes.filter(m => m.userId === n.userId && !m._type).length;
                   return (
                     <div key={n.userId} style={{
                       display:"flex", alignItems:"center", gap:8,
@@ -3491,14 +3492,16 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                       <span style={{ fontSize:13, fontWeight:700, color:"#e53935", flex:1 }}>
                         {isMe ? "나" : name}
                       </span>
-                      <span style={{ fontSize:12, color:C.dim }}>메모 {cnt}개</span>
+                      <span style={{ fontSize:12, color:C.dim }}>
+                        {isDraw ? (n.userId === "TEAM" ? "팀 필기" : "필기") : `메모 ${memoCnt}개`}
+                      </span>
                     </div>
                   );
                 })}
               </div>
               <div style={{ fontSize:12, color:C.dim, lineHeight:1.6, padding:"8px 10px",
                 background:C.bg, borderRadius:8, border:`1px solid ${C.bdr}` }}>
-                💡 악보를 열어 메모 패널에서 삭제하거나, 새 악보를 추가하세요.
+                💡 악보를 열어 메모/필기를 삭제하거나, 새 악보를 추가하세요.
               </div>
             </div>
           </Modal>
