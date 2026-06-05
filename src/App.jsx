@@ -5675,24 +5675,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     </button>
                     {sep}
                   </>}
-                  {/* FIT */}
-                  <button onClick={autoFit} title="여백 자동 제거 후 악보 꽉 채우기 (토글)"
-                    style={{ display:"flex", alignItems:"center", gap: narrow ? 3 : 4,
-                      padding: narrow ? "4px 7px" : "4px 8px", borderRadius:7, cursor:"pointer",
-                      background: fitActive ? C.acc : C.card,
-                      border:`1px solid ${fitActive ? C.acc : C.bdr}`,
-                      color: fitActive ? "#fff" : C.txt,
-                      fontWeight:700, fontSize: narrow ? 10 : 11, fontFamily:"inherit",
-                      letterSpacing:"0.04em", transition:"all .15s" }}>
-                    <Icon n="fitCrop" size={iconSz} color={fitActive ? "#fff" : C.txt} />
-                    FIT
-                  </button>
-                  {sep}
-                  {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
-                  {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
-                  {/* 다운로드: 라이브러리·리더는 항상, 멤버는 리더가 허용 시만 */}
-                  {canDownload && toolBtn("download", false, downloadAnnotatedScore, "악보 다운로드")}
-                  {/* 녹음 버튼 */}
+                  {/* 녹음 버튼 — 항상 보이도록 FIT 앞에 배치 */}
                   {recording ? (
                     <button onClick={stopRecording} style={{
                       display:"flex", alignItems:"center", gap:4,
@@ -5735,6 +5718,24 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       <Icon n="play" size={tbIconSz} color={C.dim} />
                     </button>
                   )}
+                  {sep}
+                  {/* FIT */}
+                  <button onClick={autoFit} title="여백 자동 제거 후 악보 꽉 채우기 (토글)"
+                    style={{ display:"flex", alignItems:"center", gap: narrow ? 3 : 4,
+                      padding: narrow ? "4px 7px" : "4px 8px", borderRadius:7, cursor:"pointer",
+                      background: fitActive ? C.acc : C.card,
+                      border:`1px solid ${fitActive ? C.acc : C.bdr}`,
+                      color: fitActive ? "#fff" : C.txt,
+                      fontWeight:700, fontSize: narrow ? 10 : 11, fontFamily:"inherit",
+                      letterSpacing:"0.04em", transition:"all .15s" }}>
+                    <Icon n="fitCrop" size={iconSz} color={fitActive ? "#fff" : C.txt} />
+                    FIT
+                  </button>
+                  {sep}
+                  {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
+                  {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
+                  {/* 다운로드: 라이브러리·리더는 항상, 멤버는 리더가 허용 시만 */}
+                  {canDownload && toolBtn("download", false, downloadAnnotatedScore, "악보 다운로드")}
                   {/* 리더: 멤버 다운로드 허용 토글 (서비스 모드만) */}
                   {!isLibraryMode && leader && svc && (
                     <button onClick={toggleDownloadEnabled} title="멤버 다운로드 허용" style={{
