@@ -6194,7 +6194,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
         {/* PDF 캔버스 영역 */}
         <div ref={containerRef} style={{ flex:1, overflow:"hidden", display:"flex",
-          position:"relative", background:C.bg, touchAction:"none" }}
+          position:"relative", background:C.bg, touchAction:"none", userSelect:"none", WebkitUserSelect:"none" }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}>
