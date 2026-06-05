@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.251";
+const APP_VERSION = "3.252";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -171,7 +171,7 @@ async function analyzeWithGemini(blob, apiKey) {
     { text:"이 음악 연습 녹음을 분석해주세요. 박자 일관성, 음정 정확도, 다이나믹 표현, 전반적인 완성도를 중심으로 한국어로 구체적이고 건설적인 피드백을 3-5개 항목으로 작성해주세요." },
   ]}]});
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     { method:"POST", headers:{"content-type":"application/json"}, body }
   );
   const d = await res.json();
