@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.241";
+const APP_VERSION = "3.242";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3163,11 +3163,15 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                       </button>
                       <button onClick={() => setLyricsModal({ song, text: song.lyrics || "" })}
                         title={song.lyrics ? "가사입력 완료 — 클릭하여 편집" : "가사 편집 / .pro 다운로드"}
-                        style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                          width:34, height:34, borderRadius:9, cursor:"pointer",
+                        style={{ display:"flex", alignItems:"center", gap:4,
+                          height:34, borderRadius:9, cursor:"pointer",
+                          padding: song.lyrics ? "0 10px" : "0",
+                          width: song.lyrics ? "auto" : 34,
+                          justifyContent:"center",
                           background: song.lyrics ? `${C.grn}22` : `${C.pur}12`,
                           border:`1px solid ${song.lyrics ? C.grn+"66" : C.pur+"33"}` }}>
                         <Icon n="note" size={14} color={song.lyrics ? C.grn : C.dim} />
+                        {song.lyrics && <span style={{ fontSize:11, fontWeight:700, color:C.grn, fontFamily:"inherit", whiteSpace:"nowrap" }}>가사입력 완료</span>}
                       </button>
                       {(song.pdfUrl || song.imageUrl) && (
                         <button onClick={() => setCropSong({ id: song.id, pdfUrl: song.pdfUrl || null, imageUrl: song.imageUrl || null, cropBox: song.cropBox || null })}
