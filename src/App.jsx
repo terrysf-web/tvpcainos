@@ -7424,6 +7424,8 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
         const [tapOn,   setTapOn]   = useState(() => localStorage.getItem("tvpc_tapNav")   !== "0");
         const [swipeOn, setSwipeOn] = useState(() => localStorage.getItem("tvpc_swipeNav") !== "0");
         const toggle = (key, val, setter) => {
+          if (!val && key === "tvpc_tapNav"   && !swipeOn) return;
+          if (!val && key === "tvpc_swipeNav" && !tapOn)   return;
           localStorage.setItem(key, val ? "1" : "0");
           setter(val);
         };
