@@ -3545,6 +3545,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const penDownRef  = useRef(false); // 애플펜슬 터치 중 여부
   const dualFitModeRef   = useRef(false); // 듀얼 FIT 모드: 페이지 이동마다 자동 재적용
   const needsFitRef      = useRef(false); // 다음 렌더 후 FIT 실행 예약 (듀얼)
+  const [tapNav,   setTapNav]   = useState(() => localStorage.getItem("tvpc_tapNav")   !== "0");
+  const [swipeNav, setSwipeNav] = useState(() => localStorage.getItem("tvpc_swipeNav") !== "0");
   const singleFitModeRef = useRef(false); // 싱글 FIT 모드: 페이지 이동마다 자동 재적용
   const singleNeedsFitRef = useRef(false); // 다음 렌더 후 FIT 실행 예약 (싱글)
 
@@ -4614,6 +4616,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   const handleTouchMove = (e) => {
     if (drawModeRef.current) return;
+    if (!swipeNav) return;
     if (touchStartX.current === null || touchFired.current) return;
     const dx = e.touches[0].clientX - touchStartX.current;
     const dy = e.touches[0].clientY - touchStartY.current;
@@ -4641,10 +4644,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     touchStartTime.current = null;
     touchFired.current     = false;
 
-    if (Math.abs(dx) >= 55) { triggerSwipe(dx); return; }
+    if (swipeNav && Math.abs(dx) >= 55) { triggerSwipe(dx); return; }
 
     // 탭 존: 빠른 탭(< 250ms) + 거의 움직임 없음 → 좌/우 이동
-    if (elapsed < 250 && Math.abs(dx) < 30 && Math.abs(dy) < 30) {
+    if (tapNav && elapsed < 250 && Math.abs(dx) < 30 && Math.abs(dy) < 30) {
       const w = window.innerWidth;
       if (tapX < w * 0.35)      triggerSwipe(1);   // 왼쪽 탭 → 이전
       else if (tapX > w * 0.65) triggerSwipe(-1);  // 오른쪽 탭 → 다음
@@ -7415,6 +7418,48 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             full variant="outline" />
         </div>
       )}
+
+      {/* 악보 넘기기 설정 */}
+      {(() => {
+        const [tapOn,   setTapOn]   = useState(() => localStorage.getItem("tvpc_tapNav")   !== "0");
+        const [swipeOn, setSwipeOn] = useState(() => localStorage.getItem("tvpc_swipeNav") !== "0");
+        const toggle = (key, val, setter) => {
+          localStorage.setItem(key, val ? "1" : "0");
+          setter(val);
+        };
+        const Row = ({ label, desc, on, onToggle }) => (
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+            padding:"12px 16px", borderBottom:`1px solid ${C.bdr}` }}>
+            <div>
+              <div style={{ fontSize:14, color:C.txt }}>{label}</div>
+              <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>{desc}</div>
+            </div>
+            <button onClick={onToggle} style={{
+              width:44, height:26, borderRadius:13, border:"none", cursor:"pointer",
+              background: on ? C.grn : C.bdr, position:"relative", flexShrink:0,
+              transition:"background 0.2s",
+            }}>
+              <div style={{
+                position:"absolute", top:3, left: on ? 21 : 3,
+                width:20, height:20, borderRadius:"50%", background:"#fff",
+                transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.3)",
+              }} />
+            </button>
+          </div>
+        );
+        return (
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+              textTransform:"uppercase", marginBottom:8 }}>악보 넘기기</div>
+            <div style={{ background:C.card, borderRadius:12, overflow:"hidden", border:`1px solid ${C.bdr}` }}>
+              <Row label="탭 이동" desc="화면 좌/우 탭으로 페이지 넘기기"
+                on={tapOn}   onToggle={() => toggle("tvpc_tapNav",   !tapOn,   setTapOn)} />
+              <Row label="스와이프 이동" desc="손가락 좌/우 드래그로 페이지 넘기기"
+                on={swipeOn} onToggle={() => toggle("tvpc_swipeNav", !swipeOn, setSwipeOn)} />
+            </div>
+          </div>
+        );
+      })()}
 
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
