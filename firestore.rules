@@ -102,6 +102,12 @@ service cloud.firestore {
       allow write: if isLeader();
     }
 
+    // LIVE 전체 상태 (방송팀 탭 표시 여부) — 읽기 인증된 모두, 쓰기 리더/어드민
+    match /liveStatus/{docId} {
+      allow read: if isAuthed();
+      allow write: if isLeader();
+    }
+
     // LIVE 팀 CUE — 인증된 모두 읽기/쓰기 (팀원이 자기 상태 업데이트)
     match /liveCues/{svcId} {
       allow read, write: if isAuthed();

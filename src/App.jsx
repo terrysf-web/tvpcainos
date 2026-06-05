@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.238";
+const APP_VERSION = "3.239";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -7099,9 +7099,10 @@ function TeamManagementModal({ currentUserId, onClose }) {
   const approveRequest = async (req) => {
     setApprovingReq(req.email);
     try {
+      const autoRole = (req.part || "").trim() === "방송" ? "broadcast" : "member";
       await setDoc(doc(db, "allowedEmails", req.email), {
         addedAt: serverTimestamp(),
-        role: "member",
+        role: autoRole,
         part: req.part || "",
       });
       await deleteDoc(doc(db, "accessRequests", req.email));
@@ -7157,13 +7158,16 @@ function TeamManagementModal({ currentUserId, onClose }) {
   };
 
   const savePart = async (uid) => {
-    await updateDoc(doc(db, "users", uid), { part: partVal });
-    setMembers(p => p.map(u => u.id === uid ? { ...u, part: partVal } : u));
+    const updates = { part: partVal };
+    const member = members.find(u => u.id === uid);
+    if (partVal.trim() === "방송" && member?.role === "member") updates.role = "broadcast";
+    await updateDoc(doc(db, "users", uid), updates);
+    setMembers(p => p.map(u => u.id === uid ? { ...u, ...updates } : u));
     setEditPart(null);
   };
 
   const ROLES = [["member","멤버"], ["leader","리더"], ["broadcast","방송팀"], ["admin","어드민"]];
-  const roleColor = (r) => r === "admin" ? C.red : r === "leader" ? C.acc : C.grn;
+  const roleColor = (r) => r === "admin" ? C.red : r === "leader" ? C.acc : r === "broadcast" ? "#ff9f0a" : C.grn;
 
   return (
     <Modal title={`팀원 관리 · ${members.length}명`} onClose={onClose}>
@@ -7268,7 +7272,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
                   </div>
                 </div>
                 <Badge
-                  label={m.role === "admin" ? "어드민" : m.role === "leader" ? "리더" : "멤버"}
+                  label={m.role === "admin" ? "어드민" : m.role === "leader" ? "리더" : m.role === "broadcast" ? "방송팀" : "멤버"}
                   color={roleColor(m.role)} />
               </div>
 
@@ -7735,7 +7739,7 @@ const QUICK_MSGS = [
 const YT_API_KEY    = "AIzaSyAovkFPiwtvsAc66ihHjSdwdkLOqkoXgDo";
 const YT_CHANNEL_ID = "UCZrRfMxUpuVv7e4JqlesJ1w";
 
-function LiveScreen({ user, services, songs, nav }) {
+function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
   const leader = isLeader(user.role);
   const [liveTab,       setLiveTab]       = useState("live");
   const [selSvcId,      setSelSvcId]      = useState(null);
@@ -9093,6 +9097,27 @@ function LiveScreen({ user, services, songs, nav }) {
             </div>
           </div>
 
+          {/* 라이브 ON/OFF (방송팀 탭 활성화) */}
+          {leader && (
+            <div style={{ background:C.surf, borderRadius:14, padding:16, border:`1px solid ${C.bdr}` }}>
+              <div style={{ fontSize:14, fontWeight:700, color:C.txt, marginBottom:4 }}>방송팀 라이브 접속</div>
+              <div style={{ fontSize:11, color:C.dim, marginBottom:12 }}>
+                ON으로 설정하면 방송팀(broadcast) 역할 팀원에게 LIVE 탭이 표시됩니다.
+              </div>
+              <button onClick={async () => {
+                await setDoc(doc(db, "liveStatus", "global"),
+                  { active: !anyLiveActive, updatedAt: serverTimestamp(), updatedBy: user.uid },
+                  { merge: true });
+              }}
+                style={{ width:"100%", padding:"11px 0", borderRadius:10, cursor:"pointer",
+                  fontFamily:"inherit", fontSize:13, fontWeight:700, border:"none",
+                  background: anyLiveActive ? C.red : C.grn,
+                  color: "#fff" }}>
+                {anyLiveActive ? "🔴 LIVE 종료 (방송팀 탭 숨김)" : "🟢 LIVE 시작 (방송팀 탭 표시)"}
+              </button>
+            </div>
+          )}
+
           <div style={{ background:`${C.acc}0a`, borderRadius:12, padding:"12px 14px",
             border:`1px solid ${C.acc}30` }}>
             <div style={{ fontSize:12, fontWeight:700, color:C.acc, marginBottom:6 }}>처음 한 번만 — 기기별 인증서 수락</div>
@@ -9115,11 +9140,12 @@ function LiveScreen({ user, services, songs, nav }) {
 /* ══════════════════════════════════════════════════════════════════
    BOTTOM NAV
 ══════════════════════════════════════════════════════════════════ */
-function BottomNav({ view, nav, unread, user }) {
+function BottomNav({ view, nav, unread, user, anyLiveActive }) {
   const tabs = [
     { id:"services",      icon:"home",       label:"예배"   },
     { id:"library",       icon:"music",      label:"악보"   },
-    ...(user?.role === "admin" ? [{ id:"live", icon:"antenna", label:"LIVE" }] : []),
+    ...(user?.role === "admin" || (isBroadcast(user?.role) && anyLiveActive)
+      ? [{ id:"live", icon:"antenna", label:"LIVE" }] : []),
     { id:"notifications", icon:"bell",       label:"알림"   },
     { id:"profile",       icon:"user",       label:"프로필" },
   ];
@@ -9200,6 +9226,7 @@ export default function App() {
   const [teamAnnotations, setTeamAnnotations] = useState({}); // 팀 공유 메모
   const [userMap,         setUserMap]         = useState({}); // uid -> displayName
   const [songDrawings,    setSongDrawings]    = useState({}); // songId -> { my: bool, team: bool }
+  const [anyLiveActive,   setAnyLiveActive]   = useState(false); // 방송팀 라이브탭 표시 여부
   const [selSvcId,      setSelSvcId]      = useState(null);
   const [selSongId,     setSelSongId]     = useState(null);
   const [selSvcSongIdx, setSelSvcSongIdx] = useState(-1); // 서비스 내 곡 인덱스 (복사 곡 대응)
@@ -9466,6 +9493,13 @@ export default function App() {
     );
   }, [user?.uid]);
 
+  // ── Firestore: 라이브 상태 (방송팀 탭 표시용)
+  useEffect(() => {
+    return onSnapshot(doc(db, "liveStatus", "global"), snap => {
+      setAnyLiveActive(snap.exists() && snap.data().active === true);
+    });
+  }, []);
+
   // ── PDF.js 로더
   useEffect(() => {
     if (window.pdfjsLib) { setPdfjsReady(true); return; }
@@ -9659,8 +9693,8 @@ export default function App() {
           nav={nav}
         />
       )}
-      {view === "live" && user?.role === "admin" && (
-        <LiveScreen user={user} services={services} songs={songs} nav={nav} />
+      {view === "live" && (user?.role === "admin" || (isBroadcast(user?.role) && anyLiveActive)) && (
+        <LiveScreen user={user} services={services} songs={songs} nav={nav} anyLiveActive={anyLiveActive} />
       )}
       {view === "profile" && (
         <ProfileScreen user={user} onLogout={() => signOut(auth)}
@@ -9668,7 +9702,7 @@ export default function App() {
       )}
 
       {view !== "pdfViewer" && (
-        <BottomNav view={view} nav={nav} unread={unread} user={user} />
+        <BottomNav view={view} nav={nav} unread={unread} user={user} anyLiveActive={anyLiveActive} />
       )}
 
       <button onClick={() => setShowHelp(true)}
