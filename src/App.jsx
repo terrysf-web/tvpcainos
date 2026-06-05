@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.235";
+const APP_VERSION = "3.236";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3067,6 +3067,8 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
   const [imgUploading,  setImgUploading]  = useState(null);
   const [consonant,     setConsonant]     = useState("");
   const [memoReplaceModal, setMemoReplaceModal] = useState(null); // { song, othersNotes, ownNotes, pendingUpload }
+  const [lyricsModal,  setLyricsModal]  = useState(null); // { song, text }
+  const [lyricsSaving, setLyricsSaving] = useState(false);
 
   const checkMemoBeforeReplace = (song) => {
     const teamNotes = (teamAnnotations || {})[song.id] || [];
@@ -3161,6 +3163,25 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
     } finally {
       setImgUploading(null);
     }
+  };
+
+  const saveLyrics = async () => {
+    setLyricsSaving(true);
+    await updateDoc(doc(db, "songs", lyricsModal.song.id), { lyrics: lyricsModal.text });
+    setLyricsSaving(false);
+    setLyricsModal(null);
+  };
+
+  const downloadProFile = () => {
+    const title = lyricsModal.song.title;
+    const body = `Title: ${title}.pro\n\n${lyricsModal.text.trim()}`;
+    const blob = new Blob([body], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${title.replace(/[\\\/:*?"<>|]/g, "_")}.pro`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const saveEdit = async () => {
@@ -3295,6 +3316,14 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                           width:34, height:34, borderRadius:9, cursor:"pointer",
                           background:`${C.acc}22`, border:`1px solid ${C.acc}55` }}>
                         <Icon n="pen" size={14} color={C.acc} />
+                      </button>
+                      <button onClick={() => setLyricsModal({ song, text: song.lyrics || "" })}
+                        title="가사 편집 / .pro 다운로드"
+                        style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                          width:34, height:34, borderRadius:9, cursor:"pointer",
+                          background: song.lyrics ? `${C.pur}22` : `${C.pur}12`,
+                          border:`1px solid ${song.lyrics ? C.pur+"66" : C.pur+"33"}` }}>
+                        <Icon n="note" size={14} color={song.lyrics ? C.pur : C.dim} />
                       </button>
                       {(song.pdfUrl || song.imageUrl) && (
                         <button onClick={() => setCropSong({ id: song.id, pdfUrl: song.pdfUrl || null, imageUrl: song.imageUrl || null, cropBox: song.cropBox || null })}
@@ -3506,6 +3535,43 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
           </Modal>
         );
       })()}
+
+      {/* 가사 편집 + .pro 다운로드 모달 */}
+      {lyricsModal && (
+        <Modal title={`가사 — ${lyricsModal.song.title}`} onClose={() => setLyricsModal(null)}>
+          <div style={{ padding:"0 4px 8px" }}>
+            <div style={{ fontSize:11, color:C.dim, marginBottom:8, lineHeight:1.5 }}>
+              절/단락을 빈 줄로 구분해서 입력하세요. 각 단락이 ProPresenter 슬라이드 한 장이 됩니다.
+            </div>
+            <textarea
+              value={lyricsModal.text}
+              onChange={e => setLyricsModal(prev => ({ ...prev, text: e.target.value }))}
+              placeholder={"첫째 줄 가사\n둘째 줄 가사\n\n두 번째 절 첫째 줄\n두 번째 절 둘째 줄"}
+              style={{ width:"100%", height:280, boxSizing:"border-box",
+                background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:8,
+                padding:"10px 12px", fontSize:13, color:C.txt, resize:"vertical",
+                fontFamily:"inherit", lineHeight:1.8, outline:"none" }}
+            />
+            <div style={{ display:"flex", gap:8, marginTop:12 }}>
+              <button onClick={downloadProFile}
+                style={{ flex:1, padding:"10px 0", borderRadius:9, cursor:"pointer",
+                  background:`${C.grn}22`, border:`1px solid ${C.grn}55`,
+                  color:C.grn, fontSize:13, fontWeight:700, fontFamily:"inherit",
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+                <Icon n="download" size={14} color={C.grn} />
+                .pro 다운로드
+              </button>
+              <button onClick={saveLyrics} disabled={lyricsSaving}
+                style={{ flex:1, padding:"10px 0", borderRadius:9, cursor:"pointer",
+                  background: lyricsSaving ? C.bdr : C.acc,
+                  border:`1px solid ${lyricsSaving ? C.bdr : C.acc}`,
+                  color:"#fff", fontSize:13, fontWeight:700, fontFamily:"inherit" }}>
+                {lyricsSaving ? "저장 중..." : "저장"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
