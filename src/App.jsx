@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.245";
+const APP_VERSION = "3.246";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -5582,66 +5582,49 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       {/* 필기 서브툴바 */}
       {drawMode && (
         <div style={{ flexShrink:0, background:`${C.pur}0a`, borderBottom:`1px solid ${C.bdr}`, position:"relative" }}>
-          {/* 도구 선택 행 */}
-          <div style={{ display:"flex", alignItems:"center", gap:6, padding:"0 14px", height:48, overflowX:"auto", borderBottom: drawTool === "select" ? `1px solid ${C.bdr}` : "none" }}>
+          {/* 필기 서브툴바 — 단일 스크롤 행 */}
+          <div style={{ display:"flex", alignItems:"center", gap:5, padding:"0 10px", height:44,
+            overflowX:"auto", background: drawTool === "select" && selAnnot ? `${C.pur}0e` : "transparent" }}>
+            {/* 도구 버튼 (아이콘만) */}
             {[
-              { id:"select",      icon:"cursor",    label:"선택"  },
-              { id:"pen",         icon:"pen",       label:"펜"    },
-              { id:"highlighter", icon:"highlight", label:"마커"  },
-              { id:"cover",       icon:"cover",     label:"커버"  },
-              { id:"eraser",      icon:"eraser",    label:"지우개" },
-              { id:"text",        icon:"textT",     label:"텍스트" },
-              { id:"stamp",       icon:"stamp",     label:"스탬프" },
-              { id:"shape",       icon:"slur",      label:"도형"  },
+              { id:"select",      icon:"cursor",    title:"선택"   },
+              { id:"pen",         icon:"pen",       title:"펜"     },
+              { id:"highlighter", icon:"highlight", title:"마커"   },
+              { id:"cover",       icon:"cover",     title:"커버"   },
+              { id:"eraser",      icon:"eraser",    title:"지우개"  },
+              { id:"text",        icon:"textT",     title:"텍스트"  },
+              { id:"stamp",       icon:"stamp",     title:"스탬프"  },
+              { id:"shape",       icon:"slur",      title:"도형"   },
             ].map(t => (
-              <button key={t.id} onClick={() => setDrawTool(t.id)} style={{
-                display:"flex", flexDirection:"column", alignItems:"center", gap:2,
-                padding:"4px 7px",
+              <button key={t.id} onClick={() => setDrawTool(t.id)} title={t.title} style={{
+                width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center",
                 background: drawTool === t.id ? `${C.pur}22` : "transparent",
                 border:`1px solid ${drawTool === t.id ? C.pur : C.bdr}`,
                 borderRadius:7, cursor:"pointer", flexShrink:0,
               }}>
                 <Icon n={t.icon} size={16} color={drawTool === t.id ? C.pur : C.dim} />
-                <span style={{ fontSize:10, fontWeight:600, color: drawTool === t.id ? C.pur : C.dim,
-                  fontFamily:"inherit", lineHeight:1 }}>{t.label}</span>
               </button>
             ))}
-            {/* 팀 필기 토글 — 리더 전용 */}
+            {/* 팀필기 토글 */}
             {leader && drawTool !== "select" && (
-              <button onClick={() => setTeamDrawMode(p => !p)} style={{
-                display:"flex", flexDirection:"column", alignItems:"center", gap:2,
-                padding:"4px 7px",
+              <button onClick={() => setTeamDrawMode(p => !p)} title="팀 필기" style={{
+                width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center",
                 background: teamDrawMode ? `${C.acc}22` : "transparent",
                 border:`1px solid ${teamDrawMode ? C.acc : C.bdr}`,
                 borderRadius:7, cursor:"pointer", flexShrink:0,
               }}>
-                <span style={{ fontSize:13, lineHeight:1 }}>👥</span>
-                <span style={{ fontSize:10, fontWeight:700,
-                  color: teamDrawMode ? C.acc : C.dim, fontFamily:"inherit", lineHeight:1 }}>팀필기</span>
+                <span style={{ fontSize:14, lineHeight:1 }}>👥</span>
               </button>
             )}
-            {/* 손가락 사용 안내 (선택 모드 아닐 때) */}
-            {drawTool !== "select" && (
-              <div style={{ marginLeft:"auto", flexShrink:0, padding:"0 8px", borderLeft:`1px solid ${C.bdr}`, lineHeight:1.6 }}>
-                <div style={{ fontSize:10, color:C.dim, fontWeight:600, whiteSpace:"nowrap" }}>
-                  👆 손가락: <span style={{ color:C.acc }}>텍스트 · 스탬프</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 선택 모드: 별도 액션 행 */}
-          {drawTool === "select" && (
-            <div style={{ display:"flex", alignItems:"center", gap:8, padding:"0 14px", height:44,
-              background: selAnnot ? `${C.pur}0e` : "transparent" }}>
-              {selAnnot ? (
+            <div style={{ width:1, height:20, background:C.bdr, flexShrink:0, marginLeft:2 }} />
+            {/* 컨텍스트 영역: 선택 모드 액션 or 색상·굵기·실행취소 */}
+            {drawTool === "select" ? (
+              selAnnot ? (
                 <>
-                  {/* 선택됨 / 팀 배지 */}
                   <span style={{ fontSize:11, color: selAnnot.isTeam ? C.acc : C.pur,
                     fontWeight:700, flexShrink:0, whiteSpace:"nowrap" }}>
                     {selAnnot.isTeam ? "👥 팀선택" : "✓ 선택됨"}
                   </span>
-                  {/* 텍스트/스탬프 크기 + 색상 조절 */}
                   {(() => {
                     const sRef = selStrokesRef(selAnnot);
                     const s = sRef.current[selAnnot.idx];
@@ -5678,7 +5661,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   <div style={{ flex:1 }} />
                   <button onClick={deleteSelAnnot} style={{
                     display:"flex", alignItems:"center", gap:5,
-                    padding:"7px 14px", background:C.red, border:"none",
+                    padding:"6px 12px", background:C.red, border:"none",
                     borderRadius:8, cursor:"pointer", flexShrink:0,
                   }}>
                     <Icon n="trash" size={14} color="#fff" />
@@ -5692,7 +5675,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     if (teamDrawCanvas2Ref.current) drawStrokes(teamDrawCanvas2Ref.current, teamStrokes2Ref.current);
                   }} style={{
                     display:"flex", alignItems:"center", gap:5,
-                    padding:"7px 12px", background:C.surf, border:`1px solid ${C.bdr}`,
+                    padding:"6px 10px", background:C.surf, border:`1px solid ${C.bdr}`,
                     borderRadius:8, cursor:"pointer", flexShrink:0,
                   }}>
                     <Icon n="xmark" size={14} color={C.dim} />
@@ -5700,94 +5683,86 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   </button>
                 </>
               ) : (
-                <span style={{ fontSize:11, color:C.dim, fontStyle:"italic" }}>
+                <span style={{ fontSize:11, color:C.dim, fontStyle:"italic", flexShrink:0 }}>
                   텍스트 · 스탬프를 탭하여 선택
                 </span>
-              )}
-            </div>
-          )}
-
-          {/* 색상·굵기·실행취소 행 (선택 모드 제외) */}
-          {drawTool !== "select" && (
-            <div style={{ display:"flex", alignItems:"center", gap:6, padding:"0 14px", height:44, overflowX:"auto" }}>
-              {/* Colors */}
-              {drawTool === "cover" ? (
-                /* 커버 모드: 흰색 고정 표시 */
-                <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
-                  <div style={{ width:22, height:22, borderRadius:"50%", background:"#ffffff",
-                    border:"3px solid #bbb", outline:"2px solid #aaa", flexShrink:0 }} />
-                  <span style={{ fontSize:10, color:C.dim, whiteSpace:"nowrap" }}>흰색 고정</span>
-                </div>
-              ) : (drawTool === "highlighter"
-                ? ["#ffe034","#7dff6b","#5df4ff","#ff7de9","#ffac30"]
-                : ["#e8383b","#1a73e8","#1c1c1e","#34c759","#e8a93e"]
-              ).map(clr => (
-                <button key={clr} onClick={() => setDrawColor(clr)}
-                  style={{
+              )
+            ) : (
+              <>
+                {/* 색상 */}
+                {drawTool === "cover" ? (
+                  <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
+                    <div style={{ width:22, height:22, borderRadius:"50%", background:"#ffffff",
+                      border:"3px solid #bbb", outline:"2px solid #aaa", flexShrink:0 }} />
+                  </div>
+                ) : (drawTool === "highlighter"
+                  ? ["#ffe034","#7dff6b","#5df4ff","#ff7de9","#ffac30"]
+                  : ["#e8383b","#1a73e8","#1c1c1e","#34c759","#e8a93e"]
+                ).map(clr => (
+                  <button key={clr} onClick={() => setDrawColor(clr)} style={{
                     width:22, height:22, borderRadius:"50%", background:clr,
                     border: drawColor === clr && drawTool !== "eraser" ? "3px solid #fff" : "2px solid transparent",
                     outline: drawColor === clr && drawTool !== "eraser" ? `2px solid ${clr}` : "none",
                     cursor:"pointer", flexShrink:0, padding:0,
                     opacity: drawTool === "eraser" ? 0.35 : 1,
                   }} />
-              ))}
-              <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
-              {/* Width / size */}
-              {[1, 2, 4].map(w => (
-                <button key={w} onClick={() => setDrawWidth(w)}
-                  style={{
+                ))}
+                <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+                {/* 굵기 */}
+                {[1, 2, 4].map(w => (
+                  <button key={w} onClick={() => setDrawWidth(w)} style={{
                     width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center",
                     background: drawWidth === w ? `${C.pur}22` : "transparent",
                     border:`1px solid ${drawWidth === w ? C.pur : C.bdr}`,
                     borderRadius:6, cursor:"pointer", flexShrink:0,
                   }}>
-                  {(drawTool === "stamp" || drawTool === "shape") ? (
-                    stampSymbol === "notehead" ? (
-                      <svg width={w===1?8:w===2?11:15} height={w===1?6:w===2?8:11}
-                        viewBox="0 0 15 11" style={{ display:"block" }}>
-                        <ellipse cx="7.5" cy="5.5" rx="6.5" ry="4.5"
-                          fill={drawColor} transform="rotate(-28 7.5 5.5)" />
-                      </svg>
+                    {(drawTool === "stamp" || drawTool === "shape") ? (
+                      stampSymbol === "notehead" ? (
+                        <svg width={w===1?8:w===2?11:15} height={w===1?6:w===2?8:11}
+                          viewBox="0 0 15 11" style={{ display:"block" }}>
+                          <ellipse cx="7.5" cy="5.5" rx="6.5" ry="4.5"
+                            fill={drawColor} transform="rotate(-28 7.5 5.5)" />
+                        </svg>
+                      ) : (
+                        <span style={{ fontSize: w === 1 ? 9 : w === 2 ? 12 : 16, color:drawColor, fontWeight:700,
+                          fontStyle: drawTool === "stamp" && stampItalic ? "italic" : "normal", lineHeight:1 }}>
+                          {drawTool === "stamp" ? stampSymbol : w === 1 ? "S" : w === 2 ? "M" : "L"}
+                        </span>
+                      )
                     ) : (
-                      <span style={{ fontSize: w === 1 ? 9 : w === 2 ? 12 : 16, color:drawColor, fontWeight:700,
-                        fontStyle: drawTool === "stamp" && stampItalic ? "italic" : "normal", lineHeight:1 }}>
-                        {drawTool === "stamp" ? stampSymbol : w === 1 ? "S" : w === 2 ? "M" : "L"}
-                      </span>
-                    )
-                  ) : (
-                    <div style={{
-                      width: (drawTool === "highlighter" || drawTool === "cover") ? w * 2 + 1 : w + 2,
-                      height: (drawTool === "highlighter" || drawTool === "cover") ? Math.max(6, w) : w + 2,
-                      borderRadius: (drawTool === "highlighter" || drawTool === "cover") ? 2 : "50%",
-                      background: drawTool === "eraser" ? C.dim : drawTool === "cover" ? "#ccc" : drawColor,
-                      outline: drawTool === "cover" ? "1px solid #999" : "none",
-                      opacity: drawTool === "eraser" ? 0.4 : 0.8,
-                    }} />
-                  )}
+                      <div style={{
+                        width: (drawTool === "highlighter" || drawTool === "cover") ? w * 2 + 1 : w + 2,
+                        height: (drawTool === "highlighter" || drawTool === "cover") ? Math.max(6, w) : w + 2,
+                        borderRadius: (drawTool === "highlighter" || drawTool === "cover") ? 2 : "50%",
+                        background: drawTool === "eraser" ? C.dim : drawTool === "cover" ? "#ccc" : drawColor,
+                        outline: drawTool === "cover" ? "1px solid #999" : "none",
+                        opacity: drawTool === "eraser" ? 0.4 : 0.8,
+                      }} />
+                    )}
+                  </button>
+                ))}
+                <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+                {/* 실행취소 + 필기삭제 */}
+                <button onClick={handleUndo} title="실행취소" style={{
+                  width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center",
+                  background:"transparent", border:`1px solid ${C.bdr}`,
+                  borderRadius:7, cursor:"pointer", flexShrink:0,
+                }}>
+                  <Icon n="undo" size={16} color={C.dim} />
                 </button>
-              ))}
-              <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
-              <button onClick={handleUndo} style={{
-                background:"transparent", border:`1px solid ${C.bdr}`,
-                borderRadius:7, padding:"4px 8px", cursor:"pointer",
-                display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0,
-              }}>
-                <Icon n="undo" size={16} color={C.dim} />
-                <span style={{ fontSize:10, fontWeight:600, color:C.dim, fontFamily:"inherit", lineHeight:1 }}>취소</span>
-              </button>
-              <button onClick={handleClearPage} style={{
-                background:"transparent", border:`1px solid ${C.red}44`,
-                borderRadius:7, padding:"4px 8px", cursor:"pointer",
-                display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0,
-              }}>
-                <Icon n="trash" size={16} color={C.red} />
-                <span style={{ fontSize:10, fontWeight:600, color:C.red, fontFamily:"inherit", lineHeight:1 }}>필기삭제</span>
-              </button>
-              {drawSaveErr && (
-                <span style={{ fontSize:10, color:C.red, marginLeft:4, flexShrink:0 }}>⚠ {drawSaveErr}</span>
-              )}
-            </div>
-          )}
+                <button onClick={handleClearPage} title="필기 전체 삭제" style={{
+                  width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center",
+                  background:"transparent", border:`1px solid ${C.red}44`,
+                  borderRadius:7, cursor:"pointer", flexShrink:0,
+                }}>
+                  <Icon n="trash" size={16} color={C.red} />
+                </button>
+                {drawSaveErr && (
+                  <span style={{ fontSize:10, color:C.red, marginLeft:4, flexShrink:0 }}>⚠ {drawSaveErr}</span>
+                )}
+              </>
+            )}
+          </div>
           {/* 스탬프 팔레트 — 플로팅 오버레이 (악보 공간 유지) */}
           {drawTool === "stamp" && (
             <div style={{
