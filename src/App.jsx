@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.237";
+const APP_VERSION = "3.238";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2667,10 +2667,20 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                     <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>
                       {song.artist}{song.bpm ? ` · ♩${song.bpm}` : ""}
                     </div>
-                    <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap" }}>
+                    <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap", alignItems:"center" }}>
                       <KeyBadge k={song.key} />
                       {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF · 페이지${song.pdfPage}` : "PDF"} color={C.grn} />}
                       {!song.pdfUrl && song.imageUrl && <Badge label="🖼️ 이미지" color={C.acc} />}
+                      {leader && (
+                        <button onClick={e => { e.stopPropagation(); setSvcLyricsModal({ song, text: song.lyrics || "" }); }}
+                          style={{ background: song.lyrics ? `${C.pur}22` : `${C.pur}12`,
+                            border:`1px solid ${song.lyrics ? C.pur+"55" : C.pur+"33"}`,
+                            borderRadius:5, cursor:"pointer", padding:"1px 7px",
+                            fontSize:10, fontWeight:700,
+                            color: song.lyrics ? C.pur : C.dim, fontFamily:"inherit" }}>
+                          📝 가사
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -2682,14 +2692,6 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                         borderRadius:7, cursor:"pointer", padding:"4px 8px",
                         fontSize:11, fontWeight:700, color:C.pur, fontFamily:"inherit",
                       }}>복사</button>
-                      <button onClick={() => setSvcLyricsModal({ song, text: song.lyrics || "" })}
-                        title="가사 편집 / .pro 다운로드"
-                        style={{ background: song.lyrics ? `${C.acc}18` : `${C.pur}12`,
-                          border:`1px solid ${song.lyrics ? C.acc+"44" : C.pur+"33"}`,
-                          borderRadius:7, cursor:"pointer", padding:"4px 8px",
-                          fontSize:11, fontWeight:700,
-                          color: song.lyrics ? C.acc : C.dim, fontFamily:"inherit",
-                      }}>가사</button>
                       <button onClick={() => removeSong(i)} style={{
                         background:"none", border:"none", cursor:"pointer",
                         padding:4, display:"flex", justifyContent:"center",
