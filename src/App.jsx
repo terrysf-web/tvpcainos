@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.239";
+const APP_VERSION = "3.241";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2234,49 +2234,6 @@ function SongPickerModal({ songs, currentIds, onClose, onSave, addSong, user }) 
   );
 }
 
-/* ══ ProPresenter .pro6 helper functions ══════════════════════════ */
-function parsePpLyrics(text) {
-  const groups = [];
-  let cur = null, lines = [];
-  for (const raw of (text + "\n").split("\n")) {
-    const t = raw.trimEnd();
-    const hm = t.match(/^\[(.+)\]$/);
-    if (hm) {
-      if (cur) { const s = lines.join("\n").trim(); if (s) cur.slides.push(s); groups.push(cur); }
-      cur = { name: hm[1], slides: [] }; lines = [];
-    } else if (t.trim() === "") {
-      if (cur) { const s = lines.join("\n").trim(); if (s) { cur.slides.push(s); lines = []; } }
-    } else {
-      if (!cur) { cur = { name: "가사", slides: [] }; }
-      lines.push(t.trim());
-    }
-  }
-  if (cur) { const s = lines.join("\n").trim(); if (s) cur.slides.push(s); if (cur.slides.length) groups.push(cur); }
-  return groups;
-}
-function _rtfChar(ch) {
-  const c = ch.codePointAt(0);
-  if (c < 128) {
-    if (ch === "\\") return "\\\\"; if (ch === "{") return "\\{"; if (ch === "}") return "\\}";
-    return ch;
-  }
-  return `\\uc0\\u${c > 32767 ? c - 65536 : c} `;
-}
-function buildSlideRtf(text) {
-  const body = text.split("\n").map(l => [...l].map(_rtfChar).join("")).join("\\line\n");
-  return `{\\rtf1\\ansi\\ansicpg949\\cocoartf2639\n{\\fonttbl\\f0\\fnil\\fcharset129 AppleGothic;}\n{\\colortbl;\\red255\\green255\\blue255;}\n\\pard\\pardirnatural\\qc\\f0\\fs160\\cf1 ${body}}`;
-}
-function generatePro6(title, groups) {
-  const uu = () => crypto.randomUUID().toUpperCase();
-  const toB64 = s => { const b = new TextEncoder().encode(s); let r = ""; b.forEach(x => r += String.fromCharCode(x)); return btoa(r); };
-  const slidesXml = slides => slides.map((text, si) =>
-    `        <RVDisplaySlide backgroundColor="0 0 0 1" enabled="1" highlightColor="0 0 0 0" hotKey="" label="" notes="" slideType="1" sort_index="${si}" UUID="${uu()}" drawingBackgroundColor="1" chordChartPath="" serialization-native-version="3" presentation=""><array rvXMLIvarName="cues"/><array rvXMLIvarName="displayElements"><RVTextElement displayDelay="0" displayName="Default" locked="0" persistent="0" typeID="0" fromTemplate="0" bezelRadius="0" drawingFill="0" drawingShadow="0" drawingStroke="0" fillColor="1 1 1 0" rotation="0" source="" scaleBehavior="0" width="1820" height="980" UUID="${uu()}" xPosition="50" yPosition="50" displayElements=""><NSString rvXMLIvarName="RTFData">${toB64(buildSlideRtf(text))}</NSString></RVTextElement></array></RVDisplaySlide>`
-  ).join("\n");
-  const groupsXml = groups.map(g =>
-    `    <RVSlideGrouping name="${g.name}" uuid="${uu()}" color="0 0 0 0" serialization-native-version="3" presentation=""><array rvXMLIvarName="slides">\n${slidesXml(g.slides)}\n    </array></RVSlideGrouping>`
-  ).join("\n");
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<RVPresentationDocument height="1080" width="1920" versionNumber="600" docType="0" creatorCode="1349676880" lastDateUsed="${new Date().toISOString().slice(0,19)}" usedCount="0" category="Song" resourcesDirectory="" backgroundColor="0 0 0 1" drawingBackgroundColor="1" notes="" artist="" author="" album="" CCLIDisplay="0" CCLIArtistCredits="" CCLISongTitle="${title.replace(/"/g,"&quot;")}" CCLIPublisher="" CCLICopyrightInfo="" CCLILicenseNumber="" chordChartPath="">\n  <array rvXMLIvarName="groups">\n${groupsXml}\n  </array>\n  <array rvXMLIvarName="arrangements"/>\n</RVPresentationDocument>`;
-}
 
 function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotations, userMap, notifs, nav, selectedSvcId, onUpdateService, addSong }) {
   const svc = services.find(s => s.id === selectedSvcId);
@@ -2289,25 +2246,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [drag, setDrag]           = useState(null);
   const [dropIdx, setDropIdx]     = useState(null);
   const cardRefs = useRef([]);
-  const [ppLyricsText,   setPpLyricsText]   = useState("");
-  const [ppLyricsSaving, setPpLyricsSaving] = useState(false);
-  const ppLyricsEditedRef = useRef(false);
   const [svcLyricsModal,  setSvcLyricsModal]  = useState(null); // { song, text }
   const [svcLyricsSaving, setSvcLyricsSaving] = useState(false);
-
-  useEffect(() => { // eslint-disable-line react-hooks/rules-of-hooks
-    if (!svc) return;
-    ppLyricsEditedRef.current = false;
-    const unsub = onSnapshot(doc(db, "ppLyrics", svc.id), snap => {
-      if (!ppLyricsEditedRef.current)
-        setPpLyricsText(snap.exists() ? (snap.data().text || "") : "");
-    });
-    return unsub;
-  }, [svc?.id]); // eslint-disable-line
-
-  // ── 이 두 훅은 early return 앞에 위치해야 함 (Rules of Hooks)
-  const ppGroups = useMemo(() => parsePpLyrics(ppLyricsText), [ppLyricsText]); // eslint-disable-line
-  const [ppCopied, setPpCopied] = useState(false); // eslint-disable-line
 
   if (!svc) return null;
 
@@ -2319,13 +2259,6 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
   const leader = isLeader(user.role);
   const svcNotifCount = (notifs || []).filter(n => n.serviceId === svc.id).length;
-
-  const savePpLyrics = async () => {
-    setPpLyricsSaving(true);
-    await setDoc(doc(db, "ppLyrics", svc.id), { text: ppLyricsText, updatedAt: serverTimestamp() });
-    ppLyricsEditedRef.current = false;
-    setPpLyricsSaving(false);
-  };
 
   const saveSvcLyrics = async () => {
     setSvcLyricsSaving(true);
@@ -2344,25 +2277,6 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     a.download = `${title.replace(/[\\\/:*?"<>|]/g, "_")}.pro`;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const exportPro6 = () => {
-    if (!ppGroups.length) return;
-    const xml = generatePro6(svc.title || "찬양", ppGroups);
-    const blob = new Blob([xml], { type: "text/xml" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(svc.title || "찬양").replace(/[\\/:*?"<>|]/g, "_")}.pro6`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const copyLyrics = () => {
-    navigator.clipboard?.writeText(ppLyricsText).then(() => {
-      setPpCopied(true);
-      setTimeout(() => setPpCopied(false), 2000);
-    });
   };
 
   const sendNotif = async () => {
@@ -2673,12 +2587,13 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                       {!song.pdfUrl && song.imageUrl && <Badge label="🖼️ 이미지" color={C.acc} />}
                       {leader && (
                         <button onClick={e => { e.stopPropagation(); setSvcLyricsModal({ song, text: song.lyrics || "" }); }}
-                          style={{ background: song.lyrics ? `${C.pur}22` : `${C.pur}12`,
-                            border:`1px solid ${song.lyrics ? C.pur+"55" : C.pur+"33"}`,
+                          style={{ background: song.lyrics ? `${C.grn}22` : `${C.pur}12`,
+                            border:`1px solid ${song.lyrics ? C.grn+"55" : C.pur+"33"}`,
                             borderRadius:5, cursor:"pointer", padding:"1px 7px",
                             fontSize:10, fontWeight:700,
-                            color: song.lyrics ? C.pur : C.dim, fontFamily:"inherit" }}>
-                          📝 가사
+                            color: song.lyrics ? C.grn : C.dim, fontFamily:"inherit",
+                            display:"flex", alignItems:"center", gap:3 }}>
+                          {song.lyrics ? "✓ 가사입력 완료" : "📝 가사"}
                         </button>
                       )}
                     </div>
@@ -2796,145 +2711,6 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             </div>
           </div>
         </Modal>
-      )}
-
-      {/* ── ProPresenter 가사 ───────────────────────────────────────── */}
-      {isBroadcast(user.role) && (
-        <div style={{ padding:"0 16px 100px" }}>
-          <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
-            textTransform:"uppercase", marginBottom:10 }}>
-            📺 ProPresenter 가사
-          </div>
-
-          {/* 리더 입력 */}
-          {leader && (
-            <>
-              {!ppLyricsText.trim() && (
-                <div style={{ background:"#111", borderRadius:8, padding:"10px 12px", marginBottom:8,
-                  border:"1px solid rgba(255,255,255,0.08)", fontSize:12, color:"rgba(255,255,255,0.4)",
-                  fontFamily:"monospace", lineHeight:1.9, whiteSpace:"pre" }}>
-                  <span style={{ color:"#7799ff" }}>[1절]</span>{"\n"}{"가사 첫줄\n가사 둘째줄\n\n가사 셋째줄  "}
-                  <span style={{ color:"rgba(255,255,255,0.25)", fontSize:11 }}>← 빈 줄 = 새 슬라이드</span>{"\n\n"}
-                  <span style={{ color:"#ff9966" }}>[후렴]</span>{"\n"}{"후렴 가사 첫줄\n후렴 가사 둘째줄"}
-                </div>
-              )}
-              <textarea
-                value={ppLyricsText}
-                onChange={e => { ppLyricsEditedRef.current = true; setPpLyricsText(e.target.value); }}
-                placeholder={"[1절]\n첫줄\n둘째줄\n\n셋째줄\n\n[후렴]\n후렴 첫줄\n후렴 둘째줄"}
-                rows={9}
-                style={{ width:"100%", padding:"10px 12px", borderRadius:10,
-                  border:`1px solid ${C.bdr}`, background:C.card, fontSize:13,
-                  color:C.txt, fontFamily:"monospace",
-                  outline:"none", resize:"vertical", boxSizing:"border-box", lineHeight:1.8 }}
-              />
-            </>
-          )}
-
-          {/* 슬라이드 미리보기 — PP 화면처럼 */}
-          {ppGroups.length > 0 && (
-            <div style={{ marginTop:10, borderRadius:12, overflow:"hidden",
-              border:"1px solid rgba(255,255,255,0.08)", background:"#080810" }}>
-              {ppGroups.map((group, gi) => {
-                const groupColors = ["#3355ff","#cc4422","#22aa44","#bb22bb","#cc8800"];
-                const clr = groupColors[gi % groupColors.length];
-                return (
-                  <div key={gi}>
-                    {/* 섹션 이름 바 */}
-                    <div style={{ padding:"5px 12px", background:`${clr}33`,
-                      borderBottom:"1px solid rgba(255,255,255,0.06)",
-                      display:"flex", alignItems:"center", gap:8 }}>
-                      <span style={{ fontSize:11, fontWeight:800, color:clr }}>{gi+1}</span>
-                      <span style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.8)" }}>{group.name}</span>
-                      <span style={{ fontSize:10, color:"rgba(255,255,255,0.3)", marginLeft:"auto" }}>{group.slides.length}슬라이드</span>
-                    </div>
-                    {/* 슬라이드 썸네일 2열 그리드 */}
-                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:3, padding:6 }}>
-                      {group.slides.map((text, si) => (
-                        <div key={si} style={{
-                          aspectRatio:"16/9",
-                          background:"#111118",
-                          borderRadius:6,
-                          border:"1px solid rgba(255,255,255,0.1)",
-                          display:"flex", alignItems:"center", justifyContent:"center",
-                          padding:"6px 8px", position:"relative", overflow:"hidden",
-                        }}>
-                          {/* 왼쪽·오른쪽 텍스트 박스 (PP 이중 모니터 레이아웃) */}
-                          <div style={{ position:"absolute", inset:0, display:"flex", gap:3, padding:"5px 6px" }}>
-                            {[0,1].map(col => (
-                              <div key={col} style={{
-                                flex:1, display:"flex", alignItems:"center", justifyContent:"center",
-                                background:"rgba(255,255,255,0.03)", borderRadius:4,
-                                padding:"3px 5px",
-                              }}>
-                                <div style={{
-                                  fontSize:8, color:"rgba(255,255,255,0.88)", textAlign:"center",
-                                  lineHeight:1.5, whiteSpace:"pre-line", fontWeight:500,
-                                  overflow:"hidden",
-                                }}>{text}</div>
-                              </div>
-                            ))}
-                          </div>
-                          <div style={{ position:"absolute", bottom:3, right:5,
-                            fontSize:8, color:"rgba(255,255,255,0.2)" }}>{si+1}</div>
-                        </div>
-                      ))}
-                      {group.slides.length % 2 === 1 && (
-                        <div style={{ aspectRatio:"16/9", borderRadius:6,
-                          background:"rgba(255,255,255,0.02)",
-                          border:"1px dashed rgba(255,255,255,0.05)" }} />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-              <div style={{ padding:"6px 12px", borderTop:"1px solid rgba(255,255,255,0.06)",
-                fontSize:10, color:"rgba(255,255,255,0.25)" }}>
-                총 {ppGroups.reduce((a,g)=>a+g.slides.length,0)}슬라이드 · {ppGroups.length}섹션
-              </div>
-            </div>
-          )}
-
-          {!leader && !ppLyricsText && (
-            <div style={{ textAlign:"center", padding:"20px 0", color:C.dim, fontSize:13 }}>
-              리더가 아직 가사를 등록하지 않았습니다
-            </div>
-          )}
-
-          {/* 버튼 */}
-          <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
-            {leader && (
-              <button onClick={savePpLyrics} disabled={ppLyricsSaving}
-                style={{ flex:1, minWidth:80, padding:"11px 0", borderRadius:10,
-                  background: ppLyricsSaving ? C.bdr : C.acc,
-                  border:"none", color:"#fff", fontWeight:700, fontSize:14,
-                  cursor: ppLyricsSaving ? "default" : "pointer", fontFamily:"inherit" }}>
-                {ppLyricsSaving ? "저장 중..." : "저장"}
-              </button>
-            )}
-            {ppGroups.length > 0 && (
-              <>
-                <button onClick={exportPro6}
-                  style={{ padding:"11px 16px", borderRadius:10,
-                    background:"#1a1a2e", border:`1px solid ${C.bdr}`,
-                    color:C.txt, fontWeight:700, fontSize:13,
-                    cursor:"pointer", fontFamily:"inherit",
-                    display:"flex", alignItems:"center", gap:5 }}>
-                  ⬇ .pro6
-                </button>
-                <button onClick={copyLyrics}
-                  style={{ padding:"11px 16px", borderRadius:10,
-                    background: ppCopied ? `${C.grn}22` : C.card,
-                    border:`1px solid ${ppCopied ? C.grn : C.bdr}`,
-                    color: ppCopied ? C.grn : C.txt, fontWeight:700, fontSize:13,
-                    cursor:"pointer", fontFamily:"inherit",
-                    display:"flex", alignItems:"center", gap:5 }}>
-                  {ppCopied ? "✓ 복사됨" : "📋 텍스트 복사"}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
       )}
 
       </div>{/* /스크롤 영역 */}
@@ -3386,12 +3162,12 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                         <Icon n="pen" size={14} color={C.acc} />
                       </button>
                       <button onClick={() => setLyricsModal({ song, text: song.lyrics || "" })}
-                        title="가사 편집 / .pro 다운로드"
+                        title={song.lyrics ? "가사입력 완료 — 클릭하여 편집" : "가사 편집 / .pro 다운로드"}
                         style={{ display:"flex", alignItems:"center", justifyContent:"center",
                           width:34, height:34, borderRadius:9, cursor:"pointer",
-                          background: song.lyrics ? `${C.pur}22` : `${C.pur}12`,
-                          border:`1px solid ${song.lyrics ? C.pur+"66" : C.pur+"33"}` }}>
-                        <Icon n="note" size={14} color={song.lyrics ? C.pur : C.dim} />
+                          background: song.lyrics ? `${C.grn}22` : `${C.pur}12`,
+                          border:`1px solid ${song.lyrics ? C.grn+"66" : C.pur+"33"}` }}>
+                        <Icon n="note" size={14} color={song.lyrics ? C.grn : C.dim} />
                       </button>
                       {(song.pdfUrl || song.imageUrl) && (
                         <button onClick={() => setCropSong({ id: song.id, pdfUrl: song.pdfUrl || null, imageUrl: song.imageUrl || null, cropBox: song.cropBox || null })}
