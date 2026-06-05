@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.242";
+const APP_VERSION = "3.243";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3537,9 +3537,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const preBitmapRef  = useRef({}); // songId → pre-rendered HTMLCanvasElement
   const preRenderBusy = useRef(new Set());
   const [dualToast, setDualToast] = useState("");
-  const touchStartX  = useRef(null);
-  const touchStartY  = useRef(null);
-  const touchFired   = useRef(false);
+  const touchStartX    = useRef(null);
+  const touchStartY    = useRef(null);
+  const touchStartTime = useRef(null);
+  const touchFired     = useRef(false);
   const toastTimer  = useRef(null);
   const penDownRef  = useRef(false); // 애플펜슬 터치 중 여부
   const dualFitModeRef   = useRef(false); // 듀얼 FIT 모드: 페이지 이동마다 자동 재적용
@@ -4573,9 +4574,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const handleTouchStart = (e) => {
     if (drawModeRef.current) return;
     if (penDownRef.current) return;
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-    touchFired.current  = false;
+    touchStartX.current    = e.touches[0].clientX;
+    touchStartY.current    = e.touches[0].clientY;
+    touchStartTime.current = Date.now();
+    touchFired.current     = false;
   };
 
   const triggerSwipe = (delta) => {
@@ -4630,11 +4632,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       touchFired.current  = false;
       return;
     }
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    touchStartX.current = null;
-    touchFired.current  = false;
-    if (Math.abs(dx) < 55) return;
-    triggerSwipe(dx);
+    const t = e.changedTouches[0];
+    const dx      = t.clientX - touchStartX.current;
+    const dy      = t.clientY - touchStartY.current;
+    const elapsed = Date.now() - (touchStartTime.current || 0);
+    const tapX    = t.clientX;
+    touchStartX.current    = null;
+    touchStartTime.current = null;
+    touchFired.current     = false;
+
+    if (Math.abs(dx) >= 55) { triggerSwipe(dx); return; }
+
+    // 탭 존: 빠른 탭(< 250ms) + 거의 움직임 없음 → 좌/우 이동
+    if (elapsed < 250 && Math.abs(dx) < 30 && Math.abs(dy) < 30) {
+      const w = window.innerWidth;
+      if (tapX < w * 0.35)      triggerSwipe(1);   // 왼쪽 탭 → 이전
+      else if (tapX > w * 0.65) triggerSwipe(-1);  // 오른쪽 탭 → 다음
+    }
   };
 
   const saveNote = async () => {
