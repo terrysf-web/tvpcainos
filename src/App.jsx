@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.243";
+const APP_VERSION = "3.244";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -5224,20 +5224,77 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (dcRef.current) dcRef.current.getContext("2d").clearRect(0, 0, dcRef.current.width, dcRef.current.height);
   };
 
-  const downloadAnnotatedScore = () => {
+  const downloadAnnotatedScore = async () => {
     const pdfCanvas = canvas1Ref.current;
     if (!pdfCanvas || !pdfCanvas.width) { showToast("악보가 아직 로드되지 않았습니다"); return; }
-    const W = pdfCanvas.width, H = pdfCanvas.height;
+
     const off = document.createElement("canvas");
-    off.width = W; off.height = H;
     const ctx = off.getContext("2d");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, W, H);
-    ctx.drawImage(pdfCanvas, 0, 0);
-    const tdc = teamDrawCanvas1Ref.current;
-    if (tdc && tdc.width === W && tdc.height === H) ctx.drawImage(tdc, 0, 0);
-    const pdc = drawCanvas1Ref.current;
-    if (pdc && pdc.width === W && pdc.height === H) ctx.drawImage(pdc, 0, 0);
+
+    if (pdfDocRef.current) {
+      // PDF: 3× 고해상도 재렌더링
+      const EXPORT_SCALE = 3;
+      const page = await pdfDocRef.current.getPage(pageNum);
+      const base = page.getViewport({ scale: 1 });
+      const cb   = song?.cropBox;
+      const hasCb = cb && (cb.left > 0.001 || cb.top > 0.001 || cb.right < 0.999 || cb.bottom < 0.999);
+      let dW, dH, sc;
+      if (hasCb) {
+        sc = EXPORT_SCALE * (base.width / ((cb.right - cb.left) * base.width) * 1);
+        sc = EXPORT_SCALE;
+        dW = Math.round((cb.right - cb.left) * base.width  * EXPORT_SCALE);
+        dH = Math.round((cb.bottom - cb.top) * base.height * EXPORT_SCALE);
+      } else {
+        sc = EXPORT_SCALE;
+        dW = Math.round(base.width  * sc);
+        dH = Math.round(base.height * sc);
+      }
+      const vp = page.getViewport({ scale: sc });
+      const tmp = document.createElement("canvas");
+      tmp.width  = Math.round(vp.width);
+      tmp.height = Math.round(vp.height);
+      await page.render({ canvasContext: tmp.getContext("2d"), viewport: vp }).promise;
+      off.width = dW; off.height = dH;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, dW, dH);
+      if (hasCb) {
+        ctx.drawImage(tmp, cb.left * vp.width, cb.top * vp.height, dW, dH, 0, 0, dW, dH);
+      } else {
+        ctx.drawImage(tmp, 0, 0);
+      }
+    } else if (imageRef.current) {
+      // 이미지: 원본 해상도 사용
+      const img  = imageRef.current;
+      const cb   = song?.cropBox;
+      const hasCb = cb && (cb.left > 0.001 || cb.top > 0.001 || cb.right < 0.999 || cb.bottom < 0.999);
+      let srcX = 0, srcY = 0, srcW = img.width, srcH = img.height;
+      if (hasCb) { srcX = cb.left*img.width; srcY = cb.top*img.height; srcW = (cb.right-cb.left)*img.width; srcH = (cb.bottom-cb.top)*img.height; }
+      off.width = Math.round(srcW); off.height = Math.round(srcH);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, off.width, off.height);
+      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, off.width, off.height);
+    } else {
+      // 폴백: 화면 캔버스 그대로 복사
+      off.width = pdfCanvas.width; off.height = pdfCanvas.height;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, off.width, off.height);
+      ctx.drawImage(pdfCanvas, 0, 0);
+    }
+
+    // 필기 합성 — 스트로크를 최종 캔버스 크기에 맞춰 다시 그림
+    const W = off.width, H = off.height;
+    const drawTmp = document.createElement("canvas");
+    drawTmp.width = W; drawTmp.height = H;
+    if (teamStrokes1Ref.current?.length > 0) {
+      drawStrokes(drawTmp, teamStrokes1Ref.current);
+      ctx.drawImage(drawTmp, 0, 0);
+    }
+    if (strokes1Ref.current?.length > 0) {
+      drawTmp.getContext("2d").clearRect(0, 0, W, H);
+      drawStrokes(drawTmp, strokes1Ref.current);
+      ctx.drawImage(drawTmp, 0, 0);
+    }
+
     off.toBlob(blob => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
