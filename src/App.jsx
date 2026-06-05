@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.236";
+const APP_VERSION = "3.237";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -2292,6 +2292,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [ppLyricsText,   setPpLyricsText]   = useState("");
   const [ppLyricsSaving, setPpLyricsSaving] = useState(false);
   const ppLyricsEditedRef = useRef(false);
+  const [svcLyricsModal,  setSvcLyricsModal]  = useState(null); // { song, text }
+  const [svcLyricsSaving, setSvcLyricsSaving] = useState(false);
 
   useEffect(() => { // eslint-disable-line react-hooks/rules-of-hooks
     if (!svc) return;
@@ -2323,6 +2325,25 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     await setDoc(doc(db, "ppLyrics", svc.id), { text: ppLyricsText, updatedAt: serverTimestamp() });
     ppLyricsEditedRef.current = false;
     setPpLyricsSaving(false);
+  };
+
+  const saveSvcLyrics = async () => {
+    setSvcLyricsSaving(true);
+    await updateDoc(doc(db, "songs", svcLyricsModal.song.id), { lyrics: svcLyricsModal.text });
+    setSvcLyricsSaving(false);
+    setSvcLyricsModal(null);
+  };
+
+  const downloadSvcProFile = () => {
+    const title = svcLyricsModal.song.title;
+    const body = `Title: ${title}.pro\n\n${svcLyricsModal.text.trim()}`;
+    const blob = new Blob([body], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${title.replace(/[\\\/:*?"<>|]/g, "_")}.pro`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const exportPro6 = () => {
@@ -2661,6 +2682,14 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                         borderRadius:7, cursor:"pointer", padding:"4px 8px",
                         fontSize:11, fontWeight:700, color:C.pur, fontFamily:"inherit",
                       }}>복사</button>
+                      <button onClick={() => setSvcLyricsModal({ song, text: song.lyrics || "" })}
+                        title="가사 편집 / .pro 다운로드"
+                        style={{ background: song.lyrics ? `${C.acc}18` : `${C.pur}12`,
+                          border:`1px solid ${song.lyrics ? C.acc+"44" : C.pur+"33"}`,
+                          borderRadius:7, cursor:"pointer", padding:"4px 8px",
+                          fontSize:11, fontWeight:700,
+                          color: song.lyrics ? C.acc : C.dim, fontFamily:"inherit",
+                      }}>가사</button>
                       <button onClick={() => removeSong(i)} style={{
                         background:"none", border:"none", cursor:"pointer",
                         padding:4, display:"flex", justifyContent:"center",
@@ -2725,6 +2754,43 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.6, padding:"8px 10px",
               background:C.bg, borderRadius:8, border:`1px solid ${C.bdr}` }}>
               💡 악보를 열고 메모 패널에서 본인 메모를 삭제한 후 다시 시도하세요.
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* 가사 편집 + .pro 다운로드 모달 (서비스 화면) */}
+      {svcLyricsModal && (
+        <Modal title={`가사 — ${svcLyricsModal.song.title}`} onClose={() => setSvcLyricsModal(null)}>
+          <div style={{ padding:"0 4px 8px" }}>
+            <div style={{ fontSize:11, color:C.dim, marginBottom:8, lineHeight:1.5 }}>
+              절/단락을 빈 줄로 구분하세요. 각 단락이 ProPresenter 슬라이드 한 장이 됩니다.
+            </div>
+            <textarea
+              value={svcLyricsModal.text}
+              onChange={e => setSvcLyricsModal(prev => ({ ...prev, text: e.target.value }))}
+              placeholder={"첫째 줄 가사\n둘째 줄 가사\n\n두 번째 절 첫째 줄\n두 번째 절 둘째 줄"}
+              style={{ width:"100%", height:280, boxSizing:"border-box",
+                background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:8,
+                padding:"10px 12px", fontSize:13, color:C.txt, resize:"vertical",
+                fontFamily:"inherit", lineHeight:1.8, outline:"none" }}
+            />
+            <div style={{ display:"flex", gap:8, marginTop:12 }}>
+              <button onClick={downloadSvcProFile}
+                style={{ flex:1, padding:"10px 0", borderRadius:9, cursor:"pointer",
+                  background:`${C.grn}22`, border:`1px solid ${C.grn}55`,
+                  color:C.grn, fontSize:13, fontWeight:700, fontFamily:"inherit",
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+                <Icon n="download" size={14} color={C.grn} />
+                .pro 다운로드
+              </button>
+              <button onClick={saveSvcLyrics} disabled={svcLyricsSaving}
+                style={{ flex:1, padding:"10px 0", borderRadius:9, cursor:"pointer",
+                  background: svcLyricsSaving ? C.bdr : C.acc,
+                  border:`1px solid ${svcLyricsSaving ? C.bdr : C.acc}`,
+                  color:"#fff", fontSize:13, fontWeight:700, fontFamily:"inherit" }}>
+                {svcLyricsSaving ? "저장 중..." : "저장"}
+              </button>
             </div>
           </div>
         </Modal>
