@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.248";
+const APP_VERSION = "3.249";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -111,9 +111,73 @@ const P = {
   antenna: "M12 9A3 3 0 0 0 12 15M12 9A3 3 0 0 1 12 15M12 6A6 6 0 0 0 12 18M12 6A6 6 0 0 1 12 18M12 10.8a1.2 1.2 0 1 0 0 2.4a1.2 1.2 0 1 0 0-2.4",
   megaphone:"M3 11v2a1 1 0 0 0 1 1h2l5 4V7l-5 4H4a1 1 0 0 0-1 1zM19 12a7 7 0 0 0-3-5.83M15.54 16.46A5 5 0 0 0 17 12a5 5 0 0 0-1.46-3.54",
   stop:    "M6 6h12v12H6z",
+  mic:     "M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3zM19 10v1a7 7 0 0 1-14 0v-1M12 19v3M8 22h8",
   repeat:  "M17 2l4 4-4 4M21 6H7a4 4 0 0 0 0 8h1M7 22l-4-4 4-4M3 18h14a4 4 0 0 0 0-8h-1",
   users:   "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
 };
+
+/* ══════════════════════════════════════════════════════════════════
+   RECORDING — IndexedDB helpers
+══════════════════════════════════════════════════════════════════ */
+const REC_DB_VER = 1;
+function openRecDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open("tvpc_recordings", REC_DB_VER);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains("recordings")) {
+        const s = db.createObjectStore("recordings", { keyPath:"id", autoIncrement:true });
+        s.createIndex("songId", "songId", { unique:false });
+      }
+    };
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+async function saveRecToDB(blob, meta) {
+  const db = await openRecDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction("recordings", "readwrite");
+    const r  = tx.objectStore("recordings").add({ ...meta, blob, createdAt: Date.now() });
+    r.onsuccess = () => res(r.result);
+    r.onerror   = e => rej(e.target.error);
+  });
+}
+async function getRecsFromDB(songId) {
+  const db = await openRecDB();
+  return new Promise((res, rej) => {
+    const tx  = db.transaction("recordings", "readonly");
+    const req = tx.objectStore("recordings").index("songId").getAll(songId);
+    req.onsuccess = () => res((req.result || []).sort((a,b) => b.createdAt - a.createdAt));
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+async function deleteRecFromDB(id) {
+  const db = await openRecDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction("recordings", "readwrite");
+    const r  = tx.objectStore("recordings").delete(id);
+    r.onsuccess = res; r.onerror = e => rej(e.target.error);
+  });
+}
+async function analyzeWithGemini(blob, apiKey) {
+  const b64 = await new Promise(r => {
+    const fr = new FileReader();
+    fr.onload = () => r(fr.result.split(",")[1]);
+    fr.readAsDataURL(blob);
+  });
+  const body = JSON.stringify({ contents:[{ parts:[
+    { inlineData:{ mimeType:"audio/webm", data:b64 } },
+    { text:"이 음악 연습 녹음을 분석해주세요. 박자 일관성, 음정 정확도, 다이나믹 표현, 전반적인 완성도를 중심으로 한국어로 구체적이고 건설적인 피드백을 3-5개 항목으로 작성해주세요." },
+  ]}]});
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    { method:"POST", headers:{"content-type":"application/json"}, body }
+  );
+  const d = await res.json();
+  if (d.error) throw new Error(d.error.message || "Gemini 오류");
+  return d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+}
 
 /* ══════════════════════════════════════════════════════════════════
    HELP DATA
@@ -3496,6 +3560,133 @@ function detectContentBounds(pdfCanvas, drawCanvas) {
 /* 세션 전체에서 공유되는 PDF 문서 캐시 (재파싱 방지) */
 const _pdfCache = {};
 
+function RecordingsModal({ songId, songTitle, userGeminiKey, onClose }) {
+  const [recs,     setRecs]     = useState([]);
+  const [playing,  setPlaying]  = useState(null); // id of currently playing
+  const [analyzing,setAnalyzing]= useState(null); // id being analyzed
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    getRecsFromDB(songId).then(setRecs).catch(() => {});
+  }, [songId]);
+
+  const fmt = (sec) => `${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`;
+  const fmtDate = (ts) => new Date(ts).toLocaleDateString("ko-KR",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+  const fmtSize = (b) => b < 1024*1024 ? `${(b/1024).toFixed(0)}KB` : `${(b/1024/1024).toFixed(1)}MB`;
+
+  const play = (rec) => {
+    if (audioRef.current) { audioRef.current.pause(); URL.revokeObjectURL(audioRef.current.src); }
+    if (playing === rec.id) { setPlaying(null); return; }
+    const url = URL.createObjectURL(rec.blob);
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    audio.onended = () => { setPlaying(null); URL.revokeObjectURL(url); };
+    audio.play();
+    setPlaying(rec.id);
+  };
+
+  const exportRec = (rec) => {
+    const url = URL.createObjectURL(rec.blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${songTitle}_${new Date(rec.createdAt).toLocaleDateString("ko-KR").replace(/\. /g,"-").replace(".","")}.webm`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  };
+
+  const del = async (rec) => {
+    if (playing === rec.id && audioRef.current) { audioRef.current.pause(); setPlaying(null); }
+    await deleteRecFromDB(rec.id);
+    setRecs(p => p.filter(r => r.id !== rec.id));
+  };
+
+  const analyze = async (rec) => {
+    const key = userGeminiKey;
+    if (!key) { alert("프로필에서 Gemini/Groq API 키를 먼저 설정해주세요"); return; }
+    setAnalyzing(rec.id);
+    try {
+      const result = await analyzeWithGemini(rec.blob, key);
+      await (async () => {
+        const db = await openRecDB();
+        await new Promise((res, rej) => {
+          const tx = db.transaction("recordings", "readwrite");
+          const store = tx.objectStore("recordings");
+          const gr = store.get(rec.id);
+          gr.onsuccess = () => {
+            const updated = { ...gr.result, aiAnalysis: result };
+            const pr = store.put(updated);
+            pr.onsuccess = res; pr.onerror = e => rej(e.target.error);
+          };
+          gr.onerror = e => rej(e.target.error);
+        });
+      })();
+      setRecs(p => p.map(r => r.id === rec.id ? { ...r, aiAnalysis: result } : r));
+    } catch(e) {
+      alert("AI 분석 실패: " + e.message);
+    }
+    setAnalyzing(null);
+  };
+
+  return (
+    <Modal title={`녹음 — ${songTitle}`} onClose={onClose}>
+      <div style={{ maxHeight:"65vh", overflowY:"auto" }}>
+        {recs.length === 0 ? (
+          <div style={{ textAlign:"center", color:C.dim, padding:"32px 0", fontSize:14 }}>
+            아직 녹음이 없습니다
+          </div>
+        ) : recs.map(rec => (
+          <div key={rec.id} style={{ borderRadius:10, border:`1px solid ${C.bdr}`,
+            background:C.card, marginBottom:10, overflow:"hidden" }}>
+            {/* 헤더 */}
+            <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px" }}>
+              <button onClick={() => play(rec)} style={{
+                width:36, height:36, borderRadius:"50%", border:"none", cursor:"pointer",
+                background: playing===rec.id ? C.red : C.acc,
+                display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+              }}>
+                <Icon n={playing===rec.id ? "stop" : "play"} size={14} color="#fff" />
+              </button>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:C.txt }}>{fmtDate(rec.createdAt)}</div>
+                <div style={{ fontSize:11, color:C.dim }}>{fmt(rec.duration || 0)} · {fmtSize(rec.size || 0)} · {rec.pageNum}페이지</div>
+              </div>
+              <button onClick={() => exportRec(rec)} title="파일 앱으로 저장" style={{
+                width:32, height:32, borderRadius:8, border:`1px solid ${C.bdr}`,
+                background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+              }}>
+                <Icon n="download" size={14} color={C.dim} />
+              </button>
+              <button onClick={() => del(rec)} title="삭제" style={{
+                width:32, height:32, borderRadius:8, border:`1px solid ${C.red}44`,
+                background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+              }}>
+                <Icon n="trash" size={14} color={C.red} />
+              </button>
+            </div>
+            {/* AI 분석 */}
+            <div style={{ borderTop:`1px solid ${C.bdr}`, padding:"8px 12px" }}>
+              {rec.aiAnalysis ? (
+                <div style={{ fontSize:12, color:C.txt, lineHeight:1.7, whiteSpace:"pre-wrap" }}>
+                  {rec.aiAnalysis}
+                </div>
+              ) : (
+                <button onClick={() => analyze(rec)} disabled={analyzing === rec.id} style={{
+                  padding:"6px 14px", borderRadius:8, border:`1px solid ${C.pur}55`,
+                  background: analyzing===rec.id ? C.bdr : `${C.pur}15`,
+                  color: analyzing===rec.id ? C.dim : C.pur,
+                  fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                }}>
+                  {analyzing===rec.id ? "AI 분석 중..." : "✨ AI 피드백 받기"}
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
 function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady }) {
   const song = songs.find(s => s.id === selectedSongId);
   const isLibraryMode = backTo === "library"; // 라이브러리에서 열린 경우: 예배 컨텍스트 없음
@@ -3559,6 +3750,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [noteShared,    setNoteShared]    = useState(false); // 팀 메모 여부
   const [noteTxt,       setNoteTxt]       = useState("");
   const [saving,        setSaving]        = useState(false);
+
+  // ── Recording
+  const [recording,    setRecording]    = useState(false);
+  const [recSeconds,   setRecSeconds]   = useState(0);
+  const [showRecModal, setShowRecModal] = useState(false);
+  const [recCount,     setRecCount]     = useState(0);
+  const mediaRecRef  = useRef(null);
+  const recTimerRef  = useRef(null);
+  const recChunksRef = useRef([]);
+  const recSecondsRef = useRef(0);
 
   // ── Drawing / handwriting
   const [drawMode,  setDrawMode]  = useState(false);
@@ -4551,6 +4752,48 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     toastTimer.current = setTimeout(() => setDualToast(""), 1000);
   }, []);
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus" : "audio/webm";
+      const mr = new MediaRecorder(stream, { mimeType });
+      recChunksRef.current = [];
+      mr.ondataavailable = e => { if (e.data.size > 0) recChunksRef.current.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(recChunksRef.current, { type: mimeType });
+        const secs = recSecondsRef.current;
+        await saveRecToDB(blob, {
+          songId: selectedSongId, songTitle: song?.title || "알 수 없음",
+          pageNum, duration: secs, size: blob.size,
+        });
+        setRecCount(p => p + 1);
+        showToast("녹음이 저장되었습니다 🎙️");
+      };
+      mr.start(1000);
+      mediaRecRef.current = mr;
+      setRecording(true);
+      setRecSeconds(0);
+      recSecondsRef.current = 0;
+      recTimerRef.current = setInterval(() => {
+        recSecondsRef.current += 1;
+        setRecSeconds(recSecondsRef.current);
+      }, 1000);
+    } catch {
+      showToast("마이크 권한이 필요합니다");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecRef.current?.state === "recording") {
+      mediaRecRef.current.stop();
+      mediaRecRef.current = null;
+    }
+    clearInterval(recTimerRef.current);
+    setRecording(false);
+  };
+
   const dualPrev = useCallback(() => {
     if (dualIdx <= 0) { showToast("첫번째 곡입니다"); return; }
     const l = svcSongs[dualIdx - 1];
@@ -5449,6 +5692,49 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
                   {/* 다운로드: 라이브러리·리더는 항상, 멤버는 리더가 허용 시만 */}
                   {canDownload && toolBtn("download", false, downloadAnnotatedScore, "악보 다운로드")}
+                  {/* 녹음 버튼 */}
+                  {recording ? (
+                    <button onClick={stopRecording} style={{
+                      display:"flex", alignItems:"center", gap:4,
+                      padding: narrow ? "5px 8px" : "5px 10px",
+                      background:`${C.red}22`, border:`1px solid ${C.red}`,
+                      borderRadius:8, cursor:"pointer", flexShrink:0,
+                    }}>
+                      <div style={{ width:8, height:8, borderRadius:"50%", background:C.red,
+                        animation:"pulse 1s infinite" }} />
+                      <span style={{ fontSize:11, fontWeight:700, color:C.red, fontFamily:"inherit",
+                        fontVariantNumeric:"tabular-nums" }}>
+                        {`${Math.floor(recSeconds/60)}:${String(recSeconds%60).padStart(2,"0")}`}
+                      </span>
+                    </button>
+                  ) : (
+                    <button onClick={startRecording} title="녹음 시작" style={{
+                      position:"relative",
+                      background:"transparent", border:`1px solid ${C.bdr}`,
+                      borderRadius:8, padding: narrow ? 6 : 7, cursor:"pointer",
+                      display:"flex", alignItems:"center",
+                    }}>
+                      <Icon n="mic" size={tbIconSz} color={C.dim} />
+                      {recCount > 0 && (
+                        <span style={{
+                          position:"absolute", top:2, right:2,
+                          background:C.acc, color:"#fff", borderRadius:"50%",
+                          fontSize:8, fontWeight:800, width:13, height:13,
+                          display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
+                        }}>{recCount}</span>
+                      )}
+                    </button>
+                  )}
+                  {/* 녹음 목록 (저장된 녹음이 있을 때만 표시) */}
+                  {recCount > 0 && !recording && (
+                    <button onClick={() => setShowRecModal(true)} title="녹음 목록" style={{
+                      background:"transparent", border:`1px solid ${C.bdr}`,
+                      borderRadius:8, padding: narrow ? 6 : 7, cursor:"pointer",
+                      display:"flex", alignItems:"center",
+                    }}>
+                      <Icon n="play" size={tbIconSz} color={C.dim} />
+                    </button>
+                  )}
                   {/* 리더: 멤버 다운로드 허용 토글 (서비스 모드만) */}
                   {!isLibraryMode && leader && svc && (
                     <button onClick={toggleDownloadEnabled} title="멤버 다운로드 허용" style={{
@@ -6596,6 +6882,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             ))
           }
         </div>
+      )}
+      {showRecModal && (
+        <RecordingsModal
+          songId={selectedSongId}
+          songTitle={song?.title || ""}
+          userGeminiKey={user?.geminiKey}
+          onClose={() => setShowRecModal(false)}
+        />
       )}
     </div>
   );
@@ -9407,6 +9701,9 @@ export default function App() {
       @keyframes wSlideUp { from { opacity:0; transform:translateY(32px);} to { opacity:1; transform:translateY(0); } }
       .h-screen { height: 100vh; height: var(--app-h, 100dvh); }
       .modal-sheet { max-height: 90vh; max-height: 90dvh; }
+      .rec-pulse { animation: rec-pulse 1s ease-in-out infinite; }
+      @keyframes rec-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+      @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
     `;
     document.head.appendChild(el);
     return () => { try { document.head.removeChild(el); } catch(_) {} };
