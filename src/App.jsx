@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.284";
+const APP_VERSION = "3.285";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -5890,6 +5890,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             <Icon n="back" size={18} color={C.acc} />
             <span style={{ fontSize:15, fontWeight:500, color:C.acc }}>Back</span>
           </button>
+          {/* 메트로놈 버튼 — 항상 보이는 고정 위치 */}
+          <button data-metro-panel onClick={() => setShowMetroPanel(p => !p)} title="메트로놈"
+            style={{
+              position:"relative", flexShrink:0,
+              background: metroOn ? `${C.acc}22` : "transparent",
+              border:`1px solid ${metroOn ? C.acc : C.bdr}`,
+              borderRadius:8, padding:"5px 7px", cursor:"pointer",
+              display:"flex", alignItems:"center", justifyContent:"center",
+            }}>
+            <span style={{ fontSize:16, lineHeight:1 }}>🎵</span>
+            {metroOn && (
+              <span style={{
+                position:"absolute", top:2, right:2,
+                width:7, height:7, borderRadius:"50%",
+                background: metroBeat % 4 === 0 ? C.acc : "#aaa",
+                transition:"background 0.06s",
+              }} />
+            )}
+          </button>
 
           <div style={{ flex:1, minWidth:0, textAlign:"center" }}>
             <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
@@ -6052,24 +6071,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   {sep}
                   {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
                   {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
-                  {/* 메트로놈 버튼 */}
-                  <button data-metro-panel onClick={() => setShowMetroPanel(p => !p)} title="메트로놈" style={{
-                    display:"flex", flexDirection:"column", alignItems:"center", gap:1,
-                    padding: narrow ? "4px 6px" : "4px 7px",
-                    background: metroOn ? `${C.acc}22` : showMetroPanel ? `${C.bdr}` : "transparent",
-                    border:`1px solid ${metroOn ? C.acc : C.bdr}`,
-                    borderRadius:8, cursor:"pointer", flexShrink:0, position:"relative",
-                  }}>
-                    <span style={{ fontSize:tbIconSz, lineHeight:1 }}>🎵</span>
-                    {metroOn && (
-                      <span style={{
-                        position:"absolute", top:2, right:2,
-                        width:6, height:6, borderRadius:"50%",
-                        background: metroBeat % 4 === 0 ? C.acc : C.dim,
-                        transition:"background 0.05s",
-                      }} />
-                    )}
-                  </button>
                   {/* 다운로드: 라이브러리·리더는 항상, 멤버는 리더가 허용 시만 */}
                   {canDownload && toolBtn("download", false, downloadAnnotatedScore, "악보 다운로드")}
                   {/* 리더: 멤버 다운로드 허용 토글 (서비스 모드만) */}
