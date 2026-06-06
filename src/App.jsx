@@ -5886,31 +5886,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           </span>}
                           <span style={{ fontSize:8, color: !isVocal ? C.grn : C.dim, lineHeight:1 }}>▼</span>
                         </button>
-                        {/* 악기 피커 드롭다운 */}
-                        {showInstPicker && (
-                          <div data-inst-picker style={{
-                            position:"absolute", top:"calc(100% + 6px)", right:0,
-                            background:C.surf, border:`1px solid ${C.bdr}`,
-                            borderRadius:12, boxShadow:"0 4px 20px rgba(0,0,0,.18)",
-                            padding:"6px 4px", zIndex:9999, display:"flex", gap:4,
-                          }}>
-                            {INST_MODES.map(m => (
-                              <button key={m.id} onClick={() => {
-                                setMode(m.id);
-                                localStorage.setItem("tvpc_lastInst", m.id);
-                                setShowInstPicker(false);
-                              }} style={{
-                                display:"flex", flexDirection:"column", alignItems:"center", gap:2,
-                                padding:"8px 10px", borderRadius:9, cursor:"pointer",
-                                background: recMode === m.id ? `${C.grn}22` : "transparent",
-                                border:`1px solid ${recMode === m.id ? C.grn : "transparent"}`,
-                              }}>
-                                <span style={{ fontSize:18 }}>{m.emoji}</span>
-                                <span style={{ fontSize:10, fontWeight:700, color: recMode === m.id ? C.grn : C.dim, fontFamily:"inherit", whiteSpace:"nowrap" }}>{m.label}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     );
                   })()}
@@ -6691,6 +6666,35 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               cursor:"pointer", touchAction:"none" }}>
             <Icon n="chevD" size={20} color="#fff" />
           </button>
+        </div>
+      )}
+
+      {/* 악기 피커 — overflow 컨테이너 밖에서 fixed로 렌더 */}
+      {showInstPicker && (
+        <div data-inst-picker style={{
+          position:"fixed",
+          top:"calc(env(safe-area-inset-top) + 58px)",
+          right:12,
+          background:C.surf, border:`1px solid ${C.bdr}`,
+          borderRadius:12, boxShadow:"0 4px 20px rgba(0,0,0,.25)",
+          padding:"6px 4px", zIndex:9999, display:"flex", gap:4,
+        }}>
+          {INST_MODES.map(m => (
+            <button data-inst-picker key={m.id} onClick={() => {
+              const setMode = (id) => { setRecMode(id); recModeRef.current = id; localStorage.setItem("tvpc_recMode", id); };
+              setMode(m.id);
+              localStorage.setItem("tvpc_lastInst", m.id);
+              setShowInstPicker(false);
+            }} style={{
+              display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+              padding:"8px 10px", borderRadius:9, cursor:"pointer",
+              background: recMode === m.id ? `${C.grn}22` : "transparent",
+              border:`1px solid ${recMode === m.id ? C.grn : "transparent"}`,
+            }}>
+              <span style={{ fontSize:20 }}>{m.emoji}</span>
+              <span style={{ fontSize:10, fontWeight:700, color: recMode === m.id ? C.grn : C.dim, fontFamily:"inherit", whiteSpace:"nowrap" }}>{m.label}</span>
+            </button>
+          ))}
         </div>
       )}
 
