@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.261";
+const APP_VERSION = "3.262";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -167,7 +167,7 @@ async function analyzeWithGemini(blob, apiKey, meta = {}) {
     fr.onload = () => r(fr.result.split(",")[1]);
     fr.readAsDataURL(blob);
   });
-  const { songTitle = "", key = "", bpm = "", pageNum = "", duration = 0 } = meta;
+  const { songTitle = "", key = "", bpm = "", pageNum = "", duration = 0, recMode = "general" } = meta;
   const songInfo = [
     songTitle && `곡명: ${songTitle}`,
     key       && `조성(Key): ${key}`,
@@ -176,7 +176,23 @@ async function analyzeWithGemini(blob, apiKey, meta = {}) {
     duration  && `녹음 길이: ${Math.floor(duration/60)}분 ${duration%60}초`,
   ].filter(Boolean).join(" | ");
 
-  const prompt = `당신은 교회 찬양팀 보컬·악기 코치입니다. 아래 연습 녹음을 전문적으로 분석해 주세요.
+  const prompt = recMode === "vocal"
+    ? `당신은 교회 찬양팀 전문 보컬 코치입니다. 아래 보컬 연습 녹음을 분석해 주세요.${key ? ` 이 곡의 조성은 ${key}입니다.` : ""}
+
+${songInfo ? `【곡 정보】${songInfo}\n` : ""}
+【보컬 분석 기준】
+1. 음정 정확도 — 조성(${key||"?"}) 기준 음이탈, 샤프/플랫 경향, 고음부 안정성
+2. 호흡 & 발성 — 호흡 지지, 소리 끊김, 두성/흉성 전환, 롱톤 안정성
+3. 발음 & 딕션 — 가사 전달력, 모음/자음 명확도, 받침 처리
+4. 리듬 & 박자감 — MR과의 싱크, 당김음 처리, 박자 앞/뒤 경향
+5. 감정 표현 & 워십 — 가사 의미 전달, 다이나믹 대비, 예배 인도자로서의 표현력
+
+【출력 형식】
+- 각 항목을 🎤 시작, ✅ 잘된 점 / ⚠️ 개선점 구분
+- 구체적 시간대(예: "0:15 부근") 언급 가능하면 포함
+- 마지막에 "💡 다음 연습 집중 포인트:" 한 줄 핵심 요약
+- 전체 400-600자, 한국어`
+    : `당신은 교회 찬양팀 보컬·악기 코치입니다. 아래 연습 녹음을 전문적으로 분석해 주세요.
 
 ${songInfo ? `【곡 정보】${songInfo}\n` : ""}
 【분석 기준】
@@ -3643,7 +3659,7 @@ function RecordingsModal({ songId, songTitle, userGeminiKey, sharedGeminiKey, on
       try {
         const result = await analyzeWithGemini(rec.blob, key, {
           songTitle: rec.songTitle, key: rec.key, bpm: rec.bpm,
-          pageNum: rec.pageNum, duration: rec.duration,
+          pageNum: rec.pageNum, duration: rec.duration, recMode: rec.recMode || "general",
         });
         const db = await openRecDB();
         await new Promise((res, rej) => {
@@ -3794,6 +3810,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [recSeconds,   setRecSeconds]   = useState(0);
   const [showRecModal, setShowRecModal] = useState(false);
   const [recCount,     setRecCount]     = useState(0);
+  const [recMode,      setRecMode]      = useState(() => localStorage.getItem("tvpc_recMode") || "general"); // "general" | "vocal"
+  const recModeRef   = useRef(localStorage.getItem("tvpc_recMode") || "general");
   const mediaRecRef  = useRef(null);
   const recTimerRef  = useRef(null);
   const recChunksRef = useRef([]);
@@ -4812,6 +4830,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           songId: selectedSongId, songTitle: song?.title || "알 수 없음",
           key: song?.key || "", bpm: song?.bpm || "",
           pageNum, duration: secs, size: blob.size,
+          recMode: recModeRef.current,
         });
         setRecCount(p => p + 1);
         showToast("녹음이 저장되었습니다 🎙️");
@@ -5723,6 +5742,26 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     </button>
                     {sep}
                   </>}
+                  {/* 보컬/일반 모드 토글 (녹음 중 아닐 때만) */}
+                  {!recording && (
+                    <button onClick={() => {
+                      const next = recMode === "vocal" ? "general" : "vocal";
+                      setRecMode(next);
+                      recModeRef.current = next;
+                      localStorage.setItem("tvpc_recMode", next);
+                    }} title={recMode === "vocal" ? "보컬 모드 (탭하여 일반으로)" : "일반 모드 (탭하여 보컬로)"} style={{
+                      display:"flex", alignItems:"center", gap:3,
+                      padding: narrow ? "3px 6px" : "3px 8px",
+                      background: recMode === "vocal" ? `${C.pur}22` : "transparent",
+                      border:`1px solid ${recMode === "vocal" ? C.pur : C.bdr}`,
+                      borderRadius:7, cursor:"pointer", flexShrink:0,
+                    }}>
+                      <span style={{ fontSize:12 }}>{recMode === "vocal" ? "🎤" : "🎵"}</span>
+                      {!narrow && <span style={{ fontSize:10, fontWeight:700, color: recMode === "vocal" ? C.pur : C.dim, fontFamily:"inherit" }}>
+                        {recMode === "vocal" ? "보컬" : "일반"}
+                      </span>}
+                    </button>
+                  )}
                   {/* 녹음 버튼 — 항상 보이도록 FIT 앞에 배치 */}
                   {recording ? (
                     <button onClick={stopRecording} style={{
