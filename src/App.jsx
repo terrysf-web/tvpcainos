@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.257";
+const APP_VERSION = "3.258";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -4760,19 +4760,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
-      const mimeType = [
-        "audio/webm;codecs=opus",
-        "audio/mp4;codecs=mp4a.40.2",
-        "audio/mp4",
-        "audio/webm",
-        "",
-      ].find(t => t === "" || MediaRecorder.isTypeSupported(t));
-      const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      // 브라우저 기본값 사용 — Safari: audio/mp4, Chrome: audio/webm
+      const mr = new MediaRecorder(stream);
       recChunksRef.current = [];
       mr.ondataavailable = e => { if (e.data.size > 0) recChunksRef.current.push(e.data); };
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
-        const actualType = mr.mimeType || mimeType || "audio/webm";
+        const actualType = mr.mimeType || "audio/webm";
         const blob = new Blob(recChunksRef.current, { type: actualType });
         const secs = recSecondsRef.current;
         await saveRecToDB(blob, {
