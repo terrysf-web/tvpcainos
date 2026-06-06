@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.253";
+const APP_VERSION = "3.254";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -168,7 +168,7 @@ async function analyzeWithGemini(blob, apiKey) {
     fr.readAsDataURL(blob);
   });
   const body = JSON.stringify({ contents:[{ parts:[
-    { inlineData:{ mimeType:"audio/webm", data:b64 } },
+    { inlineData:{ mimeType: blob.type || "audio/webm", data:b64 } },
     { text:"이 음악 연습 녹음을 분석해주세요. 박자 일관성, 음정 정확도, 다이나믹 표현, 전반적인 완성도를 중심으로 한국어로 구체적이고 건설적인 피드백을 3-5개 항목으로 작성해주세요." },
   ]}]});
   const res = await fetch(
@@ -3587,7 +3587,8 @@ function RecordingsModal({ songId, songTitle, userGeminiKey, onClose }) {
   };
 
   const exportRec = async (rec) => {
-    const fname = `${songTitle}_${new Date(rec.createdAt).toLocaleDateString("ko-KR").replace(/\. /g,"-").replace(".","")}.webm`;
+    const ext = (rec.blob.type || "").includes("mp4") ? "m4a" : "webm";
+    const fname = `${songTitle}_${new Date(rec.createdAt).toLocaleDateString("ko-KR").replace(/\. /g,"-").replace(".","")}.${ext}`;
     const file = new File([rec.blob], fname, { type: rec.blob.type || "audio/webm" });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try { await navigator.share({ files: [file], title: fname }); return; } catch {}
@@ -4760,7 +4761,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus" : "audio/webm";
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/mp4")
+        ? "audio/mp4"
+        : "audio/webm";
       const mr = new MediaRecorder(stream, { mimeType });
       recChunksRef.current = [];
       mr.ondataavailable = e => { if (e.data.size > 0) recChunksRef.current.push(e.data); };
