@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.285";
+const APP_VERSION = "3.286";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -3920,6 +3920,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [noteInput,     setNoteInput]     = useState(false);
   const [noteShared,    setNoteShared]    = useState(false); // 팀 메모 여부
   const [noteTxt,       setNoteTxt]       = useState("");
+  const [noteSongId,    setNoteSongId]    = useState(null); // dual 모드에서 노트 저장 대상 악보
   const [saving,        setSaving]        = useState(false);
 
   // ── Recording
@@ -4008,8 +4009,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const stampPressed1Ref   = useRef(false); // Apple Pencil hover guard
   const stampPressed2Ref   = useRef(false);
 
-  const myNotes   = annotations[selectedSongId]     || [];
-  const teamNotes = (teamAnnotations || {})[selectedSongId] || [];
+  // myNotes / teamNotes / effectiveNoteSongId computed after dualLeftSongId (see below)
   const leader    = isLeader(user.role);
 
   // ── 메트로놈 상태 ──
@@ -4190,6 +4190,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   const dualLeftSongId  = svcSongs[dualIdx]?.id     || null;
   const dualRightSongId = svcSongs[dualIdx + 1]?.id || null;
+  const effectiveNoteSongId = dual ? (noteSongId || dualLeftSongId) : selectedSongId;
+  const myNotes   = annotations[effectiveNoteSongId]     || [];
+  const teamNotes = (teamAnnotations || {})[effectiveNoteSongId] || [];
 
   // drawings stored under customSongs/drw_{uid}_{songId}_p{page}
   // — customSongs has "allow read, write: if isAuthed()" in live Firestore rules
@@ -5178,10 +5181,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const saveNote = async () => {
     if (!noteTxt.trim() || saving) return;
     setSaving(true);
-    await onAddAnnotation(selectedSongId, { text: noteTxt, page: pageNum, x: 0, y: 0, shared: noteShared });
+    await onAddAnnotation(effectiveNoteSongId, { text: noteTxt, page: pageNum, x: 0, y: 0, shared: noteShared });
     setNoteTxt(""); setNoteInput(false); setNoteShared(false); setSaving(false);
   };
-  const deleteNote = id => onDeleteAnnotation(selectedSongId, id);
+  const deleteNote = id => onDeleteAnnotation(effectiveNoteSongId, id);
 
   // 선택된 텍스트/스탬프 삭제
   const selStrokesRef = (sel) => {
@@ -7128,6 +7131,26 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           <div style={{ background:C.surf, borderRadius:16, padding:20,
             width:"100%", maxWidth:400, border:`1px solid ${C.bdr}` }}>
             <div style={{ fontWeight:700, marginBottom:12 }}>메모 추가 (p.{pageNum})</div>
+            {dual && dualLeftSongId && dualRightSongId && (
+              <div style={{ marginBottom:10 }}>
+                <div style={{ fontSize:11, color:C.dim, marginBottom:5 }}>어느 악보에 저장할까요?</div>
+                <div style={{ display:"flex", gap:6 }}>
+                  {[
+                    { id: dualLeftSongId,  label: `⬅ ${svcSongs[dualIdx]?.title || "왼쪽"}` },
+                    { id: dualRightSongId, label: `➡ ${svcSongs[dualIdx+1]?.title || "오른쪽"}` },
+                  ].map(o => (
+                    <button key={o.id} onClick={() => setNoteSongId(o.id)}
+                      style={{ flex:1, padding:"7px 0", borderRadius:8, cursor:"pointer",
+                        fontFamily:"inherit", fontSize:12, fontWeight:700,
+                        background: effectiveNoteSongId === o.id ? C.acc : C.card,
+                        color: effectiveNoteSongId === o.id ? "#111" : C.dim,
+                        border: `1.5px solid ${effectiveNoteSongId === o.id ? C.acc : C.bdr}` }}>
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {leader && (
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
                 {[{ v:false, label:"🔒 개인 메모" }, { v:true, label:"👥 팀 메모" }].map(o => (
@@ -7149,7 +7172,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 fontSize:14, outline:"none", fontFamily:"inherit",
                 resize:"vertical", minHeight:80 }} />
             <div style={{ display:"flex", gap:8, marginTop:12 }}>
-              <Btn label="취소" variant="ghost" onClick={() => { setNoteInput(false); setNoteTxt(""); setNoteShared(false); }} full />
+              <Btn label="취소" variant="ghost" onClick={() => { setNoteInput(false); setNoteTxt(""); setNoteShared(false); setNoteSongId(null); }} full />
               <Btn label={saving ? "저장 중..." : "저장"} variant="primary" onClick={saveNote} full disabled={saving} />
             </div>
           </div>
@@ -7206,6 +7229,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               </button>
             </div>
           </div>
+
+          {dual && dualLeftSongId && dualRightSongId && (
+            <div style={{ display:"flex", gap:5, marginBottom:12 }}>
+              {[
+                { id: dualLeftSongId,  label: `⬅ ${svcSongs[dualIdx]?.title || "왼쪽"}` },
+                { id: dualRightSongId, label: `➡ ${svcSongs[dualIdx+1]?.title || "오른쪽"}` },
+              ].map(o => (
+                <button key={o.id} onClick={() => setNoteSongId(o.id)}
+                  style={{ flex:1, padding:"5px 4px", borderRadius:7, cursor:"pointer",
+                    fontFamily:"inherit", fontSize:11, fontWeight:700,
+                    background: effectiveNoteSongId === o.id ? C.acc : C.card,
+                    color: effectiveNoteSongId === o.id ? "#111" : C.dim,
+                    border: `1.5px solid ${effectiveNoteSongId === o.id ? C.acc : C.bdr}`,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* 팀 메모 */}
           <div style={{ fontSize:11, fontWeight:800, color:C.acc, letterSpacing:"0.05em", marginBottom:6 }}>👥 팀 메모</div>
