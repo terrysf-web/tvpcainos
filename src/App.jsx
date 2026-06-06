@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.263";
+const APP_VERSION = "3.264";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -177,39 +177,33 @@ async function analyzeWithGemini(blob, apiKey, meta = {}) {
   ].filter(Boolean).join(" | ");
 
   const prompt = recMode === "vocal"
-    ? `교회 찬양팀 보컬 코치로서 이 녹음을 분석해 주세요.
+    ? `교회 찬양팀 보컬 코치입니다. 아래 녹음을 분석해 주세요.
 ${songInfo ? `곡 정보: ${songInfo}` : ""}
 
-두 가지만 집중해서 평가하세요:
+중요: 마크다운 기호(#, *, **, -) 절대 사용 금지. 이모지와 줄바꿈만 사용하세요.
+
+두 가지만 평가하세요:
 
 🎵 음정
-- ${key ? `조성 ${key} 기준으로` : ""} 음이탈이 어느 부분에서 발생하는지
-- 음이 올라가는/내려가는 경향이 있는지 (샤프/플랫 습관)
-- 고음 구간에서 음정이 흔들리는지
-- 잘 된 부분과 아쉬운 부분을 구체적으로
+${key ? `조성 ${key} 기준으로 ` : ""}음이탈이 어느 부분에서 발생하는지, 샤프/플랫 경향, 고음 구간 안정성, 잘 된 부분과 아쉬운 부분.
 
 🥁 박자
-- 빠르거나 느린 경향이 있는지
-- 박자가 흔들리는 특정 구간이 있는지
-- 리듬 패턴을 정확히 잡는지
+빠르거나 느린 경향, 박자가 흔들리는 구간, 리듬 패턴 정확도.
 
 마지막에 "→ 지금 당장 고쳐야 할 것:" 한 줄로 가장 중요한 것 하나만.
 한국어, 간결하게.`
-    : `교회 찬양팀 악기 코치로서 이 녹음을 분석해 주세요.
+    : `교회 찬양팀 악기 코치입니다. 아래 녹음을 분석해 주세요.
 ${songInfo ? `곡 정보: ${songInfo}` : ""}
 
-두 가지만 집중해서 평가하세요:
+중요: 마크다운 기호(#, *, **, -) 절대 사용 금지. 이모지와 줄바꿈만 사용하세요.
+
+두 가지만 평가하세요:
 
 🥁 박자
-- 템포가 일정하게 유지되는지${bpm ? ` (기준 BPM ${bpm})` : ""}
-- 박자가 흔들리거나 끌리는 구간
-- 쉼표와 당김음 처리가 정확한지
+템포가 일정한지${bpm ? ` (기준 BPM ${bpm})` : ""}, 흔들리거나 끌리는 구간, 쉼표와 당김음 처리.
 
-🎸 스킬 & 테크닉
-- 음의 연결(레가토/스타카토)이 의도대로 되는지
-- 다이나믹(강약) 조절이 되는지
-- 코드/음 전환이 매끄러운지, 실수가 반복되는 부분
-- 전체적인 완성도
+🎸 스킬
+음의 연결, 다이나믹 조절, 코드/음 전환 매끄러움, 실수가 반복되는 부분.
 
 마지막에 "→ 지금 당장 고쳐야 할 것:" 한 줄로 가장 중요한 것 하나만.
 한국어, 간결하게.`;
@@ -3727,7 +3721,13 @@ function RecordingsModal({ songId, songTitle, userGeminiKey, sharedGeminiKey, on
             <div style={{ borderTop:`1px solid ${C.bdr}`, padding:"8px 12px" }}>
               {rec.aiAnalysis ? (
                 <div style={{ fontSize:12, color:C.txt, lineHeight:1.7, whiteSpace:"pre-wrap" }}>
-                  {rec.aiAnalysis}
+                  {rec.aiAnalysis
+                    .replace(/#{1,6}\s*/g, "")
+                    .replace(/\*\*(.+?)\*\*/g, "$1")
+                    .replace(/\*(.+?)\*/g, "$1")
+                    .replace(/^[-•]\s+/gm, "")
+                    .replace(/\n{3,}/g, "\n\n")
+                    .trim()}
                 </div>
               ) : (
                 <button onClick={() => analyze(rec)} disabled={analyzing === rec.id} style={{
