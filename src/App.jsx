@@ -4192,8 +4192,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // 악기 피커 외부 탭 시 닫기
   useEffect(() => {
     if (!showInstPicker) return;
-    const close = () => setShowInstPicker(false);
-    const t = setTimeout(() => document.addEventListener("pointerdown", close, { once: true }), 50);
+    const close = (e) => {
+      if (e.target.closest && e.target.closest("[data-inst-picker]")) return;
+      setShowInstPicker(false);
+    };
+    const t = setTimeout(() => {
+      document.addEventListener("pointerdown", close);
+    }, 100);
     return () => { clearTimeout(t); document.removeEventListener("pointerdown", close); };
   }, [showInstPicker]);
 
@@ -5865,7 +5870,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           {!narrow && <span style={{ fontSize:10, fontWeight:700, color: isVocal ? C.pur : C.dim, fontFamily:"inherit" }}>보컬</span>}
                         </button>
                         {/* 악기 버튼 */}
-                        <button onClick={() => { if (isVocal) { setMode("other"); setShowInstPicker(true); } else { setShowInstPicker(p => !p); } }}
+                        <button data-inst-picker onClick={() => { if (isVocal) { setMode("other"); setShowInstPicker(true); } else { setShowInstPicker(p => !p); } }}
                           title="악기 선택"
                           style={{
                             display:"flex", alignItems:"center", gap:3,
@@ -5883,14 +5888,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         </button>
                         {/* 악기 피커 드롭다운 */}
                         {showInstPicker && (
-                          <div style={{
+                          <div data-inst-picker style={{
                             position:"absolute", top:"calc(100% + 6px)", right:0,
                             background:C.surf, border:`1px solid ${C.bdr}`,
                             borderRadius:12, boxShadow:"0 4px 20px rgba(0,0,0,.18)",
                             padding:"6px 4px", zIndex:9999, display:"flex", gap:4,
-                          }}
-                            onMouseLeave={() => setShowInstPicker(false)}
-                          >
+                          }}>
                             {INST_MODES.map(m => (
                               <button key={m.id} onClick={() => {
                                 setMode(m.id);
