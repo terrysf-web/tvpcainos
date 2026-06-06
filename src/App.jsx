@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.259";
+const APP_VERSION = "3.260";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3561,7 +3561,7 @@ function detectContentBounds(pdfCanvas, drawCanvas) {
 /* 세션 전체에서 공유되는 PDF 문서 캐시 (재파싱 방지) */
 const _pdfCache = {};
 
-function RecordingsModal({ songId, songTitle, userGeminiKey, onClose }) {
+function RecordingsModal({ songId, songTitle, userGeminiKey, sharedGeminiKey, onClose }) {
   const [recs,     setRecs]     = useState([]);
   const [playing,  setPlaying]  = useState(null); // id of currently playing
   const [analyzing,setAnalyzing]= useState(null); // id being analyzed
@@ -3606,29 +3606,31 @@ function RecordingsModal({ songId, songTitle, userGeminiKey, onClose }) {
   };
 
   const analyze = async (rec) => {
-    const key = userGeminiKey;
-    if (!key) { alert("프로필에서 Gemini/Groq API 키를 먼저 설정해주세요"); return; }
+    // 본인 키 → 공유 키 순서로 시도
+    const keys = [userGeminiKey, sharedGeminiKey].filter(Boolean).filter((k,i,a) => a.indexOf(k)===i);
+    if (!keys.length) { alert("AI 분석을 사용하려면 관리자에게 문의하세요 (Gemini API 키 미설정)"); return; }
     setAnalyzing(rec.id);
-    try {
-      const result = await analyzeWithGemini(rec.blob, key);
-      await (async () => {
+    let lastErr = null;
+    for (const key of keys) {
+      try {
+        const result = await analyzeWithGemini(rec.blob, key);
         const db = await openRecDB();
         await new Promise((res, rej) => {
           const tx = db.transaction("recordings", "readwrite");
           const store = tx.objectStore("recordings");
           const gr = store.get(rec.id);
           gr.onsuccess = () => {
-            const updated = { ...gr.result, aiAnalysis: result };
-            const pr = store.put(updated);
+            const pr = store.put({ ...gr.result, aiAnalysis: result });
             pr.onsuccess = res; pr.onerror = e => rej(e.target.error);
           };
           gr.onerror = e => rej(e.target.error);
         });
-      })();
-      setRecs(p => p.map(r => r.id === rec.id ? { ...r, aiAnalysis: result } : r));
-    } catch(e) {
-      alert("AI 분석 실패: " + e.message);
+        setRecs(p => p.map(r => r.id === rec.id ? { ...r, aiAnalysis: result } : r));
+        setAnalyzing(null);
+        return;
+      } catch(e) { lastErr = e; }
     }
+    alert("AI 분석 실패: " + lastErr?.message);
     setAnalyzing(null);
   };
 
@@ -6902,7 +6904,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         <RecordingsModal
           songId={selectedSongId}
           songTitle={song?.title || ""}
-          userGeminiKey={user?.geminiKey || sharedGeminiKey}
+          userGeminiKey={user?.geminiKey}
+          sharedGeminiKey={sharedGeminiKey}
           onClose={() => setShowRecModal(false)}
         />
       )}
