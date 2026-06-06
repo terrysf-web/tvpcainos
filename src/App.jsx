@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.258";
+const APP_VERSION = "3.259";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -4037,6 +4037,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // Clear selection on page/song change
   useEffect(() => { setSelAnnot(null); }, [selectedSongId, pageNum, dualIdx]);
+
+  // 곡 변경 시 IndexedDB에서 녹음 카운트 로드
+  useEffect(() => {
+    if (!selectedSongId) return;
+    getRecsFromDB(selectedSongId).then(recs => setRecCount(recs.length)).catch(() => {});
+  }, [selectedSongId]);
 
   // 코드 이동 모드: 전조 끄거나 곡/페이지 이동 시 자동 리셋
   useEffect(() => { if (!transposeMode) setChordMoveMode(false); }, [transposeMode]);
