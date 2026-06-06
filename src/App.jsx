@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.255";
+const APP_VERSION = "3.256";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -3692,7 +3692,7 @@ function RecordingsModal({ songId, songTitle, userGeminiKey, onClose }) {
   );
 }
 
-function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady }) {
+function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey }) {
   const song = songs.find(s => s.id === selectedSongId);
   const isLibraryMode = backTo === "library"; // 라이브러리에서 열린 경우: 예배 컨텍스트 없음
 
@@ -6899,7 +6899,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         <RecordingsModal
           songId={selectedSongId}
           songTitle={song?.title || ""}
-          userGeminiKey={user?.geminiKey}
+          userGeminiKey={user?.geminiKey || sharedGeminiKey}
           onClose={() => setShowRecModal(false)}
         />
       )}
@@ -7602,12 +7602,15 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
   const [showInfo,    setShowInfo]    = useState(false);
   const [showHelp,    setShowHelp]    = useState(false);
   const [showContact, setShowContact] = useState(false);
-  const [showApiKey,    setShowApiKey]    = useState(false);
-  const [apiKeyInput,   setApiKeyInput]   = useState(user?.geminiKey || "");
-  const [apiKeySaving,  setApiKeySaving]  = useState(false);
-  const [apiKeyErr,     setApiKeyErr]     = useState("");
-  const [apiKeyTesting, setApiKeyTesting] = useState(false);
-  const [apiKeyOk,      setApiKeyOk]      = useState(false);
+  const [showApiKey,      setShowApiKey]      = useState(false);
+  const [apiKeyInput,     setApiKeyInput]     = useState(user?.geminiKey || "");
+  const [apiKeySaving,    setApiKeySaving]    = useState(false);
+  const [apiKeyErr,       setApiKeyErr]       = useState("");
+  const [apiKeyTesting,   setApiKeyTesting]   = useState(false);
+  const [apiKeyOk,        setApiKeyOk]        = useState(false);
+  const [showSharedKey,   setShowSharedKey]   = useState(false);
+  const [sharedKeyInput,  setSharedKeyInput]  = useState("");
+  const [sharedKeySaving, setSharedKeySaving] = useState(false);
 
   const testApiKey = async () => {
     const k = apiKeyInput.trim();
@@ -7774,6 +7777,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
         {[
           { label:`앱 정보 (v${APP_VERSION})`, action: () => setShowInfo(true) },
           { label: user?.geminiKey ? "AI 코드 감지 키 (설정됨 ✓)" : "AI 코드 감지 키 설정", action: () => { setApiKeyInput(user?.geminiKey || ""); setShowApiKey(true); } },
+          ...(isLeader(user?.role) ? [{ label:"🔑 공유 AI 키 설정 (멤버용)", action: async () => { const d = await getDoc(doc(db,"settings","app")); setSharedKeyInput(d.exists() ? (d.data().sharedGeminiKey||"") : ""); setShowSharedKey(true); } }] : []),
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
@@ -7859,6 +7863,36 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
             </div>
           </div>
           <Btn label="확인" full onClick={() => setShowInfo(false)} />
+        </Modal>
+      )}
+
+      {/* 공유 Gemini 키 설정 (admin/leader) */}
+      {showSharedKey && (
+        <Modal title="🔑 공유 AI 키 설정" onClose={() => setShowSharedKey(false)}>
+          <div style={{ fontSize:13, color:C.dim, marginBottom:12, lineHeight:1.6 }}>
+            여기서 설정한 키는 본인 키가 없는 모든 멤버에게 자동으로 적용됩니다.
+          </div>
+          <input
+            value={sharedKeyInput}
+            onChange={e => setSharedKeyInput(e.target.value)}
+            placeholder="AIza..."
+            style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:`1px solid ${C.bdr}`,
+              fontSize:13, fontFamily:"monospace", boxSizing:"border-box", marginBottom:12 }}
+          />
+          <div style={{ display:"flex", gap:8 }}>
+            <Btn label={sharedKeySaving ? "저장 중…" : "저장"} full onClick={async () => {
+              setSharedKeySaving(true);
+              await setDoc(doc(db,"settings","app"), { sharedGeminiKey: sharedKeyInput.trim() }, { merge:true });
+              setSharedKeySaving(false);
+              setShowSharedKey(false);
+            }} />
+            {sharedKeyInput && (
+              <Btn label="삭제" full onClick={async () => {
+                await setDoc(doc(db,"settings","app"), { sharedGeminiKey:"" }, { merge:true });
+                setShowSharedKey(false);
+              }} />
+            )}
+          </div>
         </Modal>
       )}
 
@@ -9414,12 +9448,21 @@ export default function App() {
   const [showHelp,      setShowHelp]      = useState(false);
   const [notifPopup,    setNotifPopup]    = useState(null); // {unreadCount, latest}
   const notifPopupShownRef = useRef(false);
+  const [sharedGeminiKey, setSharedGeminiKey] = useState("");
 
   // ── Kakao SDK 초기화
   useEffect(() => {
     if (window.Kakao && !window.Kakao.isInitialized()) {
       window.Kakao.init(KAKAO_JS_KEY);
     }
+  }, []);
+
+  // ── 공유 Gemini 키 구독
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "app"), d => {
+      setSharedGeminiKey(d.exists() ? (d.data().sharedGeminiKey || "") : "");
+    });
+    return unsub;
   }, []);
 
   // (removed: --app-h resize listener — app root is now position:fixed so no resize jumps)
@@ -9863,7 +9906,7 @@ export default function App() {
       {view === "pdfViewer"     && (
         <PDFViewerScreen {...shared} selectedSongId={selSongId}
           selectedSvcId={selSvcId} selectedSvcSongIdx={selSvcSongIdx}
-          backTo={backTo} pdfjsReady={pdfjsReady} />
+          backTo={backTo} pdfjsReady={pdfjsReady} sharedGeminiKey={sharedGeminiKey} />
       )}
       {view === "notifications" && (
         <NotificationsScreen
