@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.260";
+const APP_VERSION = "3.261";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -161,16 +161,44 @@ async function deleteRecFromDB(id) {
     r.onsuccess = res; r.onerror = e => rej(e.target.error);
   });
 }
-async function analyzeWithGemini(blob, apiKey) {
+async function analyzeWithGemini(blob, apiKey, meta = {}) {
   const b64 = await new Promise(r => {
     const fr = new FileReader();
     fr.onload = () => r(fr.result.split(",")[1]);
     fr.readAsDataURL(blob);
   });
-  const body = JSON.stringify({ contents:[{ parts:[
-    { inlineData:{ mimeType: blob.type || "audio/webm", data:b64 } },
-    { text:"이 음악 연습 녹음을 분석해주세요. 박자 일관성, 음정 정확도, 다이나믹 표현, 전반적인 완성도를 중심으로 한국어로 구체적이고 건설적인 피드백을 3-5개 항목으로 작성해주세요." },
-  ]}]});
+  const { songTitle = "", key = "", bpm = "", pageNum = "", duration = 0 } = meta;
+  const songInfo = [
+    songTitle && `곡명: ${songTitle}`,
+    key       && `조성(Key): ${key}`,
+    bpm       && `템포(BPM): ${bpm}`,
+    pageNum   && `연습 페이지: ${pageNum}`,
+    duration  && `녹음 길이: ${Math.floor(duration/60)}분 ${duration%60}초`,
+  ].filter(Boolean).join(" | ");
+
+  const prompt = `당신은 교회 찬양팀 보컬·악기 코치입니다. 아래 연습 녹음을 전문적으로 분석해 주세요.
+
+${songInfo ? `【곡 정보】${songInfo}\n` : ""}
+【분석 기준】
+1. 박자 정확도 — 템포 유지, 박자 흔들림, 당김음/쉼표 처리
+2. 음정 정확도 — 조성 내 음정, 코드 음과의 조화, 음이탈 여부
+3. 다이나믹 & 표현 — 강약 대비, 크레셴도/데크레셴도, 감정 전달
+4. 앙상블 준비도 — 팀 합주 시 고려할 점 (빠름/느림, 음량 등)
+5. 개선 우선순위 — 다음 연습 전 반드시 고쳐야 할 1가지
+
+【출력 형식】
+- 각 항목을 ✅ (잘된 점) / ⚠️ (개선 필요) 이모지로 시작
+- 항목별 2-3줄 이내, 구체적 시간대 언급 가능하면 포함
+- 마지막에 "💡 다음 연습 포인트:" 한 줄로 핵심 요약
+- 전체 300-500자 이내, 한국어로 작성`;
+
+  const body = JSON.stringify({
+    contents:[{ parts:[
+      { inlineData:{ mimeType: blob.type || "audio/webm", data:b64 } },
+      { text: prompt },
+    ]}],
+    generationConfig:{ temperature:0.4, maxOutputTokens:1024 },
+  });
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     { method:"POST", headers:{"content-type":"application/json"}, body }
@@ -3613,7 +3641,10 @@ function RecordingsModal({ songId, songTitle, userGeminiKey, sharedGeminiKey, on
     let lastErr = null;
     for (const key of keys) {
       try {
-        const result = await analyzeWithGemini(rec.blob, key);
+        const result = await analyzeWithGemini(rec.blob, key, {
+          songTitle: rec.songTitle, key: rec.key, bpm: rec.bpm,
+          pageNum: rec.pageNum, duration: rec.duration,
+        });
         const db = await openRecDB();
         await new Promise((res, rej) => {
           const tx = db.transaction("recordings", "readwrite");
@@ -4779,6 +4810,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         const secs = recSecondsRef.current;
         await saveRecToDB(blob, {
           songId: selectedSongId, songTitle: song?.title || "알 수 없음",
+          key: song?.key || "", bpm: song?.bpm || "",
           pageNum, duration: secs, size: blob.size,
         });
         setRecCount(p => p + 1);
