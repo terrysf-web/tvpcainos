@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.256";
+const APP_VERSION = "3.257";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -4791,8 +4791,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         recSecondsRef.current += 1;
         setRecSeconds(recSecondsRef.current);
       }, 1000);
-    } catch {
-      showToast("마이크 권한이 필요합니다");
+    } catch(e) {
+      const denied = e?.name === "NotAllowedError" || e?.name === "PermissionDeniedError";
+      showToast(denied
+        ? "마이크 권한이 거부됨 — iPad 설정 > Safari > 마이크에서 허용해주세요"
+        : "마이크를 사용할 수 없습니다: " + (e?.message || e));
     }
   };
 
