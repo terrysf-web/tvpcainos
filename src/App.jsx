@@ -17,7 +17,15 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.264";
+const APP_VERSION = "3.265";
+
+const INST_MODES = [
+  { id:"piano",  emoji:"🎹", label:"피아노" },
+  { id:"guitar", emoji:"🎸", label:"기타" },
+  { id:"drum",   emoji:"🥁", label:"드럼" },
+  { id:"bass",   emoji:"🎶", label:"베이스" },
+  { id:"other",  emoji:"🎵", label:"기타 악기" },
+];
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -176,37 +184,108 @@ async function analyzeWithGemini(blob, apiKey, meta = {}) {
     duration  && `녹음 길이: ${Math.floor(duration/60)}분 ${duration%60}초`,
   ].filter(Boolean).join(" | ");
 
-  const prompt = recMode === "vocal"
-    ? `교회 찬양팀 보컬 코치입니다. 아래 녹음을 분석해 주세요.
-${songInfo ? `곡 정보: ${songInfo}` : ""}
+  const NO_MD = "중요: 마크다운 기호(#, *, **, -) 절대 사용 금지. 이모지와 줄바꿈만 사용하세요.";
+  const info = songInfo ? `곡 정보: ${songInfo}` : "";
+  const ENDING = `마지막에 "→ 지금 당장 고쳐야 할 것:" 한 줄로 가장 중요한 것 하나만.\n한국어, 간결하게.`;
 
-중요: 마크다운 기호(#, *, **, -) 절대 사용 금지. 이모지와 줄바꿈만 사용하세요.
+  let prompt;
+  if (recMode === "vocal") {
+    prompt = `교회 찬양팀 보컬 코치입니다. 아래 녹음을 분석해 주세요.
+${info}
+${NO_MD}
 
 두 가지만 평가하세요:
 
 🎵 음정
-${key ? `조성 ${key} 기준으로 ` : ""}음이탈이 어느 부분에서 발생하는지, 샤프/플랫 경향, 고음 구간 안정성, 잘 된 부분과 아쉬운 부분.
+${key ? `조성 ${key} 기준으로 ` : ""}음이탈 발생 구간, 샤프/플랫 경향, 고음 구간 안정성, 잘 된 부분과 아쉬운 부분.
 
 🥁 박자
 빠르거나 느린 경향, 박자가 흔들리는 구간, 리듬 패턴 정확도.
 
-마지막에 "→ 지금 당장 고쳐야 할 것:" 한 줄로 가장 중요한 것 하나만.
-한국어, 간결하게.`
-    : `교회 찬양팀 악기 코치입니다. 아래 녹음을 분석해 주세요.
-${songInfo ? `곡 정보: ${songInfo}` : ""}
+${ENDING}`;
+  } else if (recMode === "piano") {
+    prompt = `교회 찬양팀 피아노 코치입니다. 아래 녹음을 분석해 주세요.
+${info}
+${NO_MD}
 
-중요: 마크다운 기호(#, *, **, -) 절대 사용 금지. 이모지와 줄바꿈만 사용하세요.
+세 가지를 평가하세요:
+
+🎹 음정 & 터치
+${key ? `조성 ${key} 기준으로 ` : ""}틀린 음, 보이싱의 적절함, 터치의 일관성 (너무 세거나 약한 부분).
+
+🥁 박자
+템포 안정성${bpm ? ` (기준 BPM ${bpm})` : ""}, 리듬이 끌리거나 밀리는 구간, 쉼표 처리.
+
+🎵 표현
+다이나믹(강약) 대비, 페달 사용, 왼손과 오른손 밸런스.
+
+${ENDING}`;
+  } else if (recMode === "guitar") {
+    prompt = `교회 찬양팀 기타 코치입니다. 아래 녹음을 분석해 주세요.
+${info}
+${NO_MD}
+
+세 가지를 평가하세요:
+
+🎸 음정 & 코드
+${key ? `조성 ${key} 기준으로 ` : ""}코드가 정확히 눌러지는지, 버징(buzzing) 발생 여부, 오픈 스트링 뮤트 처리.
+
+🥁 박자 & 스트러밍
+템포 안정성${bpm ? ` (기준 BPM ${bpm})` : ""}, 스트러밍/피킹 패턴의 정확도, 박자가 흔들리는 구간.
+
+🔄 전환 & 표현
+코드 전환 매끄러움, 다이나믹 조절, 반복적으로 실수하는 구간.
+
+${ENDING}`;
+  } else if (recMode === "drum") {
+    prompt = `교회 찬양팀 드럼 코치입니다. 아래 녹음을 분석해 주세요.
+${info}
+${NO_MD}
+
+세 가지를 평가하세요:
+
+🥁 박자 & 그루브
+템포 안정성${bpm ? ` (기준 BPM ${bpm})` : ""}, 킥과 스네어 타이밍 정확도, 하이햇/심벌 일관성, 그루브가 느껴지는지.
+
+💥 다이나믹
+강약 대비, 필인(fill-in)의 자연스러움, 크래시 심벌 타이밍.
+
+🎯 앙상블
+다른 악기와 잘 맞는지 (리듬 섹션 기준), 곡의 흐름에 맞는 에너지 조절.
+
+${ENDING}`;
+  } else if (recMode === "bass") {
+    prompt = `교회 찬양팀 베이스 코치입니다. 아래 녹음을 분석해 주세요.
+${info}
+${NO_MD}
+
+세 가지를 평가하세요:
+
+🎶 음정 & 노트 선택
+${key ? `조성 ${key} 기준으로 ` : ""}베이스 라인이 코드에 맞는지, 틀린 음이나 어색한 노트, 루트 노트 중심인지 패싱 노트 활용하는지.
+
+🥁 박자 & 타이밍
+드럼과의 타이밍 맞춤${bpm ? ` (기준 BPM ${bpm})` : ""}, 박자가 끌리거나 밀리는 구간, 쉼표와 당김음 처리.
+
+🔊 톤 & 테크닉
+음의 길이(레가토/스타카토), 뮤트 처리, 전체적인 톤과 다이나믹.
+
+${ENDING}`;
+  } else {
+    prompt = `교회 찬양팀 악기 코치입니다. 아래 녹음을 분석해 주세요.
+${info}
+${NO_MD}
 
 두 가지만 평가하세요:
 
 🥁 박자
 템포가 일정한지${bpm ? ` (기준 BPM ${bpm})` : ""}, 흔들리거나 끌리는 구간, 쉼표와 당김음 처리.
 
-🎸 스킬
+🎵 스킬
 음의 연결, 다이나믹 조절, 코드/음 전환 매끄러움, 실수가 반복되는 부분.
 
-마지막에 "→ 지금 당장 고쳐야 할 것:" 한 줄로 가장 중요한 것 하나만.
-한국어, 간결하게.`;
+${ENDING}`;
+  }
 
   const body = JSON.stringify({
     contents:[{ parts:[
@@ -3702,7 +3781,15 @@ function RecordingsModal({ songId, songTitle, userGeminiKey, sharedGeminiKey, on
               </button>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontSize:13, fontWeight:700, color:C.txt }}>{fmtDate(rec.createdAt)}</div>
-                <div style={{ fontSize:11, color:C.dim }}>{fmt(rec.duration || 0)} · {fmtSize(rec.size || 0)} · {rec.pageNum}페이지</div>
+                <div style={{ fontSize:11, color:C.dim }}>
+                  {(() => {
+                    const m = rec.recMode || "other";
+                    if (m === "vocal") return "🎤 보컬";
+                    const inst = INST_MODES.find(i => i.id === m);
+                    return inst ? `${inst.emoji} ${inst.label}` : "🎵 악기";
+                  })()}
+                  {" · "}{fmt(rec.duration || 0)} · {fmtSize(rec.size || 0)} · {rec.pageNum}페이지
+                </div>
               </div>
               <button onClick={() => exportRec(rec)} title="파일 앱으로 저장" style={{
                 width:32, height:32, borderRadius:8, border:`1px solid ${C.bdr}`,
@@ -3816,8 +3903,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [recSeconds,   setRecSeconds]   = useState(0);
   const [showRecModal, setShowRecModal] = useState(false);
   const [recCount,     setRecCount]     = useState(0);
-  const [recMode,      setRecMode]      = useState(() => localStorage.getItem("tvpc_recMode") || "general"); // "general" | "vocal"
-  const recModeRef   = useRef(localStorage.getItem("tvpc_recMode") || "general");
+  const [recMode,      setRecMode]      = useState(() => localStorage.getItem("tvpc_recMode") || "other"); // "vocal"|"piano"|"guitar"|"drum"|"bass"|"other"
+  const [showInstPicker, setShowInstPicker] = useState(false);
+  const recModeRef   = useRef(localStorage.getItem("tvpc_recMode") || "other");
   const mediaRecRef  = useRef(null);
   const recTimerRef  = useRef(null);
   const recChunksRef = useRef([]);
@@ -4100,6 +4188,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (!selectedSongId) return;
     getRecsFromDB(selectedSongId).then(recs => setRecCount(recs.length)).catch(() => {});
   }, [selectedSongId]);
+
+  // 악기 피커 외부 탭 시 닫기
+  useEffect(() => {
+    if (!showInstPicker) return;
+    const close = () => setShowInstPicker(false);
+    const t = setTimeout(() => document.addEventListener("pointerdown", close, { once: true }), 50);
+    return () => { clearTimeout(t); document.removeEventListener("pointerdown", close); };
+  }, [showInstPicker]);
 
   // 코드 이동 모드: 전조 끄거나 곡/페이지 이동 시 자동 리셋
   useEffect(() => { if (!transposeMode) setChordMoveMode(false); }, [transposeMode]);
@@ -5748,26 +5844,73 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     </button>
                     {sep}
                   </>}
-                  {/* 보컬/일반 모드 토글 (녹음 중 아닐 때만) */}
-                  {!recording && (
-                    <button onClick={() => {
-                      const next = recMode === "vocal" ? "general" : "vocal";
-                      setRecMode(next);
-                      recModeRef.current = next;
-                      localStorage.setItem("tvpc_recMode", next);
-                    }} title={recMode === "vocal" ? "보컬 모드 (탭하여 일반으로)" : "일반 모드 (탭하여 보컬로)"} style={{
-                      display:"flex", alignItems:"center", gap:3,
-                      padding: narrow ? "3px 6px" : "3px 8px",
-                      background: recMode === "vocal" ? `${C.pur}22` : "transparent",
-                      border:`1px solid ${recMode === "vocal" ? C.pur : C.bdr}`,
-                      borderRadius:7, cursor:"pointer", flexShrink:0,
-                    }}>
-                      <span style={{ fontSize:12 }}>{recMode === "vocal" ? "🎤" : "🎵"}</span>
-                      {!narrow && <span style={{ fontSize:10, fontWeight:700, color: recMode === "vocal" ? C.pur : C.dim, fontFamily:"inherit" }}>
-                        {recMode === "vocal" ? "보컬" : "일반"}
-                      </span>}
-                    </button>
-                  )}
+                  {/* 녹음 모드 선택 (녹음 중 아닐 때만) */}
+                  {!recording && (() => {
+                    const isVocal = recMode === "vocal";
+                    const instInfo = INST_MODES.find(m => m.id === recMode) || INST_MODES[INST_MODES.length - 1];
+                    const setMode = (id) => { setRecMode(id); recModeRef.current = id; localStorage.setItem("tvpc_recMode", id); };
+                    return (
+                      <div style={{ position:"relative", flexShrink:0 }}>
+                        {/* 보컬 버튼 */}
+                        <button onClick={() => { setShowInstPicker(false); setMode(isVocal ? (localStorage.getItem("tvpc_lastInst") || "other") : "vocal"); }}
+                          title={isVocal ? "보컬 모드" : "보컬로 전환"}
+                          style={{
+                            display:"flex", alignItems:"center", gap:3,
+                            padding: narrow ? "3px 5px" : "3px 7px",
+                            background: isVocal ? `${C.pur}22` : "transparent",
+                            border:`1px solid ${isVocal ? C.pur : C.bdr}`,
+                            borderRadius:"7px 0 0 7px", cursor:"pointer",
+                          }}>
+                          <span style={{ fontSize:12 }}>🎤</span>
+                          {!narrow && <span style={{ fontSize:10, fontWeight:700, color: isVocal ? C.pur : C.dim, fontFamily:"inherit" }}>보컬</span>}
+                        </button>
+                        {/* 악기 버튼 */}
+                        <button onClick={() => { if (isVocal) { setMode("other"); setShowInstPicker(true); } else { setShowInstPicker(p => !p); } }}
+                          title="악기 선택"
+                          style={{
+                            display:"flex", alignItems:"center", gap:3,
+                            padding: narrow ? "3px 5px" : "3px 7px",
+                            background: !isVocal ? `${C.grn}22` : "transparent",
+                            border:`1px solid ${!isVocal ? C.grn : C.bdr}`,
+                            borderLeft: "none",
+                            borderRadius:"0 7px 7px 0", cursor:"pointer",
+                          }}>
+                          <span style={{ fontSize:12 }}>{isVocal ? "🎵" : instInfo.emoji}</span>
+                          {!narrow && <span style={{ fontSize:10, fontWeight:700, color: !isVocal ? C.grn : C.dim, fontFamily:"inherit" }}>
+                            {isVocal ? "악기" : instInfo.label}
+                          </span>}
+                          <span style={{ fontSize:8, color: !isVocal ? C.grn : C.dim, lineHeight:1 }}>▼</span>
+                        </button>
+                        {/* 악기 피커 드롭다운 */}
+                        {showInstPicker && (
+                          <div style={{
+                            position:"absolute", top:"calc(100% + 6px)", right:0,
+                            background:C.surf, border:`1px solid ${C.bdr}`,
+                            borderRadius:12, boxShadow:"0 4px 20px rgba(0,0,0,.18)",
+                            padding:"6px 4px", zIndex:9999, display:"flex", gap:4,
+                          }}
+                            onMouseLeave={() => setShowInstPicker(false)}
+                          >
+                            {INST_MODES.map(m => (
+                              <button key={m.id} onClick={() => {
+                                setMode(m.id);
+                                localStorage.setItem("tvpc_lastInst", m.id);
+                                setShowInstPicker(false);
+                              }} style={{
+                                display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+                                padding:"8px 10px", borderRadius:9, cursor:"pointer",
+                                background: recMode === m.id ? `${C.grn}22` : "transparent",
+                                border:`1px solid ${recMode === m.id ? C.grn : "transparent"}`,
+                              }}>
+                                <span style={{ fontSize:18 }}>{m.emoji}</span>
+                                <span style={{ fontSize:10, fontWeight:700, color: recMode === m.id ? C.grn : C.dim, fontFamily:"inherit", whiteSpace:"nowrap" }}>{m.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {/* 녹음 버튼 — 항상 보이도록 FIT 앞에 배치 */}
                   {recording ? (
                     <button onClick={stopRecording} style={{
