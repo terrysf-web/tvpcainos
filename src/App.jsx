@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.252";
+const APP_VERSION = "3.253";
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -112,6 +112,7 @@ const P = {
   megaphone:"M3 11v2a1 1 0 0 0 1 1h2l5 4V7l-5 4H4a1 1 0 0 0-1 1zM19 12a7 7 0 0 0-3-5.83M15.54 16.46A5 5 0 0 0 17 12a5 5 0 0 0-1.46-3.54",
   stop:    "M6 6h12v12H6z",
   mic:     "M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3zM19 10v1a7 7 0 0 1-14 0v-1M12 19v3M8 22h8",
+  share:   "M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13",
   repeat:  "M17 2l4 4-4 4M21 6H7a4 4 0 0 0 0 8h1M7 22l-4-4 4-4M3 18h14a4 4 0 0 0 0-8h-1",
   users:   "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
 };
@@ -3585,12 +3586,15 @@ function RecordingsModal({ songId, songTitle, userGeminiKey, onClose }) {
     setPlaying(rec.id);
   };
 
-  const exportRec = (rec) => {
+  const exportRec = async (rec) => {
+    const fname = `${songTitle}_${new Date(rec.createdAt).toLocaleDateString("ko-KR").replace(/\. /g,"-").replace(".","")}.webm`;
+    const file = new File([rec.blob], fname, { type: rec.blob.type || "audio/webm" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: fname }); return; } catch {}
+    }
     const url = URL.createObjectURL(rec.blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = `${songTitle}_${new Date(rec.createdAt).toLocaleDateString("ko-KR").replace(/\. /g,"-").replace(".","")}.webm`;
-    a.click();
+    a.href = url; a.download = fname; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
@@ -3654,7 +3658,7 @@ function RecordingsModal({ songId, songTitle, userGeminiKey, onClose }) {
                 width:32, height:32, borderRadius:8, border:`1px solid ${C.bdr}`,
                 background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
               }}>
-                <Icon n="download" size={14} color={C.dim} />
+                <Icon n="share" size={14} color={C.dim} />
               </button>
               <button onClick={() => del(rec)} title="삭제" style={{
                 width:32, height:32, borderRadius:8, border:`1px solid ${C.red}44`,
