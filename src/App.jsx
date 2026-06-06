@@ -17,14 +17,15 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.266";
+const APP_VERSION = "3.284";
 
 const INST_MODES = [
-  { id:"piano",  emoji:"🎹", label:"피아노" },
-  { id:"guitar", emoji:"🎸", label:"기타" },
-  { id:"drum",   emoji:"🥁", label:"드럼" },
-  { id:"bass",   emoji:"🎶", label:"베이스" },
-  { id:"other",  emoji:"🎵", label:"기타 악기" },
+  { id:"piano",    emoji:"🎹", label:"피아노" },
+  { id:"guitar",   emoji:"🎸", label:"기타" },
+  { id:"drum",     emoji:"🥁", label:"드럼" },
+  { id:"bass",     emoji:"🎶", label:"베이스" },
+  { id:"other",    emoji:"🎵", label:"기타 악기" },
+  { id:"ensemble", emoji:"🎼", label:"앙상블", leaderOnly:true },
 ];
 
 /* ── Kakao SDK ── */
@@ -190,17 +191,26 @@ async function analyzeWithGemini(blob, apiKey, meta = {}) {
 
   let prompt;
   if (recMode === "vocal") {
-    prompt = `교회 찬양팀 보컬 코치입니다. 아래 녹음을 분석해 주세요.
+    prompt = `교회 찬양팀 보컬 코치입니다. 아래 녹음을 꼼꼼히 분석해 주세요.
 ${info}
 ${NO_MD}
 
-두 가지만 평가하세요:
+다섯 가지를 평가하세요:
 
-🎵 음정
-${key ? `조성 ${key} 기준으로 ` : ""}음이탈 발생 구간, 샤프/플랫 경향, 고음 구간 안정성, 잘 된 부분과 아쉬운 부분.
+🎵 음정 (Intonation)
+${key ? `조성 ${key} 기준으로 ` : ""}음이탈이 발생하는 구체적 구간, 샤프(날카롭게 올라가는) 또는 플랫(처지는) 경향, 고음부(파사지오 이상) 안정성, 음이 흔들리는 비브라토 여부, 잘 된 부분과 아쉬운 부분을 각각 언급.
 
-🥁 박자
-빠르거나 느린 경향, 박자가 흔들리는 구간, 리듬 패턴 정확도.
+🥁 박자 & 리듬
+${bpm ? `기준 BPM ${bpm} 대비 ` : ""}빠르거나 느린 경향, 박자가 흔들리거나 끌리는 구간, 쉼표 처리, 음절 타이밍이 반주와 맞는지.
+
+🌬 호흡 & 지지
+프레이즈 끝에서 호흡이 떨어지는지, 롱 노트를 끝까지 지지하는지, 호흡 소리가 마이크에 들어오는 구간, 프레이즈 나누는 위치가 자연스러운지.
+
+🗣 발음 & 딕션
+가사 전달이 명확한지, 자음(특히 ㄱ ㄷ ㅂ ㅅ)이 뭉개지는 구간, 모음의 일관성, 영어 가사가 있다면 발음 정확도.
+
+🎙 음색 & 톤
+두성과 흉성의 균형, 비음이 과하거나 부족한지, 소리가 목에 걸리는 구간, 전반적인 음색의 일관성과 안정성.
 
 ${ENDING}`;
   } else if (recMode === "piano") {
@@ -271,6 +281,33 @@ ${key ? `조성 ${key} 기준으로 ` : ""}베이스 라인이 코드에 맞는�
 음의 길이(레가토/스타카토), 뮤트 처리, 전체적인 톤과 다이나믹.
 
 ${ENDING}`;
+  } else if (recMode === "ensemble") {
+    prompt = `교회 찬양팀 앙상블 코치입니다. 팀 전체가 함께 연주한 아래 녹음을 분석해 주세요.
+${info}
+${NO_MD}
+
+아래 항목을 순서대로 평가하세요:
+
+🥁 앙상블 타이밍 (가장 중요)
+전체 박자가 함께 맞는지${bpm ? ` (기준 BPM ${bpm})` : ""}, 어떤 파트가 앞서거나 뒤처지는지, 끌리거나 밀리는 구간, 드럼과 베이스의 그루브가 단단히 잠겨있는지, 박자가 흔들리는 특정 구간.
+
+🎚 전체 밸런스
+어떤 악기나 보컬이 너무 크거나 작은지, 보컬이 악기에 묻히진 않는지, 전체 음량 균형.
+
+🎵 블렌드 & 화음
+악기와 보컬의 음색이 잘 어우러지는지, 코러스 화음이 깨끗한지, 불협화음이 발생하는 구간.
+
+🌊 다이나믹 & 에너지
+버스에서 코러스로 넘어갈 때 에너지가 살아나는지, 브릿지에서 긴장감이 있는지, 팀 전체의 다이나믹 대비가 느껴지는지.
+
+🎙 보컬 & 반주 조화
+보컬의 음정이 반주 코드와 맞는지, 보컬이 리듬을 리드하는지 반주에 끌려가는지.
+
+💡 파트별 개선 우선순위
+가장 시급한 파트 순서로 (보컬/피아노/기타/드럼/베이스), 각각 한 줄씩 구체적인 이유.
+
+마지막에 "→ 팀 전체에 전달할 한 마디:" 한 줄로.
+한국어, 간결하게.`;
   } else {
     prompt = `교회 찬양팀 악기 코치입니다. 아래 녹음을 분석해 주세요.
 ${info}
@@ -292,7 +329,7 @@ ${ENDING}`;
       { inlineData:{ mimeType: blob.type || "audio/webm", data:b64 } },
       { text: prompt },
     ]}],
-    generationConfig:{ temperature:0.4, maxOutputTokens:1024 },
+    generationConfig:{ temperature:0.4, maxOutputTokens:2048 },
   });
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -624,13 +661,6 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
           ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
         }
       }
-      if (s.team && s.points?.[0]) {
-        const mSz = Math.max(3, canvas.width * 0.0075);
-        ctx.save(); ctx.font = `${mSz}px system-ui`; ctx.textAlign = "left";
-        ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.65;
-        ctx.fillText("👥", s.points[0].x * canvas.width, s.points[0].y * canvas.height - 2);
-        ctx.restore();
-      }
       ctx.restore(); continue;
     }
     if (!s.points || s.points.length < 1) { ctx.restore(); continue; }
@@ -646,12 +676,6 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
       ctx.textBaseline = "middle";
       ctx.textAlign = "left";
       ctx.fillText(s.text || "", px, py);
-      if (s.team) {
-        const mSz = Math.max(3, canvas.width * 0.0075);
-        ctx.save(); ctx.font = `${mSz}px system-ui`; ctx.textAlign = "left";
-        ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.65;
-        ctx.fillText("👥", px, py - sz * 0.55); ctx.restore();
-      }
       ctx.restore(); continue;
     }
     if (s.tool === "stamp") {
@@ -694,12 +718,6 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
         ctx.fillText(s.symbol || "f", px, py);
       }
       ctx.restore();
-      if (s.team) {
-        const mSz = Math.max(3, canvas.width * 0.0075);
-        ctx.save(); ctx.font = `${mSz}px system-ui`; ctx.textAlign = "left";
-        ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.65;
-        ctx.fillText("👥", px - mSz * 0.3, py - sz * 0.55); ctx.restore();
-      }
       continue;
     }
     const isEraser     = s.tool === "eraser"     || s.eraser;
@@ -754,12 +772,14 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
       ctx.stroke();
     }
     ctx.restore();
-    if (s.team && pts.length > 0 && !isEraser && !isCover) {
-      const mSz = Math.max(3, canvas.width * 0.0075);
-      ctx.save(); ctx.font = `${mSz}px system-ui`; ctx.textAlign = "left";
-      ctx.textBaseline = "bottom"; ctx.globalAlpha = 0.65;
-      ctx.fillText("👥", pts[0][0], pts[0][1] - 2); ctx.restore();
-    }
+  }
+  // 팀필기가 있으면 우상단에 딱 한 번 표시
+  const hasTeam = all.some(s => s.team && !s.eraser);
+  if (hasTeam) {
+    const mSz = Math.max(8, canvas.width * 0.022);
+    ctx.save(); ctx.font = `${mSz}px system-ui`; ctx.textAlign = "right";
+    ctx.textBaseline = "top"; ctx.globalAlpha = 0.4;
+    ctx.fillText("👥", canvas.width - 4, 4); ctx.restore();
   }
   // Selection indicator
   if (selectedIdx >= 0 && selectedIdx < all.length && !cur) {
@@ -2809,7 +2829,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                 {teamNotes.length > 0 && (
                   <div style={{ marginTop:10, display:"flex", flexDirection:"column", gap:6 }}>
                     {teamNotes.map((m, mi) => {
-                      const authorName = m.authorName || (userMap || {})[m.userId] || "팀원";
+                      const _a1 = m.authorName || ""; const authorName = (_a1.includes("@") ? (userMap||{})[m.userId] : _a1) || (userMap||{})[m.userId] || "팀원";
                       return (
                         <div key={mi} style={{
                           padding:"7px 10px", borderRadius:8,
@@ -2841,7 +2861,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:16 }}>
               {[...new Map(memoBlockModal.notes.map(n => [n.userId, n])).values()].map(n => {
-                const name = n.authorName || (userMap || {})[n.userId] || "팀원";
+                const _a2 = n.authorName || ""; const name = (_a2.includes("@") ? (userMap||{})[n.userId] : _a2) || (userMap||{})[n.userId] || "팀원";
                 const count = memoBlockModal.notes.filter(m => m.userId === n.userId).length;
                 return (
                   <div key={n.userId} style={{
@@ -3312,7 +3332,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                     if (!all.length && !draws.my && !draws.team && !draws.others) return null;
                     const authorMap = new Map();
                     [...tNotes, ...pNotes].forEach(n => {
-                      const name = n.userId === user.uid ? "나" : (n.authorName || (userMap||{})[n.userId] || "팀원");
+                      const _a3 = n.authorName || ""; const name = n.userId === user.uid ? "나" : ((_a3.includes("@") ? (userMap||{})[n.userId] : _a3) || (userMap||{})[n.userId] || "팀원");
                       const entry = authorMap.get(n.userId) || { name, cnt: 0 };
                       entry.cnt++;
                       authorMap.set(n.userId, entry);
@@ -3542,7 +3562,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
               </div>
               <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
                 {authorSet.map(n => {
-                  const name = n.authorName || (userMap || {})[n.userId] || "팀원";
+                  const _a4 = n.authorName || ""; const name = (_a4.includes("@") ? (userMap||{})[n.userId] : _a4) || (userMap||{})[n.userId] || "팀원";
                   const isMe = n.userId === user.uid;
                   const isDraw = n._type === "draw";
                   const memoCnt = allNotes.filter(m => m.userId === n.userId && !m._type).length;
@@ -3756,7 +3776,11 @@ function RecordingsModal({ songId, songTitle, userGeminiKey, sharedGeminiKey, on
         return;
       } catch(e) { lastErr = e; }
     }
-    alert("AI 분석 실패: " + lastErr?.message);
+    const msg = lastErr?.message || "알 수 없는 오류";
+    const isKeyErr = /api key|invalid|unauthorized|permission/i.test(msg);
+    alert(isKeyErr
+      ? `AI 키 오류: 키가 유효하지 않습니다.\n내 정보 → AI 분석 키 설정에서 키를 확인하거나\n리더에게 공유 키 설정을 요청하세요.\n\n오류: ${msg}`
+      : `AI 분석 실패: ${msg}`);
     setAnalyzing(null);
   };
 
@@ -3987,6 +4011,86 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const myNotes   = annotations[selectedSongId]     || [];
   const teamNotes = (teamAnnotations || {})[selectedSongId] || [];
   const leader    = isLeader(user.role);
+
+  // ── 메트로놈 상태 ──
+  const [metroOn,        setMetroOn]        = useState(false);
+  const [metroMuted,     setMetroMuted]     = useState(false);
+  const [showMetroPanel, setShowMetroPanel] = useState(false);
+  const [metroBeat,      setMetroBeat]      = useState(0);
+  const [metroBpmEdit,   setMetroBpmEdit]   = useState(null);
+  const [metroMsg,       setMetroMsg]       = useState("");
+  const metroMsgTimer  = useRef(null);
+  const metroCtxRef    = useRef(null);
+  const metroTimerRef  = useRef(null);
+  const metroBpmRef    = useRef(80);
+
+  const showMetroMsg = (msg, ms = 3000) => {
+    setMetroMsg(msg);
+    clearTimeout(metroMsgTimer.current);
+    metroMsgTimer.current = setTimeout(() => setMetroMsg(""), ms);
+  };
+
+  const startMetronome = (bpm) => {
+    clearTimeout(metroTimerRef.current);
+    try {
+      if (!metroCtxRef.current || metroCtxRef.current.state === "closed") {
+        metroCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const ctx = metroCtxRef.current;
+      ctx.resume();
+      // iOS silent buffer unlock
+      const silentBuf = ctx.createBuffer(1, 1, ctx.sampleRate);
+      const silentSrc = ctx.createBufferSource();
+      silentSrc.buffer = silentBuf; silentSrc.connect(ctx.destination); silentSrc.start(0);
+      let beat = 0;
+      const interval = 60000 / bpm;
+      setMetroBeat(0);
+      const tick = () => {
+        const isAccent = beat % 4 === 0;
+        try {
+          const osc = ctx.createOscillator(); const g = ctx.createGain();
+          osc.connect(g); g.connect(ctx.destination);
+          osc.frequency.value = isAccent ? 1500 : 1000;
+          g.gain.setValueAtTime(isAccent ? 0.6 : 0.35, ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+          osc.start(); osc.stop(ctx.currentTime + 0.07);
+        } catch(e) {}
+        setMetroBeat(beat); beat++;
+        metroTimerRef.current = setTimeout(tick, interval);
+      };
+      tick();
+    } catch(e) { console.error("metro:", e); }
+  };
+
+  const stopMetronome = () => clearTimeout(metroTimerRef.current);
+
+  // 팀 메트로놈 Firestore 동기화
+  const teamMetroOn = !leader && svc?.teamMetro?.on;
+
+  useEffect(() => {
+    if (leader) return;
+    const tm = svc?.teamMetro;
+    if (tm?.on) {
+      setMetroOn(false);
+      setMetroMuted(false);
+      setShowMetroPanel(true);
+      showMetroMsg(`🎼 팀 메트로놈 시작 — ${tm.bpm || 80} BPM\n탭하여 시작하세요`);
+    } else if (tm?.on === false) {
+      stopMetronome();
+      setMetroOn(false);
+      setShowMetroPanel(false);
+      showMetroMsg("🎼 팀 메트로놈 종료", 2000);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [svc?.teamMetro?.on, leader]);
+
+  useEffect(() => {
+    const newBpm = svc?.teamMetro?.bpm;
+    if (!newBpm || !svc?.teamMetro?.on) return;
+    if (metroOn && !metroMuted) startMetronome(newBpm);
+    setMetroBpmEdit(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [svc?.teamMetro?.bpm]);
 
   // keep drawModeRef in sync for non-reactive listeners
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
@@ -5948,6 +6052,24 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   {sep}
                   {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
                   {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
+                  {/* 메트로놈 버튼 */}
+                  <button data-metro-panel onClick={() => setShowMetroPanel(p => !p)} title="메트로놈" style={{
+                    display:"flex", flexDirection:"column", alignItems:"center", gap:1,
+                    padding: narrow ? "4px 6px" : "4px 7px",
+                    background: metroOn ? `${C.acc}22` : showMetroPanel ? `${C.bdr}` : "transparent",
+                    border:`1px solid ${metroOn ? C.acc : C.bdr}`,
+                    borderRadius:8, cursor:"pointer", flexShrink:0, position:"relative",
+                  }}>
+                    <span style={{ fontSize:tbIconSz, lineHeight:1 }}>🎵</span>
+                    {metroOn && (
+                      <span style={{
+                        position:"absolute", top:2, right:2,
+                        width:6, height:6, borderRadius:"50%",
+                        background: metroBeat % 4 === 0 ? C.acc : C.dim,
+                        transition:"background 0.05s",
+                      }} />
+                    )}
+                  </button>
                   {/* 다운로드: 라이브러리·리더는 항상, 멤버는 리더가 허용 시만 */}
                   {canDownload && toolBtn("download", false, downloadAnnotatedScore, "악보 다운로드")}
                   {/* 리더: 멤버 다운로드 허용 토글 (서비스 모드만) */}
@@ -6679,7 +6801,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           borderRadius:12, boxShadow:"0 4px 20px rgba(0,0,0,.25)",
           padding:"6px 4px", zIndex:9999, display:"flex", gap:4,
         }}>
-          {INST_MODES.map(m => (
+          {INST_MODES.filter(m => !m.leaderOnly || leader).map(m => (
             <button data-inst-picker key={m.id} onClick={() => {
               const setMode = (id) => { setRecMode(id); recModeRef.current = id; localStorage.setItem("tvpc_recMode", id); };
               setMode(m.id);
@@ -7135,6 +7257,123 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           sharedGeminiKey={sharedGeminiKey}
           onClose={() => setShowRecModal(false)}
         />
+      )}
+
+      {/* 메트로놈 패널 */}
+      {showMetroPanel && (() => {
+        const song = songs.find(s => s.id === selectedSongId);
+        const effectiveBpm = parseInt(
+          (teamMetroOn ? svc?.teamMetro?.bpm : null) ?? metroBpmEdit ?? song?.bpm
+        ) || 80;
+        const isActive = metroOn && !metroMuted;
+        const adj = (delta) => {
+          const next = Math.max(40, Math.min(240, effectiveBpm + delta));
+          setMetroBpmEdit(next);
+          if (isActive) startMetronome(next);
+          if (teamMetroOn && svc) {
+            updateDoc(doc(db, "services", svc.id), { "teamMetro.bpm": next }).catch(() => {});
+          }
+        };
+        const beats = [0,1,2,3];
+        return (
+          <div data-metro-panel style={{
+            position:"fixed", zIndex:9999,
+            top:"calc(env(safe-area-inset-top) + 58px)", right:12,
+            background:C.surf, border:`1px solid ${C.bdr}`, borderRadius:16,
+            padding:"16px 18px", width:230,
+            boxShadow:"0 8px 32px rgba(0,0,0,.18)",
+          }}>
+            <div style={{ fontWeight:700, fontSize:14, marginBottom:12, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <span>🎵 메트로놈</span>
+              {teamMetroOn && <span style={{ fontSize:10, color:C.acc, fontWeight:700 }}>팀 싱크</span>}
+              <button onClick={() => setShowMetroPanel(false)} style={{ background:"none", border:"none", cursor:"pointer", color:C.dim, padding:0 }}>✕</button>
+            </div>
+
+            {/* 박자 표시 */}
+            <div style={{ display:"flex", gap:6, justifyContent:"center", marginBottom:12 }}>
+              {beats.map(b => (
+                <div key={b} style={{
+                  width:32, height:32, borderRadius:8,
+                  background: metroOn && metroBeat % 4 === b
+                    ? (b === 0 ? C.acc : C.pur)
+                    : C.bdr,
+                  transition:"background 0.05s",
+                }} />
+              ))}
+            </div>
+
+            {/* BPM */}
+            <div style={{ display:"flex", alignItems:"center", gap:8, justifyContent:"center", marginBottom:12 }}>
+              <button onClick={() => adj(-5)} style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C.bdr}`, background:C.card, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
+              <div style={{ minWidth:60, textAlign:"center" }}>
+                <div style={{ fontWeight:800, fontSize:22, fontVariantNumeric:"tabular-nums" }}>{effectiveBpm}</div>
+                <div style={{ fontSize:10, color:C.dim }}>BPM</div>
+              </div>
+              <button onClick={() => adj(+5)} style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C.bdr}`, background:C.card, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>＋</button>
+            </div>
+
+            {/* 시작/정지 */}
+            {teamMetroOn ? (
+              <button onClick={() => {
+                if (metroOn) { stopMetronome(); setMetroOn(false); }
+                else { startMetronome(effectiveBpm); setMetroOn(true); }
+              }} style={{
+                width:"100%", padding:"10px 0", borderRadius:10,
+                background: metroOn ? `${C.red}22` : `${C.acc}22`,
+                border:`1px solid ${metroOn ? C.red : C.acc}`,
+                color: metroOn ? C.red : C.acc,
+                fontWeight:700, fontSize:14, cursor:"pointer", fontFamily:"inherit",
+              }}>
+                {metroOn ? "⏹ 끄기" : "▶ 팀 참여"}
+              </button>
+            ) : (
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={() => {
+                  if (metroOn) { stopMetronome(); setMetroOn(false); }
+                  else { startMetronome(effectiveBpm); setMetroOn(true); }
+                }} style={{
+                  flex:1, padding:"10px 0", borderRadius:10,
+                  background: metroOn ? `${C.red}22` : `${C.acc}22`,
+                  border:`1px solid ${metroOn ? C.red : C.acc}`,
+                  color: metroOn ? C.red : C.acc,
+                  fontWeight:700, fontSize:14, cursor:"pointer", fontFamily:"inherit",
+                }}>
+                  {metroOn ? "⏹ 정지" : "▶ 시작"}
+                </button>
+                {leader && (
+                  <button onClick={() => {
+                    const on = !(svc?.teamMetro?.on);
+                    const bpm = effectiveBpm;
+                    updateDoc(doc(db, "services", svc.id), { "teamMetro": { on, bpm } }).catch(() => {});
+                    if (!on) { stopMetronome(); setMetroOn(false); }
+                  }} style={{
+                    padding:"10px 12px", borderRadius:10,
+                    background: svc?.teamMetro?.on ? `${C.pur}22` : "transparent",
+                    border:`1px solid ${svc?.teamMetro?.on ? C.pur : C.bdr}`,
+                    color: svc?.teamMetro?.on ? C.pur : C.dim,
+                    fontWeight:700, fontSize:12, cursor:"pointer", fontFamily:"inherit", whiteSpace:"nowrap",
+                  }}>
+                    {svc?.teamMetro?.on ? "팀↑끄기" : "팀 시작"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* 팀 메트로놈 알림 배너 */}
+      {metroMsg && (
+        <div style={{
+          position:"fixed", top:"calc(env(safe-area-inset-top) + 62px)",
+          left:"50%", transform:"translateX(-50%)",
+          background:C.acc, color:"#fff",
+          padding:"10px 22px", borderRadius:20,
+          fontSize:14, fontWeight:700,
+          zIndex:99999, pointerEvents:"none",
+          whiteSpace:"pre", textAlign:"center",
+          boxShadow:"0 4px 16px rgba(0,0,0,.3)", lineHeight:1.5,
+        }}>{metroMsg}</div>
       )}
     </div>
   );
@@ -7828,7 +8067,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
 /* ══════════════════════════════════════════════════════════════════
    PROFILE SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function ProfileScreen({ user, onLogout, onRoleUpdate }) {
+function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
   const [showTeam,    setShowTeam]    = useState(false);
   const [claiming,    setClaiming]    = useState(false);
   const [noLeader,    setNoLeader]    = useState(false);
@@ -7844,6 +8083,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
   const [showSharedKey,   setShowSharedKey]   = useState(false);
   const [sharedKeyInput,  setSharedKeyInput]  = useState("");
   const [sharedKeySaving, setSharedKeySaving] = useState(false);
+  const [sharedKeyErr,    setSharedKeyErr]    = useState("");
 
   const testApiKey = async () => {
     const k = apiKeyInput.trim();
@@ -7860,7 +8100,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
         if (d.error) throw new Error(d.error.message || "오류");
       } else {
         const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${k}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${k}`,
           { method:"POST", headers:{"content-type":"application/json"},
             body: JSON.stringify({ contents:[{ parts:[{ text:"Hi" }] }] }) }
         );
@@ -8009,8 +8249,8 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
           { label:`앱 정보 (v${APP_VERSION})`, action: () => setShowInfo(true) },
-          { label: user?.geminiKey ? "AI 코드 감지 키 (설정됨 ✓)" : "AI 코드 감지 키 설정", action: () => { setApiKeyInput(user?.geminiKey || ""); setShowApiKey(true); } },
-          ...(isLeader(user?.role) ? [{ label:"🔑 공유 AI 키 설정 (멤버용)", action: async () => { const d = await getDoc(doc(db,"settings","app")); setSharedKeyInput(d.exists() ? (d.data().sharedGeminiKey||"") : ""); setShowSharedKey(true); } }] : []),
+          { label: user?.geminiKey ? "AI 분석 키 (설정됨 ✓)" : sharedGeminiKey ? "AI 분석 키 설정 (공유 키 사용 중)" : "AI 분석 키 설정", action: () => { setApiKeyInput(user?.geminiKey || ""); setShowApiKey(true); } },
+          ...(isLeader(user?.role) ? [{ label:"🔑 공유 AI 키 설정 (멤버용)", action: async () => { setSharedKeyInput(""); setSharedKeyErr(""); setShowSharedKey(true); try { const d = await getDoc(doc(db,"settings","app")); setSharedKeyInput(d.exists() ? (d.data().sharedGeminiKey||"") : ""); } catch(e) {} } }] : []),
           { label:"도움말",         action: () => setShowHelp(true) },
           { label:"문의하기",       action: () => setShowContact(true) },
         ].map((item, i, arr) => (
@@ -8032,10 +8272,16 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
 
       {/* Gemini API 키 설정 */}
       {showApiKey && (
-        <Modal title="AI 코드 감지 키 설정" onClose={() => setShowApiKey(false)}>
+        <Modal title="AI 분석 키 설정" onClose={() => setShowApiKey(false)}>
           <div style={{ padding:"4px 0 8px" }}>
+            {sharedGeminiKey && !user?.geminiKey && (
+              <div style={{ background:`${C.grn}22`, border:`1px solid ${C.grn}55`,
+                borderRadius:8, padding:"8px 12px", marginBottom:10, fontSize:12, color:C.grn }}>
+                ✓ 리더가 공유 키를 설정했습니다. 개인 키 없이도 AI 분석 사용 가능합니다.
+              </div>
+            )}
             <div style={{ fontSize:13, color:C.dim, marginBottom:12, lineHeight:1.6 }}>
-              AI 키를 설정하면 코드 감지를 사용할 수 있습니다.<br />
+              AI 키를 설정하면 코드 감지와 녹음 분석을 사용할 수 있습니다.<br />
               <span style={{ color:C.acc, fontWeight:700 }}>Groq 추천 (완전 무료)</span> — <span style={{ color:C.acc }}>console.groq.com</span> 에서 가입 후 API Keys 생성 → <code style={{ fontSize:11 }}>gsk_...</code> 형식<br />
               <span style={{ color:C.dim }}>Gemini: aistudio.google.com → <code style={{ fontSize:11 }}>AIzaSy...</code> 형식</span>
             </div>
@@ -8101,28 +8347,35 @@ function ProfileScreen({ user, onLogout, onRoleUpdate }) {
 
       {/* 공유 Gemini 키 설정 (admin/leader) */}
       {showSharedKey && (
-        <Modal title="🔑 공유 AI 키 설정" onClose={() => setShowSharedKey(false)}>
+        <Modal title="🔑 공유 AI 키 설정" onClose={() => { setShowSharedKey(false); setSharedKeyErr(""); }}>
           <div style={{ fontSize:13, color:C.dim, marginBottom:12, lineHeight:1.6 }}>
             여기서 설정한 키는 본인 키가 없는 모든 멤버에게 자동으로 적용됩니다.
           </div>
           <input
             value={sharedKeyInput}
-            onChange={e => setSharedKeyInput(e.target.value)}
+            onChange={e => { setSharedKeyInput(e.target.value); setSharedKeyErr(""); }}
             placeholder="AIza..."
-            style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:`1px solid ${C.bdr}`,
-              fontSize:13, fontFamily:"monospace", boxSizing:"border-box", marginBottom:12 }}
+            style={{ width:"100%", padding:"10px 12px", borderRadius:8,
+              border:`1px solid ${sharedKeyErr ? C.red : C.bdr}`,
+              fontSize:13, fontFamily:"monospace", boxSizing:"border-box", marginBottom: sharedKeyErr ? 6 : 12 }}
           />
+          {sharedKeyErr && <div style={{ fontSize:12, color:C.red, marginBottom:10 }}>{sharedKeyErr}</div>}
           <div style={{ display:"flex", gap:8 }}>
             <Btn label={sharedKeySaving ? "저장 중…" : "저장"} full onClick={async () => {
-              setSharedKeySaving(true);
-              await setDoc(doc(db,"settings","app"), { sharedGeminiKey: sharedKeyInput.trim() }, { merge:true });
-              setSharedKeySaving(false);
-              setShowSharedKey(false);
+              setSharedKeySaving(true); setSharedKeyErr("");
+              try {
+                await setDoc(doc(db,"settings","app"), { sharedGeminiKey: sharedKeyInput.trim() }, { merge:true });
+                setShowSharedKey(false);
+              } catch(e) {
+                setSharedKeyErr("저장 실패: " + (e.message || "권한 오류"));
+              } finally { setSharedKeySaving(false); }
             }} />
             {sharedKeyInput && (
               <Btn label="삭제" full onClick={async () => {
-                await setDoc(doc(db,"settings","app"), { sharedGeminiKey:"" }, { merge:true });
-                setShowSharedKey(false);
+                try {
+                  await setDoc(doc(db,"settings","app"), { sharedGeminiKey:"" }, { merge:true });
+                  setShowSharedKey(false);
+                } catch(e) { setSharedKeyErr("삭제 실패: " + (e.message || "권한 오류")); }
               }} />
             )}
           </div>
@@ -10026,7 +10279,7 @@ export default function App() {
       ...noteData,
       songId,
       userId: user.uid,
-      authorName: user.displayName || user.email || "",
+      authorName: user.name || user.email || "",
       shared: noteData.shared ?? false,
       createdAt: serverTimestamp(),
     });
@@ -10156,7 +10409,8 @@ export default function App() {
       )}
       {view === "profile" && (
         <ProfileScreen user={user} onLogout={() => signOut(auth)}
-          onRoleUpdate={() => setUser(u => ({ ...u, role: "leader" }))} />
+          onRoleUpdate={() => setUser(u => ({ ...u, role: "leader" }))}
+          sharedGeminiKey={sharedGeminiKey} />
       )}
 
       {view !== "pdfViewer" && (
