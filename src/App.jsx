@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.299";
+const APP_VERSION = "3.300";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2061,7 +2061,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", justifyContent:"space-between",
       }}>
-        <img src="/ainos-logo.jpg" alt="ainos" style={{ height:32, width:"auto", borderRadius:6, objectFit:"contain", background:"#fff", padding:"2px 4px" }} />
+        <img src="/icon-192.png" alt="ainos" style={{ height:36, width:"auto", objectFit:"contain" }} />
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           {isLeader(user.role) && (
             <button onClick={() => nav("services")}
