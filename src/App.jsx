@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.310";
+const APP_VERSION = "3.311";
 
 const PARTS = [
   { id:"전체",    emoji:"🎵", label:"전체" },
@@ -2023,7 +2023,13 @@ function CropModal({ pdfFile, pdfUrl, imageUrl, onClose, onConfirm, initialCrop 
    HOME SCREEN
 ══════════════════════════════════════════════════════════════════ */
 function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService }) {
-  const [countdown, setCountdown] = useState("");
+  const [countdown,    setCountdown]    = useState("");
+  const [inHour,       setInHour]       = useState(false);
+  const [worshipReady, setWorshipReady] = useState(false);
+  const autoNavDone  = useRef(false);
+  const svcSongsRef  = useRef([]);
+  const navRef       = useRef(nav);
+  navRef.current     = nav;
   const unread = notifs.filter(n => !n.read).length;
 
   const today    = new Date().toISOString().slice(0, 10);
@@ -2041,7 +2047,22 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const fmtSvcDate = d => new Date(d + "T00:00:00").toLocaleDateString("ko-KR",
     { month:"long", day:"numeric", weekday:"short" });
 
-  // 카운트다운: 예배 시작 전까지 항상 표시 (1시간 이상 H:MM:SS, 미만 MM:SS)
+  // svcSongs ref — 항상 최신 값 유지
+  svcSongsRef.current = svcSongs;
+
+  // 서비스 변경 시 자동이동 초기화
+  useEffect(() => { autoNavDone.current = false; }, [nextSvc?.id]);
+
+  // 40초 도달 시 첫 번째 악보로 자동이동 (1회)
+  useEffect(() => {
+    if (!worshipReady || autoNavDone.current) return;
+    const firstSong = svcSongsRef.current[0];
+    if (!firstSong || !nextSvc) return;
+    autoNavDone.current = true;
+    navRef.current("pdfViewer", { songId: firstSong.id, svcId: nextSvc.id, svcSongIdx: 0, backTo: "home" });
+  }, [worshipReady, nextSvc]);
+
+  // 카운트다운: 1시간 이내에만 표시 (MM:SS)
   useEffect(() => {
     if (!nextSvc?.time) return;
     const tick = () => {
@@ -2049,14 +2070,14 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       const svcDt  = new Date(nextSvc.date + "T00:00:00");
       svcDt.setHours(h, m, 0, 0);
       const diff = svcDt - Date.now();
-      if (diff <= 0) { setCountdown(""); return; }
-      const totalSec = Math.floor(diff / 1000);
-      const hh = Math.floor(totalSec / 3600);
-      const mm = Math.floor((totalSec % 3600) / 60);
-      const ss = totalSec % 60;
-      if (hh > 0) {
-        setCountdown(`${hh}:${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}`);
-      } else {
+      if (diff <= 0) { setCountdown(""); setInHour(false); setWorshipReady(false); return; }
+      const within1h = diff <= 3_600_000;
+      setInHour(within1h);
+      setWorshipReady(diff <= 40_000);
+      if (within1h) {
+        const totalSec = Math.floor(diff / 1000);
+        const mm = Math.floor(totalSec / 60);
+        const ss = totalSec % 60;
         setCountdown(`${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}`);
       }
     };
@@ -2084,8 +2105,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               style={{ height:34, padding:"0 12px", borderRadius:9, cursor:"pointer",
                 background:`${C.pur}18`, border:`1px solid ${C.pur}44`,
                 display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
-              <Icon n="plus" size={14} color={C.pur} />
-              <span style={{ fontSize:12, fontWeight:700, color:C.pur }}>예배 관리</span>
+              <Icon n="calendar" size={14} color={C.pur} />
+              <span style={{ fontSize:12, fontWeight:700, color:C.pur }}>예배일정</span>
             </button>
           )}
           <button onClick={() => nav("notifications")}
@@ -2127,22 +2148,35 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               {nextSvc.time && <span style={{ fontWeight:600, fontSize:14, color:C.dim, flexShrink:0 }}>{nextSvc.time}</span>}
               <span style={{ fontSize:13, color:C.dim, flexShrink:0 }}>·</span>
               <span style={{ fontWeight:600, fontSize:14, color:C.dim, flexShrink:0 }}>{svcSongs.length}곡</span>
-              {countdown && <>
-                <span style={{ fontSize:13, color:C.dim, flexShrink:0 }}>·</span>
-                <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
-                  <Icon n="clock" size={13} color={C.pur} />
-                  <span style={{ fontWeight:900, fontSize:17, color:C.pur,
-                    fontVariantNumeric:"tabular-nums", letterSpacing:1 }}>{countdown}</span>
-                </div>
-              </>}
-              <div style={{ flex:1 }} />
-              <button onClick={() => nav("svcDetail", { svcId: nextSvc.id })}
-                style={{ background:C.pur, border:"none", borderRadius:9,
-                  padding:"7px 14px", cursor:"pointer", flexShrink:0,
-                  fontSize:13, fontWeight:700, color:"#fff", fontFamily:"inherit" }}>
-                예배 전체 보기 ›
-              </button>
             </div>
+
+            {/* 예배 카운트다운 — 1시간 이내에 표시 */}
+            {inHour && countdown && (
+              <div style={{
+                borderRadius:16, padding:"16px 20px", marginBottom:10,
+                textAlign:"center",
+                background: worshipReady
+                  ? `linear-gradient(135deg, #ff3b3018, ${C.acc}18)`
+                  : `linear-gradient(135deg, ${C.pur}1a, ${C.pur}08)`,
+                border: `2px solid ${worshipReady ? C.acc : C.pur}55`,
+              }}>
+                <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.12em",
+                  color: worshipReady ? C.acc : C.pur,
+                  marginBottom:6, textTransform:"uppercase" }}>
+                  {worshipReady ? "⛪ 예배준비" : "예배 시작까지"}
+                </div>
+                <div style={{
+                  fontSize:56, fontWeight:900, lineHeight:1,
+                  color: worshipReady ? C.acc : C.pur,
+                  fontVariantNumeric:"tabular-nums", letterSpacing:4,
+                }}>{countdown}</div>
+                {worshipReady && (
+                  <div style={{ fontSize:12, color:C.dim, marginTop:8 }}>
+                    악보 첫 페이지로 이동 중...
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* X32 채널 상태 */}
             <X32StatusBar />
