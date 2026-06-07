@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.290";
+const APP_VERSION = "3.291";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2010,7 +2010,6 @@ function CropModal({ pdfFile, pdfUrl, imageUrl, onClose, onConfirm, initialCrop 
 ══════════════════════════════════════════════════════════════════ */
 function HomeScreen({ user, services, songs, notifs, teamAnnotations, nav, createService }) {
   const [countdown, setCountdown] = useState("");
-  const [showCountdown, setShowCountdown] = useState(false);
   const unread = notifs.filter(n => !n.read).length;
 
   const today    = new Date().toISOString().slice(0, 10);
@@ -2028,21 +2027,23 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, nav, creat
   const fmtSvcDate = d => new Date(d + "T00:00:00").toLocaleDateString("ko-KR",
     { month:"long", day:"numeric", weekday:"short" });
 
-  // 카운트다운: 예배 1시간 전부터 MM:SS
+  // 카운트다운: 예배 시작 전까지 항상 표시 (1시간 이상 H:MM:SS, 미만 MM:SS)
   useEffect(() => {
     if (!nextSvc?.time) return;
     const tick = () => {
       const [h, m] = nextSvc.time.split(":").map(Number);
       const svcDt  = new Date(nextSvc.date + "T00:00:00");
       svcDt.setHours(h, m, 0, 0);
-      const diff   = svcDt - Date.now();
-      if (diff > 0 && diff <= 3600000) {
-        const mm = String(Math.floor(diff / 60000)).padStart(2, "0");
-        const ss = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
-        setCountdown(`${mm}:${ss}`);
-        setShowCountdown(true);
+      const diff = svcDt - Date.now();
+      if (diff <= 0) { setCountdown(""); return; }
+      const totalSec = Math.floor(diff / 1000);
+      const hh = Math.floor(totalSec / 3600);
+      const mm = Math.floor((totalSec % 3600) / 60);
+      const ss = totalSec % 60;
+      if (hh > 0) {
+        setCountdown(`${hh}:${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}`);
       } else {
-        setShowCountdown(false);
+        setCountdown(`${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}`);
       }
     };
     tick();
@@ -2096,28 +2097,32 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, nav, creat
             <div style={{
               background:`linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
               border:`1.5px solid ${C.pur}33`,
-              borderRadius:20, padding:18, marginBottom:14,
+              borderRadius:16, padding:"12px 14px", marginBottom:12,
             }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-                {dDay === 0
-                  ? <span style={{ background:C.red, color:"#fff", fontWeight:800, fontSize:11, borderRadius:10, padding:"3px 10px" }}>오늘</span>
-                  : dDay === 1
-                  ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:11, borderRadius:10, padding:"3px 10px" }}>내일</span>
-                  : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:10, padding:"3px 10px" }}>D-{dDay}</span>
-                }
-                <span style={{ fontSize:13, color:C.dim }}>{fmtSvcDate(nextSvc.date)}</span>
-              </div>
-              <div style={{ fontWeight:800, fontSize:20, marginBottom:4, color:C.txt }}>{nextSvc.title}</div>
-              <div style={{ fontSize:13, color:C.dim, marginBottom: showCountdown ? 12 : 14 }}>
-                {nextSvc.time ? nextSvc.time + " · " : ""}{svcSongs.length}곡
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                  {dDay === 0
+                    ? <span style={{ background:C.red, color:"#fff", fontWeight:800, fontSize:11, borderRadius:8, padding:"2px 8px" }}>오늘</span>
+                    : dDay === 1
+                    ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:11, borderRadius:8, padding:"2px 8px" }}>내일</span>
+                    : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:8, padding:"2px 8px" }}>D-{dDay}</span>
+                  }
+                  <span style={{ fontSize:12, color:C.dim }}>{fmtSvcDate(nextSvc.date)}</span>
+                </div>
+                <span style={{ fontSize:12, color:C.dim }}>{nextSvc.time || ""}</span>
               </div>
 
-              {/* 카운트다운 MM:SS */}
-              {showCountdown && (
-                <div style={{ background:C.bg, borderRadius:12, padding:"10px 14px",
-                  marginBottom:12, display:"flex", alignItems:"center", gap:10 }}>
-                  <Icon n="clock" size={16} color={C.pur} />
-                  <span style={{ fontWeight:900, fontSize:26, color:C.pur,
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: countdown ? 10 : 10 }}>
+                <div style={{ fontWeight:800, fontSize:18, color:C.txt }}>{nextSvc.title}</div>
+                <span style={{ fontSize:12, color:C.dim, flexShrink:0 }}>{svcSongs.length}곡</span>
+              </div>
+
+              {/* 카운트다운 — 항상 표시 */}
+              {countdown && (
+                <div style={{ background:C.bg, borderRadius:10, padding:"8px 12px",
+                  marginBottom:10, display:"flex", alignItems:"center", gap:8 }}>
+                  <Icon n="clock" size={14} color={C.pur} />
+                  <span style={{ fontWeight:900, fontSize:22, color:C.pur,
                     fontVariantNumeric:"tabular-nums", letterSpacing:1 }}>
                     {countdown}
                   </span>
@@ -2126,8 +2131,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, nav, creat
 
               <div style={{ display:"flex", justifyContent:"flex-end" }}>
                 <button onClick={() => nav("svcDetail", { svcId: nextSvc.id })}
-                  style={{ background:C.pur, border:"none", borderRadius:12,
-                    padding:"9px 18px", cursor:"pointer",
+                  style={{ background:C.pur, border:"none", borderRadius:10,
+                    padding:"7px 16px", cursor:"pointer",
                     fontSize:13, fontWeight:700, color:"#fff", fontFamily:"inherit" }}>
                   예배 전체 보기 ›
                 </button>
