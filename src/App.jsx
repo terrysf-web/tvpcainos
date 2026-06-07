@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.298";
+const APP_VERSION = "3.299";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2061,7 +2061,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", justifyContent:"space-between",
       }}>
-        <img src="/ainos-logo.jpg" alt="ainos" style={{ height:32, width:"auto", borderRadius:6, objectFit:"contain" }} />
+        <img src="/ainos-logo.jpg" alt="ainos" style={{ height:32, width:"auto", borderRadius:6, objectFit:"contain", background:"#fff", padding:"2px 4px" }} />
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           {isLeader(user.role) && (
             <button onClick={() => nav("services")}
@@ -2287,34 +2287,34 @@ function X32StatusBar() {
 
   return (
     <div style={{ marginBottom:10 }}>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
-        <span style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em" }}>🎛 X32</span>
-        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-          <div style={{ width:5, height:5, borderRadius:"50%",
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+        <span style={{ fontSize:11, fontWeight:800, color:C.txt, letterSpacing:"0.02em" }}>밴드 악기 상태</span>
+        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+          <div style={{ width:6, height:6, borderRadius:"50%",
             background: wsConnected ? C.grn : C.dim }} />
-          <span style={{ fontSize:9, color: wsConnected ? C.grn : C.dim, fontWeight:700 }}>
+          <span style={{ fontSize:10, color: wsConnected ? C.grn : C.dim, fontWeight:700 }}>
             {wsConnected ? "LIVE" : "OFF"}
           </span>
-          <span style={{ fontSize:9, color:C.dim, fontFamily:"monospace" }}>192.168.1.24</span>
+          <span style={{ fontSize:10, color:C.dim, fontFamily:"monospace" }}>192.168.1.24</span>
         </div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:6 }}>
         {status.map(ch => {
           const pct   = Math.round(ch.fader * 100);
           const color = ch.muted ? C.acc : pct > 90 ? C.red : C.grn;
           return (
             <div key={ch.id} style={{ background:C.surf, border:`1px solid ${C.bdr}`,
-              borderRadius:9, padding:"5px 3px", textAlign:"center" }}>
-              <div style={{ fontSize:14, marginBottom:1 }}>{ch.icon}</div>
-              <div style={{ fontSize:9, fontWeight:700, color:C.txt, marginBottom:1 }}>{ch.label}</div>
-              <div style={{ fontSize:8, color:C.dim, marginBottom:4 }}>{ch.chs}</div>
-              <div style={{ height:3, background:C.bdr, borderRadius:2, margin:"0 4px 3px",
+              borderRadius:10, padding:"8px 4px 7px", textAlign:"center" }}>
+              <div style={{ fontSize:22, marginBottom:3 }}>{ch.icon}</div>
+              <div style={{ fontSize:11, fontWeight:700, color:C.txt, marginBottom:1 }}>{ch.label}</div>
+              <div style={{ fontSize:10, color:C.dim, marginBottom:6 }}>{ch.chs}</div>
+              <div style={{ height:4, background:C.bdr, borderRadius:2, margin:"0 6px 4px",
                 overflow:"hidden" }}>
                 <div style={{ height:"100%", borderRadius:2,
                   width: wsConnected ? pct + "%" : "0%",
                   background:color, transition:"width 0.15s" }} />
               </div>
-              <div style={{ fontSize:8, fontWeight:800,
+              <div style={{ fontSize:10, fontWeight:800,
                 color: wsConnected ? (ch.muted ? C.acc : C.grn) : C.dim }}>
                 {wsConnected ? (ch.muted ? "MUTE" : "LIVE") : "—"}
               </div>
