@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.306";
+const APP_VERSION = "3.307";
 
 const PARTS = [
   { id:"전체",    emoji:"🎵", label:"전체" },
@@ -3127,18 +3127,18 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
                   {/* 복사·삭제 (리더만) + 녹음 기록 버튼 */}
                   <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
-                    {/* 예배 녹음 버튼 — 어드민만 (테스트 중) */}
+                    {/* 예배 녹음 재생 버튼 — 어드민만 (테스트 중) */}
                     {user?.role === "admin" && (
                       <button onClick={e => { e.stopPropagation(); setRecSong({ id: song.id, title: song.title }); }}
-                        title="예배 녹음 기록"
+                        title="예배 녹음 재생"
                         style={{
-                          background:`${C.red}10`, border:`1px solid ${C.red}44`,
+                          background:`${C.grn}12`, border:`1px solid ${C.grn}55`,
                           borderRadius:7, cursor:"pointer", padding:"4px 7px",
                           display:"flex", alignItems:"center", gap:4,
-                          fontSize:10, fontWeight:700, color:C.red, fontFamily:"inherit",
+                          fontSize:10, fontWeight:700, color:C.grn, fontFamily:"inherit",
                         }}>
-                        <Icon n="mic" size={12} color={C.red} />
-                        녹음
+                        <Icon n="play" size={11} color={C.grn} />
+                        재생
                       </button>
                     )}
                     {leader && <>
@@ -4203,19 +4203,25 @@ function RecordingsModal({ songId, songTitle, userGeminiKey, sharedGeminiKey, on
 /* ══════════════════════════════════════════════════════════════════
    WORSHIP RECORDINGS MODAL (팀 공유 예배 녹음 — 파트별)
 ══════════════════════════════════════════════════════════════════ */
+function extractDriveId(url) {
+  if (!url) return null;
+  const m1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (m1) return m1[1];
+  const m2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  return m2 ? m2[1] : null;
+}
+
 function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   const leader = isLeader(user?.role);
   const myPart = user?.part || "";
-  const [recs,       setRecs]       = useState([]);
-  const [partFilter, setPartFilter] = useState(myPart || "전체");
-  const [playing,    setPlaying]    = useState(null);
-  const [uploading,       setUploading]       = useState(false);
-  const [uploadProgress,  setUploadProgress]  = useState(0);  // 0–100
-  const [uploadPart,      setUploadPart]      = useState(myPart || "전체");
-  const [showUpload,      setShowUpload]      = useState(false);
-  const uploadTaskRef = useRef(null);
-  const audioRef    = useRef(null);
-  const fileInputRef = useRef(null);
+  const [recs,        setRecs]        = useState([]);
+  const [partFilter,  setPartFilter]  = useState(myPart || "전체");
+  const [expandedId,  setExpandedId]  = useState(null); // 재생 중인 rec.id (iframe)
+  const [showAdd,     setShowAdd]     = useState(false);
+  const [addPart,     setAddPart]     = useState(myPart || "전체");
+  const [driveInput,  setDriveInput]  = useState("");
+  const [addTitle,    setAddTitle]    = useState("");
+  const [saving,      setSaving]      = useState(false);
 
   useEffect(() => {
     const q = query(
@@ -4228,84 +4234,36 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     }, () => {});
   }, [songId]);
 
-  const play = (rec) => {
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
-    if (playing === rec.id) { setPlaying(null); return; }
-    const audio = new Audio(rec.fileUrl);
-    audioRef.current = audio;
-    audio.onended = () => setPlaying(null);
-    audio.onerror = () => { setPlaying(null); };
-    audio.play().catch(() => setPlaying(null));
-    setPlaying(rec.id);
-  };
-
   const del = async (rec) => {
-    if (!window.confirm("이 녹음을 삭제하시겠습니까?")) return;
-    if (playing === rec.id && audioRef.current) { audioRef.current.pause(); setPlaying(null); }
+    if (!window.confirm("이 항목을 삭제하시겠습니까?")) return;
+    if (expandedId === rec.id) setExpandedId(null);
     if (rec.storagePath) {
       try { await deleteObject(storageRef(storage, rec.storagePath)); } catch {}
     }
     await deleteDoc(doc(db, "worshipRecordings", rec.id));
   };
 
-  const cancelUpload = () => {
-    uploadTaskRef.current?.cancel();
-    uploadTaskRef.current = null;
-    setUploading(false);
-    setUploadProgress(0);
-  };
-
-  const handleUpload = (file) => {
-    if (!file) return;
-    const MB = file.size / 1048576;
-    if (MB > 50) {
-      alert(`파일이 너무 큽니다 (${MB.toFixed(0)}MB). MP3/M4A 파일을 권장합니다.`);
-      return;
-    }
-    setUploading(true);
-    setUploadProgress(0);
-    const ext  = file.name.split(".").pop() || "webm";
-    const path = `worshipRecordings/${songId}/${Date.now()}.${ext}`;
-    const fileRef = storageRef(storage, path);
-    const task = uploadBytesResumable(fileRef, file);
-    uploadTaskRef.current = task;
-
-    task.on("state_changed",
-      snap => {
-        setUploadProgress(Math.round(snap.bytesTransferred / snap.totalBytes * 100));
-      },
-      err => {
-        if (err.code !== "storage/canceled") alert("업로드 실패: " + err.message);
-        setUploading(false);
-        setUploadProgress(0);
-        uploadTaskRef.current = null;
-      },
-      async () => {
-        try {
-          const fileUrl = await getDownloadURL(task.snapshot.ref);
-          await addDoc(collection(db, "worshipRecordings"), {
-            songId,
-            songTitle,
-            serviceId:    svc?.id    || null,
-            serviceTitle: svc?.title || null,
-            serviceDate:  svc?.date  || null,
-            part:         uploadPart,
-            fileUrl,
-            storagePath:  path,
-            size:         file.size,
-            uploaderUid:  user.uid,
-            uploaderName: user.name || user.email || "리더",
-            createdAt:    serverTimestamp(),
-          });
-          setShowUpload(false);
-        } catch (e) {
-          alert("저장 실패: " + (e.message || ""));
-        }
-        setUploading(false);
-        setUploadProgress(0);
-        uploadTaskRef.current = null;
-      }
-    );
+  const saveLink = async () => {
+    const driveId = extractDriveId(driveInput.trim());
+    if (!driveId) { alert("올바른 구글 드라이브 링크를 붙여넣으세요."); return; }
+    setSaving(true);
+    try {
+      await addDoc(collection(db, "worshipRecordings"), {
+        songId,
+        songTitle,
+        serviceId:    svc?.id    || null,
+        serviceTitle: svc?.title || null,
+        serviceDate:  svc?.date  || null,
+        part:         addPart,
+        driveId,
+        title:        addTitle.trim() || null,
+        uploaderUid:  user.uid,
+        uploaderName: user.name || user.email || "리더",
+        createdAt:    serverTimestamp(),
+      });
+      setDriveInput(""); setAddTitle(""); setShowAdd(false);
+    } catch (e) { alert("저장 실패: " + (e.message || "")); }
+    setSaving(false);
   };
 
   const filteredRecs = partFilter === "전체"
@@ -4313,7 +4271,6 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     : recs.filter(r => r.part === partFilter || r.part === "전체");
 
   const partInfo = (p) => PARTS.find(x => x.id === p) || { emoji: "🎵", label: p || "전체" };
-  const fmtSz = (b) => b < 1048576 ? `${(b/1024).toFixed(0)}KB` : `${(b/1048576).toFixed(1)}MB`;
   const fmtDate = (ts) => {
     if (!ts?.toDate) return "";
     return ts.toDate().toLocaleDateString("ko-KR", { month:"short", day:"numeric" });
@@ -4344,140 +4301,156 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
 
       {myPart && partFilter === "전체" && recs.filter(r => r.part === myPart).length > 0 && (
         <div style={{ fontSize:11, color:C.acc, marginBottom:8, display:"flex", alignItems:"center", gap:4 }}>
-          <span>{partInfo(myPart).emoji}</span>
-          <span>내 파트({myPart}) 녹음이 있습니다 —</span>
+          <span>{partInfo(myPart).emoji} 내 파트 녹음 있음 —</span>
           <button onClick={() => setPartFilter(myPart)} style={{
             background:"none", border:"none", color:C.acc, cursor:"pointer",
             fontSize:11, fontWeight:700, padding:0, fontFamily:"inherit",
-          }}>
-            내 파트만 보기
-          </button>
+          }}>내 파트만 보기</button>
         </div>
       )}
 
       <div style={{ maxHeight:"52vh", overflowY:"auto" }}>
         {filteredRecs.length === 0 ? (
           <div style={{ textAlign:"center", color:C.dim, padding:"28px 0", fontSize:14 }}>
-            {partFilter !== "전체" ? `${partFilter} 파트 녹음이 없습니다` : "녹음이 없습니다"}
+            {partFilter !== "전체" ? `${partFilter} 파트 녹음이 없습니다` : "등록된 녹음이 없습니다"}
           </div>
         ) : filteredRecs.map(rec => {
           const pi = partInfo(rec.part);
           const isMine = rec.part === myPart;
+          const isOpen = expandedId === rec.id;
+          const embedSrc = rec.driveId
+            ? `https://drive.google.com/file/d/${rec.driveId}/preview`
+            : null;
           return (
             <div key={rec.id} style={{
-              display:"flex", alignItems:"center", gap:10,
-              borderRadius:10, padding:"10px 12px", marginBottom:8,
+              borderRadius:10, marginBottom:8, overflow:"hidden",
               background: isMine ? `${C.acc}09` : C.card,
               border:`1px solid ${isMine ? C.acc+"44" : C.bdr}`,
             }}>
-              <button onClick={() => play(rec)} style={{
-                width:38, height:38, borderRadius:"50%", border:"none", cursor:"pointer", flexShrink:0,
-                background: playing === rec.id ? C.red : C.pur,
-                display:"flex", alignItems:"center", justifyContent:"center",
-              }}>
-                <Icon n={playing === rec.id ? "stop" : "play"} size={14} color="#fff" />
-              </button>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:2 }}>
-                  <span style={{
-                    fontSize:11, fontWeight:700, padding:"1px 7px", borderRadius:5,
-                    background: isMine ? `${C.acc}20` : `${C.pur}15`,
-                    color: isMine ? C.acc : C.pur,
-                  }}>{pi.emoji} {pi.label}</span>
-                  {rec.serviceTitle && (
-                    <span style={{ fontSize:10, color:C.dim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                      {rec.serviceTitle}
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontSize:11, color:C.dim }}>
-                  {rec.uploaderName} · {fmtDate(rec.createdAt)} · {fmtSz(rec.size || 0)}
-                </div>
-              </div>
-              {leader && (
-                <button onClick={() => del(rec)} style={{
-                  background:"none", border:`1px solid ${C.red}44`, borderRadius:7,
-                  cursor:"pointer", padding:"6px 8px",
+              {/* 헤더 행 */}
+              <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px" }}>
+                {/* 재생/닫기 버튼 */}
+                <button onClick={() => setExpandedId(isOpen ? null : rec.id)} style={{
+                  width:38, height:38, borderRadius:"50%", border:"none", cursor:"pointer", flexShrink:0,
+                  background: isOpen ? "#ff6b35" : C.grn,
                   display:"flex", alignItems:"center", justifyContent:"center",
                 }}>
-                  <Icon n="trash" size={13} color={C.red} />
+                  <Icon n={isOpen ? "stop" : "play"} size={14} color="#fff" />
                 </button>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:2 }}>
+                    <span style={{
+                      fontSize:11, fontWeight:700, padding:"1px 7px", borderRadius:5,
+                      background: isMine ? `${C.acc}20` : `${C.pur}15`,
+                      color: isMine ? C.acc : C.pur,
+                    }}>{pi.emoji} {pi.label}</span>
+                    {rec.title && <span style={{ fontSize:12, fontWeight:600, color:C.txt,
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{rec.title}</span>}
+                    {rec.serviceTitle && !rec.title && (
+                      <span style={{ fontSize:10, color:C.dim, overflow:"hidden",
+                        textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{rec.serviceTitle}</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize:11, color:C.dim }}>
+                    {rec.uploaderName} · {fmtDate(rec.createdAt)}
+                    {rec.driveId ? " · Google Drive" : ""}
+                  </div>
+                </div>
+                {leader && (
+                  <button onClick={() => del(rec)} style={{
+                    background:"none", border:`1px solid ${C.red}44`, borderRadius:7,
+                    cursor:"pointer", padding:"6px 8px",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    <Icon n="trash" size={13} color={C.red} />
+                  </button>
+                )}
+              </div>
+              {/* Google Drive 임베드 플레이어 */}
+              {isOpen && embedSrc && (
+                <div style={{ borderTop:`1px solid ${C.bdr}` }}>
+                  <iframe
+                    src={embedSrc}
+                    width="100%"
+                    height="80"
+                    allow="autoplay"
+                    style={{ display:"block", border:"none" }}
+                    title={rec.title || songTitle}
+                  />
+                </div>
+              )}
+              {isOpen && !embedSrc && (
+                <div style={{ padding:"8px 12px", borderTop:`1px solid ${C.bdr}`,
+                  fontSize:12, color:C.dim }}>
+                  재생 링크 없음
+                </div>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* 업로드 (리더만) */}
+      {/* 구글 드라이브 링크 추가 (리더만) */}
       {leader && (
         <div style={{ marginTop:12, borderTop:`1px solid ${C.bdr}`, paddingTop:12 }}>
-          {!showUpload ? (
-            <button onClick={() => setShowUpload(true)} style={{
+          {!showAdd ? (
+            <button onClick={() => setShowAdd(true)} style={{
               width:"100%", padding:"10px", borderRadius:10,
-              border:`1.5px dashed ${C.pur}55`,
-              background:`${C.pur}08`, cursor:"pointer",
+              border:`1.5px dashed ${C.grn}66`,
+              background:`${C.grn}08`, cursor:"pointer",
               display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-              fontSize:13, fontWeight:700, color:C.pur, fontFamily:"inherit",
+              fontSize:13, fontWeight:700, color:C.grn, fontFamily:"inherit",
             }}>
-              <Icon n="upload" size={16} color={C.pur} />
-              녹음 파일 업로드
+              <Icon n="plus" size={16} color={C.grn} />
+              Google Drive 링크 추가
             </button>
           ) : (
             <div style={{ background:C.card, borderRadius:10, padding:12, border:`1px solid ${C.bdr}` }}>
-              <div style={{ fontSize:12, fontWeight:700, color:C.txt, marginBottom:8 }}>파트 선택 후 파일 업로드</div>
+              <div style={{ fontSize:12, fontWeight:700, color:C.txt, marginBottom:8 }}>파트 선택</div>
               <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:10 }}>
                 {PARTS.map(p => (
-                  <button key={p.id} onClick={() => setUploadPart(p.id)} style={{
+                  <button key={p.id} onClick={() => setAddPart(p.id)} style={{
                     padding:"3px 9px", borderRadius:14,
-                    border:`1px solid ${uploadPart===p.id ? C.pur : C.bdr}`,
-                    background: uploadPart===p.id ? C.pur : "transparent",
-                    color: uploadPart===p.id ? "#fff" : C.dim,
+                    border:`1px solid ${addPart===p.id ? C.pur : C.bdr}`,
+                    background: addPart===p.id ? C.pur : "transparent",
+                    color: addPart===p.id ? "#fff" : C.dim,
                     fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit",
                   }}>{p.emoji} {p.label}</button>
                 ))}
               </div>
-              <input ref={fileInputRef} type="file"
-                accept="audio/*,.webm,.mp3,.m4a,.ogg,.wav,.aac"
-                style={{ display:"none" }}
-                onChange={e => { handleUpload(e.target.files[0]); e.target.value = ""; }}
+              <input
+                placeholder="제목 (선택) — 예: 6월 7일 주일예배"
+                value={addTitle}
+                onChange={e => setAddTitle(e.target.value)}
+                style={{ width:"100%", boxSizing:"border-box", padding:"8px 10px", borderRadius:8,
+                  border:`1px solid ${C.bdr}`, background:C.bg, fontSize:12, color:C.txt,
+                  fontFamily:"inherit", outline:"none", marginBottom:8 }}
               />
-              {uploading ? (
-                /* 업로드 진행 중 */
-                <div>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
-                    <span style={{ fontSize:12, color:C.pur, fontWeight:700 }}>업로드 중... {uploadProgress}%</span>
-                    <button onClick={cancelUpload} style={{
-                      background:"none", border:"none", color:C.red, fontSize:12, cursor:"pointer",
-                      fontWeight:700, padding:0, fontFamily:"inherit",
-                    }}>취소</button>
-                  </div>
-                  <div style={{ height:8, background:C.bg, borderRadius:4, overflow:"hidden" }}>
-                    <div style={{
-                      height:"100%", borderRadius:4, background:C.pur,
-                      width:`${uploadProgress}%`, transition:"width .3s",
-                    }} />
-                  </div>
-                  <div style={{ fontSize:11, color:C.dim, marginTop:4 }}>
-                    MP3·M4A 파일은 빠릅니다. WAV는 시간이 걸릴 수 있습니다.
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display:"flex", gap:8 }}>
-                  <button onClick={() => fileInputRef.current?.click()} style={{
-                    flex:1, padding:"9px", borderRadius:9, border:"none",
-                    background:C.pur, color:"#fff",
-                    fontSize:13, fontWeight:700, cursor:"pointer",
-                    fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-                  }}>
-                    <Icon n="upload" size={14} color="#fff" />
-                    {partInfo(uploadPart).emoji} 파일 선택
-                  </button>
-                  <button onClick={() => setShowUpload(false)} style={{
-                    padding:"9px 14px", borderRadius:9, border:`1px solid ${C.bdr}`,
-                    background:"transparent", color:C.dim, fontSize:13, cursor:"pointer", fontFamily:"inherit",
-                  }}>취소</button>
-                </div>
-              )}
+              <div style={{ fontSize:11, color:C.dim, marginBottom:5 }}>
+                Drive에서 파일 공유 링크 복사 후 붙여넣기
+              </div>
+              <input
+                placeholder="https://drive.google.com/file/d/..."
+                value={driveInput}
+                onChange={e => setDriveInput(e.target.value)}
+                style={{ width:"100%", boxSizing:"border-box", padding:"8px 10px", borderRadius:8,
+                  border:`1px solid ${driveInput ? C.grn+"66" : C.bdr}`, background:C.bg,
+                  fontSize:12, color:C.txt, fontFamily:"inherit", outline:"none", marginBottom:10 }}
+              />
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={saveLink} disabled={saving || !driveInput.trim()} style={{
+                  flex:1, padding:"9px", borderRadius:9, border:"none",
+                  background: !driveInput.trim() || saving ? C.bdr : C.grn,
+                  color:"#fff", fontSize:13, fontWeight:700, cursor: !driveInput.trim() || saving ? "default" : "pointer",
+                  fontFamily:"inherit",
+                }}>
+                  {saving ? "저장 중..." : "저장"}
+                </button>
+                <button onClick={() => { setShowAdd(false); setDriveInput(""); setAddTitle(""); }} style={{
+                  padding:"9px 14px", borderRadius:9, border:`1px solid ${C.bdr}`,
+                  background:"transparent", color:C.dim, fontSize:13, cursor:"pointer", fontFamily:"inherit",
+                }}>취소</button>
+              </div>
             </div>
           )}
         </div>
