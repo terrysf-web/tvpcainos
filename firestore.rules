@@ -79,6 +79,12 @@ service cloud.firestore {
       allow read, write: if isAuthed();
     }
 
+    // 앱 설정 (공유 Gemini 키 등) — 읽기 인증된 모두, 쓰기 어드민만
+    match /settings/{docId} {
+      allow read: if isAuthed();
+      allow write: if isAdmin();
+    }
+
     // AI 분석 결과 — 인증된 모든 팀원이 읽기/쓰기 가능
     match /songAnalysis/{songId} {
       allow read, write: if isAuthed();

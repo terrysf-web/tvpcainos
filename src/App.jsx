@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.318";
+const APP_VERSION = "3.319";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -5268,7 +5268,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       small.getContext("2d").drawImage(canvas, 0, 0, small.width, small.height);
       const imageData = small.toDataURL("image/jpeg", 0.95).split(",")[1];
 
-      const raw = await detectChordsViaEdge(imageData, user?.geminiKey);
+      const raw = await detectChordsViaEdge(imageData, user?.geminiKey || sharedGeminiKey);
       const chords = raw.map((item) => ({
         chord: item.label,
         x: typeof item.cx === "number" ? item.cx : (typeof item.x === "number" ? item.x : 0.5),
