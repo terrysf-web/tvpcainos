@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.286";
+const APP_VERSION = "3.290";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -117,6 +117,8 @@ const P = {
   help:    "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01",
   play:    "M5 3l14 9-14 9V3z",
   pause:   "M6 4h4v16H6zM14 4h4v16h-4z",
+  calendar:"M8 2v4M16 2v4M3 8h18M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z",
+  clock:   "M12 6v6l4 2M22 12a10 10 0 1 0-20 0 10 10 0 0 0 20 0z",
   antenna: "M12 9A3 3 0 0 0 12 15M12 9A3 3 0 0 1 12 15M12 6A6 6 0 0 0 12 18M12 6A6 6 0 0 1 12 18M12 10.8a1.2 1.2 0 1 0 0 2.4a1.2 1.2 0 1 0 0-2.4",
   megaphone:"M3 11v2a1 1 0 0 0 1 1h2l5 4V7l-5 4H4a1 1 0 0 0-1 1zM19 12a7 7 0 0 0-3-5.83M15.54 16.46A5 5 0 0 0 17 12a5 5 0 0 0-1.46-3.54",
   stop:    "M6 6h12v12H6z",
@@ -1998,6 +2000,324 @@ function CropModal({ pdfFile, pdfUrl, imageUrl, onClose, onConfirm, initialCrop 
 
       <div style={{ color:"rgba(255,255,255,.45)", fontSize:12, textAlign:"center", flexShrink:0 }}>
         핸들을 드래그하여 크롭 영역 조정 · "자동 감지"로 여백 자동 제거
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   HOME SCREEN
+══════════════════════════════════════════════════════════════════ */
+function HomeScreen({ user, services, songs, notifs, teamAnnotations, nav, createService }) {
+  const [countdown, setCountdown] = useState("");
+  const [showCountdown, setShowCountdown] = useState(false);
+  const unread = notifs.filter(n => !n.read).length;
+
+  const today    = new Date().toISOString().slice(0, 10);
+  const nextSvc  = services
+    .filter(s => s.date >= today)
+    .slice().sort((a, b) => a.date.localeCompare(b.date))[0] || null;
+  const svcSongs = nextSvc
+    ? (nextSvc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean)
+    : [];
+
+  const dDay = nextSvc ? Math.ceil(
+    (new Date(nextSvc.date + "T00:00:00") - new Date(today + "T00:00:00")) / 86400000
+  ) : null;
+
+  const fmtSvcDate = d => new Date(d + "T00:00:00").toLocaleDateString("ko-KR",
+    { month:"long", day:"numeric", weekday:"short" });
+
+  // 카운트다운: 예배 1시간 전부터 MM:SS
+  useEffect(() => {
+    if (!nextSvc?.time) return;
+    const tick = () => {
+      const [h, m] = nextSvc.time.split(":").map(Number);
+      const svcDt  = new Date(nextSvc.date + "T00:00:00");
+      svcDt.setHours(h, m, 0, 0);
+      const diff   = svcDt - Date.now();
+      if (diff > 0 && diff <= 3600000) {
+        const mm = String(Math.floor(diff / 60000)).padStart(2, "0");
+        const ss = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
+        setCountdown(`${mm}:${ss}`);
+        setShowCountdown(true);
+      } else {
+        setShowCountdown(false);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [nextSvc]);
+
+  return (
+    <div style={{ height:"100%", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      {/* 헤더 */}
+      <div style={{
+        background:C.surf, flexShrink:0,
+        padding:"14px 20px 12px",
+        paddingTop:"calc(14px + env(safe-area-inset-top))",
+        borderBottom:`1px solid ${C.bdr}`,
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+      }}>
+        <div style={{ fontWeight:900, fontSize:22, color:C.pur, letterSpacing:"-0.5px" }}>ainos</div>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          {isLeader(user.role) && (
+            <button onClick={() => nav("services")}
+              style={{ height:34, padding:"0 12px", borderRadius:9, cursor:"pointer",
+                background:`${C.pur}18`, border:`1px solid ${C.pur}44`,
+                display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+              <Icon n="plus" size={14} color={C.pur} />
+              <span style={{ fontSize:12, fontWeight:700, color:C.pur }}>예배 관리</span>
+            </button>
+          )}
+          <button onClick={() => nav("notifications")}
+            style={{ width:34, height:34, borderRadius:9, cursor:"pointer", position:"relative",
+              background:C.card, border:`1px solid ${unread > 0 ? C.acc : C.bdr}`,
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            <Icon n="bell" size={17} color={unread > 0 ? C.acc : C.dim} />
+            {unread > 0 && (
+              <span style={{ position:"absolute", top:-4, right:-4, minWidth:15, height:15,
+                padding:"0 3px", background:C.red, borderRadius:8, border:`2px solid ${C.surf}`,
+                fontSize:9, fontWeight:800, color:"#fff",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                lineHeight:1, boxSizing:"border-box" }}>
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ flex:1, overflowY:"auto", padding:"14px 14px 90px" }}>
+        {nextSvc ? (
+          <>
+            {/* 이번 예배 히어로 */}
+            <div style={{
+              background:`linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
+              border:`1.5px solid ${C.pur}33`,
+              borderRadius:20, padding:18, marginBottom:14,
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+                {dDay === 0
+                  ? <span style={{ background:C.red, color:"#fff", fontWeight:800, fontSize:11, borderRadius:10, padding:"3px 10px" }}>오늘</span>
+                  : dDay === 1
+                  ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:11, borderRadius:10, padding:"3px 10px" }}>내일</span>
+                  : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:10, padding:"3px 10px" }}>D-{dDay}</span>
+                }
+                <span style={{ fontSize:13, color:C.dim }}>{fmtSvcDate(nextSvc.date)}</span>
+              </div>
+              <div style={{ fontWeight:800, fontSize:20, marginBottom:4, color:C.txt }}>{nextSvc.title}</div>
+              <div style={{ fontSize:13, color:C.dim, marginBottom: showCountdown ? 12 : 14 }}>
+                {nextSvc.time ? nextSvc.time + " · " : ""}{svcSongs.length}곡
+              </div>
+
+              {/* 카운트다운 MM:SS */}
+              {showCountdown && (
+                <div style={{ background:C.bg, borderRadius:12, padding:"10px 14px",
+                  marginBottom:12, display:"flex", alignItems:"center", gap:10 }}>
+                  <Icon n="clock" size={16} color={C.pur} />
+                  <span style={{ fontWeight:900, fontSize:26, color:C.pur,
+                    fontVariantNumeric:"tabular-nums", letterSpacing:1 }}>
+                    {countdown}
+                  </span>
+                </div>
+              )}
+
+              <div style={{ display:"flex", justifyContent:"flex-end" }}>
+                <button onClick={() => nav("svcDetail", { svcId: nextSvc.id })}
+                  style={{ background:C.pur, border:"none", borderRadius:12,
+                    padding:"9px 18px", cursor:"pointer",
+                    fontSize:13, fontWeight:700, color:"#fff", fontFamily:"inherit" }}>
+                  예배 전체 보기 ›
+                </button>
+              </div>
+            </div>
+
+            {/* X32 채널 상태 */}
+            <X32StatusBar />
+
+            {/* 악보 리스트 */}
+            <div style={{ fontSize:11, fontWeight:800, color:C.pur,
+              letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:10 }}>
+              이번 주 악보
+            </div>
+
+            {svcSongs.map((song, idx) => {
+              const memos    = ((teamAnnotations || {})[song.id] || []).length;
+              const hasSheet = !!(song.pdfUrl || song.imageUrl);
+              return (
+                <div key={song.id + idx}
+                  onClick={() => hasSheet && nav("pdfViewer", { songId:song.id, svcId:nextSvc.id, svcSongIdx:idx, backTo:"home" })}
+                  style={{
+                    background:C.surf, border:`1px solid ${C.bdr}`,
+                    borderRadius:14, padding:"13px 14px",
+                    marginBottom:9, display:"flex", alignItems:"center", gap:12,
+                    cursor: hasSheet ? "pointer" : "default",
+                    opacity: hasSheet ? 1 : 0.7,
+                  }}>
+                  <div style={{ width:26, height:26, borderRadius:8, background:`${C.pur}18`,
+                    display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                    <span style={{ fontSize:12, fontWeight:800, color:C.pur }}>{idx + 1}</span>
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontWeight:700, fontSize:15, marginBottom:6,
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {song.title}
+                    </div>
+                    <div style={{ display:"flex", gap:5, flexWrap:"wrap", alignItems:"center" }}>
+                      {song.key && (
+                        <span style={{ background:`${keyColor(song.key)}22`, color:keyColor(song.key),
+                          border:`1px solid ${keyColor(song.key)}44`,
+                          borderRadius:8, padding:"2px 8px", fontSize:11, fontWeight:700 }}>
+                          Key {song.key}
+                        </span>
+                      )}
+                      {song.bpm && (
+                        <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
+                          borderRadius:8, padding:"2px 8px", fontSize:11 }}>
+                          ♩={song.bpm}
+                        </span>
+                      )}
+                      {song.timeSig && (
+                        <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
+                          borderRadius:8, padding:"2px 8px", fontSize:11 }}>
+                          {song.timeSig}
+                        </span>
+                      )}
+                      {memos > 0 && (
+                        <span style={{ background:`${C.grn}18`, color:C.grn,
+                          border:`1px solid ${C.grn}33`,
+                          borderRadius:8, padding:"2px 8px", fontSize:11, fontWeight:600 }}>
+                          👥 {memos}
+                        </span>
+                      )}
+                      {!hasSheet && (
+                        <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
+                          borderRadius:8, padding:"2px 8px", fontSize:11 }}>
+                          악보 없음
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {hasSheet && <Icon n="chevR" size={18} color={C.pur} />}
+                </div>
+              );
+            })}
+
+            {svcSongs.length === 0 && (
+              <div style={{ textAlign:"center", padding:"32px 0", color:C.dim }}>
+                <div style={{ fontSize:32, marginBottom:8 }}>🎵</div>
+                <div style={{ fontSize:14 }}>아직 곡이 없습니다</div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ textAlign:"center", padding:"80px 20px", color:C.dim }}>
+            <div style={{ fontSize:52, marginBottom:16 }}>📋</div>
+            <div style={{ fontWeight:700, fontSize:16, marginBottom:8, color:C.txt }}>
+              예정된 예배가 없습니다
+            </div>
+            <div style={{ fontSize:13, marginBottom:24 }}>예배를 추가해 악보를 준비하세요</div>
+            {isLeader(user.role) && (
+              <button onClick={() => nav("services")}
+                style={{ background:C.pur, border:"none", borderRadius:12,
+                  padding:"12px 28px", cursor:"pointer",
+                  fontSize:14, fontWeight:700, color:"#fff", fontFamily:"inherit" }}>
+                예배 관리로 이동
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* X32 채널 상태 바 (WebSocket 연동 — 추후 wss:// 연결) */
+function X32StatusBar() {
+  const X32_CHANNELS = [
+    { id:"drum",   label:"드럼",     icon:"🥁", chs:"CH 1,2" },
+    { id:"bass",   label:"베이스",   icon:"🎸", chs:"CH 3"   },
+    { id:"guitar", label:"기타",     icon:"🎸", chs:"CH 4"   },
+    { id:"elec",   label:"일렉기타", icon:"⚡", chs:"CH 5,6" },
+    { id:"kbd",    label:"키보드",   icon:"🎹", chs:"CH 7,8" },
+  ];
+  const [status, setStatus] = useState(
+    X32_CHANNELS.map(c => ({ ...c, fader:0, muted:false, connected:false }))
+  );
+  const [wsConnected, setWsConnected] = useState(false);
+  const wsRef = useRef(null);
+
+  useEffect(() => {
+    const url = localStorage.getItem("ainos_x32_ws");
+    if (!url) return;
+    let dead = false;
+    const connect = () => {
+      if (dead) return;
+      try {
+        const ws = new WebSocket(url);
+        wsRef.current = ws;
+        ws.onopen    = () => setWsConnected(true);
+        ws.onclose   = () => { setWsConnected(false); if (!dead) setTimeout(connect, 3000); };
+        ws.onerror   = () => {};
+        ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.type === "channels") {
+              setStatus(X32_CHANNELS.map((c, i) => {
+                const g = msg.groups?.find(g => g.id === c.id);
+                return g ? { ...c, fader:g.fader, muted:g.muted, connected:true } : status[i];
+              }));
+            }
+          } catch {}
+        };
+      } catch {}
+    };
+    connect();
+    return () => { dead = true; wsRef.current?.close(); };
+  }, []);
+
+  return (
+    <div style={{ marginBottom:14 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+        <span style={{ fontSize:11, fontWeight:800, color:C.dim, letterSpacing:"0.05em" }}>
+          🎛 X32 믹서
+        </span>
+        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+          <div style={{ width:6, height:6, borderRadius:"50%",
+            background: wsConnected ? C.grn : C.dim }} />
+          <span style={{ fontSize:10, color: wsConnected ? C.grn : C.dim, fontWeight:700 }}>
+            {wsConnected ? "연결됨" : "연결 안됨"}
+          </span>
+          <span style={{ fontSize:10, color:C.dim, fontFamily:"monospace" }}>
+            192.168.1.24
+          </span>
+        </div>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:7 }}>
+        {status.map(ch => {
+          const pct   = Math.round(ch.fader * 100);
+          const color = ch.muted ? C.acc : pct > 90 ? C.red : C.grn;
+          return (
+            <div key={ch.id} style={{ background:C.surf, border:`1px solid ${C.bdr}`,
+              borderRadius:12, padding:"8px 4px 7px", textAlign:"center" }}>
+              <div style={{ fontSize:18, marginBottom:3 }}>{ch.icon}</div>
+              <div style={{ fontSize:10, fontWeight:700, color:C.txt, marginBottom:1 }}>{ch.label}</div>
+              <div style={{ fontSize:9, color:C.dim, marginBottom:6 }}>{ch.chs}</div>
+              <div style={{ height:4, background:C.bdr, borderRadius:2, margin:"0 6px 4px",
+                overflow:"hidden" }}>
+                <div style={{ height:"100%", borderRadius:2,
+                  width: wsConnected ? pct + "%" : "0%",
+                  background:color, transition:"width 0.15s" }} />
+              </div>
+              <div style={{ fontSize:9, fontWeight:800,
+                color: wsConnected ? (ch.muted ? C.acc : C.grn) : C.dim }}>
+                {wsConnected ? (ch.muted ? "MUTE" : "LIVE") : "—"}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -9884,12 +10204,14 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
 ══════════════════════════════════════════════════════════════════ */
 function BottomNav({ view, nav, unread, user, anyLiveActive }) {
   const tabs = [
-    { id:"services",      icon:"home",       label:"예배"   },
+    { id:"home",          icon:"home",       label:"홈"     },
+    { id:"services",      icon:"calendar",   label:"예배"   },
     { id:"library",       icon:"music",      label:"악보"   },
     ...(user?.role === "admin" || (isBroadcast(user?.role) && anyLiveActive)
       ? [{ id:"live", icon:"antenna", label:"LIVE" }] : []),
     { id:"notifications", icon:"bell",       label:"알림"   },
     { id:"profile",       icon:"user",       label:"프로필" },
+    { id:"__refresh__",   icon:"refresh",    label:"새로고침" },
   ];
   return (
     <div style={{
@@ -9904,7 +10226,7 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
       {tabs.map(t => {
         const active = view === t.id;
         return (
-          <button key={t.id} onClick={() => nav(t.id)}
+          <button key={t.id} onClick={() => t.id === "__refresh__" ? window.location.reload() : nav(t.id)}
             style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
               gap:4, background:"none", border:"none", cursor:"pointer", padding:"2px 0" }}>
             <div style={{ position:"relative" }}>
@@ -9957,9 +10279,9 @@ export default function App() {
   const [loginErr,        setLoginErr]        = useState("");
   const [loginBlockedUser,setLoginBlockedUser] = useState(null); // { email, name } 미등록 로그인 시도
   const [view,        setView]        = useState(() => {
-    const saved = localStorage.getItem("tvpc_view") || "services";
-    // pdfViewer/svcDetail는 selSongId/selSvcId가 필요한데 새로고침 시 사라지므로 services로 복원
-    return (saved === "pdfViewer" || saved === "svcDetail") ? "services" : saved;
+    const saved = localStorage.getItem("tvpc_view") || "home";
+    // pdfViewer/svcDetail는 selSongId/selSvcId가 필요한데 새로고침 시 사라지므로 home으로 복원
+    return (saved === "pdfViewer" || saved === "svcDetail") ? "home" : saved;
   });
   const [songs,       setSongs]       = useState([]);
   const [services,    setServices]    = useState([]);
@@ -10429,6 +10751,7 @@ export default function App() {
 
   return (
     <div style={{ width:"100%", height:"100%", background:C.bg }}>
+      {view === "home"          && <HomeScreen           {...shared} />}
       {view === "services"      && <ServicesScreen      {...shared} />}
       {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
       {view === "library"       && <SongLibraryScreen   {...shared} />}
