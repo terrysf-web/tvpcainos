@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.293";
+const APP_VERSION = "3.294";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2108,22 +2108,20 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, nav, creat
                   : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 9px" }}>D-{dDay}</span>
                 }
               </div>
-              {/* 행2: 날짜  제목 — 같은 폰트, 같은 줄 */}
-              <div style={{ display:"flex", alignItems:"baseline", gap:10, marginBottom:6,
-                overflow:"hidden" }}>
+              {/* 행2: 날짜 · 제목 · 시간 · 곡수 — 한 줄 */}
+              <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:9,
+                flexWrap:"wrap" }}>
                 <span style={{ fontWeight:700, fontSize:17, color:C.dim, flexShrink:0 }}>
                   {fmtSvcDate(nextSvc.date)}
                 </span>
-                <span style={{ fontWeight:800, fontSize:17, color:C.txt,
-                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                <span style={{ fontWeight:800, fontSize:17, color:C.txt, flexShrink:0 }}>
                   {nextSvc.title}
                 </span>
-              </div>
-              {/* 행3: 시간 + 곡수 */}
-              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:9 }}>
-                {nextSvc.time && <span style={{ fontWeight:600, fontSize:14, color:C.dim }}>{nextSvc.time}</span>}
-                <span style={{ fontSize:13, color:C.dim }}>·</span>
-                <span style={{ fontWeight:600, fontSize:14, color:C.dim }}>{svcSongs.length}곡</span>
+                {nextSvc.time && <>
+                  <span style={{ fontWeight:600, fontSize:14, color:C.dim, flexShrink:0 }}>{nextSvc.time}</span>
+                  <span style={{ fontSize:13, color:C.dim }}>·</span>
+                </>}
+                <span style={{ fontWeight:600, fontSize:14, color:C.dim, flexShrink:0 }}>{svcSongs.length}곡</span>
               </div>
               {/* 행4: 카운트다운 + 버튼 */}
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
