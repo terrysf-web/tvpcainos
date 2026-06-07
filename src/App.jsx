@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.301";
+const APP_VERSION = "3.302";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -4347,6 +4347,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const metroCtxRef    = useRef(null);
   const metroTimerRef  = useRef(null);
   const metroBpmRef    = useRef(80);
+  const prevTeamMetroOn = useRef(undefined);
 
   const showMetroMsg = (msg, ms = 3000) => {
     setMetroMsg(msg);
@@ -4394,6 +4395,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   useEffect(() => {
     if (leader) return;
     const tm = svc?.teamMetro;
+    const prev = prevTeamMetroOn.current;
+    prevTeamMetroOn.current = tm?.on;
     if (tm?.on) {
       setMetroOn(false);
       setMetroMuted(false);
@@ -4403,7 +4406,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       stopMetronome();
       setMetroOn(false);
       setShowMetroPanel(false);
-      showMetroMsg("🎼 팀 메트로놈 종료", 2000);
+      // 이전에 켜져 있었을 때만 종료 메시지 표시 (초기 마운트 시 방지)
+      if (prev === true) showMetroMsg("🎼 팀 메트로놈 종료", 2000);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [svc?.teamMetro?.on, leader]);
