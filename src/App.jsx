@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.297";
+const APP_VERSION = "3.298";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2008,7 +2008,7 @@ function CropModal({ pdfFile, pdfUrl, imageUrl, onClose, onConfirm, initialCrop 
 /* ══════════════════════════════════════════════════════════════════
    HOME SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function HomeScreen({ user, services, songs, notifs, teamAnnotations, nav, createService }) {
+function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService }) {
   const [countdown, setCountdown] = useState("");
   const unread = notifs.filter(n => !n.read).length;
 
@@ -2061,7 +2061,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, nav, creat
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", justifyContent:"space-between",
       }}>
-        <div style={{ fontWeight:900, fontSize:22, color:C.pur, letterSpacing:"-0.5px" }}>ainos</div>
+        <img src="/ainos-logo.jpg" alt="ainos" style={{ height:32, width:"auto", borderRadius:6, objectFit:"contain" }} />
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           {isLeader(user.role) && (
             <button onClick={() => nav("services")}
@@ -2138,63 +2138,76 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, nav, creat
             </div>
 
             {svcSongs.map((song, idx) => {
-              const memos    = ((teamAnnotations || {})[song.id] || []).length;
-              const hasSheet = !!(song.pdfUrl || song.imageUrl);
+              const teamNotes = (teamAnnotations || {})[song.id] || [];
+              const hasSheet  = !!(song.pdfUrl || song.imageUrl);
               return (
                 <div key={song.id + idx}
                   onClick={() => hasSheet && nav("pdfViewer", { songId:song.id, svcId:nextSvc.id, svcSongIdx:idx, backTo:"home" })}
                   style={{
                     background:C.surf, border:`1px solid ${C.bdr}`,
-                    borderRadius:14, padding:"13px 14px",
-                    marginBottom:9, display:"flex", alignItems:"center", gap:12,
-                    cursor: hasSheet ? "pointer" : "default",
+                    borderRadius:14, padding:"11px 13px",
+                    marginBottom:8, cursor: hasSheet ? "pointer" : "default",
                     opacity: hasSheet ? 1 : 0.7,
                   }}>
-                  <div style={{ width:26, height:26, borderRadius:8, background:`${C.pur}18`,
-                    display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                    <span style={{ fontSize:12, fontWeight:800, color:C.pur }}>{idx + 1}</span>
-                  </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:700, fontSize:15, marginBottom:6,
-                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                      {song.title}
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    <div style={{ width:26, height:26, borderRadius:8, background:`${C.pur}18`,
+                      display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      <span style={{ fontSize:12, fontWeight:800, color:C.pur }}>{idx + 1}</span>
                     </div>
-                    <div style={{ display:"flex", gap:5, flexWrap:"wrap", alignItems:"center" }}>
-                      {song.key && (
-                        <span style={{ background:`${keyColor(song.key)}22`, color:keyColor(song.key),
-                          border:`1px solid ${keyColor(song.key)}44`,
-                          borderRadius:8, padding:"2px 8px", fontSize:11, fontWeight:700 }}>
-                          Key {song.key}
-                        </span>
-                      )}
-                      {song.bpm && (
-                        <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
-                          borderRadius:8, padding:"2px 8px", fontSize:11 }}>
-                          ♩={song.bpm}
-                        </span>
-                      )}
-                      {song.timeSig && (
-                        <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
-                          borderRadius:8, padding:"2px 8px", fontSize:11 }}>
-                          {song.timeSig}
-                        </span>
-                      )}
-                      {memos > 0 && (
-                        <span style={{ background:`${C.grn}18`, color:C.grn,
-                          border:`1px solid ${C.grn}33`,
-                          borderRadius:8, padding:"2px 8px", fontSize:11, fontWeight:600 }}>
-                          👥 {memos}
-                        </span>
-                      )}
-                      {!hasSheet && (
-                        <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
-                          borderRadius:8, padding:"2px 8px", fontSize:11 }}>
-                          악보 없음
-                        </span>
-                      )}
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontWeight:700, fontSize:15, marginBottom:5,
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {song.title}
+                      </div>
+                      <div style={{ display:"flex", gap:5, flexWrap:"wrap", alignItems:"center" }}>
+                        {song.key && (
+                          <span style={{ background:`${keyColor(song.key)}22`, color:keyColor(song.key),
+                            border:`1px solid ${keyColor(song.key)}44`,
+                            borderRadius:7, padding:"2px 7px", fontSize:11, fontWeight:700 }}>
+                            Key {song.key}
+                          </span>
+                        )}
+                        {song.bpm && (
+                          <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
+                            borderRadius:7, padding:"2px 7px", fontSize:11 }}>
+                            ♩={song.bpm}
+                          </span>
+                        )}
+                        {song.timeSig && (
+                          <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
+                            borderRadius:7, padding:"2px 7px", fontSize:11 }}>
+                            {song.timeSig}
+                          </span>
+                        )}
+                        {!hasSheet && (
+                          <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
+                            borderRadius:7, padding:"2px 7px", fontSize:11 }}>
+                            악보 없음
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    {hasSheet && <Icon n="chevR" size={18} color={C.pur} />}
                   </div>
-                  {hasSheet && <Icon n="chevR" size={18} color={C.pur} />}
+                  {/* 팀 메모 */}
+                  {teamNotes.length > 0 && (
+                    <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:5 }}>
+                      {teamNotes.map((m, mi) => {
+                        const raw = m.authorName || "";
+                        const authorName = (raw.includes("@") ? (userMap||{})[m.userId] : raw) || (userMap||{})[m.userId] || "팀원";
+                        return (
+                          <div key={mi} style={{ padding:"6px 10px", borderRadius:8,
+                            background:"#e5393510", border:"1px solid #e5393530" }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:2 }}>
+                              <Icon n="users" size={10} color="#e53935" sw={2.5} />
+                              <span style={{ fontSize:11, fontWeight:700, color:"#e53935" }}>{authorName}</span>
+                            </div>
+                            <div style={{ fontSize:12, color:C.txt, lineHeight:1.5 }}>{m.text}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
