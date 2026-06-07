@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.291";
+const APP_VERSION = "3.292";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2097,43 +2097,44 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, nav, creat
             <div style={{
               background:`linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
               border:`1.5px solid ${C.pur}33`,
-              borderRadius:16, padding:"12px 14px", marginBottom:12,
+              borderRadius:14, padding:"10px 12px", marginBottom:10,
             }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-                  {dDay === 0
-                    ? <span style={{ background:C.red, color:"#fff", fontWeight:800, fontSize:11, borderRadius:8, padding:"2px 8px" }}>오늘</span>
-                    : dDay === 1
-                    ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:11, borderRadius:8, padding:"2px 8px" }}>내일</span>
-                    : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:8, padding:"2px 8px" }}>D-{dDay}</span>
-                  }
-                  <span style={{ fontSize:12, color:C.dim }}>{fmtSvcDate(nextSvc.date)}</span>
-                </div>
-                <span style={{ fontSize:12, color:C.dim }}>{nextSvc.time || ""}</span>
+              {/* 행1: 배지 + 날짜 + 시간 */}
+              <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5 }}>
+                {dDay === 0
+                  ? <span style={{ background:C.red, color:"#fff", fontWeight:800, fontSize:10, borderRadius:6, padding:"1px 7px", flexShrink:0 }}>오늘</span>
+                  : dDay === 1
+                  ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:10, borderRadius:6, padding:"1px 7px", flexShrink:0 }}>내일</span>
+                  : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:10, borderRadius:6, padding:"1px 7px", flexShrink:0 }}>D-{dDay}</span>
+                }
+                <span style={{ fontSize:12, color:C.dim, flex:1 }}>{fmtSvcDate(nextSvc.date)}</span>
+                {nextSvc.time && <span style={{ fontSize:12, color:C.dim, flexShrink:0 }}>{nextSvc.time}</span>}
               </div>
-
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: countdown ? 10 : 10 }}>
-                <div style={{ fontWeight:800, fontSize:18, color:C.txt }}>{nextSvc.title}</div>
-                <span style={{ fontSize:12, color:C.dim, flexShrink:0 }}>{svcSongs.length}곡</span>
+              {/* 행2: 제목 + 곡수 */}
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                <span style={{ fontWeight:800, fontSize:17, color:C.txt, flex:1,
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {nextSvc.title}
+                </span>
+                <span style={{ fontSize:11, color:C.dim, flexShrink:0, background:C.bg,
+                  borderRadius:6, padding:"2px 7px" }}>{svcSongs.length}곡</span>
               </div>
-
-              {/* 카운트다운 — 항상 표시 */}
-              {countdown && (
-                <div style={{ background:C.bg, borderRadius:10, padding:"8px 12px",
-                  marginBottom:10, display:"flex", alignItems:"center", gap:8 }}>
-                  <Icon n="clock" size={14} color={C.pur} />
-                  <span style={{ fontWeight:900, fontSize:22, color:C.pur,
-                    fontVariantNumeric:"tabular-nums", letterSpacing:1 }}>
-                    {countdown}
-                  </span>
-                </div>
-              )}
-
-              <div style={{ display:"flex", justifyContent:"flex-end" }}>
+              {/* 행3: 카운트다운 + 버튼 */}
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                {countdown ? (
+                  <div style={{ flex:1, background:C.bg, borderRadius:8, padding:"5px 10px",
+                    display:"flex", alignItems:"center", gap:6 }}>
+                    <Icon n="clock" size={13} color={C.pur} />
+                    <span style={{ fontWeight:900, fontSize:20, color:C.pur,
+                      fontVariantNumeric:"tabular-nums", letterSpacing:1 }}>
+                      {countdown}
+                    </span>
+                  </div>
+                ) : <div style={{ flex:1 }} />}
                 <button onClick={() => nav("svcDetail", { svcId: nextSvc.id })}
-                  style={{ background:C.pur, border:"none", borderRadius:10,
-                    padding:"7px 16px", cursor:"pointer",
-                    fontSize:13, fontWeight:700, color:"#fff", fontFamily:"inherit" }}>
+                  style={{ background:C.pur, border:"none", borderRadius:9,
+                    padding:"7px 14px", cursor:"pointer", flexShrink:0,
+                    fontSize:12, fontWeight:700, color:"#fff", fontFamily:"inherit" }}>
                   예배 전체 보기 ›
                 </button>
               </div>
@@ -2284,39 +2285,35 @@ function X32StatusBar() {
   }, []);
 
   return (
-    <div style={{ marginBottom:14 }}>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-        <span style={{ fontSize:11, fontWeight:800, color:C.dim, letterSpacing:"0.05em" }}>
-          🎛 X32 믹서
-        </span>
-        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-          <div style={{ width:6, height:6, borderRadius:"50%",
+    <div style={{ marginBottom:10 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
+        <span style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em" }}>🎛 X32</span>
+        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+          <div style={{ width:5, height:5, borderRadius:"50%",
             background: wsConnected ? C.grn : C.dim }} />
-          <span style={{ fontSize:10, color: wsConnected ? C.grn : C.dim, fontWeight:700 }}>
-            {wsConnected ? "연결됨" : "연결 안됨"}
+          <span style={{ fontSize:9, color: wsConnected ? C.grn : C.dim, fontWeight:700 }}>
+            {wsConnected ? "LIVE" : "OFF"}
           </span>
-          <span style={{ fontSize:10, color:C.dim, fontFamily:"monospace" }}>
-            192.168.1.24
-          </span>
+          <span style={{ fontSize:9, color:C.dim, fontFamily:"monospace" }}>192.168.1.24</span>
         </div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:7 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:5 }}>
         {status.map(ch => {
           const pct   = Math.round(ch.fader * 100);
           const color = ch.muted ? C.acc : pct > 90 ? C.red : C.grn;
           return (
             <div key={ch.id} style={{ background:C.surf, border:`1px solid ${C.bdr}`,
-              borderRadius:12, padding:"8px 4px 7px", textAlign:"center" }}>
-              <div style={{ fontSize:18, marginBottom:3 }}>{ch.icon}</div>
-              <div style={{ fontSize:10, fontWeight:700, color:C.txt, marginBottom:1 }}>{ch.label}</div>
-              <div style={{ fontSize:9, color:C.dim, marginBottom:6 }}>{ch.chs}</div>
-              <div style={{ height:4, background:C.bdr, borderRadius:2, margin:"0 6px 4px",
+              borderRadius:9, padding:"5px 3px", textAlign:"center" }}>
+              <div style={{ fontSize:14, marginBottom:1 }}>{ch.icon}</div>
+              <div style={{ fontSize:9, fontWeight:700, color:C.txt, marginBottom:1 }}>{ch.label}</div>
+              <div style={{ fontSize:8, color:C.dim, marginBottom:4 }}>{ch.chs}</div>
+              <div style={{ height:3, background:C.bdr, borderRadius:2, margin:"0 4px 3px",
                 overflow:"hidden" }}>
                 <div style={{ height:"100%", borderRadius:2,
                   width: wsConnected ? pct + "%" : "0%",
                   background:color, transition:"width 0.15s" }} />
               </div>
-              <div style={{ fontSize:9, fontWeight:800,
+              <div style={{ fontSize:8, fontWeight:800,
                 color: wsConnected ? (ch.muted ? C.acc : C.grn) : C.dim }}>
                 {wsConnected ? (ch.muted ? "MUTE" : "LIVE") : "—"}
               </div>
@@ -10216,7 +10213,6 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
       ? [{ id:"live", icon:"antenna", label:"LIVE" }] : []),
     { id:"notifications", icon:"bell",       label:"알림"   },
     { id:"profile",       icon:"user",       label:"프로필" },
-    { id:"__refresh__",   icon:"refresh",    label:"새로고침" },
   ];
   return (
     <div style={{
@@ -10231,7 +10227,7 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
       {tabs.map(t => {
         const active = view === t.id;
         return (
-          <button key={t.id} onClick={() => t.id === "__refresh__" ? window.location.reload() : nav(t.id)}
+          <button key={t.id} onClick={() => nav(t.id)}
             style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
               gap:4, background:"none", border:"none", cursor:"pointer", padding:"2px 0" }}>
             <div style={{ position:"relative" }}>
