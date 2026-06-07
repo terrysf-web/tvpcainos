@@ -120,5 +120,11 @@ service cloud.firestore {
     match /liveChat/{svcId} {
       allow read: if isAuthed();
     }
+
+    // X32 믹서 상태 — Admin SDK가 쓰고, 인증된 모두 읽기
+    match /x32/{docId} {
+      allow read: if isAuthed();
+      allow write: if false; // Admin SDK만 쓰기 (서버측 우회)
+    }
   }
 }

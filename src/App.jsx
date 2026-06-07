@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.304";
+const APP_VERSION = "3.305";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2244,7 +2244,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   );
 }
 
-/* X32 채널 상태 바 (WebSocket 연동 — 추후 wss:// 연결) */
+/* 밴드 악기 상태 바 — Firestore x32/status 실시간 구독 */
 function X32StatusBar() {
   const X32_CHANNELS = [
     { id:"drum",   label:"드럼",     icon:"🥁", chs:"CH 1,2" },
@@ -2253,76 +2253,53 @@ function X32StatusBar() {
     { id:"elec",   label:"일렉기타", icon:"⚡", chs:"CH 5,6" },
     { id:"kbd",    label:"키보드",   icon:"🎹", chs:"CH 7,8" },
   ];
-  const [status, setStatus] = useState(
-    X32_CHANNELS.map(c => ({ ...c, fader:0, muted:false, connected:false }))
-  );
-  const [wsConnected, setWsConnected] = useState(false);
-  const wsRef = useRef(null);
+  const [groups,    setGroups]    = useState([]);
+  const [connected, setConnected] = useState(false);
+  const [stale,     setStale]     = useState(false);
 
   useEffect(() => {
-    const url = localStorage.getItem("ainos_x32_ws");
-    if (!url) return;
-    let dead = false;
-    const connect = () => {
-      if (dead) return;
-      try {
-        const ws = new WebSocket(url);
-        wsRef.current = ws;
-        ws.onopen    = () => setWsConnected(true);
-        ws.onclose   = () => { setWsConnected(false); if (!dead) setTimeout(connect, 3000); };
-        ws.onerror   = () => {};
-        ws.onmessage = (e) => {
-          try {
-            const msg = JSON.parse(e.data);
-            if (msg.type === "channels") {
-              setStatus(X32_CHANNELS.map((c, i) => {
-                const g = msg.groups?.find(g => g.id === c.id);
-                return g ? { ...c, fader:g.fader, muted:g.muted, connected:true } : status[i];
-              }));
-            }
-          } catch {}
-        };
-      } catch {}
-    };
-    connect();
-    return () => { dead = true; wsRef.current?.close(); };
+    const unsub = onSnapshot(doc(db, "x32", "status"), (snap) => {
+      if (!snap.exists()) return;
+      const d = snap.data();
+      setGroups(d.groups || []);
+      setConnected(!!d.connected);
+      // 10초 이상 갱신 없으면 stale
+      const updatedAt = d.updatedAt?.toDate?.() || null;
+      setStale(updatedAt ? (Date.now() - updatedAt.getTime() > 10000) : true);
+    }, () => {});
+    return unsub;
   }, []);
 
+  const live = connected && !stale;
   return (
     <div style={{ marginBottom:10 }}>
-      {/* 헤더 한 줄 */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
         <span style={{ fontSize:11, fontWeight:800, color:C.txt }}>밴드 악기 상태</span>
         <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-          <div style={{ width:6, height:6, borderRadius:"50%", background: wsConnected ? C.grn : C.dim }} />
-          <span style={{ fontSize:10, color: wsConnected ? C.grn : C.dim, fontWeight:700 }}>{wsConnected ? "LIVE" : "OFF"}</span>
+          <div style={{ width:6, height:6, borderRadius:"50%", background: live ? C.grn : C.dim }} />
+          <span style={{ fontSize:10, color: live ? C.grn : C.dim, fontWeight:700 }}>{live ? "LIVE" : "OFF"}</span>
           <span style={{ fontSize:10, color:C.dim, fontFamily:"monospace" }}>192.168.1.24</span>
         </div>
       </div>
-      {/* 악기 한 줄 — 가로 flex */}
       <div style={{ display:"flex", gap:6 }}>
-        {status.map(ch => {
-          const pct   = Math.round(ch.fader * 100);
-          const color = ch.muted ? C.acc : pct > 90 ? C.red : C.grn;
+        {X32_CHANNELS.map(ch => {
+          const g     = groups.find(g => g.id === ch.id);
+          const pct   = live ? Math.round((g?.fader ?? 0) * 100) : 0;
+          const muted = live ? (g?.muted ?? false) : false;
+          const color = muted ? C.acc : pct > 90 ? C.red : C.grn;
           return (
             <div key={ch.id} style={{ flex:1, background:C.surf, border:`1px solid ${C.bdr}`,
               borderRadius:10, padding:"8px 6px 8px", display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
-              {/* 아이콘 */}
               <div style={{ fontSize:26 }}>{ch.icon}</div>
-              {/* 악기명 */}
               <div style={{ fontSize:12, fontWeight:700, color:C.txt, textAlign:"center", lineHeight:1.2 }}>{ch.label}</div>
-              {/* 채널 */}
               <div style={{ fontSize:11, color:C.dim }}>{ch.chs}</div>
-              {/* 레벨 바 */}
               <div style={{ width:"100%", height:8, background:C.bdr, borderRadius:4, overflow:"hidden" }}>
-                <div style={{ height:"100%", borderRadius:4,
-                  width: wsConnected ? pct + "%" : "0%",
-                  background:color, transition:"width 0.15s" }} />
+                <div style={{ height:"100%", borderRadius:4, width:pct+"%",
+                  background:color, transition:"width 0.3s" }} />
               </div>
-              {/* 상태 */}
               <div style={{ fontSize:12, fontWeight:800,
-                color: wsConnected ? (ch.muted ? C.acc : C.grn) : C.dim }}>
-                {wsConnected ? (ch.muted ? "MUTE" : "LIVE") : "—"}
+                color: live ? (muted ? C.acc : C.grn) : C.dim }}>
+                {live ? (muted ? "MUTE" : "LIVE") : "—"}
               </div>
             </div>
           );
