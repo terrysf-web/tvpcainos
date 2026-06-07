@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.312";
+const APP_VERSION = "3.313";
 
 const PARTS = [
   { id:"전체",    emoji:"🎵", label:"전체" },
@@ -2051,8 +2051,11 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   // svcSongs ref — 항상 최신 값 유지
   svcSongsRef.current = svcSongs;
 
-  // 서비스 변경 시 자동이동 초기화
-  useEffect(() => { autoNavDone.current = false; }, [nextSvc?.id]);
+  // 서비스 변경 시 초기화
+  useEffect(() => {
+    autoNavDone.current = false;
+    setWorshipEnded(false);
+  }, [nextSvc?.id]);
 
   // 40초 도달 시 첫 번째 악보로 자동이동 (1회)
   useEffect(() => {
@@ -2073,8 +2076,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       const diff = svcDt - Date.now();
       if (diff <= 0) {
         setCountdown(""); setInHour(false); setWorshipReady(false);
-        // 종료 후 3시간까지 "예배종료" 표시
-        setWorshipEnded(diff >= -10_800_000);
+        setWorshipEnded(true); // 다음 예배로 바뀔 때까지 유지
         return;
       }
       setWorshipEnded(false);
