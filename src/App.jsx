@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.313";
+const APP_VERSION = "3.314";
 
 const PARTS = [
   { id:"전체",    emoji:"🎵", label:"전체" },
@@ -2346,21 +2346,35 @@ function X32StatusBar() {
   }, []);
 
   const live = connected && !stale;
+
+  // 오프라인이면 작은 뱃지만 표시
+  if (!live) {
+    return (
+      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10,
+        padding:"6px 10px", borderRadius:8,
+        background:C.surf, border:`1px solid ${C.bdr}` }}>
+        <div style={{ width:6, height:6, borderRadius:"50%", background:C.dim, flexShrink:0 }} />
+        <span style={{ fontSize:11, color:C.dim }}>믹서 오프라인</span>
+        <span style={{ fontSize:10, color:`${C.dim}66`, fontFamily:"monospace", marginLeft:"auto" }}>192.168.1.24</span>
+      </div>
+    );
+  }
+
   return (
     <div style={{ marginBottom:10 }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
         <span style={{ fontSize:11, fontWeight:800, color:C.txt }}>밴드 악기 상태</span>
         <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-          <div style={{ width:6, height:6, borderRadius:"50%", background: live ? C.grn : C.dim }} />
-          <span style={{ fontSize:10, color: live ? C.grn : C.dim, fontWeight:700 }}>{live ? "LIVE" : "OFF"}</span>
+          <div style={{ width:6, height:6, borderRadius:"50%", background:C.grn }} />
+          <span style={{ fontSize:10, color:C.grn, fontWeight:700 }}>LIVE</span>
           <span style={{ fontSize:10, color:C.dim, fontFamily:"monospace" }}>192.168.1.24</span>
         </div>
       </div>
       <div style={{ display:"flex", gap:6 }}>
         {X32_CHANNELS.map(ch => {
           const g     = groups.find(g => g.id === ch.id);
-          const pct   = live ? Math.round((g?.fader ?? 0) * 100) : 0;
-          const muted = live ? (g?.muted ?? false) : false;
+          const pct   = Math.round((g?.fader ?? 0) * 100);
+          const muted = g?.muted ?? false;
           const color = muted ? C.acc : pct > 90 ? C.red : C.grn;
           return (
             <div key={ch.id} style={{ flex:1, background:C.surf, border:`1px solid ${C.bdr}`,
@@ -2372,9 +2386,8 @@ function X32StatusBar() {
                 <div style={{ height:"100%", borderRadius:4, width:pct+"%",
                   background:color, transition:"width 0.3s" }} />
               </div>
-              <div style={{ fontSize:12, fontWeight:800,
-                color: live ? (muted ? C.acc : C.grn) : C.dim }}>
-                {live ? (muted ? "MUTE" : "LIVE") : "—"}
+              <div style={{ fontSize:12, fontWeight:800, color: muted ? C.acc : C.grn }}>
+                {muted ? "MUTE" : "LIVE"}
               </div>
             </div>
           );

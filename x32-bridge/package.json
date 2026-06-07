@@ -1,0 +1,13 @@
+{
+  "name": "x32-bridge",
+  "version": "1.0.0",
+  "description": "Behringer X32 OSC → Firebase Firestore 실시간 브릿지",
+  "main": "bridge.js",
+  "scripts": {
+    "start": "node bridge.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "osc-min": "^1.2.0"
+  }
+}
