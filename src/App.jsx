@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.309";
+const APP_VERSION = "3.310";
 
 const PARTS = [
   { id:"전체",    emoji:"🎵", label:"전체" },
@@ -8578,29 +8578,37 @@ function TeamManagementModal({ currentUserId, onClose }) {
 
               {/* 파트 편집 */}
               {editPart === m.id ? (
-                <div style={{ display:"flex", gap:6, marginBottom:8 }}>
-                  <input
-                    value={partVal}
-                    onChange={e => setPartVal(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && savePart(m.id)}
-                    placeholder="예) 건반, 기타, 드럼"
-                    autoFocus
-                    style={{
-                      flex:1, background:C.surf, border:`1.5px solid ${C.acc}`,
-                      color:C.txt, padding:"6px 10px", borderRadius:8,
-                      fontSize:12, outline:"none", fontFamily:"inherit",
-                    }}
-                  />
-                  <button onClick={() => savePart(m.id)} style={{
-                    background:C.acc, border:"none", borderRadius:8,
-                    padding:"6px 12px", cursor:"pointer",
-                    fontSize:12, fontWeight:700, color:"#111", fontFamily:"inherit",
-                  }}>저장</button>
-                  <button onClick={() => setEditPart(null)} style={{
-                    background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:8,
-                    padding:"6px 10px", cursor:"pointer",
-                    fontSize:12, color:C.dim, fontFamily:"inherit",
-                  }}>취소</button>
+                <div style={{ marginBottom:8 }}>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:6 }}>
+                    {["", ...PARTS.filter(p => p.id !== "전체").map(p => p.id)].map(pid => {
+                      const pt = PARTS.find(x => x.id === pid);
+                      const sel = partVal === pid;
+                      return (
+                        <button key={pid || "none"} onClick={() => setPartVal(pid)} style={{
+                          padding:"4px 9px", borderRadius:6,
+                          border:`1px solid ${sel ? C.acc + "99" : C.bdr}`,
+                          background: sel ? C.acc + "22" : C.surf,
+                          color: sel ? C.acc : C.dim,
+                          fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit",
+                          transition:"all .1s",
+                        }}>
+                          {pid === "" ? "없음" : `${pt.emoji} ${pt.label}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display:"flex", gap:6 }}>
+                    <button onClick={() => savePart(m.id)} style={{
+                      background:C.acc, border:"none", borderRadius:8,
+                      padding:"6px 12px", cursor:"pointer",
+                      fontSize:12, fontWeight:700, color:"#111", fontFamily:"inherit",
+                    }}>저장</button>
+                    <button onClick={() => setEditPart(null)} style={{
+                      background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:8,
+                      padding:"6px 10px", cursor:"pointer",
+                      fontSize:12, color:C.dim, fontFamily:"inherit",
+                    }}>취소</button>
+                  </div>
                 </div>
               ) : (
                 <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
@@ -8680,26 +8688,31 @@ function TeamManagementModal({ currentUserId, onClose }) {
               }}>{label}</button>
             ))}
           </div>
-          {/* 파트 입력 */}
-          <div style={{ display:"flex", gap:6 }}>
-            <input
-              value={newPart}
-              onChange={e => setNewPart(e.target.value)}
-              placeholder="파트 (예: 건반, 기타, 드럼)"
-              style={{
-                flex:1, background:C.surf, border:`1px solid ${C.bdr}`,
-                color:C.txt, padding:"7px 10px", borderRadius:8,
-                fontSize:12, outline:"none", fontFamily:"inherit",
-              }}
-            />
-            <button onClick={addEmail} disabled={addingEmail || !emailInput.trim()} style={{
-              background:C.acc, border:"none", borderRadius:8,
-              padding:"7px 16px", cursor:"pointer",
-              fontSize:12, fontWeight:700, color:"#111", fontFamily:"inherit",
-              opacity: addingEmail || !emailInput.trim() ? 0.5 : 1,
-              flexShrink:0,
-            }}>추가</button>
+          {/* 파트 선택 */}
+          <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+            {["", ...PARTS.filter(p => p.id !== "전체").map(p => p.id)].map(pid => {
+              const pt = PARTS.find(x => x.id === pid);
+              const sel = newPart === pid;
+              return (
+                <button key={pid || "none"} onClick={() => setNewPart(pid)} style={{
+                  padding:"4px 9px", borderRadius:6,
+                  border:`1px solid ${sel ? C.acc + "99" : C.bdr}`,
+                  background: sel ? C.acc + "22" : C.surf,
+                  color: sel ? C.acc : C.dim,
+                  fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit",
+                  transition:"all .1s",
+                }}>
+                  {pid === "" ? "없음" : `${pt.emoji} ${pt.label}`}
+                </button>
+              );
+            })}
           </div>
+          <button onClick={addEmail} disabled={addingEmail || !emailInput.trim()} style={{
+            background:C.acc, border:"none", borderRadius:8,
+            padding:"7px 16px", cursor:"pointer", alignSelf:"flex-start",
+            fontSize:12, fontWeight:700, color:"#111", fontFamily:"inherit",
+            opacity: addingEmail || !emailInput.trim() ? 0.5 : 1,
+          }}>추가</button>
         </div>
         {emailErr && (
           <div style={{ fontSize:12, color:C.red, marginBottom:8,
