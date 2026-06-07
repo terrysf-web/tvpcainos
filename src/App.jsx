@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.316";
+const APP_VERSION = "3.317";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2894,11 +2894,24 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [notifContent,   setNotifContent]   = useState("");
   const [notifSending,   setNotifSending]   = useState(false);
   const [recSong,        setRecSong]        = useState(null); // { id, title }
+  const [songsWithRecs,  setSongsWithRecs]  = useState(new Set()); // 녹음 있는 songId Set
   const [drag, setDrag]           = useState(null);
   const [dropIdx, setDropIdx]     = useState(null);
   const cardRefs = useRef([]);
   const [svcLyricsModal,  setSvcLyricsModal]  = useState(null); // { song, text }
   const [svcLyricsSaving, setSvcLyricsSaving] = useState(false);
+
+  // 녹음 있는 곡 목록 — 재생 버튼 색상용
+  const _songIdsKey = (svc?.songIds || []).join(",");
+  useEffect(() => {
+    const ids = svc?.songIds?.filter(Boolean) || [];
+    if (!ids.length) { setSongsWithRecs(new Set()); return; }
+    const q = query(collection(db, "worshipRecordings"), where("songId", "in", ids));
+    return onSnapshot(q, snap => {
+      setSongsWithRecs(new Set(snap.docs.map(d => d.data().songId)));
+    }, () => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [_songIdsKey]);
 
   if (!svc) return null;
 
@@ -3252,18 +3265,26 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
                   {/* 복사·삭제 (리더만) + 녹음 기록 버튼 */}
                   <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
-                    {/* 예배 녹음 재생 — 전체 파트 공개, 나머지는 내 파트만 */}
-                    <button onClick={e => { e.stopPropagation(); setRecSong({ id: song.id, title: song.title }); }}
-                      title="예배 녹음 재생"
-                      style={{
-                        background:`${C.grn}12`, border:`1px solid ${C.grn}55`,
-                        borderRadius:7, cursor:"pointer", padding:"4px 7px",
-                        display:"flex", alignItems:"center", gap:4,
-                        fontSize:10, fontWeight:700, color:C.grn, fontFamily:"inherit",
-                      }}>
-                      <Icon n="play" size={11} color={C.grn} />
-                      재생
-                    </button>
+                    {/* 예배 녹음 재생 — 녹음 있으면 초록, 없으면 회색 */}
+                    {(() => {
+                      const hasRec = songsWithRecs.has(song.id);
+                      return (
+                        <button onClick={e => { e.stopPropagation(); setRecSong({ id: song.id, title: song.title }); }}
+                          title={hasRec ? "녹음 재생 준비 완료" : "녹음 파일 없음"}
+                          style={{
+                            background: hasRec ? `${C.grn}12` : `${C.dim}10`,
+                            border: `1px solid ${hasRec ? C.grn + "55" : C.dim + "33"}`,
+                            borderRadius:7, cursor:"pointer", padding:"4px 7px",
+                            display:"flex", alignItems:"center", gap:4,
+                            fontSize:10, fontWeight:700,
+                            color: hasRec ? C.grn : C.dim,
+                            fontFamily:"inherit",
+                          }}>
+                          <Icon n="play" size={11} color={hasRec ? C.grn : C.dim} />
+                          재생
+                        </button>
+                      );
+                    })()}
                     {leader && <>
                       <button onClick={() => duplicateSong(i)} style={{
                         background:`${C.pur}15`, border:`1px solid ${C.pur}44`,
