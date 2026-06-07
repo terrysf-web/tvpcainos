@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { auth, db, storage, messagingPromise, firebaseConfigObj } from "./firebase.js";
-import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
 import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage } from "./supabase.js";
 import AIPanel from "./AIPanel.jsx";
@@ -4209,9 +4209,11 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   const [recs,       setRecs]       = useState([]);
   const [partFilter, setPartFilter] = useState(myPart || "전체");
   const [playing,    setPlaying]    = useState(null);
-  const [uploading,  setUploading]  = useState(false);
-  const [uploadPart, setUploadPart] = useState(myPart || "전체");
-  const [showUpload, setShowUpload] = useState(false);
+  const [uploading,       setUploading]       = useState(false);
+  const [uploadProgress,  setUploadProgress]  = useState(0);  // 0–100
+  const [uploadPart,      setUploadPart]      = useState(myPart || "전체");
+  const [showUpload,      setShowUpload]      = useState(false);
+  const uploadTaskRef = useRef(null);
   const audioRef    = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -4246,34 +4248,64 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     await deleteDoc(doc(db, "worshipRecordings", rec.id));
   };
 
-  const handleUpload = async (file) => {
-    if (!file) return;
-    setUploading(true);
-    try {
-      const ext = file.name.split(".").pop() || "webm";
-      const path = `worshipRecordings/${songId}/${Date.now()}.${ext}`;
-      const fileRef = storageRef(storage, path);
-      await uploadBytes(fileRef, file);
-      const fileUrl = await getDownloadURL(fileRef);
-      await addDoc(collection(db, "worshipRecordings"), {
-        songId,
-        songTitle,
-        serviceId:    svc?.id    || null,
-        serviceTitle: svc?.title || null,
-        serviceDate:  svc?.date  || null,
-        part:         uploadPart,
-        fileUrl,
-        storagePath: path,
-        size:         file.size,
-        uploaderUid:  user.uid,
-        uploaderName: user.name || user.email || "리더",
-        createdAt:    serverTimestamp(),
-      });
-      setShowUpload(false);
-    } catch (e) {
-      alert("업로드 실패: " + (e.message || ""));
-    }
+  const cancelUpload = () => {
+    uploadTaskRef.current?.cancel();
+    uploadTaskRef.current = null;
     setUploading(false);
+    setUploadProgress(0);
+  };
+
+  const handleUpload = (file) => {
+    if (!file) return;
+    const MB = file.size / 1048576;
+    if (MB > 50) {
+      alert(`파일이 너무 큽니다 (${MB.toFixed(0)}MB). MP3/M4A 파일을 권장합니다.`);
+      return;
+    }
+    setUploading(true);
+    setUploadProgress(0);
+    const ext  = file.name.split(".").pop() || "webm";
+    const path = `worshipRecordings/${songId}/${Date.now()}.${ext}`;
+    const fileRef = storageRef(storage, path);
+    const task = uploadBytesResumable(fileRef, file);
+    uploadTaskRef.current = task;
+
+    task.on("state_changed",
+      snap => {
+        setUploadProgress(Math.round(snap.bytesTransferred / snap.totalBytes * 100));
+      },
+      err => {
+        if (err.code !== "storage/canceled") alert("업로드 실패: " + err.message);
+        setUploading(false);
+        setUploadProgress(0);
+        uploadTaskRef.current = null;
+      },
+      async () => {
+        try {
+          const fileUrl = await getDownloadURL(task.snapshot.ref);
+          await addDoc(collection(db, "worshipRecordings"), {
+            songId,
+            songTitle,
+            serviceId:    svc?.id    || null,
+            serviceTitle: svc?.title || null,
+            serviceDate:  svc?.date  || null,
+            part:         uploadPart,
+            fileUrl,
+            storagePath:  path,
+            size:         file.size,
+            uploaderUid:  user.uid,
+            uploaderName: user.name || user.email || "리더",
+            createdAt:    serverTimestamp(),
+          });
+          setShowUpload(false);
+        } catch (e) {
+          alert("저장 실패: " + (e.message || ""));
+        }
+        setUploading(false);
+        setUploadProgress(0);
+        uploadTaskRef.current = null;
+      }
+    );
   };
 
   const filteredRecs = partFilter === "전체"
@@ -4409,21 +4441,43 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
                 style={{ display:"none" }}
                 onChange={e => { handleUpload(e.target.files[0]); e.target.value = ""; }}
               />
-              <div style={{ display:"flex", gap:8 }}>
-                <button onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{
-                  flex:1, padding:"9px", borderRadius:9, border:"none",
-                  background: uploading ? C.bdr : C.pur, color:"#fff",
-                  fontSize:13, fontWeight:700, cursor: uploading ? "default" : "pointer",
-                  fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-                }}>
-                  <Icon n="upload" size={14} color="#fff" />
-                  {uploading ? "업로드 중..." : `${partInfo(uploadPart).emoji} 파일 선택`}
-                </button>
-                <button onClick={() => setShowUpload(false)} style={{
-                  padding:"9px 14px", borderRadius:9, border:`1px solid ${C.bdr}`,
-                  background:"transparent", color:C.dim, fontSize:13, cursor:"pointer", fontFamily:"inherit",
-                }}>취소</button>
-              </div>
+              {uploading ? (
+                /* 업로드 진행 중 */
+                <div>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+                    <span style={{ fontSize:12, color:C.pur, fontWeight:700 }}>업로드 중... {uploadProgress}%</span>
+                    <button onClick={cancelUpload} style={{
+                      background:"none", border:"none", color:C.red, fontSize:12, cursor:"pointer",
+                      fontWeight:700, padding:0, fontFamily:"inherit",
+                    }}>취소</button>
+                  </div>
+                  <div style={{ height:8, background:C.bg, borderRadius:4, overflow:"hidden" }}>
+                    <div style={{
+                      height:"100%", borderRadius:4, background:C.pur,
+                      width:`${uploadProgress}%`, transition:"width .3s",
+                    }} />
+                  </div>
+                  <div style={{ fontSize:11, color:C.dim, marginTop:4 }}>
+                    MP3·M4A 파일은 빠릅니다. WAV는 시간이 걸릴 수 있습니다.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={() => fileInputRef.current?.click()} style={{
+                    flex:1, padding:"9px", borderRadius:9, border:"none",
+                    background:C.pur, color:"#fff",
+                    fontSize:13, fontWeight:700, cursor:"pointer",
+                    fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                  }}>
+                    <Icon n="upload" size={14} color="#fff" />
+                    {partInfo(uploadPart).emoji} 파일 선택
+                  </button>
+                  <button onClick={() => setShowUpload(false)} style={{
+                    padding:"9px 14px", borderRadius:9, border:`1px solid ${C.bdr}`,
+                    background:"transparent", color:C.dim, fontSize:13, cursor:"pointer", fontFamily:"inherit",
+                  }}>취소</button>
+                </div>
+              )}
             </div>
           )}
         </div>
