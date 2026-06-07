@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.307";
+const APP_VERSION = "3.308";
 
 const PARTS = [
   { id:"전체",    emoji:"🎵", label:"전체" },
@@ -3127,20 +3127,18 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
                   {/* 복사·삭제 (리더만) + 녹음 기록 버튼 */}
                   <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
-                    {/* 예배 녹음 재생 버튼 — 어드민만 (테스트 중) */}
-                    {user?.role === "admin" && (
-                      <button onClick={e => { e.stopPropagation(); setRecSong({ id: song.id, title: song.title }); }}
-                        title="예배 녹음 재생"
-                        style={{
-                          background:`${C.grn}12`, border:`1px solid ${C.grn}55`,
-                          borderRadius:7, cursor:"pointer", padding:"4px 7px",
-                          display:"flex", alignItems:"center", gap:4,
-                          fontSize:10, fontWeight:700, color:C.grn, fontFamily:"inherit",
-                        }}>
-                        <Icon n="play" size={11} color={C.grn} />
-                        재생
-                      </button>
-                    )}
+                    {/* 예배 녹음 재생 — 전체 파트 공개, 나머지는 내 파트만 */}
+                    <button onClick={e => { e.stopPropagation(); setRecSong({ id: song.id, title: song.title }); }}
+                      title="예배 녹음 재생"
+                      style={{
+                        background:`${C.grn}12`, border:`1px solid ${C.grn}55`,
+                        borderRadius:7, cursor:"pointer", padding:"4px 7px",
+                        display:"flex", alignItems:"center", gap:4,
+                        fontSize:10, fontWeight:700, color:C.grn, fontFamily:"inherit",
+                      }}>
+                      <Icon n="play" size={11} color={C.grn} />
+                      재생
+                    </button>
                     {leader && <>
                       <button onClick={() => duplicateSong(i)} style={{
                         background:`${C.pur}15`, border:`1px solid ${C.pur}44`,
@@ -4214,9 +4212,11 @@ function extractDriveId(url) {
 function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   const leader = isLeader(user?.role);
   const myPart = user?.part || "";
+  // 리더/어드민은 전체 파트 접근, 일반 팀원은 "전체" 믹스 + 자기 파트만
+  const canSeeAll = leader;
   const [recs,        setRecs]        = useState([]);
-  const [partFilter,  setPartFilter]  = useState(myPart || "전체");
-  const [expandedId,  setExpandedId]  = useState(null); // 재생 중인 rec.id (iframe)
+  const [partFilter,  setPartFilter]  = useState("전체");
+  const [expandedId,  setExpandedId]  = useState(null);
   const [showAdd,     setShowAdd]     = useState(false);
   const [addPart,     setAddPart]     = useState(myPart || "전체");
   const [driveInput,  setDriveInput]  = useState("");
@@ -4266,24 +4266,40 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     setSaving(false);
   };
 
-  const filteredRecs = partFilter === "전체"
-    ? recs
-    : recs.filter(r => r.part === partFilter || r.part === "전체");
-
   const partInfo = (p) => PARTS.find(x => x.id === p) || { emoji: "🎵", label: p || "전체" };
   const fmtDate = (ts) => {
     if (!ts?.toDate) return "";
     return ts.toDate().toLocaleDateString("ko-KR", { month:"short", day:"numeric" });
   };
 
+  // 접근 가능한 파트: 리더는 전체, 일반 팀원은 "전체" + 자기 파트
+  const accessibleParts = canSeeAll
+    ? PARTS.map(p => p.id)
+    : ["전체", myPart].filter(Boolean);
+
+  // 이 사용자가 볼 수 있는 녹음만 필터
+  const accessibleRecs = recs.filter(r =>
+    r.part === "전체" || canSeeAll || r.part === myPart
+  );
+
+  // 탭으로 필터
+  const filteredRecs = partFilter === "전체"
+    ? accessibleRecs
+    : accessibleRecs.filter(r => r.part === partFilter);
+
+  // 보여줄 탭 목록
+  const visibleTabs = PARTS.filter(p => accessibleParts.includes(p.id));
+
   return (
     <Modal title={`예배 녹음 — ${songTitle}`} onClose={onClose}>
-      {/* 파트 필터 탭 */}
+      {/* 파트 탭 — 접근 가능한 파트만 표시 */}
       <div style={{ display:"flex", overflowX:"auto", gap:5, marginBottom:10, paddingBottom:2 }}>
-        {PARTS.map(p => {
-          const count = p.id === "전체" ? recs.length : recs.filter(r => r.part === p.id).length;
+        {visibleTabs.map(p => {
+          const count = p.id === "전체"
+            ? accessibleRecs.length
+            : accessibleRecs.filter(r => r.part === p.id).length;
           const isActive = partFilter === p.id;
-          const isMine = p.id !== "전체" && p.id === myPart;
+          const isMine   = p.id !== "전체" && p.id === myPart;
           return (
             <button key={p.id} onClick={() => setPartFilter(p.id)} style={{
               flexShrink:0, padding:"4px 10px", borderRadius:20,
@@ -4299,13 +4315,13 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
         })}
       </div>
 
-      {myPart && partFilter === "전체" && recs.filter(r => r.part === myPart).length > 0 && (
-        <div style={{ fontSize:11, color:C.acc, marginBottom:8, display:"flex", alignItems:"center", gap:4 }}>
-          <span>{partInfo(myPart).emoji} 내 파트 녹음 있음 —</span>
-          <button onClick={() => setPartFilter(myPart)} style={{
-            background:"none", border:"none", color:C.acc, cursor:"pointer",
-            fontSize:11, fontWeight:700, padding:0, fontFamily:"inherit",
-          }}>내 파트만 보기</button>
+      {/* 비리더: 내 파트만 접근 안내 */}
+      {!canSeeAll && myPart && (
+        <div style={{ fontSize:11, color:C.dim, marginBottom:8,
+          background:`${C.acc}10`, borderRadius:7, padding:"5px 9px",
+          display:"flex", alignItems:"center", gap:5 }}>
+          <span>{partInfo(myPart).emoji}</span>
+          <span>전체 믹스와 <strong style={{ color:C.acc }}>{myPart}</strong> 파트 녹음을 들을 수 있습니다</span>
         </div>
       )}
 
