@@ -18,19 +18,19 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.315";
+const APP_VERSION = "3.316";
 
 const PARTS = [
-  { id:"전체",    emoji:"🎵", label:"전체" },
-  { id:"보컬1",   emoji:"🎤", label:"보컬 1" },
-  { id:"보컬2",   emoji:"🎤", label:"보컬 2" },
-  { id:"보컬3",   emoji:"🎤", label:"보컬 3" },
-  { id:"보컬4",   emoji:"🎤", label:"보컬 4" },
-  { id:"기타",    emoji:"🎸", label:"기타" },
-  { id:"베이스",  emoji:"🎶", label:"베이스" },
-  { id:"드럼",    emoji:"🥁", label:"드럼" },
-  { id:"키보드",  emoji:"🎹", label:"키보드" },
-  { id:"일렉기타",emoji:"⚡", label:"일렉기타" },
+  { id:"전체",      emoji:"🎵", label:"전체" },
+  { id:"리드보컬",  emoji:"🎤", label:"리드 보컬" },
+  { id:"보컬Jeon",  emoji:"🎤", label:"보컬 Jeon" },
+  { id:"보컬Chung", emoji:"🎤", label:"보컬 Chung" },
+  { id:"보컬Lee",   emoji:"🎤", label:"보컬 Lee" },
+  { id:"기타",      emoji:"🎸", label:"기타" },
+  { id:"베이스",    emoji:"🎶", label:"베이스" },
+  { id:"드럼",      emoji:"🥁", label:"드럼" },
+  { id:"키보드",    emoji:"🎹", label:"키보드" },
+  { id:"일렉기타",  emoji:"⚡", label:"일렉기타" },
 ];
 
 const INST_MODES = [
