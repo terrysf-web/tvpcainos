@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.292";
+const APP_VERSION = "3.293";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2097,29 +2097,35 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, nav, creat
             <div style={{
               background:`linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
               border:`1.5px solid ${C.pur}33`,
-              borderRadius:14, padding:"10px 12px", marginBottom:10,
+              borderRadius:14, padding:"11px 13px", marginBottom:10,
             }}>
-              {/* 행1: 배지 + 날짜 + 시간 */}
-              <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5 }}>
+              {/* 행1: 배지 */}
+              <div style={{ marginBottom:6 }}>
                 {dDay === 0
-                  ? <span style={{ background:C.red, color:"#fff", fontWeight:800, fontSize:10, borderRadius:6, padding:"1px 7px", flexShrink:0 }}>오늘</span>
+                  ? <span style={{ background:C.red, color:"#fff", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 9px" }}>오늘</span>
                   : dDay === 1
-                  ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:10, borderRadius:6, padding:"1px 7px", flexShrink:0 }}>내일</span>
-                  : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:10, borderRadius:6, padding:"1px 7px", flexShrink:0 }}>D-{dDay}</span>
+                  ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 9px" }}>내일</span>
+                  : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 9px" }}>D-{dDay}</span>
                 }
-                <span style={{ fontSize:12, color:C.dim, flex:1 }}>{fmtSvcDate(nextSvc.date)}</span>
-                {nextSvc.time && <span style={{ fontSize:12, color:C.dim, flexShrink:0 }}>{nextSvc.time}</span>}
               </div>
-              {/* 행2: 제목 + 곡수 */}
-              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                <span style={{ fontWeight:800, fontSize:17, color:C.txt, flex:1,
+              {/* 행2: 날짜  제목 — 같은 폰트, 같은 줄 */}
+              <div style={{ display:"flex", alignItems:"baseline", gap:10, marginBottom:6,
+                overflow:"hidden" }}>
+                <span style={{ fontWeight:700, fontSize:17, color:C.dim, flexShrink:0 }}>
+                  {fmtSvcDate(nextSvc.date)}
+                </span>
+                <span style={{ fontWeight:800, fontSize:17, color:C.txt,
                   overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                   {nextSvc.title}
                 </span>
-                <span style={{ fontSize:11, color:C.dim, flexShrink:0, background:C.bg,
-                  borderRadius:6, padding:"2px 7px" }}>{svcSongs.length}곡</span>
               </div>
-              {/* 행3: 카운트다운 + 버튼 */}
+              {/* 행3: 시간 + 곡수 */}
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:9 }}>
+                {nextSvc.time && <span style={{ fontWeight:600, fontSize:14, color:C.dim }}>{nextSvc.time}</span>}
+                <span style={{ fontSize:13, color:C.dim }}>·</span>
+                <span style={{ fontWeight:600, fontSize:14, color:C.dim }}>{svcSongs.length}곡</span>
+              </div>
+              {/* 행4: 카운트다운 + 버튼 */}
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                 {countdown ? (
                   <div style={{ flex:1, background:C.bg, borderRadius:8, padding:"5px 10px",
@@ -2134,7 +2140,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, nav, creat
                 <button onClick={() => nav("svcDetail", { svcId: nextSvc.id })}
                   style={{ background:C.pur, border:"none", borderRadius:9,
                     padding:"7px 14px", cursor:"pointer", flexShrink:0,
-                    fontSize:12, fontWeight:700, color:"#fff", fontFamily:"inherit" }}>
+                    fontSize:13, fontWeight:700, color:"#fff", fontFamily:"inherit" }}>
                   예배 전체 보기 ›
                 </button>
               </div>
