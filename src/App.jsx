@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.317";
+const APP_VERSION = "3.318";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -39,7 +39,7 @@ const INST_MODES = [
   { id:"drum",     emoji:"🥁", label:"드럼" },
   { id:"bass",     emoji:"🎶", label:"베이스" },
   { id:"other",    emoji:"🎵", label:"기타 악기" },
-  { id:"ensemble", emoji:"🎼", label:"앙상블", leaderOnly:true },
+  { id:"ensemble", emoji:"🎼", label:"앙상블" },
 ];
 
 /* ── Kakao SDK ── */
