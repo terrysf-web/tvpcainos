@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.296";
+const APP_VERSION = "3.297";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2106,7 +2106,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, nav, creat
                 ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>내일</span>
                 : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>D-{dDay}</span>
               }
-              <span style={{ fontWeight:700, fontSize:17, color:C.dim, flexShrink:0 }}>{fmtSvcDate(nextSvc.date)}</span>
+              <span style={{ fontWeight:800, fontSize:17, color:C.txt, flexShrink:0 }}>{fmtSvcDate(nextSvc.date)}</span>
               <span style={{ fontWeight:800, fontSize:17, color:C.txt, flexShrink:0 }}>{nextSvc.title}</span>
               {nextSvc.time && <span style={{ fontWeight:600, fontSize:14, color:C.dim, flexShrink:0 }}>{nextSvc.time}</span>}
               <span style={{ fontSize:13, color:C.dim, flexShrink:0 }}>·</span>
