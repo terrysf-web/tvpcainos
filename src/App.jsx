@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.300";
+const APP_VERSION = "3.301";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2061,7 +2061,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", justifyContent:"space-between",
       }}>
-        <img src="/icon-192.png" alt="ainos" style={{ height:36, width:"auto", objectFit:"contain" }} />
+        <img src="/icon-192.png" alt="ainos" style={{ height:52, width:"auto", objectFit:"contain" }} />
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           {isLeader(user.role) && (
             <button onClick={() => nav("services")}
@@ -2137,6 +2137,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               이번 주 악보
             </div>
 
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
             {svcSongs.map((song, idx) => {
               const teamNotes = (teamAnnotations || {})[song.id] || [];
               const hasSheet  = !!(song.pdfUrl || song.imageUrl);
@@ -2145,64 +2146,63 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   onClick={() => hasSheet && nav("pdfViewer", { songId:song.id, svcId:nextSvc.id, svcSongIdx:idx, backTo:"home" })}
                   style={{
                     background:C.surf, border:`1px solid ${C.bdr}`,
-                    borderRadius:14, padding:"11px 13px",
-                    marginBottom:8, cursor: hasSheet ? "pointer" : "default",
+                    borderRadius:14, padding:"11px 12px",
+                    cursor: hasSheet ? "pointer" : "default",
                     opacity: hasSheet ? 1 : 0.7,
                   }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    <div style={{ width:26, height:26, borderRadius:8, background:`${C.pur}18`,
-                      display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                      <span style={{ fontSize:12, fontWeight:800, color:C.pur }}>{idx + 1}</span>
+                  <div style={{ display:"flex", alignItems:"flex-start", gap:8, marginBottom: teamNotes.length > 0 ? 8 : 0 }}>
+                    <div style={{ width:24, height:24, borderRadius:7, background:`${C.pur}18`,
+                      display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
+                      <span style={{ fontSize:11, fontWeight:800, color:C.pur }}>{idx + 1}</span>
                     </div>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontWeight:700, fontSize:15, marginBottom:5,
+                      <div style={{ fontWeight:700, fontSize:14, marginBottom:5,
                         overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                         {song.title}
                       </div>
-                      <div style={{ display:"flex", gap:5, flexWrap:"wrap", alignItems:"center" }}>
+                      <div style={{ display:"flex", gap:4, flexWrap:"wrap", alignItems:"center" }}>
                         {song.key && (
                           <span style={{ background:`${keyColor(song.key)}22`, color:keyColor(song.key),
                             border:`1px solid ${keyColor(song.key)}44`,
-                            borderRadius:7, padding:"2px 7px", fontSize:11, fontWeight:700 }}>
-                            Key {song.key}
+                            borderRadius:6, padding:"1px 6px", fontSize:10, fontWeight:700 }}>
+                            {song.key}
                           </span>
                         )}
                         {song.bpm && (
                           <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
-                            borderRadius:7, padding:"2px 7px", fontSize:11 }}>
-                            ♩={song.bpm}
+                            borderRadius:6, padding:"1px 6px", fontSize:10 }}>
+                            ♩{song.bpm}
                           </span>
                         )}
                         {song.timeSig && (
                           <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
-                            borderRadius:7, padding:"2px 7px", fontSize:11 }}>
+                            borderRadius:6, padding:"1px 6px", fontSize:10 }}>
                             {song.timeSig}
                           </span>
                         )}
                         {!hasSheet && (
                           <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
-                            borderRadius:7, padding:"2px 7px", fontSize:11 }}>
-                            악보 없음
+                            borderRadius:6, padding:"1px 6px", fontSize:10 }}>
+                            악보없음
                           </span>
                         )}
                       </div>
                     </div>
-                    {hasSheet && <Icon n="chevR" size={18} color={C.pur} />}
                   </div>
                   {/* 팀 메모 */}
                   {teamNotes.length > 0 && (
-                    <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:5 }}>
+                    <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                       {teamNotes.map((m, mi) => {
                         const raw = m.authorName || "";
                         const authorName = (raw.includes("@") ? (userMap||{})[m.userId] : raw) || (userMap||{})[m.userId] || "팀원";
                         return (
-                          <div key={mi} style={{ padding:"6px 10px", borderRadius:8,
+                          <div key={mi} style={{ padding:"5px 8px", borderRadius:7,
                             background:"#e5393510", border:"1px solid #e5393530" }}>
-                            <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:2 }}>
-                              <Icon n="users" size={10} color="#e53935" sw={2.5} />
-                              <span style={{ fontSize:11, fontWeight:700, color:"#e53935" }}>{authorName}</span>
+                            <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:2 }}>
+                              <Icon n="users" size={9} color="#e53935" sw={2.5} />
+                              <span style={{ fontSize:10, fontWeight:700, color:"#e53935" }}>{authorName}</span>
                             </div>
-                            <div style={{ fontSize:12, color:C.txt, lineHeight:1.5 }}>{m.text}</div>
+                            <div style={{ fontSize:11, color:C.txt, lineHeight:1.5 }}>{m.text}</div>
                           </div>
                         );
                       })}
@@ -2211,6 +2211,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 </div>
               );
             })}
+            </div>
 
             {svcSongs.length === 0 && (
               <div style={{ textAlign:"center", padding:"32px 0", color:C.dim }}>
