@@ -114,9 +114,6 @@ service cloud.firestore {
     }
 
     // LIVE 팀 채팅 — 인증된 모두 읽기/쓰기
-    match /liveChat/{svcId}/messages/{msgId} {
-      allow read, write: if isAuthed();
-    }
     match /liveChat/{svcId} {
       allow read: if isAuthed();
     }
@@ -125,6 +122,13 @@ service cloud.firestore {
     match /x32/{docId} {
       allow read: if isAuthed();
       allow write: if false; // Admin SDK만 쓰기 (서버측 우회)
+    }
+
+    // 예배 녹음 — 읽기 인증된 모두, 쓰기/삭제 리더/어드민
+    match /worshipRecordings/{id} {
+      allow read: if isAuthed();
+      allow create: if isLeader();
+      allow delete: if isLeader();
     }
   }
 }

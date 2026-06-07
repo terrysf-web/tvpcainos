@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { auth, db, messagingPromise, firebaseConfigObj } from "./firebase.js";
+import { auth, db, storage, messagingPromise, firebaseConfigObj } from "./firebase.js";
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
 import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage } from "./supabase.js";
 import AIPanel from "./AIPanel.jsx";
@@ -17,7 +18,17 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.305";
+const APP_VERSION = "3.306";
+
+const PARTS = [
+  { id:"전체",    emoji:"🎵", label:"전체" },
+  { id:"보컬",    emoji:"🎤", label:"보컬" },
+  { id:"기타",    emoji:"🎸", label:"기타" },
+  { id:"베이스",  emoji:"🎶", label:"베이스" },
+  { id:"드럼",    emoji:"🥁", label:"드럼" },
+  { id:"키보드",  emoji:"🎹", label:"키보드" },
+  { id:"일렉기타",emoji:"⚡", label:"일렉기타" },
+];
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2757,6 +2768,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [notifType,      setNotifType]      = useState("예배 악보");
   const [notifContent,   setNotifContent]   = useState("");
   const [notifSending,   setNotifSending]   = useState(false);
+  const [recSong,        setRecSong]        = useState(null); // { id, title }
   const [drag, setDrag]           = useState(null);
   const [dropIdx, setDropIdx]     = useState(null);
   const cardRefs = useRef([]);
@@ -3113,9 +3125,23 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                     </div>
                   </div>
 
-                  {/* 복사·삭제 (리더만) */}
-                  {leader && (
-                    <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
+                  {/* 복사·삭제 (리더만) + 녹음 기록 버튼 */}
+                  <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
+                    {/* 예배 녹음 버튼 — 어드민만 (테스트 중) */}
+                    {user?.role === "admin" && (
+                      <button onClick={e => { e.stopPropagation(); setRecSong({ id: song.id, title: song.title }); }}
+                        title="예배 녹음 기록"
+                        style={{
+                          background:`${C.red}10`, border:`1px solid ${C.red}44`,
+                          borderRadius:7, cursor:"pointer", padding:"4px 7px",
+                          display:"flex", alignItems:"center", gap:4,
+                          fontSize:10, fontWeight:700, color:C.red, fontFamily:"inherit",
+                        }}>
+                        <Icon n="mic" size={12} color={C.red} />
+                        녹음
+                      </button>
+                    )}
+                    {leader && <>
                       <button onClick={() => duplicateSong(i)} style={{
                         background:`${C.pur}15`, border:`1px solid ${C.pur}44`,
                         borderRadius:7, cursor:"pointer", padding:"4px 8px",
@@ -3127,8 +3153,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                       }}>
                         <Icon n="xmark" size={16} color={C.dim} />
                       </button>
-                    </div>
-                  )}
+                    </>}
+                  </div>
                 </div>
 
                 {/* 팀 메모 전체 */}
@@ -3237,6 +3263,16 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       {showEdit && (
         <EditServiceModal svc={svc} onClose={() => setShowEdit(false)} onSave={onUpdateService} />
       )}
+      {recSong && (
+        <WorshipRecordingsModal
+          songId={recSong.id}
+          songTitle={recSong.title}
+          user={user}
+          svc={svc}
+          onClose={() => setRecSong(null)}
+        />
+      )}
+
       {showNotifModal && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)", zIndex:2000,
           display:"flex", alignItems:"center", justifyContent:"center", padding:"16px" }}
@@ -4160,6 +4196,238 @@ function RecordingsModal({ songId, songTitle, userGeminiKey, sharedGeminiKey, on
           </div>
         ))}
       </div>
+    </Modal>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   WORSHIP RECORDINGS MODAL (팀 공유 예배 녹음 — 파트별)
+══════════════════════════════════════════════════════════════════ */
+function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
+  const leader = isLeader(user?.role);
+  const myPart = user?.part || "";
+  const [recs,       setRecs]       = useState([]);
+  const [partFilter, setPartFilter] = useState(myPart || "전체");
+  const [playing,    setPlaying]    = useState(null);
+  const [uploading,  setUploading]  = useState(false);
+  const [uploadPart, setUploadPart] = useState(myPart || "전체");
+  const [showUpload, setShowUpload] = useState(false);
+  const audioRef    = useRef(null);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, "worshipRecordings"),
+      where("songId", "==", songId),
+      orderBy("createdAt", "desc")
+    );
+    return onSnapshot(q, snap => {
+      setRecs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, () => {});
+  }, [songId]);
+
+  const play = (rec) => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
+    if (playing === rec.id) { setPlaying(null); return; }
+    const audio = new Audio(rec.fileUrl);
+    audioRef.current = audio;
+    audio.onended = () => setPlaying(null);
+    audio.onerror = () => { setPlaying(null); };
+    audio.play().catch(() => setPlaying(null));
+    setPlaying(rec.id);
+  };
+
+  const del = async (rec) => {
+    if (!window.confirm("이 녹음을 삭제하시겠습니까?")) return;
+    if (playing === rec.id && audioRef.current) { audioRef.current.pause(); setPlaying(null); }
+    if (rec.storagePath) {
+      try { await deleteObject(storageRef(storage, rec.storagePath)); } catch {}
+    }
+    await deleteDoc(doc(db, "worshipRecordings", rec.id));
+  };
+
+  const handleUpload = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "webm";
+      const path = `worshipRecordings/${songId}/${Date.now()}.${ext}`;
+      const fileRef = storageRef(storage, path);
+      await uploadBytes(fileRef, file);
+      const fileUrl = await getDownloadURL(fileRef);
+      await addDoc(collection(db, "worshipRecordings"), {
+        songId,
+        songTitle,
+        serviceId:    svc?.id    || null,
+        serviceTitle: svc?.title || null,
+        serviceDate:  svc?.date  || null,
+        part:         uploadPart,
+        fileUrl,
+        storagePath: path,
+        size:         file.size,
+        uploaderUid:  user.uid,
+        uploaderName: user.name || user.email || "리더",
+        createdAt:    serverTimestamp(),
+      });
+      setShowUpload(false);
+    } catch (e) {
+      alert("업로드 실패: " + (e.message || ""));
+    }
+    setUploading(false);
+  };
+
+  const filteredRecs = partFilter === "전체"
+    ? recs
+    : recs.filter(r => r.part === partFilter || r.part === "전체");
+
+  const partInfo = (p) => PARTS.find(x => x.id === p) || { emoji: "🎵", label: p || "전체" };
+  const fmtSz = (b) => b < 1048576 ? `${(b/1024).toFixed(0)}KB` : `${(b/1048576).toFixed(1)}MB`;
+  const fmtDate = (ts) => {
+    if (!ts?.toDate) return "";
+    return ts.toDate().toLocaleDateString("ko-KR", { month:"short", day:"numeric" });
+  };
+
+  return (
+    <Modal title={`예배 녹음 — ${songTitle}`} onClose={onClose}>
+      {/* 파트 필터 탭 */}
+      <div style={{ display:"flex", overflowX:"auto", gap:5, marginBottom:10, paddingBottom:2 }}>
+        {PARTS.map(p => {
+          const count = p.id === "전체" ? recs.length : recs.filter(r => r.part === p.id).length;
+          const isActive = partFilter === p.id;
+          const isMine = p.id !== "전체" && p.id === myPart;
+          return (
+            <button key={p.id} onClick={() => setPartFilter(p.id)} style={{
+              flexShrink:0, padding:"4px 10px", borderRadius:20,
+              background: isActive ? C.pur : (isMine ? `${C.acc}20` : C.card),
+              border:`1px solid ${isActive ? C.pur : (isMine ? C.acc+"55" : C.bdr)}`,
+              color: isActive ? "#fff" : (isMine ? C.acc : C.dim),
+              fontSize:12, fontWeight: isActive || isMine ? 700 : 500, cursor:"pointer",
+              fontFamily:"inherit",
+            }}>
+              {p.emoji} {p.label}{count > 0 ? ` ${count}` : ""}
+            </button>
+          );
+        })}
+      </div>
+
+      {myPart && partFilter === "전체" && recs.filter(r => r.part === myPart).length > 0 && (
+        <div style={{ fontSize:11, color:C.acc, marginBottom:8, display:"flex", alignItems:"center", gap:4 }}>
+          <span>{partInfo(myPart).emoji}</span>
+          <span>내 파트({myPart}) 녹음이 있습니다 —</span>
+          <button onClick={() => setPartFilter(myPart)} style={{
+            background:"none", border:"none", color:C.acc, cursor:"pointer",
+            fontSize:11, fontWeight:700, padding:0, fontFamily:"inherit",
+          }}>
+            내 파트만 보기
+          </button>
+        </div>
+      )}
+
+      <div style={{ maxHeight:"52vh", overflowY:"auto" }}>
+        {filteredRecs.length === 0 ? (
+          <div style={{ textAlign:"center", color:C.dim, padding:"28px 0", fontSize:14 }}>
+            {partFilter !== "전체" ? `${partFilter} 파트 녹음이 없습니다` : "녹음이 없습니다"}
+          </div>
+        ) : filteredRecs.map(rec => {
+          const pi = partInfo(rec.part);
+          const isMine = rec.part === myPart;
+          return (
+            <div key={rec.id} style={{
+              display:"flex", alignItems:"center", gap:10,
+              borderRadius:10, padding:"10px 12px", marginBottom:8,
+              background: isMine ? `${C.acc}09` : C.card,
+              border:`1px solid ${isMine ? C.acc+"44" : C.bdr}`,
+            }}>
+              <button onClick={() => play(rec)} style={{
+                width:38, height:38, borderRadius:"50%", border:"none", cursor:"pointer", flexShrink:0,
+                background: playing === rec.id ? C.red : C.pur,
+                display:"flex", alignItems:"center", justifyContent:"center",
+              }}>
+                <Icon n={playing === rec.id ? "stop" : "play"} size={14} color="#fff" />
+              </button>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:2 }}>
+                  <span style={{
+                    fontSize:11, fontWeight:700, padding:"1px 7px", borderRadius:5,
+                    background: isMine ? `${C.acc}20` : `${C.pur}15`,
+                    color: isMine ? C.acc : C.pur,
+                  }}>{pi.emoji} {pi.label}</span>
+                  {rec.serviceTitle && (
+                    <span style={{ fontSize:10, color:C.dim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {rec.serviceTitle}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize:11, color:C.dim }}>
+                  {rec.uploaderName} · {fmtDate(rec.createdAt)} · {fmtSz(rec.size || 0)}
+                </div>
+              </div>
+              {leader && (
+                <button onClick={() => del(rec)} style={{
+                  background:"none", border:`1px solid ${C.red}44`, borderRadius:7,
+                  cursor:"pointer", padding:"6px 8px",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                }}>
+                  <Icon n="trash" size={13} color={C.red} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 업로드 (리더만) */}
+      {leader && (
+        <div style={{ marginTop:12, borderTop:`1px solid ${C.bdr}`, paddingTop:12 }}>
+          {!showUpload ? (
+            <button onClick={() => setShowUpload(true)} style={{
+              width:"100%", padding:"10px", borderRadius:10,
+              border:`1.5px dashed ${C.pur}55`,
+              background:`${C.pur}08`, cursor:"pointer",
+              display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+              fontSize:13, fontWeight:700, color:C.pur, fontFamily:"inherit",
+            }}>
+              <Icon n="upload" size={16} color={C.pur} />
+              녹음 파일 업로드
+            </button>
+          ) : (
+            <div style={{ background:C.card, borderRadius:10, padding:12, border:`1px solid ${C.bdr}` }}>
+              <div style={{ fontSize:12, fontWeight:700, color:C.txt, marginBottom:8 }}>파트 선택 후 파일 업로드</div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:10 }}>
+                {PARTS.map(p => (
+                  <button key={p.id} onClick={() => setUploadPart(p.id)} style={{
+                    padding:"3px 9px", borderRadius:14,
+                    border:`1px solid ${uploadPart===p.id ? C.pur : C.bdr}`,
+                    background: uploadPart===p.id ? C.pur : "transparent",
+                    color: uploadPart===p.id ? "#fff" : C.dim,
+                    fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit",
+                  }}>{p.emoji} {p.label}</button>
+                ))}
+              </div>
+              <input ref={fileInputRef} type="file"
+                accept="audio/*,.webm,.mp3,.m4a,.ogg,.wav,.aac"
+                style={{ display:"none" }}
+                onChange={e => { handleUpload(e.target.files[0]); e.target.value = ""; }}
+              />
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{
+                  flex:1, padding:"9px", borderRadius:9, border:"none",
+                  background: uploading ? C.bdr : C.pur, color:"#fff",
+                  fontSize:13, fontWeight:700, cursor: uploading ? "default" : "pointer",
+                  fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                }}>
+                  <Icon n="upload" size={14} color="#fff" />
+                  {uploading ? "업로드 중..." : `${partInfo(uploadPart).emoji} 파일 선택`}
+                </button>
+                <button onClick={() => setShowUpload(false)} style={{
+                  padding:"9px 14px", borderRadius:9, border:`1px solid ${C.bdr}`,
+                  background:"transparent", color:C.dim, fontSize:13, cursor:"pointer", fontFamily:"inherit",
+                }}>취소</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </Modal>
   );
 }
