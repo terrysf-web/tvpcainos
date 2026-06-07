@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.314";
+const APP_VERSION = "3.315";
 
 const PARTS = [
   { id:"전체",    emoji:"🎵", label:"전체" },
@@ -2034,9 +2034,11 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const unread = notifs.filter(n => !n.read).length;
 
   const today    = new Date().toISOString().slice(0, 10);
-  const nextSvc  = services
+  const upcoming = services
     .filter(s => s.date >= today)
-    .slice().sort((a, b) => a.date.localeCompare(b.date))[0] || null;
+    .slice().sort((a, b) => a.date.localeCompare(b.date));
+  const nextSvc  = upcoming[0] || null;
+  const otherSvcs = upcoming.slice(1);   // nextSvc 제외 나머지 예정 예배
   const svcSongs = nextSvc
     ? (nextSvc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean)
     : [];
@@ -2295,6 +2297,52 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 <div style={{ fontSize:32, marginBottom:8 }}>🎵</div>
                 <div style={{ fontSize:14 }}>아직 곡이 없습니다</div>
               </div>
+            )}
+
+            {/* 다음 예배 일정 전체 목록 */}
+            {otherSvcs.length > 0 && (
+              <>
+                <div style={{ fontSize:11, fontWeight:800, color:C.dim,
+                  letterSpacing:"0.05em", textTransform:"uppercase",
+                  marginTop:20, marginBottom:8 }}>
+                  예배 일정
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {otherSvcs.map(svc => {
+                    const cnt = (svc.songIds || []).length;
+                    const dd  = Math.ceil(
+                      (new Date(svc.date + "T00:00:00") - new Date(today + "T00:00:00")) / 86400000
+                    );
+                    return (
+                      <div key={svc.id}
+                        onClick={() => nav("svcDetail", { svcId: svc.id })}
+                        style={{
+                          background:C.surf, border:`1px solid ${C.bdr}`,
+                          borderRadius:12, padding:"10px 14px",
+                          display:"flex", alignItems:"center", gap:10,
+                          cursor:"pointer",
+                        }}>
+                        <span style={{
+                          background:`${C.pur}18`, color:C.pur,
+                          fontWeight:800, fontSize:10, borderRadius:6,
+                          padding:"2px 7px", flexShrink:0,
+                        }}>D-{dd}</span>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontWeight:700, fontSize:14,
+                            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                            {svc.title}
+                          </div>
+                          <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>
+                            {fmtSvcDate(svc.date)}{svc.time ? ` · ${svc.time}` : ""}
+                          </div>
+                        </div>
+                        <span style={{ fontSize:12, color:C.dim, flexShrink:0 }}>{cnt}곡</span>
+                        <Icon n="chevR" size={14} color={C.dim} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </>
         ) : (
