@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.311";
+const APP_VERSION = "3.312";
 
 const PARTS = [
   { id:"전체",    emoji:"🎵", label:"전체" },
@@ -2026,6 +2026,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [countdown,    setCountdown]    = useState("");
   const [inHour,       setInHour]       = useState(false);
   const [worshipReady, setWorshipReady] = useState(false);
+  const [worshipEnded, setWorshipEnded] = useState(false);
   const autoNavDone  = useRef(false);
   const svcSongsRef  = useRef([]);
   const navRef       = useRef(nav);
@@ -2070,7 +2071,13 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       const svcDt  = new Date(nextSvc.date + "T00:00:00");
       svcDt.setHours(h, m, 0, 0);
       const diff = svcDt - Date.now();
-      if (diff <= 0) { setCountdown(""); setInHour(false); setWorshipReady(false); return; }
+      if (diff <= 0) {
+        setCountdown(""); setInHour(false); setWorshipReady(false);
+        // 종료 후 3시간까지 "예배종료" 표시
+        setWorshipEnded(diff >= -10_800_000);
+        return;
+      }
+      setWorshipEnded(false);
       const within1h = diff <= 3_600_000;
       setInHour(within1h);
       setWorshipReady(diff <= 40_000);
@@ -2149,6 +2156,24 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               <span style={{ fontSize:13, color:C.dim, flexShrink:0 }}>·</span>
               <span style={{ fontWeight:600, fontSize:14, color:C.dim, flexShrink:0 }}>{svcSongs.length}곡</span>
             </div>
+
+            {/* 예배종료 */}
+            {worshipEnded && (
+              <div style={{
+                borderRadius:16, padding:"14px 20px", marginBottom:10,
+                textAlign:"center",
+                background:`linear-gradient(135deg, ${C.dim}12, ${C.dim}06)`,
+                border:`2px solid ${C.dim}33`,
+              }}>
+                <div style={{ fontSize:22, marginBottom:4 }}>🙏</div>
+                <div style={{ fontSize:15, fontWeight:800, color:C.dim, letterSpacing:"0.08em" }}>
+                  예배종료
+                </div>
+                <div style={{ fontSize:11, color:`${C.dim}88`, marginTop:4 }}>
+                  {nextSvc?.title} · {nextSvc?.time}
+                </div>
+              </div>
+            )}
 
             {/* 예배 카운트다운 — 1시간 이내에 표시 */}
             {inHour && countdown && (
