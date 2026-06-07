@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.295";
+const APP_VERSION = "3.296";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2093,45 +2093,39 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, nav, creat
       <div style={{ flex:1, overflowY:"auto", padding:"14px 14px 90px" }}>
         {nextSvc ? (
           <>
-            {/* 이번 예배 히어로 — 2행 압축 */}
+            {/* 이번 예배 히어로 — 1행 전체 */}
             <div style={{
               background:`linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
               border:`1.5px solid ${C.pur}33`,
               borderRadius:12, padding:"9px 12px", marginBottom:10,
+              display:"flex", alignItems:"center", gap:8, flexWrap:"wrap",
             }}>
-              {/* 행1: 배지 + 날짜 + 제목 + 시간 + 곡수 — 한 줄 */}
-              <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:7, flexWrap:"wrap" }}>
-                {dDay === 0
-                  ? <span style={{ background:C.red, color:"#fff", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>오늘</span>
-                  : dDay === 1
-                  ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>내일</span>
-                  : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>D-{dDay}</span>
-                }
-                <span style={{ fontWeight:700, fontSize:17, color:C.dim, flexShrink:0 }}>{fmtSvcDate(nextSvc.date)}</span>
-                <span style={{ fontWeight:800, fontSize:17, color:C.txt, flexShrink:0 }}>{nextSvc.title}</span>
-                {nextSvc.time && <span style={{ fontWeight:600, fontSize:14, color:C.dim, flexShrink:0 }}>{nextSvc.time}</span>}
+              {dDay === 0
+                ? <span style={{ background:C.red, color:"#fff", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>오늘</span>
+                : dDay === 1
+                ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>내일</span>
+                : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>D-{dDay}</span>
+              }
+              <span style={{ fontWeight:700, fontSize:17, color:C.dim, flexShrink:0 }}>{fmtSvcDate(nextSvc.date)}</span>
+              <span style={{ fontWeight:800, fontSize:17, color:C.txt, flexShrink:0 }}>{nextSvc.title}</span>
+              {nextSvc.time && <span style={{ fontWeight:600, fontSize:14, color:C.dim, flexShrink:0 }}>{nextSvc.time}</span>}
+              <span style={{ fontSize:13, color:C.dim, flexShrink:0 }}>·</span>
+              <span style={{ fontWeight:600, fontSize:14, color:C.dim, flexShrink:0 }}>{svcSongs.length}곡</span>
+              {countdown && <>
                 <span style={{ fontSize:13, color:C.dim, flexShrink:0 }}>·</span>
-                <span style={{ fontWeight:600, fontSize:14, color:C.dim, flexShrink:0 }}>{svcSongs.length}곡</span>
-              </div>
-              {/* 행2: 카운트다운 + 버튼 */}
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                {countdown ? (
-                  <div style={{ flex:1, background:C.bg, borderRadius:8, padding:"5px 10px",
-                    display:"flex", alignItems:"center", gap:6 }}>
-                    <Icon n="clock" size={13} color={C.pur} />
-                    <span style={{ fontWeight:900, fontSize:20, color:C.pur,
-                      fontVariantNumeric:"tabular-nums", letterSpacing:1 }}>
-                      {countdown}
-                    </span>
-                  </div>
-                ) : <div style={{ flex:1 }} />}
-                <button onClick={() => nav("svcDetail", { svcId: nextSvc.id })}
-                  style={{ background:C.pur, border:"none", borderRadius:9,
-                    padding:"7px 14px", cursor:"pointer", flexShrink:0,
-                    fontSize:13, fontWeight:700, color:"#fff", fontFamily:"inherit" }}>
-                  예배 전체 보기 ›
-                </button>
-              </div>
+                <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
+                  <Icon n="clock" size={13} color={C.pur} />
+                  <span style={{ fontWeight:900, fontSize:17, color:C.pur,
+                    fontVariantNumeric:"tabular-nums", letterSpacing:1 }}>{countdown}</span>
+                </div>
+              </>}
+              <div style={{ flex:1 }} />
+              <button onClick={() => nav("svcDetail", { svcId: nextSvc.id })}
+                style={{ background:C.pur, border:"none", borderRadius:9,
+                  padding:"7px 14px", cursor:"pointer", flexShrink:0,
+                  fontSize:13, fontWeight:700, color:"#fff", fontFamily:"inherit" }}>
+                예배 전체 보기 ›
+              </button>
             </div>
 
             {/* X32 채널 상태 */}
