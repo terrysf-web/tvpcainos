@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.303";
+const APP_VERSION = "3.304";
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2290,34 +2290,37 @@ function X32StatusBar() {
 
   return (
     <div style={{ marginBottom:10 }}>
+      {/* 헤더 한 줄 */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
-        <span style={{ fontSize:11, fontWeight:800, color:C.txt, letterSpacing:"0.02em" }}>밴드 악기 상태</span>
+        <span style={{ fontSize:11, fontWeight:800, color:C.txt }}>밴드 악기 상태</span>
         <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-          <div style={{ width:6, height:6, borderRadius:"50%",
-            background: wsConnected ? C.grn : C.dim }} />
-          <span style={{ fontSize:10, color: wsConnected ? C.grn : C.dim, fontWeight:700 }}>
-            {wsConnected ? "LIVE" : "OFF"}
-          </span>
+          <div style={{ width:6, height:6, borderRadius:"50%", background: wsConnected ? C.grn : C.dim }} />
+          <span style={{ fontSize:10, color: wsConnected ? C.grn : C.dim, fontWeight:700 }}>{wsConnected ? "LIVE" : "OFF"}</span>
           <span style={{ fontSize:10, color:C.dim, fontFamily:"monospace" }}>192.168.1.24</span>
         </div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:6 }}>
+      {/* 악기 한 줄 — 가로 flex */}
+      <div style={{ display:"flex", gap:6 }}>
         {status.map(ch => {
           const pct   = Math.round(ch.fader * 100);
           const color = ch.muted ? C.acc : pct > 90 ? C.red : C.grn;
           return (
-            <div key={ch.id} style={{ background:C.surf, border:`1px solid ${C.bdr}`,
-              borderRadius:10, padding:"8px 4px 7px", textAlign:"center" }}>
-              <div style={{ fontSize:22, marginBottom:3 }}>{ch.icon}</div>
-              <div style={{ fontSize:11, fontWeight:700, color:C.txt, marginBottom:1 }}>{ch.label}</div>
-              <div style={{ fontSize:10, color:C.dim, marginBottom:6 }}>{ch.chs}</div>
-              <div style={{ height:4, background:C.bdr, borderRadius:2, margin:"0 6px 4px",
-                overflow:"hidden" }}>
-                <div style={{ height:"100%", borderRadius:2,
+            <div key={ch.id} style={{ flex:1, background:C.surf, border:`1px solid ${C.bdr}`,
+              borderRadius:10, padding:"8px 6px 8px", display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+              {/* 아이콘 */}
+              <div style={{ fontSize:26 }}>{ch.icon}</div>
+              {/* 악기명 */}
+              <div style={{ fontSize:12, fontWeight:700, color:C.txt, textAlign:"center", lineHeight:1.2 }}>{ch.label}</div>
+              {/* 채널 */}
+              <div style={{ fontSize:11, color:C.dim }}>{ch.chs}</div>
+              {/* 레벨 바 */}
+              <div style={{ width:"100%", height:8, background:C.bdr, borderRadius:4, overflow:"hidden" }}>
+                <div style={{ height:"100%", borderRadius:4,
                   width: wsConnected ? pct + "%" : "0%",
                   background:color, transition:"width 0.15s" }} />
               </div>
-              <div style={{ fontSize:10, fontWeight:800,
+              {/* 상태 */}
+              <div style={{ fontSize:12, fontWeight:800,
                 color: wsConnected ? (ch.muted ? C.acc : C.grn) : C.dim }}>
                 {wsConnected ? (ch.muted ? "MUTE" : "LIVE") : "—"}
               </div>
