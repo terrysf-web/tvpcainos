@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { auth, db, storage, messagingPromise, firebaseConfigObj } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
-import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveRecordingViaEdge } from "./supabase.js";
+import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart } from "./supabase.js";
 import AIPanel from "./AIPanel.jsx";
 import {
   signOut,
@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.337";
+const APP_VERSION = "3.338";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2984,20 +2984,36 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     const ids = svc?.songIds?.filter(Boolean) || [];
     if (!ids.length) { setSongsWithRecs(new Set()); return; }
     const isVocalist = VOCALIST_PART_IDS.has(user?.part || "");
+    let cancelled = false;
+    let firestoreSet = new Set();
+    let supaSet = new Set();
+    const merge = () => { if (!cancelled) setSongsWithRecs(new Set([...firestoreSet, ...supaSet])); };
+
     const q = query(collection(db, "worshipRecordings"), where("songId", "in", ids));
-    return onSnapshot(q, snap => {
-      setSongsWithRecs(new Set(
-        snap.docs
-          .map(d => d.data())
-          .filter(r => {
-            if (r._session) {
-              return Object.keys(r.parts || {}).some(p => p !== "밴드" || !isVocalist);
-            }
-            return r.part !== "밴드" || !isVocalist;
-          })
+    const unsub = onSnapshot(q, snap => {
+      firestoreSet = new Set(
+        snap.docs.map(d => d.data())
+          .filter(r => r._session
+            ? Object.keys(r.parts || {}).some(p => p !== "밴드" || !isVocalist)
+            : r.part !== "밴드" || !isVocalist)
           .map(r => r.songId)
-      ));
+      );
+      merge();
     }, () => {});
+
+    // Supabase Storage 녹음 확인 (Firestore 쿼터 우회)
+    Promise.all(ids.map(async sid => {
+      try {
+        const d = await loadWorshipRecording(`${sid}_${svc.id}`);
+        if (d?.parts && Object.entries(d.parts).some(([p, v]) => v && (p !== "밴드" || !isVocalist))) return sid;
+      } catch {}
+      return null;
+    })).then(results => {
+      supaSet = new Set(results.filter(Boolean));
+      merge();
+    });
+
+    return () => { cancelled = true; unsub(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [_songIdsKey, _isVocalist]);
 
@@ -4512,64 +4528,74 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   const myPart = user?.part || "";
   // 리더/어드민은 전체 파트 접근, 일반 팀원은 "전체" 믹스 + 자기 파트만
   const canSeeAll = leader;
-  const [recs,         setRecs]         = useState([]);
-  const [sessionDoc,   setSessionDoc]   = useState(null); // 현재 서비스 세션 문서 데이터
-  const [partFilter,   setPartFilter]   = useState("전체");
-  const [expandedId,   setExpandedId]   = useState(null);
-  const [showAdd,      setShowAdd]      = useState(false);
-  const [partLinks,    setPartLinks]    = useState({});
-  const [addTitle,     setAddTitle]     = useState("");
-  const [saving,       setSaving]       = useState(false);
-  const [saveProgress, setSaveProgress] = useState("");
-  const [editingId,    setEditingId]    = useState(null);
-  const [editData,     setEditData]     = useState({});
+  const [firestoreRecs, setFirestoreRecs] = useState([]);
+  const [supaDoc,      setSupaDoc]       = useState(null); // Supabase Storage 세션 문서
+  const [refreshKey,   setRefreshKey]    = useState(0);
+  const [partFilter,   setPartFilter]    = useState("전체");
+  const [expandedId,   setExpandedId]    = useState(null);
+  const [showAdd,      setShowAdd]       = useState(false);
+  const [partLinks,    setPartLinks]     = useState({});
+  const [addTitle,     setAddTitle]      = useState("");
+  const [saving,       setSaving]        = useState(false);
+  const [saveProgress, setSaveProgress]  = useState("");
+  const [editingId,    setEditingId]     = useState(null);
+  const [editData,     setEditData]      = useState({});
 
-  // 현재 서비스의 세션 문서 ID (11개 → 1개 문서로 저장)
   const sessionDocId = `${songId}_${svc?.id || "nosvc"}`;
 
+  // Firestore: 구형식 문서만 읽기 (신규는 Supabase Storage)
   useEffect(() => {
     const q = query(collection(db, "worshipRecordings"), where("songId", "==", songId));
     return onSnapshot(q, snap => {
-      const all = [];
-      let found = null;
-      for (const d of snap.docs) {
-        const data = d.data();
-        if (data._session) {
-          if (d.id === sessionDocId) found = data;
-          // 신규 형식: parts 맵 → 개별 항목으로 전개
-          for (const [part, driveId] of Object.entries(data.parts || {})) {
-            if (driveId) all.push({
-              id: `${d.id}:${part}`, _docId: d.id, _session: true,
-              part, driveId,
-              songId: data.songId, songTitle: data.songTitle,
-              serviceId: data.serviceId, serviceTitle: data.serviceTitle,
-              title: data.title, uploaderName: data.uploaderName,
-              createdAt: data.updatedAt, // 표시용 alias
-            });
-          }
-        } else {
-          all.push({ id: d.id, ...data }); // 구형식 그대로
-        }
-      }
-      all.sort((a, b) => {
-        if (a._session && b._session) return PARTS.findIndex(p => p.id === a.part) - PARTS.findIndex(p => p.id === b.part);
-        return (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0);
-      });
-      setRecs(all);
-      setSessionDoc(found);
+      setFirestoreRecs(snap.docs
+        .filter(d => !d.data()._session)
+        .map(d => ({ id: d.id, ...d.data() }))
+      );
     }, err => console.error("worshipRecordings 읽기 오류:", err));
-  }, [songId, sessionDocId]);
+  }, [songId]);
 
-  // 폼 열릴 때 기존 세션 링크 불러오기
+  // Supabase Storage: 신규 세션 문서 로드
+  useEffect(() => {
+    loadWorshipRecording(sessionDocId)
+      .then(d => setSupaDoc(d || null))
+      .catch(() => setSupaDoc(null));
+  }, [sessionDocId, refreshKey]);
+
+  // 합산 목록
+  const recs = useMemo(() => {
+    const supaRecs = [];
+    if (supaDoc?.parts) {
+      for (const [part, driveId] of Object.entries(supaDoc.parts)) {
+        if (driveId) supaRecs.push({
+          id: `supa:${sessionDocId}:${part}`, _supabase: true, _docId: sessionDocId,
+          part, driveId,
+          songId: supaDoc.songId, songTitle: supaDoc.songTitle,
+          serviceId: supaDoc.serviceId, serviceTitle: supaDoc.serviceTitle,
+          title: supaDoc.title, uploaderName: supaDoc.uploaderName,
+          createdAt: supaDoc.updatedAt,
+        });
+      }
+    }
+    const all = [...firestoreRecs, ...supaRecs];
+    all.sort((a, b) => {
+      if (a._supabase && b._supabase) return PARTS.findIndex(p => p.id === a.part) - PARTS.findIndex(p => p.id === b.part);
+      const ta = typeof a.createdAt === "string" ? new Date(a.createdAt).getTime() / 1000 : (a.createdAt?.seconds ?? 0);
+      const tb = typeof b.createdAt === "string" ? new Date(b.createdAt).getTime() / 1000 : (b.createdAt?.seconds ?? 0);
+      return tb - ta;
+    });
+    return all;
+  }, [firestoreRecs, supaDoc, sessionDocId]);
+
+  // 폼 열릴 때 기존 Supabase 링크 불러오기
   useEffect(() => {
     if (!showAdd) return;
-    if (sessionDoc?.parts) {
+    if (supaDoc?.parts) {
       const links = {};
-      for (const [part, driveId] of Object.entries(sessionDoc.parts)) {
+      for (const [part, driveId] of Object.entries(supaDoc.parts)) {
         if (driveId) links[part] = `https://drive.google.com/file/d/${driveId}/view`;
       }
       setPartLinks(links);
-      if (sessionDoc.title) setAddTitle(sessionDoc.title);
+      if (supaDoc.title) setAddTitle(supaDoc.title);
     }
   }, [showAdd]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -4577,8 +4603,10 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     if (!window.confirm("이 항목을 삭제하시겠습니까?")) return;
     if (expandedId === rec.id) setExpandedId(null);
     try {
-      if (rec._session) {
-        // 신규 형식: 해당 파트만 parts 맵에서 제거
+      if (rec._supabase) {
+        await deleteWorshipRecordingPart(rec._docId, rec.part);
+        setRefreshKey(k => k + 1);
+      } else if (rec._session) {
         await updateDoc(doc(db, "worshipRecordings", rec._docId), {
           [`parts.${rec.part}`]: deleteField(),
         });
@@ -4603,7 +4631,16 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     const newDriveId = extractDriveId(editData.url.trim());
     if (editData.url.trim() && !newDriveId) { alert("올바른 Google Drive 링크를 입력하세요."); return; }
     try {
-      if (rec._session) {
+      if (rec._supabase) {
+        const current = (await loadWorshipRecording(rec._docId)) || { parts: {} };
+        current.parts = current.parts || {};
+        if (editData.part !== rec.part) delete current.parts[rec.part];
+        current.parts[editData.part] = newDriveId || rec.driveId || null;
+        if (editData.title.trim()) current.title = editData.title.trim();
+        current.updatedAt = new Date().toISOString();
+        await saveWorshipRecording(rec._docId, current);
+        setRefreshKey(k => k + 1);
+      } else if (rec._session) {
         const updates = { title: editData.title.trim() || null, [`parts.${editData.part}`]: newDriveId || rec.driveId || null };
         if (editData.part !== rec.part) updates[`parts.${rec.part}`] = deleteField();
         await updateDoc(doc(db, "worshipRecordings", rec._docId), updates);
@@ -4618,7 +4655,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     } catch (e) { alert("수정 실패: " + (e.message || e)); }
   };
 
-  // Firestore REST API 직접 호출 (gRPC/SDK 우회, 단 1회 PATCH 쓰기)
+  // Supabase Storage 저장 (Firestore 쿼터 완전 우회)
   const saveAllLinks = async () => {
     const entries = PARTS
       .map(p => ({ part: p.id, url: (partLinks[p.id] || "").trim() }))
@@ -4632,39 +4669,24 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     setSaving(true);
     setSaveProgress("저장 중...");
     try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
-      const sv = (v) => v ? { stringValue: String(v) } : { nullValue: null };
-      const partsFields = {};
-      for (const { part, url } of entries) partsFields[part] = { stringValue: extractDriveId(url) || "" };
+      const partsData = {};
+      for (const { part, url } of entries) partsData[part] = extractDriveId(url);
 
-      const docPath = `projects/tvpcainos/databases/(default)/documents/worshipRecordings/${sessionDocId}`;
-      const resp = await fetch(`https://firestore.googleapis.com/v1/${docPath}`, {
-        method: "PATCH",
-        headers: { "Authorization": `Bearer ${idToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: docPath,
-          fields: {
-            _session:     { booleanValue: true },
-            songId:       sv(songId),    songTitle:    sv(songTitle),
-            serviceId:    sv(svc?.id),   serviceTitle: sv(svc?.title),
-            serviceDate:  sv(svc?.date),
-            title:        sv(addTitle.trim()),
-            uploaderUid:  sv(user?.uid),
-            uploaderName: { stringValue: user?.name || user?.email || "리더" },
-            updatedAt:    { timestampValue: new Date().toISOString() },
-            parts:        { mapValue: { fields: partsFields } },
-          },
-        }),
+      await saveWorshipRecording(sessionDocId, {
+        songId:       songId || null,
+        songTitle:    songTitle || null,
+        serviceId:    svc?.id || null,
+        serviceTitle: svc?.title || null,
+        serviceDate:  svc?.date || null,
+        title:        addTitle.trim() || null,
+        uploaderName: user?.name || user?.email || "리더",
+        uploaderUid:  user?.uid || null,
+        updatedAt:    new Date().toISOString(),
+        parts:        partsData,
       });
-      if (!resp.ok) {
-        const e2 = await resp.json().catch(() => ({}));
-        const msg = e2.error?.message || `HTTP ${resp.status}`;
-        if (resp.status === 429 || msg.includes("Quota")) throw new Error("저장 한도 초과. 잠시 후 다시 시도해주세요.");
-        if (resp.status === 403) throw new Error(`권한 오류 (403)\n리더 권한 확인 또는 앱 재로그인 후 시도해주세요.`);
-        throw new Error(msg);
-      }
+
       setPartLinks({}); setAddTitle(""); setShowAdd(false);
+      setRefreshKey(k => k + 1);
     } catch (e) {
       alert(`저장 실패\n${e.message || e}`);
       console.error("worshipRecordings 저장 오류:", e);
