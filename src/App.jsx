@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.342";
+const APP_VERSION = "3.343";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -11509,10 +11509,26 @@ export default function App() {
   };
 
   const updateService = async (svcId, data) => {
-    const timeout = new Promise((_, rej) =>
-      setTimeout(() => rej(new Error("저장 시간 초과. 앱을 완전히 종료 후 재시작해주세요.")), 8000)
-    );
-    await Promise.race([updateDoc(doc(db, "services", svcId), data), timeout]);
+    const idToken = await auth.currentUser?.getIdToken();
+    if (!idToken) throw new Error("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
+    const toVal = (v) => (v === null || v === undefined) ? { nullValue: null } : { stringValue: String(v) };
+    const fields = {};
+    for (const [k, v] of Object.entries(data)) fields[k] = toVal(v);
+    const fieldPaths = Object.keys(fields).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join("&");
+    const docPath = `projects/tvpcainos/databases/(default)/documents/services/${svcId}`;
+    const resp = await fetch(`https://firestore.googleapis.com/v1/${docPath}?${fieldPaths}`, {
+      method: "PATCH",
+      headers: { "Authorization": `Bearer ${idToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ fields }),
+    });
+    if (!resp.ok) {
+      const e2 = await resp.json().catch(() => ({}));
+      const msg = e2.error?.message || `HTTP ${resp.status}`;
+      if (resp.status === 429 || msg.includes("Quota")) throw new Error("저장 한도 초과. 잠시 후 다시 시도해주세요.");
+      throw new Error(msg);
+    }
+    // REST API 성공 후 로컬 state 직접 갱신 (SDK 캐시와 무관하게 UI 즉시 반영)
+    setServices(prev => prev.map(s => s.id === svcId ? { ...s, ...data } : s));
   };
 
   const addAnnotation = async (songId, noteData) => {
