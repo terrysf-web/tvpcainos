@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.326";
+const APP_VERSION = "3.327";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -4449,6 +4449,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   const [partLinks,   setPartLinks]   = useState({}); // { partId: driveUrl }
   const [addTitle,    setAddTitle]    = useState("");
   const [saving,      setSaving]      = useState(false);
+  const [saveProgress, setSaveProgress] = useState(""); // "2/11 저장 중..."
   const [editingId,   setEditingId]   = useState(null); // 수정 중인 rec.id
   const [editData,    setEditData]    = useState({});   // { title, url, part }
 
@@ -4511,27 +4512,39 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
       return;
     }
     setSaving(true);
+    setSaveProgress("");
+    let saved = 0;
     try {
-      await Promise.all(entries.map(({ part, url }) =>
-        addDoc(collection(db, "worshipRecordings"), {
-          songId:       songId       || null,
-          songTitle:    songTitle    || null,
-          serviceId:    svc?.id      || null,
-          serviceTitle: svc?.title   || null,
-          serviceDate:  svc?.date    || null,
+      for (const { part, url } of entries) {
+        setSaveProgress(`${saved + 1}/${entries.length} 저장 중...`);
+        const data = {
+          songId:       songId    || null,
+          songTitle:    songTitle || null,
+          serviceId:    svc?.id   || null,
+          serviceTitle: svc?.title|| null,
+          serviceDate:  svc?.date || null,
           part,
-          driveId:      extractDriveId(url),
-          title:        addTitle.trim() || null,
-          uploaderUid:  user?.uid    || null,
-          uploaderName: user?.name   || user?.email || "리더",
+          driveId:      extractDriveId(url) || null,
+          title:        addTitle.trim()      || null,
+          uploaderUid:  user?.uid            || null,
+          uploaderName: user?.name || user?.email || "리더",
           createdAt:    serverTimestamp(),
-        })
-      ));
+        };
+        // 파트당 20초 타임아웃
+        await Promise.race([
+          addDoc(collection(db, "worshipRecordings"), data),
+          new Promise((_, rej) => setTimeout(() => rej(new Error(`${part} 파트 응답 없음 (20초 초과)`)), 20000)),
+        ]);
+        saved++;
+      }
+      setSaveProgress("");
       setPartLinks({}); setAddTitle(""); setShowAdd(false);
     } catch (e) {
-      alert("저장 실패: " + (e.message || e));
+      console.error("worshipRecordings 저장 오류:", e);
+      alert(`저장 실패 (${saved}/${entries.length}개 완료)\n${e.message || e}`);
     } finally {
       setSaving(false);
+      setSaveProgress("");
     }
   };
 
@@ -4819,7 +4832,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
                     cursor: saving || !PARTS.some(p => (partLinks[p.id] || "").trim()) ? "default" : "pointer",
                     fontFamily:"inherit",
                   }}>
-                  {saving ? "저장 중..." : "전체 저장"}
+                  {saving ? (saveProgress || "저장 중...") : "전체 저장"}
                 </button>
                 <button onClick={() => { setShowAdd(false); setPartLinks({}); setAddTitle(""); }} style={{
                   padding:"10px 14px", borderRadius:9, border:`1px solid ${C.bdr}`,

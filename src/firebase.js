@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { initializeFirestore } from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, isSupported } from "firebase/messaging";
 
@@ -15,9 +15,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = initializeFirestore(app, {
-  ignoreUndefinedProperties: true,  // undefined 필드 무시 (malformed request 방지)
-});
+export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const FIREBASE_API_KEY = firebaseConfig.apiKey;
 export const firebaseConfigObj = firebaseConfig;
