@@ -2997,8 +2997,6 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [notifSending,   setNotifSending]   = useState(false);
   const [recSong,        setRecSong]        = useState(null); // { id, title }
   const [songsWithRecs,   setSongsWithRecs]   = useState(new Set()); // 녹음 있는 songId Set
-  const [recsRefreshKey,  setRecsRefreshKey]  = useState(0);
-  const [showBulkRec,     setShowBulkRec]     = useState(false);
   const [drag, setDrag]           = useState(null);
   const [dropIdx, setDropIdx]     = useState(null);
   const cardRefs = useRef([]);
@@ -3055,7 +3053,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
     return () => { cancelled = true; unsub(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [_songIdsKey, _isVocalist, recsRefreshKey]);
+  }, [_songIdsKey, _isVocalist]);
 
   if (!svc) return null;
 
@@ -3395,16 +3393,6 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             {leader && <span style={{ fontSize:10, color:C.dim, fontWeight:500,
               marginLeft:6, textTransform:"none" }}>≡ 드래그로 순서 변경</span>}
           </div>
-          {leader && totalCount > 0 && (
-            <button onClick={() => setShowBulkRec(true)} style={{
-              display:"flex", alignItems:"center", gap:5, padding:"5px 10px",
-              borderRadius:8, border:`1px solid ${C.acc}55`, background:`${C.acc}12`,
-              cursor:"pointer", fontFamily:"inherit", color:C.acc, fontSize:12, fontWeight:700,
-            }}>
-              <Icon n="mic" size={13} color={C.acc} />
-              녹음 일괄 입력
-            </button>
-          )}
         </div>
 
         {totalCount === 0 && (
@@ -3650,11 +3638,6 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       {showEdit && (
         <EditServiceModal svc={svc} onClose={() => setShowEdit(false)} onSave={onUpdateService}
           onPracticeUrlSaved={url => setSvcPracticeUrl(url)} />
-      )}
-      {showBulkRec && (
-        <BulkRecordingModal svc={svc} songs={songs} user={user}
-          onClose={() => setShowBulkRec(false)}
-          onSaved={() => setRecsRefreshKey(k => k + 1)} />
       )}
       {recSong && (
         <WorshipRecordingsModal
@@ -4604,113 +4587,6 @@ function extractDriveId(url) {
   return m2 ? m2[1] : null;
 }
 
-function BulkRecordingModal({ svc, songs, user, onClose, onSaved }) {
-  const songEntries = useMemo(() => {
-    const seen = new Set();
-    return (svc?.songIds || [])
-      .map(id => songs.find(s => s.id === id))
-      .filter(Boolean)
-      .filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
-  }, [svc, songs]);
-
-  const [links,   setLinks]   = useState({}); // songId → url string
-  const [loading, setLoading] = useState(true);
-  const [saving,  setSaving]  = useState(false);
-
-  useEffect(() => {
-    Promise.all(songEntries.map(async song => {
-      try {
-        const d = await loadWorshipRecording(`${song.id}_${svc.id}`);
-        const driveId = d?.parts?.["전체"];
-        return [song.id, driveId ? `https://drive.google.com/file/d/${driveId}/view` : ""];
-      } catch { return [song.id, ""]; }
-    })).then(pairs => {
-      setLinks(Object.fromEntries(pairs));
-      setLoading(false);
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleSave = async () => {
-    const invalid = songEntries.filter(s => {
-      const url = links[s.id]?.trim();
-      return url && !extractDriveId(url);
-    });
-    if (invalid.length) {
-      alert(`올바르지 않은 링크:\n${invalid.map(s => s.title).join("\n")}`);
-      return;
-    }
-    setSaving(true);
-    try {
-      await Promise.all(songEntries.map(async song => {
-        const url = links[song.id]?.trim() || "";
-        const driveId = extractDriveId(url);
-        const docId = `${song.id}_${svc.id}`;
-        const current = (await loadWorshipRecording(docId)) || {};
-        const newParts = { ...(current.parts || {}), "전체": driveId || null };
-        if (!driveId) delete newParts["전체"];
-        await saveWorshipRecording(docId, {
-          ...current,
-          parts: newParts,
-          songId: song.id, songTitle: song.title,
-          serviceId: svc.id, serviceTitle: svc.title,
-          uploaderName: user?.name || user?.displayName || "",
-          updatedAt: new Date().toISOString(),
-        });
-      }));
-      onSaved?.();
-      onClose();
-    } catch (e) {
-      alert("저장 실패: " + (e.message || e));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal title="녹음 링크 일괄 입력" onClose={onClose}>
-      {loading ? (
-        <div style={{ textAlign:"center", padding:20, color:C.dim, fontSize:13 }}>불러오는 중...</div>
-      ) : (
-        <>
-          <div style={{ fontSize:12, color:C.dim, marginBottom:12, lineHeight:1.6 }}>
-            Google Drive 링크를 각 곡에 붙여넣으세요. 비워두면 기존 링크가 삭제됩니다.
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:10,
-            maxHeight:"55vh", overflowY:"auto", paddingRight:2 }}>
-            {songEntries.map((song, idx) => {
-              const url = links[song.id] || "";
-              const hasLink = !!extractDriveId(url);
-              return (
-                <div key={song.id}>
-                  <div style={{ fontSize:12, fontWeight:700, color:C.txt, marginBottom:4,
-                    display:"flex", alignItems:"center", gap:6 }}>
-                    <span style={{ color:C.dim, fontWeight:400 }}>{idx + 1}.</span>
-                    {song.title}
-                    {hasLink && <span style={{ color:C.grn, fontSize:11, fontWeight:600 }}>✓</span>}
-                  </div>
-                  <input
-                    value={url}
-                    onChange={e => setLinks(p => ({ ...p, [song.id]: e.target.value }))}
-                    placeholder="https://drive.google.com/file/d/..."
-                    style={{ width:"100%", boxSizing:"border-box",
-                      padding:"8px 10px", borderRadius:8,
-                      border:`1px solid ${hasLink ? C.grn + "88" : C.bdr}`,
-                      background:C.bg, color:C.txt, fontSize:12,
-                      fontFamily:"inherit", outline:"none" }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ marginTop:14 }}>
-            <Btn label={saving ? "저장 중..." : `${songEntries.length}곡 일괄 저장`} icon="check"
-              onClick={handleSave} full disabled={saving} />
-          </div>
-        </>
-      )}
-    </Modal>
-  );
-}
 
 function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   const leader = isLeader(user?.role);
