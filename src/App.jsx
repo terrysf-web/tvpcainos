@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.348";
+const APP_VERSION = "3.349";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -11188,6 +11188,7 @@ export default function App() {
   const [autoPhaseGlobal, setAutoPhaseGlobal] = useState(null); // { phase, svcId }
   const [pianoOverlayDismissed, setPianoOverlayDismissed] = useState(false);
   const pianoOverlayPhaseRef = useRef(null);
+  const autoLiveTriggeredRef = useRef(null);
 
   // ── Kakao SDK 초기화
   useEffect(() => {
@@ -11517,6 +11518,31 @@ export default function App() {
     document.head.appendChild(el);
     return () => { try { document.head.removeChild(el); } catch(_) {} };
   }, []);
+
+  // ── 예배 시작 10분 전 자동 라이브 모드 활성화
+  useEffect(() => {
+    if (!user || !services.length) return;
+    if (user.role !== "admin" && !isLeader(user.role)) return;
+    if (view === "pdfViewer") return;
+    const check = () => {
+      const now = new Date();
+      const today = now.toISOString().slice(0, 10);
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const upcoming = services.find(svc => {
+        if (svc.date !== today || !svc.time) return false;
+        const [h, m] = svc.time.split(":").map(Number);
+        const svcMin = h * 60 + m;
+        return nowMin >= svcMin - 10 && nowMin <= svcMin + 120;
+      });
+      if (!upcoming || autoLiveTriggeredRef.current === upcoming.id) return;
+      autoLiveTriggeredRef.current = upcoming.id;
+      setView("live");
+      localStorage.setItem("tvpc_view", "live");
+    };
+    check();
+    const id = setInterval(check, 60000);
+    return () => clearInterval(id);
+  }, [user?.role, user?.uid, services, view]);
 
   // ── CRUD helpers
   const addSong = async (data) => {
