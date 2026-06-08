@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.341";
+const APP_VERSION = "3.342";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -11509,7 +11509,10 @@ export default function App() {
   };
 
   const updateService = async (svcId, data) => {
-    await updateDoc(doc(db, "services", svcId), data);
+    const timeout = new Promise((_, rej) =>
+      setTimeout(() => rej(new Error("저장 시간 초과. 앱을 완전히 종료 후 재시작해주세요.")), 8000)
+    );
+    await Promise.race([updateDoc(doc(db, "services", svcId), data), timeout]);
   };
 
   const addAnnotation = async (songId, noteData) => {
