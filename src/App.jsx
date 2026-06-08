@@ -18,10 +18,11 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.321";
+const APP_VERSION = "3.322";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
+  { id:"밴드",      emoji:"🎶", label:"밴드" },   // 악기 연주자 전용 (보컬 비공개)
   { id:"리드보컬",  emoji:"🎤", label:"리드 보컬" },
   { id:"보컬Jeon",  emoji:"🎤", label:"보컬 Jeon" },
   { id:"보컬Chung", emoji:"🎤", label:"보컬 Chung" },
@@ -32,6 +33,9 @@ const PARTS = [
   { id:"키보드",    emoji:"🎹", label:"키보드" },
   { id:"일렉기타",  emoji:"⚡", label:"일렉기타" },
 ];
+
+// 보컬 파트 ID 집합 — "밴드" 녹음 접근 불가
+const VOCALIST_PART_IDS = new Set(["리드보컬", "보컬Jeon", "보컬Chung", "보컬Lee"]);
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2972,17 +2976,24 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [svcLyricsModal,  setSvcLyricsModal]  = useState(null); // { song, text }
   const [svcLyricsSaving, setSvcLyricsSaving] = useState(false);
 
-  // 녹음 있는 곡 목록 — 재생 버튼 색상용
+  // 녹음 있는 곡 목록 — 재생 버튼 색상용 (보컬은 "밴드" 녹음 제외)
   const _songIdsKey = (svc?.songIds || []).join(",");
+  const _isVocalist = VOCALIST_PART_IDS.has(user?.part || "");
   useEffect(() => {
     const ids = svc?.songIds?.filter(Boolean) || [];
     if (!ids.length) { setSongsWithRecs(new Set()); return; }
+    const isVocalist = VOCALIST_PART_IDS.has(user?.part || "");
     const q = query(collection(db, "worshipRecordings"), where("songId", "in", ids));
     return onSnapshot(q, snap => {
-      setSongsWithRecs(new Set(snap.docs.map(d => d.data().songId)));
+      setSongsWithRecs(new Set(
+        snap.docs
+          .map(d => d.data())
+          .filter(r => r.part !== "밴드" || !isVocalist)
+          .map(r => r.songId)
+      ));
     }, () => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [_songIdsKey]);
+  }, [_songIdsKey, _isVocalist]);
 
   if (!svc) return null;
 
@@ -4497,15 +4508,20 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     return ts.toDate().toLocaleDateString("ko-KR", { month:"short", day:"numeric" });
   };
 
-  // 접근 가능한 파트: 리더는 전체, 일반 팀원은 "전체" + 자기 파트
+  // 보컬 여부 — "밴드" 파트 접근 불가
+  const isVocalist = VOCALIST_PART_IDS.has(myPart);
+
+  // 접근 가능한 파트: 리더는 전체, 악기 연주자는 "전체"+"밴드"+자기파트, 보컬은 "전체"+자기파트
   const accessibleParts = canSeeAll
     ? PARTS.map(p => p.id)
-    : ["전체", myPart].filter(Boolean);
+    : ["전체", ...(!isVocalist ? ["밴드"] : []), myPart].filter(Boolean);
 
   // 이 사용자가 볼 수 있는 녹음만 필터
-  const accessibleRecs = recs.filter(r =>
-    r.part === "전체" || canSeeAll || r.part === myPart
-  );
+  const accessibleRecs = recs.filter(r => {
+    if (canSeeAll) return true;
+    if (r.part === "밴드") return !isVocalist;
+    return r.part === "전체" || r.part === myPart;
+  });
 
   // 탭으로 필터
   const filteredRecs = partFilter === "전체"
@@ -4540,13 +4556,17 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
         })}
       </div>
 
-      {/* 비리더: 내 파트만 접근 안내 */}
+      {/* 비리더: 접근 범위 안내 */}
       {!canSeeAll && myPart && (
         <div style={{ fontSize:11, color:C.dim, marginBottom:8,
           background:`${C.acc}10`, borderRadius:7, padding:"5px 9px",
           display:"flex", alignItems:"center", gap:5 }}>
           <span>{partInfo(myPart).emoji}</span>
-          <span>전체 믹스와 <strong style={{ color:C.acc }}>{myPart}</strong> 파트 녹음을 들을 수 있습니다</span>
+          <span>
+            전체 믹스
+            {!isVocalist && <> · <strong style={{ color:C.acc }}>밴드</strong></>}
+            {myPart && <> · <strong style={{ color:C.acc }}>{myPart}</strong></>} 파트 녹음을 들을 수 있습니다
+          </span>
         </div>
       )}
 
