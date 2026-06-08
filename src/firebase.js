@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { initializeFirestore, persistentLocalCache } from "firebase/firestore";
+import { initializeFirestore, memoryLocalCache } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, isSupported } from "firebase/messaging";
 
@@ -15,11 +15,11 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-// persistentLocalCache: 쓰기를 로컬 IndexedDB에 즉시 저장 후 백그라운드 서버 동기화
-// → 네트워크 불안정 시 addDoc이 20초 멈추는 문제 해결
+// memoryLocalCache: IndexedDB 대신 메모리 캐시 사용
+// → iOS Safari에서 IndexedDB 초기화 실패 시 쓰기가 영구 블로킹되는 문제 해결
 // ignoreUndefinedProperties: undefined 필드 자동 제거 (malformed request 방지)
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache(),
+  localCache: memoryLocalCache(),
   ignoreUndefinedProperties: true,
 });
 export const storage = getStorage(app);

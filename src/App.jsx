@@ -14,11 +14,11 @@ import {
 } from "firebase/auth";
 import {
   collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc,
-  query, orderBy, where, getDoc, getDocs, setDoc, serverTimestamp, arrayUnion, limit, increment, documentId,
+  query, orderBy, where, getDoc, getDocs, setDoc, serverTimestamp, arrayUnion, limit, increment, documentId, writeBatch,
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.329";
+const APP_VERSION = "3.330";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -4514,53 +4514,38 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
       return;
     }
     setSaving(true);
-    setSaveProgress("연결 확인 중...");
-    let saved = 0;
+    setSaveProgress(`${entries.length}개 저장 중...`);
     try {
-      // ── 1단계: Firestore 쓰기 연결 테스트 (5초)
-      // userDrawings는 isAuthed()만 필요 — isLeader() 체크 없음
-      const testId = `_test_${user?.uid}_${Date.now()}`;
-      const testRef = doc(db, "userDrawings", testId);
-      await Promise.race([
-        setDoc(testRef, { _test: true }),
-        new Promise((_, rej) => setTimeout(() =>
-          rej(new Error("NETWORK")), 5000)),
-      ]);
-      deleteDoc(testRef).catch(() => {}); // 정리 (결과 무관)
-
-      // ── 2단계: worshipRecordings 순차 저장
+      const batch = writeBatch(db);
       for (const { part, url } of entries) {
-        setSaveProgress(`${saved + 1}/${entries.length} 저장 중...`);
-        await Promise.race([
-          addDoc(collection(db, "worshipRecordings"), {
-            songId:       songId       || null,
-            songTitle:    songTitle    || null,
-            serviceId:    svc?.id      || null,
-            serviceTitle: svc?.title   || null,
-            serviceDate:  svc?.date    || null,
-            part,
-            driveId:      extractDriveId(url) || null,
-            title:        addTitle.trim()      || null,
-            uploaderUid:  user?.uid            || null,
-            uploaderName: user?.name || user?.email || "리더",
-            createdAt:    serverTimestamp(),
-          }),
-          new Promise((_, rej) => setTimeout(() =>
-            rej(new Error(`PERMISSION:${part}`)), 8000)),
-        ]);
-        saved++;
+        const ref = doc(collection(db, "worshipRecordings"));
+        batch.set(ref, {
+          songId:       songId       || null,
+          songTitle:    songTitle    || null,
+          serviceId:    svc?.id      || null,
+          serviceTitle: svc?.title   || null,
+          serviceDate:  svc?.date    || null,
+          part,
+          driveId:      extractDriveId(url) || null,
+          title:        addTitle.trim()      || null,
+          uploaderUid:  user?.uid            || null,
+          uploaderName: user?.name || user?.email || "리더",
+          createdAt:    serverTimestamp(),
+        });
       }
-      setSaveProgress("");
+      await Promise.race([
+        batch.commit(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 20000)),
+      ]);
       setPartLinks({}); setAddTitle(""); setShowAdd(false);
     } catch (e) {
       const msg = e.message || "";
-      if (msg === "NETWORK") {
-        alert("Firestore 연결 불가\n\n네트워크 또는 방화벽 문제입니다.\nWi-Fi를 확인하거나 앱을 완전히 종료 후 재시작해주세요.");
-      } else if (msg.startsWith("PERMISSION:")) {
-        const part = msg.replace("PERMISSION:", "");
-        alert(`저장 권한 오류 — ${part} 파트\n\n리더 권한을 확인해주세요.\n(${saved}/${entries.length}개 완료)`);
+      if (msg === "TIMEOUT") {
+        alert("저장 시간 초과\n\n네트워크 상태를 확인하고 앱을 완전히 종료 후 재시작해주세요.");
+      } else if (msg.includes("permission") || msg.includes("PERMISSION_DENIED")) {
+        alert("저장 권한 오류\n\n리더 계정으로 로그인되어 있는지 확인해주세요.");
       } else {
-        alert(`저장 실패 (${saved}/${entries.length}개 완료)\n${msg}`);
+        alert(`저장 실패\n${msg}`);
       }
       console.error("worshipRecordings 저장 오류:", e);
     } finally {
