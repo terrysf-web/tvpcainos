@@ -146,17 +146,41 @@ export async function uploadPdf(file, songId) {
   return `${data.publicUrl}?t=${Date.now()}`;
 }
 
-// 예배 녹음 저장 — Supabase Edge Function 경유 (Firebase Admin SDK로 Firestore 쓰기)
-// 클라이언트 Firestore 할당량을 완전히 우회함
-export async function saveRecordingViaEdge(sessionDocId, fields, idToken) {
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/save-recording`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_ANON}` },
-    body: JSON.stringify({ sessionDocId, fields, idToken }),
+// 예배 녹음 — Supabase Storage JSON 파일로 저장/읽기 (Firestore 할당량 완전 우회)
+const REC_BUCKET = "pdfs";
+const recPath = (docId) => `recordings/${docId}.json`;
+
+export async function saveWorshipRecording(docId, data) {
+  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+  const { error } = await supabase.storage.from(REC_BUCKET).upload(recPath(docId), blob, {
+    contentType: "application/json",
+    upsert: true,
   });
-  const data = await res.json();
-  if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  if (error) throw new Error(error.message);
+}
+
+export async function loadWorshipRecording(docId) {
+  const { data, error } = await supabase.storage.from(REC_BUCKET).download(recPath(docId));
+  if (error || !data) return null;
+  try { return JSON.parse(await data.text()); } catch { return null; }
+}
+
+export async function deleteWorshipRecordingPart(docId, part) {
+  const current = await loadWorshipRecording(docId);
+  if (!current) return;
+  delete current.parts[part];
+  const blob = new Blob([JSON.stringify(current)], { type: "application/json" });
+  await supabase.storage.from(REC_BUCKET).upload(recPath(docId), blob, { contentType: "application/json", upsert: true });
+}
+
+export async function updateWorshipRecordingPart(docId, part, driveId, title) {
+  const current = (await loadWorshipRecording(docId)) || { parts: {} };
+  current.parts = current.parts || {};
+  current.parts[part] = driveId;
+  if (title !== undefined) current.title = title;
+  current.updatedAt = new Date().toISOString();
+  const blob = new Blob([JSON.stringify(current)], { type: "application/json" });
+  await supabase.storage.from(REC_BUCKET).upload(recPath(docId), blob, { contentType: "application/json", upsert: true });
 }
 
 export async function uploadImage(file, songId) {
