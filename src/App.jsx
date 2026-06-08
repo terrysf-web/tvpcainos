@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.335";
+const APP_VERSION = "3.336";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -4618,7 +4618,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     } catch (e) { alert("수정 실패: " + (e.message || e)); }
   };
 
-  // Supabase Edge Function → Firebase Admin SDK → Firestore (클라이언트 할당량 우회)
+  // Supabase Edge Function → Firestore REST API (클라이언트 gRPC 우회)
   const saveAllLinks = async () => {
     const entries = PARTS
       .map(p => ({ part: p.id, url: (partLinks[p.id] || "").trim() }))
@@ -4632,6 +4632,8 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     setSaving(true);
     setSaveProgress("저장 중...");
     try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
       const sv = (v) => v ? { stringValue: String(v) } : { nullValue: null };
       const partsFields = {};
       for (const { part, url } of entries) partsFields[part] = { stringValue: extractDriveId(url) || "" };
@@ -4646,7 +4648,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
         uploaderName: { stringValue: user?.name || user?.email || "리더" },
         updatedAt:    { timestampValue: new Date().toISOString() },
         parts:        { mapValue: { fields: partsFields } },
-      });
+      }, idToken);
       setPartLinks({}); setAddTitle(""); setShowAdd(false);
     } catch (e) {
       alert(`저장 실패\n${e.message || e}`);

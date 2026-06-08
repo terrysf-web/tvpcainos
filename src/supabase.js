@@ -148,11 +148,11 @@ export async function uploadPdf(file, songId) {
 
 // 예배 녹음 저장 — Supabase Edge Function 경유 (Firebase Admin SDK로 Firestore 쓰기)
 // 클라이언트 Firestore 할당량을 완전히 우회함
-export async function saveRecordingViaEdge(sessionDocId, fields) {
+export async function saveRecordingViaEdge(sessionDocId, fields, idToken) {
   const res = await fetch(`${SUPABASE_URL}/functions/v1/save-recording`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_ANON}` },
-    body: JSON.stringify({ sessionDocId, fields }),
+    body: JSON.stringify({ sessionDocId, fields, idToken }),
   });
   const data = await res.json();
   if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
