@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.349";
+const APP_VERSION = "3.350";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -1355,28 +1355,32 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
 /* ══════════════════════════════════════════════════════════════════
    EDIT SERVICE MODAL
 ══════════════════════════════════════════════════════════════════ */
-function EditServiceModal({ svc, onClose, onSave }) {
-  const [title,       setTitle]       = useState(svc.title || "주일 2부");
-  const [date,        setDate]        = useState(svc.date  || "");
-  const [time,        setTime]        = useState(svc.time  || "");
-  const [practiceUrl, setPracticeUrl] = useState(svc.practiceUrl || "");
-  const [showCustom,  setShowCustom]  = useState(!SVC_TIME_PRESETS.some(p => p.time === (svc.time || "")));
-  const [saving,      setSaving]      = useState(false);
+function EditServiceModal({ svc, onClose, onSave, onPracticeUrlSaved }) {
+  const [title,             setTitle]             = useState(svc.title || "주일 2부");
+  const [date,              setDate]              = useState(svc.date  || "");
+  const [time,              setTime]              = useState(svc.time  || "");
+  const [practiceUrl,       setPracticeUrl]       = useState("");
+  const [practiceUrlLoaded, setPracticeUrlLoaded] = useState(false);
+  const [showCustom,        setShowCustom]        = useState(!SVC_TIME_PRESETS.some(p => p.time === (svc.time || "")));
+  const [saving,            setSaving]            = useState(false);
 
-  // Supabase Storage에서 기존 practiceUrl 로드
+  // Supabase Storage에서 기존 practiceUrl 로드 (완료 전 저장하면 덮어쓰는 버그 방지)
   useEffect(() => {
     loadServiceSettings(svc.id)
-      .then(d => { if (d?.practiceUrl) setPracticeUrl(d.practiceUrl); })
-      .catch(() => {});
+      .then(d => { setPracticeUrl(d?.practiceUrl || ""); setPracticeUrlLoaded(true); })
+      .catch(() => { setPracticeUrlLoaded(true); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
     if (!title) return;
     setSaving(true);
     try {
-      // practiceUrl → Supabase Storage (Firestore 쿼터 완전 우회)
-      await saveServiceSettings(svc.id, { practiceUrl: practiceUrl.trim() || null });
-      // title/date/time → 실제로 바뀐 경우에만 Firestore 쓰기
+      // 로드 완료된 경우에만 practiceUrl 저장 (미완료 시 기존값 보존)
+      if (practiceUrlLoaded) {
+        const trimmedUrl = practiceUrl.trim() || null;
+        await saveServiceSettings(svc.id, { practiceUrl: trimmedUrl });
+        onPracticeUrlSaved?.(trimmedUrl);
+      }
       const changed = title !== svc.title || date !== svc.date || time !== (svc.time || "");
       if (changed) await onSave(svc.id, { title, date, time });
       onClose();
@@ -1392,7 +1396,11 @@ function EditServiceModal({ svc, onClose, onSave }) {
       <ServiceTitleField value={title} onChange={setTitle} />
       <Input label="날짜" value={date} onChange={setDate} type="date" />
       <TimeSelector time={time} setTime={setTime} showCustom={showCustom} setShowCustom={setShowCustom} />
-      <Input label="예배 연습 녹음 링크 (Google Drive)" value={practiceUrl} onChange={setPracticeUrl} placeholder="https://drive.google.com/..." />
+      <Input label="예배 연습 녹음 링크 (Google Drive)"
+        value={practiceUrlLoaded ? practiceUrl : ""}
+        onChange={setPracticeUrl}
+        placeholder={practiceUrlLoaded ? "https://drive.google.com/file/d/..." : "불러오는 중..."}
+        disabled={!practiceUrlLoaded} />
       <Btn label={saving ? "저장 중..." : "저장"} icon="check"
         onClick={handleSave} full disabled={saving || !title} />
     </Modal>
@@ -3625,7 +3633,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           addSong={addSong} user={user} />
       )}
       {showEdit && (
-        <EditServiceModal svc={svc} onClose={() => setShowEdit(false)} onSave={onUpdateService} />
+        <EditServiceModal svc={svc} onClose={() => setShowEdit(false)} onSave={onUpdateService}
+          onPracticeUrlSaved={url => setSvcPracticeUrl(url)} />
       )}
       {recSong && (
         <WorshipRecordingsModal
