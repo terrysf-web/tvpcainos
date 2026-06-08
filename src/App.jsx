@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.323";
+const APP_VERSION = "3.324";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
