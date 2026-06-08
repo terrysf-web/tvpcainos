@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.338";
+const APP_VERSION = "3.339";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -1356,16 +1356,17 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
    EDIT SERVICE MODAL
 ══════════════════════════════════════════════════════════════════ */
 function EditServiceModal({ svc, onClose, onSave }) {
-  const [title,      setTitle]      = useState(svc.title || "주일 2부");
-  const [date,       setDate]       = useState(svc.date  || "");
-  const [time,       setTime]       = useState(svc.time  || "");
-  const [showCustom, setShowCustom] = useState(!SVC_TIME_PRESETS.some(p => p.time === (svc.time || "")));
-  const [saving,     setSaving]     = useState(false);
+  const [title,       setTitle]       = useState(svc.title || "주일 2부");
+  const [date,        setDate]        = useState(svc.date  || "");
+  const [time,        setTime]        = useState(svc.time  || "");
+  const [practiceUrl, setPracticeUrl] = useState(svc.practiceUrl || "");
+  const [showCustom,  setShowCustom]  = useState(!SVC_TIME_PRESETS.some(p => p.time === (svc.time || "")));
+  const [saving,      setSaving]      = useState(false);
 
   const handleSave = async () => {
     if (!title) return;
     setSaving(true);
-    await onSave(svc.id, { title, date, time });
+    await onSave(svc.id, { title, date, time, practiceUrl: practiceUrl.trim() || null });
     setSaving(false);
     onClose();
   };
@@ -1375,6 +1376,7 @@ function EditServiceModal({ svc, onClose, onSave }) {
       <ServiceTitleField value={title} onChange={setTitle} />
       <Input label="날짜" value={date} onChange={setDate} type="date" />
       <TimeSelector time={time} setTime={setTime} showCustom={showCustom} setShowCustom={setShowCustom} />
+      <Input label="예배 연습 녹음 링크 (Google Drive)" value={practiceUrl} onChange={setPracticeUrl} placeholder="https://drive.google.com/..." />
       <Btn label={saving ? "저장 중..." : "저장"} icon="check"
         onClick={handleSave} full disabled={saving || !title} />
     </Modal>
@@ -3325,6 +3327,21 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
 
       <div style={{ padding:16, paddingBottom:90 }}>
+        {svc.practiceUrl && (
+          <a href={svc.practiceUrl} target="_blank" rel="noopener noreferrer"
+            style={{ display:"flex", alignItems:"center", gap:10,
+              background:`${C.acc}12`, border:`1px solid ${C.acc}44`,
+              borderRadius:12, padding:"12px 14px", marginBottom:14,
+              textDecoration:"none" }}>
+            <span style={{ fontSize:20 }}>🎵</span>
+            <div style={{ flex:1 }}>
+              <div style={{ fontWeight:700, fontSize:14, color:C.acc }}>예배 연습 녹음</div>
+              <div style={{ fontSize:11, color:C.dim }}>Google Drive에서 열기</div>
+            </div>
+            <Icon n="link" size={16} color={C.acc} />
+          </a>
+        )}
+
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
           textTransform:"uppercase", marginBottom:10 }}>
           예배 곡 순서 · {totalCount}곡
