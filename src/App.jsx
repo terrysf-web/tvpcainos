@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.325";
+const APP_VERSION = "3.326";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -4445,10 +4445,12 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   const [recs,        setRecs]        = useState([]);
   const [partFilter,  setPartFilter]  = useState("전체");
   const [expandedId,  setExpandedId]  = useState(null);
-  const [showAdd,    setShowAdd]    = useState(false);
-  const [partLinks,  setPartLinks]  = useState({}); // { partId: driveUrl }
-  const [addTitle,   setAddTitle]   = useState("");
-  const [saving,     setSaving]     = useState(false);
+  const [showAdd,     setShowAdd]     = useState(false);
+  const [partLinks,   setPartLinks]   = useState({}); // { partId: driveUrl }
+  const [addTitle,    setAddTitle]    = useState("");
+  const [saving,      setSaving]      = useState(false);
+  const [editingId,   setEditingId]   = useState(null); // 수정 중인 rec.id
+  const [editData,    setEditData]    = useState({});   // { title, url, part }
 
   useEffect(() => {
     const q = query(
@@ -4468,6 +4470,34 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
       try { await deleteObject(storageRef(storage, rec.storagePath)); } catch {}
     }
     await deleteDoc(doc(db, "worshipRecordings", rec.id));
+  };
+
+  const startEdit = (rec) => {
+    setEditingId(rec.id);
+    setExpandedId(null);
+    setEditData({
+      title: rec.title || "",
+      url:   rec.driveId ? `https://drive.google.com/file/d/${rec.driveId}/view` : "",
+      part:  rec.part || "전체",
+    });
+  };
+
+  const saveEdit = async (rec) => {
+    const newDriveId = extractDriveId(editData.url.trim());
+    if (editData.url.trim() && !newDriveId) {
+      alert("올바른 Google Drive 링크를 입력하세요.");
+      return;
+    }
+    try {
+      await updateDoc(doc(db, "worshipRecordings", rec.id), {
+        title:   editData.title.trim() || null,
+        driveId: newDriveId || rec.driveId || null,
+        part:    editData.part,
+      });
+      setEditingId(null);
+    } catch (e) {
+      alert("수정 실패: " + (e.message || e));
+    }
   };
 
   const saveAllLinks = async () => {
@@ -4580,58 +4610,121 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
           </div>
         ) : filteredRecs.map(rec => {
           const pi = partInfo(rec.part);
-          const isMine = rec.part === myPart;
-          const isOpen = expandedId === rec.id;
+          const isMine   = rec.part === myPart;
+          const isOpen   = expandedId === rec.id;
+          const isEditing = editingId === rec.id;
           const embedSrc = rec.driveId
             ? `https://drive.google.com/file/d/${rec.driveId}/preview`
             : null;
           return (
             <div key={rec.id} style={{
               borderRadius:10, marginBottom:8, overflow:"hidden",
-              background: isMine ? `${C.acc}09` : C.card,
-              border:`1px solid ${isMine ? C.acc+"44" : C.bdr}`,
+              background: isEditing ? `${C.pur}08` : (isMine ? `${C.acc}09` : C.card),
+              border:`1px solid ${isEditing ? C.pur+"55" : (isMine ? C.acc+"44" : C.bdr)}`,
             }}>
               {/* 헤더 행 */}
               <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px" }}>
-                {/* 재생/닫기 버튼 */}
-                <button onClick={() => setExpandedId(isOpen ? null : rec.id)} style={{
-                  width:38, height:38, borderRadius:"50%", border:"none", cursor:"pointer", flexShrink:0,
-                  background: isOpen ? "#ff6b35" : C.grn,
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                }}>
-                  <Icon n={isOpen ? "stop" : "play"} size={14} color="#fff" />
-                </button>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:2 }}>
-                    <span style={{
-                      fontSize:11, fontWeight:700, padding:"1px 7px", borderRadius:5,
-                      background: isMine ? `${C.acc}20` : `${C.pur}15`,
-                      color: isMine ? C.acc : C.pur,
-                    }}>{pi.emoji} {pi.label}</span>
-                    {rec.title && <span style={{ fontSize:12, fontWeight:600, color:C.txt,
-                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{rec.title}</span>}
-                    {rec.serviceTitle && !rec.title && (
-                      <span style={{ fontSize:10, color:C.dim, overflow:"hidden",
-                        textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{rec.serviceTitle}</span>
-                    )}
-                  </div>
-                  <div style={{ fontSize:11, color:C.dim }}>
-                    {rec.uploaderName} · {fmtDate(rec.createdAt)}
-                    {rec.driveId ? " · Google Drive" : ""}
-                  </div>
-                </div>
-                {leader && (
-                  <button onClick={() => del(rec)} style={{
-                    background:"none", border:`1px solid ${C.red}44`, borderRadius:7,
-                    cursor:"pointer", padding:"6px 8px",
+                {!isEditing && (
+                  <button onClick={() => setExpandedId(isOpen ? null : rec.id)} style={{
+                    width:38, height:38, borderRadius:"50%", border:"none", cursor:"pointer", flexShrink:0,
+                    background: isOpen ? "#ff6b35" : C.grn,
                     display:"flex", alignItems:"center", justifyContent:"center",
                   }}>
-                    <Icon n="trash" size={13} color={C.red} />
+                    <Icon n={isOpen ? "stop" : "play"} size={14} color="#fff" />
                   </button>
+                )}
+                <div style={{ flex:1, minWidth:0 }}>
+                  {!isEditing ? (<>
+                    <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:2 }}>
+                      <span style={{
+                        fontSize:11, fontWeight:700, padding:"1px 7px", borderRadius:5,
+                        background: isMine ? `${C.acc}20` : `${C.pur}15`,
+                        color: isMine ? C.acc : C.pur,
+                      }}>{pi.emoji} {pi.label}</span>
+                      {rec.title && <span style={{ fontSize:12, fontWeight:600, color:C.txt,
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{rec.title}</span>}
+                      {rec.serviceTitle && !rec.title && (
+                        <span style={{ fontSize:10, color:C.dim, overflow:"hidden",
+                          textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{rec.serviceTitle}</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize:11, color:C.dim }}>
+                      {rec.uploaderName} · {fmtDate(rec.createdAt)}
+                      {rec.driveId ? " · Google Drive" : ""}
+                    </div>
+                  </>) : (
+                    /* ── 인라인 수정 폼 ── */
+                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                      {/* 파트 선택 */}
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                        {PARTS.map(p => (
+                          <button key={p.id} onClick={() => setEditData(d => ({ ...d, part: p.id }))}
+                            style={{
+                              padding:"2px 8px", borderRadius:12, fontSize:11, fontWeight:700,
+                              cursor:"pointer", fontFamily:"inherit",
+                              background: editData.part === p.id ? C.pur : C.bg,
+                              color:      editData.part === p.id ? "#fff" : C.dim,
+                              border:`1px solid ${editData.part === p.id ? C.pur : C.bdr}`,
+                            }}>
+                            {p.emoji} {p.label}
+                          </button>
+                        ))}
+                      </div>
+                      {/* 제목 */}
+                      <input
+                        value={editData.title}
+                        onChange={e => setEditData(d => ({ ...d, title: e.target.value }))}
+                        placeholder="제목 (선택)"
+                        style={{ width:"100%", boxSizing:"border-box", padding:"6px 8px",
+                          borderRadius:7, border:`1px solid ${C.bdr}`, background:C.bg,
+                          fontSize:12, color:C.txt, fontFamily:"inherit", outline:"none" }}
+                      />
+                      {/* Drive URL */}
+                      <input
+                        value={editData.url}
+                        onChange={e => setEditData(d => ({ ...d, url: e.target.value }))}
+                        placeholder="Google Drive 링크"
+                        style={{ width:"100%", boxSizing:"border-box", padding:"6px 8px",
+                          borderRadius:7, border:`1px solid ${C.bdr}`, background:C.bg,
+                          fontSize:11, color:C.txt, fontFamily:"inherit", outline:"none" }}
+                      />
+                      {/* 저장/취소 */}
+                      <div style={{ display:"flex", gap:6 }}>
+                        <button onClick={() => saveEdit(rec)} style={{
+                          flex:1, padding:"7px", borderRadius:8, border:"none",
+                          background:C.grn, color:"#fff", fontSize:12, fontWeight:700,
+                          cursor:"pointer", fontFamily:"inherit",
+                        }}>저장</button>
+                        <button onClick={() => setEditingId(null)} style={{
+                          padding:"7px 12px", borderRadius:8,
+                          border:`1px solid ${C.bdr}`, background:C.card,
+                          color:C.dim, fontSize:12, cursor:"pointer", fontFamily:"inherit",
+                        }}>취소</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {leader && !isEditing && (
+                  <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
+                    <button onClick={() => startEdit(rec)} style={{
+                      background:"none", border:`1px solid ${C.pur}44`, borderRadius:7,
+                      cursor:"pointer", padding:"6px 8px",
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                    }}>
+                      <Icon n="pencil" size={13} color={C.pur} />
+                    </button>
+                    <button onClick={() => del(rec)} style={{
+                      background:"none", border:`1px solid ${C.red}44`, borderRadius:7,
+                      cursor:"pointer", padding:"6px 8px",
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                    }}>
+                      <Icon n="trash" size={13} color={C.red} />
+                    </button>
+                  </div>
                 )}
               </div>
               {/* Google Drive 임베드 플레이어 */}
-              {isOpen && embedSrc && (
+              {isOpen && !isEditing && embedSrc && (
                 <div style={{ borderTop:`1px solid ${C.bdr}` }}>
                   <iframe
                     src={embedSrc}
@@ -4643,7 +4736,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
                   />
                 </div>
               )}
-              {isOpen && !embedSrc && (
+              {isOpen && !isEditing && !embedSrc && (
                 <div style={{ padding:"8px 12px", borderTop:`1px solid ${C.bdr}`,
                   fontSize:12, color:C.dim }}>
                   재생 링크 없음
