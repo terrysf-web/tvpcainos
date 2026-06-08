@@ -2,7 +2,8 @@
 // Safari 브라우저에서 어드민이 파일 선택 시 사용
 
 const DEVELOPER_KEY  = "AIzaSyAzXyQA-BbL_0KsTnukODBfMBkIZINxiNM"; // Firebase API key
-const CLIENT_ID      = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+const CLIENT_ID      = import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  "721441022829-8r8pupr571vjhjkan07qi388jri1sci6.apps.googleusercontent.com";
 
 function loadScript(src) {
   if (document.querySelector(`script[src="${src}"]`)) {
