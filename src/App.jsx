@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.357";
+const APP_VERSION = "3.358";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2556,7 +2556,7 @@ function X32StatusBar() {
 /* ══════════════════════════════════════════════════════════════════
    SERVICES SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function ServicesScreen({ user, services, songs, notifs, createService, nav, teamAnnotations }) {
+function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createService, nav, teamAnnotations }) {
   const [showCreate,   setShowCreate]   = useState(false);
   const [pastExpanded, setPastExpanded] = useState(false);
   const unread = notifs.filter(n => !n.read).length;
@@ -2743,7 +2743,12 @@ function ServicesScreen({ user, services, songs, notifs, createService, nav, tea
           </>
         )}
 
-        {services.length === 0 && (
+        {!servicesLoaded && (
+          <div style={{ textAlign:"center", padding:"60px 0", color:C.dim, fontSize:13 }}>
+            불러오는 중...
+          </div>
+        )}
+        {servicesLoaded && services.length === 0 && (
           <div style={{ textAlign:"center", padding:"60px 0", color:C.dim }}>
             <div style={{ fontSize:48, marginBottom:16 }}>📋</div>
             <div style={{ fontWeight:600, marginBottom:6 }}>등록된 예배 일정이 없습니다</div>
@@ -11274,6 +11279,7 @@ export default function App() {
   });
   const [songs,       setSongs]       = useState([]);
   const [services,    setServices]    = useState([]);
+  const [servicesLoaded, setServicesLoaded] = useState(false);
   const [notifs,      setNotifs]      = useState([]);
   const [annotations,     setAnnotations]     = useState({}); // 개인 메모
   const [teamAnnotations, setTeamAnnotations] = useState({}); // 팀 공유 메모
@@ -11421,7 +11427,7 @@ export default function App() {
     if (!user?.uid) return;
     return onSnapshot(
       query(collection(db, "services"), orderBy("date")),
-      snap => setServices(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      snap => { setServices(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setServicesLoaded(true); }
     );
   }, [user?.uid]);
 
@@ -11794,7 +11800,7 @@ export default function App() {
   const unread = notifs.filter(n => !n.read).length;
 
   const shared = {
-    user, songs, services, notifs, annotations, teamAnnotations, userMap, songDrawings,
+    user, songs, services, servicesLoaded, notifs, annotations, teamAnnotations, userMap, songDrawings,
     addSong, createService, updateService,
     onAddAnnotation: addAnnotation,
     onDeleteAnnotation: deleteAnnotation,
