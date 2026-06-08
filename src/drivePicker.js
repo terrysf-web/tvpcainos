@@ -3,7 +3,7 @@
 
 const DEVELOPER_KEY  = "AIzaSyAzXyQA-BbL_0KsTnukODBfMBkIZINxiNM"; // Firebase API key
 const CLIENT_ID      = import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-  "721441022829-8r8pupr571vjhjkan07qi388jri1sci6.apps.googleusercontent.com";
+  "721441022829-55s9lnlpt88lhla1fcnar429kgp30ajp.apps.googleusercontent.com";
 
 function loadScript(src) {
   if (document.querySelector(`script[src="${src}"]`)) {
