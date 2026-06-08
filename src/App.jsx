@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.355";
+const APP_VERSION = "3.356";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -3480,6 +3480,9 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                       <KeyBadge k={song.key} />
                       {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF · 페이지${song.pdfPage}` : "PDF"} color={C.grn} />}
                       {!song.pdfUrl && song.imageUrl && <Badge label="🖼️ 이미지" color={C.acc} />}
+                      {user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1" && (
+                        <Badge label="전조 ON" color={C.grn} />
+                      )}
                       {leader && (
                         <button onClick={e => { e.stopPropagation(); setSvcLyricsModal({ song, text: song.lyrics || "" }); }}
                           style={{ background: song.lyrics ? `${C.grn}22` : `${C.pur}12`,
