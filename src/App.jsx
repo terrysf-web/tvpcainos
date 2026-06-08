@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.346";
+const APP_VERSION = "3.347";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2996,7 +2996,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [showKakaoFormatPicker, setShowKakaoFormatPicker] = useState(false);
 
   // 예배 설정 (practiceUrl 등) — Supabase Storage에서 로드
-  const [svcPracticeUrl, setSvcPracticeUrl] = useState(svc?.practiceUrl || null);
+  const [svcPracticeUrl,    setSvcPracticeUrl]    = useState(svc?.practiceUrl || null);
+  const [showPracticePlayer, setShowPracticePlayer] = useState(false);
   useEffect(() => {
     if (!svc?.id) return;
     setSvcPracticeUrl(svc?.practiceUrl || null); // Firestore fallback
@@ -3353,17 +3354,28 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
 
       <div style={{ padding:16, paddingBottom:90 }}>
-        {svcPracticeUrl && (
-          <button onClick={() => window.location.href = svcPracticeUrl}
-            style={{ display:"flex", alignItems:"center", gap:8, width:"100%",
-              background:`${C.acc}12`, border:`1px solid ${C.acc}44`,
-              borderRadius:10, padding:"8px 12px", marginBottom:10,
-              cursor:"pointer", fontFamily:"inherit" }}>
-            <Icon n="music" size={14} color={C.acc} />
-            <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:700, color:C.acc }}>예배 연습 녹음</div>
-            <Icon n="link" size={13} color={C.acc} />
-          </button>
-        )}
+        {svcPracticeUrl && (() => {
+          const practiceFileId = svcPracticeUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1] || null;
+          const practiceEmbedSrc = practiceFileId ? `https://drive.google.com/file/d/${practiceFileId}/preview` : null;
+          return (
+            <div style={{ marginBottom:10, borderRadius:10, overflow:"hidden",
+              border:`1px solid ${C.acc}44`, background:`${C.acc}08` }}>
+              <button onClick={() => practiceEmbedSrc ? setShowPracticePlayer(v => !v) : (window.location.href = svcPracticeUrl)}
+                style={{ display:"flex", alignItems:"center", gap:8, width:"100%",
+                  background:"none", border:"none", padding:"8px 12px",
+                  cursor:"pointer", fontFamily:"inherit" }}>
+                <Icon n={showPracticePlayer ? "pause" : "play"} size={14} color={C.acc} />
+                <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:700, color:C.acc }}>예배 연습 녹음</div>
+                {!practiceEmbedSrc && <Icon n="link" size={13} color={C.acc} />}
+              </button>
+              {showPracticePlayer && practiceEmbedSrc && (
+                <iframe src={practiceEmbedSrc} width="100%" height="80"
+                  allow="autoplay" style={{ display:"block", border:"none", borderTop:`1px solid ${C.acc}33` }}
+                  title="예배 연습 녹음" />
+              )}
+            </div>
+          );
+        })()}
 
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
           textTransform:"uppercase", marginBottom:10 }}>
