@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.344";
+const APP_VERSION = "3.345";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -1376,8 +1376,9 @@ function EditServiceModal({ svc, onClose, onSave }) {
     try {
       // practiceUrl → Supabase Storage (Firestore 쿼터 완전 우회)
       await saveServiceSettings(svc.id, { practiceUrl: practiceUrl.trim() || null });
-      // 나머지 → Firestore
-      await onSave(svc.id, { title, date, time });
+      // title/date/time → 실제로 바뀐 경우에만 Firestore 쓰기
+      const changed = title !== svc.title || date !== svc.date || time !== (svc.time || "");
+      if (changed) await onSave(svc.id, { title, date, time });
       onClose();
     } catch (e) {
       alert("저장 실패\n" + (e.message || e));
