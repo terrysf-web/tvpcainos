@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.324";
+const APP_VERSION = "3.325";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -4535,7 +4535,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   const visibleTabs = PARTS.filter(p => accessibleParts.includes(p.id));
 
   return (
-    <Modal title={`예배 녹음 — ${songTitle}`} onClose={onClose}>
+    <Modal title={`예배 녹음 — ${songTitle}`} onClose={onClose} noBackdrop>
       {/* 파트 탭 — 접근 가능한 파트만 표시 */}
       <div style={{ display:"flex", overflowX:"auto", gap:5, marginBottom:10, paddingBottom:2 }}>
         {visibleTabs.map(p => {
