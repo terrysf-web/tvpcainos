@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.339";
+const APP_VERSION = "3.340";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -1366,9 +1366,14 @@ function EditServiceModal({ svc, onClose, onSave }) {
   const handleSave = async () => {
     if (!title) return;
     setSaving(true);
-    await onSave(svc.id, { title, date, time, practiceUrl: practiceUrl.trim() || null });
-    setSaving(false);
-    onClose();
+    try {
+      await onSave(svc.id, { title, date, time, practiceUrl: practiceUrl.trim() || null });
+      onClose();
+    } catch (e) {
+      alert("저장 실패\n" + (e.message || e));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -11504,7 +11509,24 @@ export default function App() {
   };
 
   const updateService = async (svcId, data) => {
-    await updateDoc(doc(db, "services", svcId), data);
+    const idToken = await auth.currentUser?.getIdToken();
+    if (!idToken) throw new Error("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
+    const toVal = (v) => v === null || v === undefined ? { nullValue: null } : { stringValue: String(v) };
+    const fields = {};
+    for (const [k, v] of Object.entries(data)) fields[k] = toVal(v);
+    const fieldPaths = Object.keys(fields).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join("&");
+    const docPath = `projects/tvpcainos/databases/(default)/documents/services/${svcId}`;
+    const resp = await fetch(`https://firestore.googleapis.com/v1/${docPath}?${fieldPaths}`, {
+      method: "PATCH",
+      headers: { "Authorization": `Bearer ${idToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ fields }),
+    });
+    if (!resp.ok) {
+      const e2 = await resp.json().catch(() => ({}));
+      const msg = e2.error?.message || `HTTP ${resp.status}`;
+      if (resp.status === 429 || msg.includes("Quota")) throw new Error("저장 한도 초과. 잠시 후 다시 시도해주세요.");
+      throw new Error(msg);
+    }
   };
 
   const addAnnotation = async (songId, noteData) => {
