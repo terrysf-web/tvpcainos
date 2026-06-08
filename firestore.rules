@@ -130,10 +130,11 @@ service cloud.firestore {
       allow write: if false; // Admin SDK만 쓰기 (서버측 우회)
     }
 
-    // 예배 녹음 — 읽기 인증된 모두, 쓰기/삭제 리더/어드민
+    // 예배 녹음 — 읽기/쓰기 인증된 모두 (create), 수정/삭제 리더만
     match /worshipRecordings/{id} {
       allow read: if isAuthed();
-      allow create, update, delete: if isLeader();
+      allow create: if isAuthed();
+      allow update, delete: if isLeader();
     }
   }
 }

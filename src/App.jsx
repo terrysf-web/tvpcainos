@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.330";
+const APP_VERSION = "3.331";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -4516,37 +4516,47 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     setSaving(true);
     setSaveProgress(`${entries.length}개 저장 중...`);
     try {
-      const batch = writeBatch(db);
-      for (const { part, url } of entries) {
-        const ref = doc(collection(db, "worshipRecordings"));
-        batch.set(ref, {
-          songId:       songId       || null,
-          songTitle:    songTitle    || null,
-          serviceId:    svc?.id      || null,
-          serviceTitle: svc?.title   || null,
-          serviceDate:  svc?.date    || null,
-          part,
-          driveId:      extractDriveId(url) || null,
-          title:        addTitle.trim()      || null,
-          uploaderUid:  user?.uid            || null,
-          uploaderName: user?.name || user?.email || "리더",
-          createdAt:    serverTimestamp(),
-        });
+      // Firestore SDK 쓰기가 일부 네트워크에서 gRPC 블로킹으로 타임아웃됨
+      // → REST API (plain HTTPS) 로 직접 commit
+      const idToken = await auth.currentUser.getIdToken(true);
+      const dbPath = `projects/tvpcainos/databases/(default)`;
+      const now = new Date().toISOString();
+      const sv = (v) => v ? { stringValue: String(v) } : { nullValue: null };
+
+      const writes = entries.map(({ part, url }) => ({
+        update: {
+          name: `${dbPath}/documents/worshipRecordings/${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+          fields: {
+            songId:       sv(songId),
+            songTitle:    sv(songTitle),
+            serviceId:    sv(svc?.id),
+            serviceTitle: sv(svc?.title),
+            serviceDate:  sv(svc?.date),
+            part:         { stringValue: part },
+            driveId:      { stringValue: extractDriveId(url) || "" },
+            title:        sv(addTitle.trim()),
+            uploaderUid:  sv(user?.uid),
+            uploaderName: { stringValue: user?.name || user?.email || "리더" },
+            createdAt:    { timestampValue: now },
+          },
+        },
+      }));
+
+      const resp = await fetch(
+        `https://firestore.googleapis.com/v1/${dbPath}/documents:commit`,
+        {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${idToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ writes }),
+        }
+      );
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `HTTP ${resp.status}`);
       }
-      await Promise.race([
-        batch.commit(),
-        new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 20000)),
-      ]);
       setPartLinks({}); setAddTitle(""); setShowAdd(false);
     } catch (e) {
-      const msg = e.message || "";
-      if (msg === "TIMEOUT") {
-        alert("저장 시간 초과\n\n네트워크 상태를 확인하고 앱을 완전히 종료 후 재시작해주세요.");
-      } else if (msg.includes("permission") || msg.includes("PERMISSION_DENIED")) {
-        alert("저장 권한 오류\n\n리더 계정으로 로그인되어 있는지 확인해주세요.");
-      } else {
-        alert(`저장 실패\n${msg}`);
-      }
+      alert(`저장 실패\n${e.message || e}`);
       console.error("worshipRecordings 저장 오류:", e);
     } finally {
       setSaving(false);
