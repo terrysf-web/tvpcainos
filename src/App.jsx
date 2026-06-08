@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { auth, db, storage, messagingPromise, firebaseConfigObj } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
-import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart } from "./supabase.js";
+import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart, saveServiceSettings, loadServiceSettings } from "./supabase.js";
 import AIPanel from "./AIPanel.jsx";
 import {
   signOut,
@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.343";
+const APP_VERSION = "3.344";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -1363,11 +1363,21 @@ function EditServiceModal({ svc, onClose, onSave }) {
   const [showCustom,  setShowCustom]  = useState(!SVC_TIME_PRESETS.some(p => p.time === (svc.time || "")));
   const [saving,      setSaving]      = useState(false);
 
+  // Supabase Storage에서 기존 practiceUrl 로드
+  useEffect(() => {
+    loadServiceSettings(svc.id)
+      .then(d => { if (d?.practiceUrl) setPracticeUrl(d.practiceUrl); })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSave = async () => {
     if (!title) return;
     setSaving(true);
     try {
-      await onSave(svc.id, { title, date, time, practiceUrl: practiceUrl.trim() || null });
+      // practiceUrl → Supabase Storage (Firestore 쿼터 완전 우회)
+      await saveServiceSettings(svc.id, { practiceUrl: practiceUrl.trim() || null });
+      // 나머지 → Firestore
+      await onSave(svc.id, { title, date, time });
       onClose();
     } catch (e) {
       alert("저장 실패\n" + (e.message || e));
@@ -2984,6 +2994,16 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [svcLyricsSaving,       setSvcLyricsSaving]       = useState(false);
   const [showKakaoFormatPicker, setShowKakaoFormatPicker] = useState(false);
 
+  // 예배 설정 (practiceUrl 등) — Supabase Storage에서 로드
+  const [svcPracticeUrl, setSvcPracticeUrl] = useState(svc?.practiceUrl || null);
+  useEffect(() => {
+    if (!svc?.id) return;
+    setSvcPracticeUrl(svc?.practiceUrl || null); // Firestore fallback
+    loadServiceSettings(svc.id)
+      .then(d => { if (d?.practiceUrl !== undefined) setSvcPracticeUrl(d.practiceUrl); })
+      .catch(() => {});
+  }, [svc?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 녹음 있는 곡 목록 — 재생 버튼 색상용 (보컬은 "밴드" 녹음 제외)
   const _songIdsKey = (svc?.songIds || []).join(",");
   const _isVocalist = VOCALIST_PART_IDS.has(user?.part || "");
@@ -3332,8 +3352,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
 
       <div style={{ padding:16, paddingBottom:90 }}>
-        {svc.practiceUrl && (
-          <a href={svc.practiceUrl} target="_blank" rel="noopener noreferrer"
+        {svcPracticeUrl && (
+          <a href={svcPracticeUrl} target="_blank" rel="noopener noreferrer"
             style={{ display:"flex", alignItems:"center", gap:10,
               background:`${C.acc}12`, border:`1px solid ${C.acc}44`,
               borderRadius:12, padding:"12px 14px", marginBottom:14,

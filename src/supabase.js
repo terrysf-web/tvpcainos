@@ -146,6 +146,21 @@ export async function uploadPdf(file, songId) {
   return `${data.publicUrl}?t=${Date.now()}`;
 }
 
+// 예배 서비스 설정 (practiceUrl 등) — Supabase Storage (Firestore 할당량 우회)
+export async function saveServiceSettings(svcId, data) {
+  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+  const { error } = await supabase.storage.from("pdfs").upload(`serviceSettings/${svcId}.json`, blob, {
+    contentType: "application/json", upsert: true,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function loadServiceSettings(svcId) {
+  const { data, error } = await supabase.storage.from("pdfs").download(`serviceSettings/${svcId}.json`);
+  if (error || !data) return null;
+  try { return JSON.parse(await data.text()); } catch { return null; }
+}
+
 // 예배 녹음 — Supabase Storage JSON 파일로 저장/읽기 (Firestore 할당량 완전 우회)
 const REC_BUCKET = "pdfs";
 const recPath = (docId) => `recordings/${docId}.json`;
