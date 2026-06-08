@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.336";
+const APP_VERSION = "3.337";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -4618,7 +4618,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     } catch (e) { alert("수정 실패: " + (e.message || e)); }
   };
 
-  // Supabase Edge Function → Firestore REST API (클라이언트 gRPC 우회)
+  // Firestore REST API 직접 호출 (gRPC/SDK 우회, 단 1회 PATCH 쓰기)
   const saveAllLinks = async () => {
     const entries = PARTS
       .map(p => ({ part: p.id, url: (partLinks[p.id] || "").trim() }))
@@ -4638,17 +4638,32 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
       const partsFields = {};
       for (const { part, url } of entries) partsFields[part] = { stringValue: extractDriveId(url) || "" };
 
-      await saveRecordingViaEdge(sessionDocId, {
-        _session:     { booleanValue: true },
-        songId:       sv(songId),    songTitle:    sv(songTitle),
-        serviceId:    sv(svc?.id),   serviceTitle: sv(svc?.title),
-        serviceDate:  sv(svc?.date),
-        title:        sv(addTitle.trim()),
-        uploaderUid:  sv(user?.uid),
-        uploaderName: { stringValue: user?.name || user?.email || "리더" },
-        updatedAt:    { timestampValue: new Date().toISOString() },
-        parts:        { mapValue: { fields: partsFields } },
-      }, idToken);
+      const docPath = `projects/tvpcainos/databases/(default)/documents/worshipRecordings/${sessionDocId}`;
+      const resp = await fetch(`https://firestore.googleapis.com/v1/${docPath}`, {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${idToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: docPath,
+          fields: {
+            _session:     { booleanValue: true },
+            songId:       sv(songId),    songTitle:    sv(songTitle),
+            serviceId:    sv(svc?.id),   serviceTitle: sv(svc?.title),
+            serviceDate:  sv(svc?.date),
+            title:        sv(addTitle.trim()),
+            uploaderUid:  sv(user?.uid),
+            uploaderName: { stringValue: user?.name || user?.email || "리더" },
+            updatedAt:    { timestampValue: new Date().toISOString() },
+            parts:        { mapValue: { fields: partsFields } },
+          },
+        }),
+      });
+      if (!resp.ok) {
+        const e2 = await resp.json().catch(() => ({}));
+        const msg = e2.error?.message || `HTTP ${resp.status}`;
+        if (resp.status === 429 || msg.includes("Quota")) throw new Error("저장 한도 초과. 잠시 후 다시 시도해주세요.");
+        if (resp.status === 403) throw new Error(`권한 오류 (403)\n리더 권한 확인 또는 앱 재로그인 후 시도해주세요.`);
+        throw new Error(msg);
+      }
       setPartLinks({}); setAddTitle(""); setShowAdd(false);
     } catch (e) {
       alert(`저장 실패\n${e.message || e}`);
