@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.345";
+const APP_VERSION = "3.346";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -3354,18 +3354,15 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
       <div style={{ padding:16, paddingBottom:90 }}>
         {svcPracticeUrl && (
-          <a href={svcPracticeUrl} target="_blank" rel="noopener noreferrer"
-            style={{ display:"flex", alignItems:"center", gap:10,
+          <button onClick={() => window.location.href = svcPracticeUrl}
+            style={{ display:"flex", alignItems:"center", gap:8, width:"100%",
               background:`${C.acc}12`, border:`1px solid ${C.acc}44`,
-              borderRadius:12, padding:"12px 14px", marginBottom:14,
-              textDecoration:"none" }}>
-            <span style={{ fontSize:20 }}>🎵</span>
-            <div style={{ flex:1 }}>
-              <div style={{ fontWeight:700, fontSize:14, color:C.acc }}>예배 연습 녹음</div>
-              <div style={{ fontSize:11, color:C.dim }}>Google Drive에서 열기</div>
-            </div>
-            <Icon n="link" size={16} color={C.acc} />
-          </a>
+              borderRadius:10, padding:"8px 12px", marginBottom:10,
+              cursor:"pointer", fontFamily:"inherit" }}>
+            <Icon n="music" size={14} color={C.acc} />
+            <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:700, color:C.acc }}>예배 연습 녹음</div>
+            <Icon n="link" size={13} color={C.acc} />
+          </button>
         )}
 
         <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
