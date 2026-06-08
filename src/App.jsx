@@ -3,6 +3,7 @@ import { auth, db, storage, messagingPromise, firebaseConfigObj } from "./fireba
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
 import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart, saveServiceSettings, loadServiceSettings } from "./supabase.js";
+import { openDrivePicker } from "./drivePicker.js";
 import AIPanel from "./AIPanel.jsx";
 import {
   signOut,
@@ -18,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.352";
+const APP_VERSION = "3.353";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -5126,6 +5127,36 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
               <div style={{ fontSize:12, fontWeight:700, color:C.txt, marginBottom:4 }}>
                 파트별 Google Drive 링크 붙여넣기
               </div>
+
+              {/* ── Google Drive Picker */}
+              <button onClick={async () => {
+                try {
+                  await openDrivePicker((docs) => {
+                    const newLinks = {};
+                    docs.forEach((doc, idx) => {
+                      if (idx < PARTS.length) {
+                        newLinks[PARTS[idx].id] = `https://drive.google.com/file/d/${doc.id}/view`;
+                      }
+                    });
+                    setPartLinks(prev => ({ ...prev, ...newLinks }));
+                  });
+                } catch (e) { alert("Drive 오류: " + (e.message || e)); }
+              }} style={{
+                width:"100%", padding:"11px", borderRadius:10, marginBottom:12,
+                background:"#1a73e8", border:"none", color:"#fff",
+                fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+              }}>
+                <svg width="18" height="18" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
+                  <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+                  <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/>
+                  <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
+                  <path d="m43.65 25 13.75-23.8c-1.35-.8-2.95-1.2-4.5-1.2h-18.5c-1.55 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+                  <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.95 1.2 4.5 1.2h50.8c1.55 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
+                  <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 27h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+                </svg>
+                Google Drive에서 파일 선택
+              </button>
 
               {/* ── 빠른 일괄 붙여넣기 */}
               <div style={{ background:`${C.acc}10`, borderRadius:8, padding:10,
