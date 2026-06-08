@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.351";
+const APP_VERSION = "3.352";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -4728,6 +4728,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   const [saveProgress, setSaveProgress]  = useState("");
   const [editingId,    setEditingId]     = useState(null);
   const [editData,     setEditData]      = useState({});
+  const [bulkText,     setBulkText]      = useState("");
 
   const sessionDocId = `${songId}_${svc?.id || "nosvc"}`;
 
@@ -4881,6 +4882,17 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     } finally {
       setSaving(false); setSaveProgress("");
     }
+  };
+
+  const applyBulkLinks = () => {
+    const ids = [...bulkText.matchAll(/\/file\/d\/([a-zA-Z0-9_-]+)/g)].map(m => m[1]);
+    if (!ids.length) { alert("Drive 링크를 찾을 수 없습니다."); return; }
+    const newLinks = {};
+    ids.forEach((id, idx) => {
+      if (idx < PARTS.length) newLinks[PARTS[idx].id] = `https://drive.google.com/file/d/${id}/view`;
+    });
+    setPartLinks(prev => ({ ...prev, ...newLinks }));
+    setBulkText("");
   };
 
   const partInfo = (p) => PARTS.find(x => x.id === p) || { emoji: "🎵", label: p || "전체" };
@@ -5114,8 +5126,38 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
               <div style={{ fontSize:12, fontWeight:700, color:C.txt, marginBottom:4 }}>
                 파트별 Google Drive 링크 붙여넣기
               </div>
+
+              {/* ── 빠른 일괄 붙여넣기 */}
+              <div style={{ background:`${C.acc}10`, borderRadius:8, padding:10,
+                border:`1px solid ${C.acc}33`, marginBottom:12 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:C.acc, marginBottom:4 }}>
+                  ⚡ 한꺼번에 붙여넣기
+                </div>
+                <div style={{ fontSize:10, color:C.dim, marginBottom:6, lineHeight:1.6 }}>
+                  Drive 링크 여러 개를 한꺼번에 붙여넣으면 아래 순서로 자동 배분됩니다:<br/>
+                  {PARTS.map(p => p.label).join(" → ")}
+                </div>
+                <textarea
+                  value={bulkText}
+                  onChange={e => setBulkText(e.target.value)}
+                  placeholder={"링크 1 (전체)\n링크 2 (밴드)\n링크 3 (리드 보컬)\n..."}
+                  rows={3}
+                  style={{ width:"100%", boxSizing:"border-box", resize:"vertical",
+                    padding:"7px 9px", borderRadius:7, border:`1px solid ${C.bdr}`,
+                    background:C.bg, color:C.txt, fontSize:12,
+                    fontFamily:"inherit", outline:"none", marginBottom:6 }}
+                />
+                <button onClick={applyBulkLinks} style={{
+                  width:"100%", padding:"7px", borderRadius:8,
+                  background:C.acc, border:"none", color:"#fff",
+                  fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                }}>
+                  자동 배분
+                </button>
+              </div>
+
               <div style={{ fontSize:11, color:C.dim, marginBottom:10 }}>
-                Drive에서 파일 → 공유 → 링크 복사 후 붙여넣기. 없는 파트는 비워두세요.
+                또는 파트별로 직접 입력하세요. 없는 파트는 비워두세요.
               </div>
               <input
                 placeholder="제목 (선택) — 예: 6월 7일 주일예배"
