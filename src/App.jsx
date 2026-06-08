@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.334";
+const APP_VERSION = "3.335";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2973,8 +2973,9 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [drag, setDrag]           = useState(null);
   const [dropIdx, setDropIdx]     = useState(null);
   const cardRefs = useRef([]);
-  const [svcLyricsModal,  setSvcLyricsModal]  = useState(null); // { song, text }
-  const [svcLyricsSaving, setSvcLyricsSaving] = useState(false);
+  const [svcLyricsModal,        setSvcLyricsModal]        = useState(null); // { song, text }
+  const [svcLyricsSaving,       setSvcLyricsSaving]       = useState(false);
+  const [showKakaoFormatPicker, setShowKakaoFormatPicker] = useState(false);
 
   // 녹음 있는 곡 목록 — 재생 버튼 색상용 (보컬은 "밴드" 녹음 제외)
   const _songIdsKey = (svc?.songIds || []).join(",");
@@ -3008,7 +3009,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   // valid-only list — index here = what PDFViewerScreen uses for navigation
   const validEntries = entries.filter(e => e.song);
 
-  const leader = isLeader(user.role);
+  const leader  = isLeader(user.role);
+  const isAdmin = user?.role === "admin";
   const svcNotifCount = (notifs || []).filter(n => n.serviceId === svc.id).length;
 
   const saveSvcLyrics = async () => {
@@ -3050,19 +3052,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     setShowNotifModal(false);
   };
 
-  const shareToKakao = () => {
-    const songLines = entries
-      .filter(e => e.song)
-      .map((e, idx) => `${idx + 1}. ${e.song.title}`)
-      .join("\n");
-    const sep = "─".repeat(9);
-    const isFirst = !(svc.shareCount > 0);
-    const footer = isFirst
-      ? "예배 악보가 등록 되었어요. 연습을 준비해 주세요!"
-      : "예배 악보가 업데이트 되었어요.";
-    const text = `📋 ${svc.title}\n\n📅 ${svc.date}${svc.time ? " · " + svc.time : ""}\n${sep}\n${songLines}\n${sep}\n${footer}\n\n🎵 Ainos 앱에서 확인하세요`;
-    const doCount = () => updateDoc(doc(db, "services", svc.id), { shareCount: increment(1) }).catch(() => {});
-
+  const doKakaoSend = (text, countKey = "shareCount") => {
+    const doCount = () => updateDoc(doc(db, "services", svc.id), { [countKey]: increment(1) }).catch(() => {});
     if (window.Kakao?.isInitialized()) {
       window.Kakao.Share.sendDefault({
         objectType: "text",
@@ -3074,6 +3065,34 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       navigator.clipboard?.writeText(text)
         .then(() => { alert("메시지가 복사됐습니다. 카카오톡에 붙여넣기 해주세요."); doCount(); })
         .catch(() => alert("클립보드 복사에 실패했습니다."));
+    }
+  };
+
+  const shareToKakao = () => {
+    const songLines = entries
+      .filter(e => e.song)
+      .map((e, idx) => `${idx + 1}. ${e.song.title}`)
+      .join("\n");
+    const sep = "─".repeat(9);
+    const isFirst = !(svc.shareCount > 0);
+    const footer = isFirst
+      ? "예배 악보가 등록 되었어요. 연습을 준비해 주세요!"
+      : "예배 악보가 업데이트 되었어요.";
+    const text = `📋 ${svc.title}\n\n📅 ${svc.date}${svc.time ? " · " + svc.time : ""}\n${sep}\n${songLines}\n${sep}\n${footer}\n\n🎵 Ainos 앱에서 확인하세요`;
+    doKakaoSend(text, "shareCount");
+  };
+
+  const shareToKakaoRecording = () => {
+    const sep = "─".repeat(9);
+    const text = `🎵 ${svc.title}\n\n📅 ${svc.date}${svc.time ? " · " + svc.time : ""}\n${sep}\n녹음 파일이 업로드 되었습니다.\n오늘예배 악보 파일에서 확인하세요.\n${sep}\n\n🎵 Ainos 앱에서 확인하세요`;
+    doKakaoSend(text, "shareCount");
+  };
+
+  const handleKakaoButtonClick = () => {
+    if (isAdmin) {
+      setShowKakaoFormatPicker(true);
+    } else {
+      shareToKakao();
     }
   };
 
@@ -3197,7 +3216,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           </button>
         )}
         {leader && (
-          <button onClick={shareToKakao} title="카카오톡 공유" style={{
+          <button onClick={handleKakaoButtonClick} title="카카오톡 공유" style={{
             width:36, height:36, borderRadius:9, cursor:"pointer", position:"relative",
             background:"#FEE500", border:`1px solid #FEE500`,
             display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
@@ -3239,6 +3258,52 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           </button>
         )}
       </div>
+
+      {/* 카카오 메시지 포맷 선택 (어드민 전용) */}
+      {showKakaoFormatPicker && (
+        <div onClick={() => setShowKakaoFormatPicker(false)} style={{
+          position:"fixed", inset:0, zIndex:9000,
+          background:"rgba(0,0,0,0.45)", display:"flex", alignItems:"center", justifyContent:"center", padding:20,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background:C.surf, borderRadius:16, padding:20, width:"100%", maxWidth:380,
+          }}>
+            <div style={{ display:"flex", alignItems:"center", marginBottom:16 }}>
+              <div style={{ flex:1, fontWeight:700, fontSize:16 }}>카카오 메시지 형식 선택</div>
+              <button onClick={() => setShowKakaoFormatPicker(false)}
+                style={{ background:"none", border:"none", cursor:"pointer", padding:6 }}>
+                <Icon n="xmark" size={20} color={C.dim} />
+              </button>
+            </div>
+            {/* 포맷 1: 예배 악보 목록 */}
+            <button onClick={() => { setShowKakaoFormatPicker(false); shareToKakao(); }} style={{
+              width:"100%", textAlign:"left", padding:"14px 16px", borderRadius:12, marginBottom:10,
+              border:`1.5px solid ${C.bdr}`, background:C.card, cursor:"pointer", fontFamily:"inherit",
+            }}>
+              <div style={{ fontSize:13, fontWeight:700, color:C.txt, marginBottom:4 }}>
+                📋 예배 악보 목록
+              </div>
+              <div style={{ fontSize:11, color:C.dim, lineHeight:1.6, whiteSpace:"pre-line" }}>
+                {`${svc.title}\n${svc.date}${svc.time ? " · " + svc.time : ""}\n─────────\n1. ${validEntries[0]?.song?.title || "(곡 없음)"}${validEntries.length > 1 ? ` 외 ${validEntries.length - 1}곡` : ""}\n─────────\n예배 악보가 등록 되었어요...`}
+              </div>
+            </button>
+            {/* 포맷 2: 녹음 파일 업로드 알림 (어드민 전용) */}
+            <button onClick={() => { setShowKakaoFormatPicker(false); shareToKakaoRecording(); }} style={{
+              width:"100%", textAlign:"left", padding:"14px 16px", borderRadius:12,
+              border:`1.5px solid ${C.acc}66`, background:`${C.acc}08`, cursor:"pointer", fontFamily:"inherit",
+            }}>
+              <div style={{ fontSize:13, fontWeight:700, color:C.acc, marginBottom:4 }}>
+                🎵 녹음 파일 업로드 알림
+                <span style={{ marginLeft:6, fontSize:10, fontWeight:700,
+                  background:C.red, color:"#fff", borderRadius:4, padding:"1px 5px" }}>어드민</span>
+              </div>
+              <div style={{ fontSize:11, color:C.dim, lineHeight:1.6, whiteSpace:"pre-line" }}>
+                {`${svc.title}\n${svc.date}${svc.time ? " · " + svc.time : ""}\n─────────\n녹음 파일이 업로드 되었습니다.\n오늘예배 악보 파일에서 확인하세요.`}
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 스크롤 영역 */}
       <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
