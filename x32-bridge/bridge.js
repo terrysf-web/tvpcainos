@@ -124,6 +124,68 @@ async function pushToFirestore() {
   }
 }
 
+// ── X32 채널 명령 ─────────────────────────────────────
+// X32 fader 값: 0.0~1.0 linear (X32 내부 곡선 적용됨)
+// /ch/XX/mix/fader  [float]
+// /ch/XX/mix/on     [int 0=뮤트, 1=켜짐]
+
+function setFader(channel, value) {
+  const c = String(channel).padStart(2, '0');
+  sendOsc(`/ch/${c}/mix/fader`, [{ type: 'f', value }]);
+  console.log(`🔊 CH${c} fader → ${value.toFixed(3)}`);
+}
+
+function setMute(channel, muted) {
+  const c = String(channel).padStart(2, '0');
+  sendOsc(`/ch/${c}/mix/on`, [{ type: 'i', value: muted ? 0 : 1 }]);
+  console.log(`${muted ? '🔇' : '🔊'} CH${c} ${muted ? 'MUTE' : 'UNMUTE'}`);
+}
+
+// fade_out: duration초 동안 현재 fader→0 으로 서서히 낮춤 (100ms 간격)
+function fadeOut(channel, durationSec) {
+  const c    = String(channel).padStart(2, '0');
+  const cur  = state[c]?.fader ?? 0.75;
+  const steps = Math.max(1, Math.round(durationSec * 10)); // 100ms per step
+  let   step  = 0;
+  const iv = setInterval(() => {
+    step++;
+    const ratio = 1 - step / steps;
+    const val   = Math.max(0, cur * ratio);
+    sendOsc(`/ch/${c}/mix/fader`, [{ type: 'f', value: val }]);
+    if (step >= steps) {
+      clearInterval(iv);
+      setMute(channel, true);
+      console.log(`🔇 CH${c} fade_out 완료`);
+    }
+  }, 100);
+}
+
+// ── Automation 구독 ────────────────────────────────────
+let lastAutomationPhase = null;
+
+function listenAutomation() {
+  db.collection('liveStatus').doc('automation').onSnapshot(snap => {
+    if (!snap.exists) return;
+    const data = snap.data();
+    if (!data?.phase || !data?.x32) return;
+    // 같은 phase 중복 실행 방지
+    const key = `${data.phase}_${data.svcId || ''}`;
+    if (key === lastAutomationPhase) return;
+    lastAutomationPhase = key;
+
+    const { type, channel, value, duration } = data.x32;
+    const ch = parseInt(channel, 10);
+    if (!ch) return;
+
+    console.log(`🎛  Automation: phase=${data.phase} type=${type} ch=${channel}`);
+    if (type === 'fader')    setFader(ch, value ?? 0.6);
+    if (type === 'fade_out') fadeOut(ch, duration ?? 10);
+    if (type === 'mute')     setMute(ch, true);
+  }, err => {
+    console.error('Automation 구독 오류:', err.message);
+  });
+}
+
 // ── 시작 ─────────────────────────────────────────────
 sock.bind(MY_PORT, () => {
   console.log(`🎛  X32 Bridge 시작`);
@@ -134,6 +196,7 @@ sock.bind(MY_PORT, () => {
   pollX32();
   setInterval(pollX32,          1000);   // 1초마다 X32 폴링
   setInterval(pushToFirestore,  1000);   // 1초마다 Firestore 갱신
+  listenAutomation();                    // Automation 명령 구독
 });
 
 // ── 종료 처리 ─────────────────────────────────────────

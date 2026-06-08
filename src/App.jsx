@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.319";
+const APP_VERSION = "3.320";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2020,14 +2020,41 @@ function CropModal({ pdfFile, pdfUrl, imageUrl, onClose, onConfirm, initialCrop 
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   PIANO ON OVERLAY
+══════════════════════════════════════════════════════════════════ */
+function PianoOnOverlay({ onDismiss }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 20000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+  return (
+    <div onClick={onDismiss} style={{
+      position:"fixed", inset:0, zIndex:99999,
+      background:"rgba(0,0,0,0.88)",
+      display:"flex", flexDirection:"column",
+      alignItems:"center", justifyContent:"center", gap:12,
+    }}>
+      <div style={{ fontSize:88 }}>🎹</div>
+      <div style={{ fontSize:40, fontWeight:900, color:"#fff", letterSpacing:3 }}>Piano ON</div>
+      <div style={{ fontSize:18, color:"rgba(255,255,255,0.65)" }}>피아노 시작 신호</div>
+      <div style={{ fontSize:13, color:"rgba(255,255,255,0.35)", marginTop:20 }}>
+        탭하면 닫힘 · 자동으로 사라집니다
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
    HOME SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService }) {
+function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel }) {
   const [countdown,    setCountdown]    = useState("");
   const [inHour,       setInHour]       = useState(false);
   const [worshipReady, setWorshipReady] = useState(false);
   const [worshipEnded, setWorshipEnded] = useState(false);
+  const [autoPhase,    setAutoPhase]    = useState("idle"); // idle|vol_down|piano_on|service_start
   const autoNavDone  = useRef(false);
+  const phaseFiredRef = useRef({});
   const svcSongsRef  = useRef([]);
   const navRef       = useRef(nav);
   navRef.current     = nav;
@@ -2056,7 +2083,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   // 서비스 변경 시 초기화
   useEffect(() => {
     autoNavDone.current = false;
+    phaseFiredRef.current = {};
     setWorshipEnded(false);
+    setAutoPhase("idle");
   }, [nextSvc?.id]);
 
   // 40초 도달 시 첫 번째 악보로 자동이동 (1회)
@@ -2068,23 +2097,54 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
     navRef.current("pdfViewer", { songId: firstSong.id, svcId: nextSvc.id, svcSongIdx: 0, backTo: "home" });
   }, [worshipReady, nextSvc]);
 
-  // 카운트다운: 1시간 이내에만 표시 (MM:SS)
+  // 카운트다운: 1시간 이내에만 표시 + 자동화 phase 엔진
   useEffect(() => {
     if (!nextSvc?.time) return;
+
+    // leader만 phase 기록 (X32 명령 포함) — 멤버는 구독만
+    const leader = isLeader(user?.role);
+    const ch = bgmChannel || "09"; // BGM X32 채널
+
+    const firePhase = async (phase, x32Action) => {
+      if (phaseFiredRef.current[phase]) return;
+      phaseFiredRef.current[phase] = true;
+      setAutoPhase(phase);
+      if (!leader) return; // 멤버는 Firestore 쓰기 권한 없음
+      try {
+        await setDoc(doc(db, "liveStatus", "automation"), {
+          phase, svcId: nextSvc.id, updatedAt: serverTimestamp(),
+          ...(x32Action ? { x32: x32Action } : {}),
+        });
+      } catch {}
+    };
+
     const tick = () => {
       const [h, m] = nextSvc.time.split(":").map(Number);
       const svcDt  = new Date(nextSvc.date + "T00:00:00");
       svcDt.setHours(h, m, 0, 0);
       const diff = svcDt - Date.now();
+
       if (diff <= 0) {
         setCountdown(""); setInHour(false); setWorshipReady(false);
-        setWorshipEnded(true); // 다음 예배로 바뀔 때까지 유지
+        setWorshipEnded(true);
+        firePhase("service_start", { type:"mute", channel:ch });
         return;
       }
+
       setWorshipEnded(false);
       const within1h = diff <= 3_600_000;
       setInHour(within1h);
       setWorshipReady(diff <= 40_000);
+
+      // 자동화 phase 트리거
+      if (diff <= 10_000) {
+        firePhase("piano_on", { type:"fade_out", channel:ch, duration:10 });
+      } else if (diff <= 60_000) {
+        firePhase("vol_down", { type:"fader", channel:ch, value:0.6 });
+      } else if (within1h && !phaseFiredRef.current.bgm_playing) {
+        firePhase("bgm_playing", null);
+      }
+
       if (within1h) {
         const totalSec = Math.floor(diff / 1000);
         const mm = Math.floor(totalSec / 60);
@@ -2095,7 +2155,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [nextSvc]);
+  }, [nextSvc, user?.role, bgmChannel]);
 
   return (
     <div style={{ height:"100%", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
@@ -2180,32 +2240,43 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             )}
 
             {/* 예배 카운트다운 — 1시간 이내에 표시 */}
-            {inHour && countdown && (
-              <div style={{
-                borderRadius:16, padding:"16px 20px", marginBottom:10,
-                textAlign:"center",
-                background: worshipReady
-                  ? `linear-gradient(135deg, #ff3b3018, ${C.acc}18)`
-                  : `linear-gradient(135deg, ${C.pur}1a, ${C.pur}08)`,
-                border: `2px solid ${worshipReady ? C.acc : C.pur}55`,
-              }}>
-                <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.12em",
-                  color: worshipReady ? C.acc : C.pur,
-                  marginBottom:6, textTransform:"uppercase" }}>
-                  {worshipReady ? "⛪ 예배준비" : "예배 시작까지"}
-                </div>
+            {inHour && countdown && (() => {
+              const isPianoOn = autoPhase === "piano_on";
+              const isVolDown = autoPhase === "vol_down";
+              const phaseColor = isPianoOn ? C.acc : isVolDown ? "#ff9f0a" : C.pur;
+              const phaseLabel = isPianoOn ? "🎹 Piano ON" : isVolDown ? "🔉 BGM 볼륨 다운" : "예배 시작까지";
+              return (
                 <div style={{
-                  fontSize:56, fontWeight:900, lineHeight:1,
-                  color: worshipReady ? C.acc : C.pur,
-                  fontVariantNumeric:"tabular-nums", letterSpacing:4,
-                }}>{countdown}</div>
-                {worshipReady && (
-                  <div style={{ fontSize:12, color:C.dim, marginTop:8 }}>
-                    악보 첫 페이지로 이동 중...
+                  borderRadius:16, padding:"16px 20px", marginBottom:10,
+                  textAlign:"center",
+                  background: worshipReady
+                    ? `linear-gradient(135deg, #ff3b3018, ${C.acc}18)`
+                    : `linear-gradient(135deg, ${phaseColor}18, ${phaseColor}08)`,
+                  border: `2px solid ${worshipReady ? C.acc : phaseColor}55`,
+                }}>
+                  <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.08em",
+                    color: worshipReady ? C.acc : phaseColor,
+                    marginBottom:6, textTransform:"uppercase" }}>
+                    {worshipReady ? "⛪ 예배준비" : phaseLabel}
                   </div>
-                )}
-              </div>
-            )}
+                  <div style={{
+                    fontSize:56, fontWeight:900, lineHeight:1,
+                    color: worshipReady ? C.acc : phaseColor,
+                    fontVariantNumeric:"tabular-nums", letterSpacing:4,
+                  }}>{countdown}</div>
+                  {worshipReady && (
+                    <div style={{ fontSize:12, color:C.dim, marginTop:8 }}>
+                      악보 첫 페이지로 이동 중...
+                    </div>
+                  )}
+                  {isPianoOn && !worshipReady && (
+                    <div style={{ fontSize:13, color:C.acc, marginTop:8, fontWeight:700 }}>
+                      피아노 시작 신호 전송됨
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* X32 채널 상태 */}
             <X32StatusBar />
@@ -10785,6 +10856,10 @@ export default function App() {
   const [notifPopup,    setNotifPopup]    = useState(null); // {unreadCount, latest}
   const notifPopupShownRef = useRef(false);
   const [sharedGeminiKey, setSharedGeminiKey] = useState("");
+  const [bgmChannel,      setBgmChannel]      = useState("09");
+  const [autoPhaseGlobal, setAutoPhaseGlobal] = useState(null); // { phase, svcId }
+  const [pianoOverlayDismissed, setPianoOverlayDismissed] = useState(false);
+  const pianoOverlayPhaseRef = useRef(null);
 
   // ── Kakao SDK 초기화
   useEffect(() => {
@@ -10793,12 +10868,27 @@ export default function App() {
     }
   }, []);
 
-  // ── 공유 Gemini 키 구독
+  // ── 공유 Gemini 키 + 자동화 설정 구독
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "settings", "app"), d => {
-      setSharedGeminiKey(d.exists() ? (d.data().sharedGeminiKey || "") : "");
+      const data = d.exists() ? d.data() : {};
+      setSharedGeminiKey(data.sharedGeminiKey || "");
+      setBgmChannel(data.bgmChannel || "09");
     });
     return unsub;
+  }, []);
+
+  // ── Piano ON phase 전체 구독
+  useEffect(() => {
+    return onSnapshot(doc(db, "liveStatus", "automation"), snap => {
+      const data = snap.exists() ? snap.data() : null;
+      setAutoPhaseGlobal(data);
+      // phase가 바뀌면 dismiss 초기화
+      if (data?.phase !== pianoOverlayPhaseRef.current) {
+        pianoOverlayPhaseRef.current = data?.phase || null;
+        setPianoOverlayDismissed(false);
+      }
+    }, () => {});
   }, []);
 
   // (removed: --app-h resize listener — app root is now position:fixed so no resize jumps)
@@ -11231,7 +11321,7 @@ export default function App() {
     onAddAnnotation: addAnnotation,
     onDeleteAnnotation: deleteAnnotation,
     markNotifRead, markAllNotifRead,
-    nav,
+    nav, bgmChannel,
   };
 
   return (
@@ -11285,6 +11375,10 @@ export default function App() {
       </button>
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+
+      {autoPhaseGlobal?.phase === "piano_on" && !pianoOverlayDismissed && (
+        <PianoOnOverlay onDismiss={() => setPianoOverlayDismissed(true)} />
+      )}
 
       {notifPopup && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)", zIndex:3000,
