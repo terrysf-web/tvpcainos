@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.358";
+const APP_VERSION = "3.359";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -11277,9 +11277,15 @@ export default function App() {
     // pdfViewer/svcDetail는 selSongId/selSvcId가 필요한데 새로고침 시 사라지므로 home으로 복원
     return (saved === "pdfViewer" || saved === "svcDetail") ? "home" : saved;
   });
-  const [songs,       setSongs]       = useState([]);
-  const [services,    setServices]    = useState([]);
-  const [servicesLoaded, setServicesLoaded] = useState(false);
+  const [songs,       setSongs]       = useState(() => {
+    try { const c = localStorage.getItem("tvpc_songs_cache"); return c ? JSON.parse(c) : []; } catch { return []; }
+  });
+  const [services,    setServices]    = useState(() => {
+    try { const c = localStorage.getItem("tvpc_services_cache"); return c ? JSON.parse(c) : []; } catch { return []; }
+  });
+  const [servicesLoaded, setServicesLoaded] = useState(() => {
+    try { return !!localStorage.getItem("tvpc_services_cache"); } catch { return false; }
+  });
   const [notifs,      setNotifs]      = useState([]);
   const [annotations,     setAnnotations]     = useState({}); // 개인 메모
   const [teamAnnotations, setTeamAnnotations] = useState({}); // 팀 공유 메모
@@ -11418,7 +11424,11 @@ export default function App() {
     if (!user?.uid) return;
     return onSnapshot(
       query(collection(db, "songs"), orderBy("title")),
-      snap => setSongs(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      snap => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setSongs(data);
+        try { localStorage.setItem("tvpc_songs_cache", JSON.stringify(data)); } catch {}
+      }
     );
   }, [user?.uid]);
 
@@ -11427,7 +11437,12 @@ export default function App() {
     if (!user?.uid) return;
     return onSnapshot(
       query(collection(db, "services"), orderBy("date")),
-      snap => { setServices(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setServicesLoaded(true); }
+      snap => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setServices(data);
+        setServicesLoaded(true);
+        try { localStorage.setItem("tvpc_services_cache", JSON.stringify(data)); } catch {}
+      }
     );
   }, [user?.uid]);
 
