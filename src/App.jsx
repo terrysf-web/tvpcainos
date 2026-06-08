@@ -5239,6 +5239,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const shapeStart2Ref = useRef(null);
 
   // ── Chord transposition
+  const tmKey = user?.uid && selectedSongId ? `tvpc_tm_${user.uid}_${selectedSongId}` : null;
   const [transposeMode,  setTransposeMode]  = useState(false);
   const [chordMoveMode,  setChordMoveMode]  = useState(false); // 리더 전용: 코드 이동 모드
   const [transposeSteps,  setTransposeSteps]  = useState(0);  // single / dual left
@@ -5585,6 +5586,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }, 100);
     return () => { clearTimeout(t); document.removeEventListener("pointerdown", close); };
   }, [showInstPicker]);
+
+  // 곡 변경 시 해당 곡의 전조 모드 복원 (개인별 localStorage)
+  useEffect(() => {
+    if (!tmKey) { setTransposeMode(false); return; }
+    setTransposeMode(localStorage.getItem(tmKey) === "1");
+  }, [tmKey]);
 
   // 코드 이동 모드: 전조 끄거나 곡/페이지 이동 시 자동 리셋
   useEffect(() => { if (!transposeMode) setChordMoveMode(false); }, [transposeMode]);
@@ -7443,8 +7450,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   {/* 전조 — 모든 역할 사용 가능 */}
                   {narrow ? (
                     <button onClick={() => {
-                      setTransposeMode(p => !p);
-                      if (transposeMode) { setTransposeSteps(0); setDetectErr(""); }
+                      const next = !transposeMode;
+                      setTransposeMode(next);
+                      if (tmKey) localStorage.setItem(tmKey, next ? "1" : "0");
+                      if (!next) { setTransposeSteps(0); setDetectErr(""); }
                     }} title="전조" style={{
                       position:"relative",
                       background: transposeMode ? `${C.grn}33` : "transparent",
@@ -7463,8 +7472,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     </button>
                   ) : (
                     <button onClick={() => {
-                      setTransposeMode(p => !p);
-                      if (transposeMode) { setTransposeSteps(0); setDetectErr(""); }
+                      const next = !transposeMode;
+                      setTransposeMode(next);
+                      if (tmKey) localStorage.setItem(tmKey, next ? "1" : "0");
+                      if (!next) { setTransposeSteps(0); setDetectErr(""); }
                     }} style={{
                       display:"flex", alignItems:"center", gap:5,
                       padding:"5px 10px", borderRadius:8, cursor:"pointer",
