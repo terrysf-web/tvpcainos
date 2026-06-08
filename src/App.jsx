@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.328";
+const APP_VERSION = "3.329";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -4454,14 +4454,16 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   const [editData,    setEditData]    = useState({});   // { title, url, part }
 
   useEffect(() => {
+    // orderBy 제거 — 복합 인덱스 없어도 동작, JS에서 정렬
     const q = query(
       collection(db, "worshipRecordings"),
-      where("songId", "==", songId),
-      orderBy("createdAt", "desc")
+      where("songId", "==", songId)
     );
     return onSnapshot(q, snap => {
-      setRecs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, () => {});
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+      setRecs(docs);
+    }, err => console.error("worshipRecordings 읽기 오류:", err));
   }, [songId]);
 
   const del = async (rec) => {
@@ -4512,36 +4514,55 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
       return;
     }
     setSaving(true);
-    setSaveProgress("");
+    setSaveProgress("연결 확인 중...");
     let saved = 0;
     try {
+      // ── 1단계: Firestore 쓰기 연결 테스트 (5초)
+      // userDrawings는 isAuthed()만 필요 — isLeader() 체크 없음
+      const testId = `_test_${user?.uid}_${Date.now()}`;
+      const testRef = doc(db, "userDrawings", testId);
+      await Promise.race([
+        setDoc(testRef, { _test: true }),
+        new Promise((_, rej) => setTimeout(() =>
+          rej(new Error("NETWORK")), 5000)),
+      ]);
+      deleteDoc(testRef).catch(() => {}); // 정리 (결과 무관)
+
+      // ── 2단계: worshipRecordings 순차 저장
       for (const { part, url } of entries) {
         setSaveProgress(`${saved + 1}/${entries.length} 저장 중...`);
-        const data = {
-          songId:       songId    || null,
-          songTitle:    songTitle || null,
-          serviceId:    svc?.id   || null,
-          serviceTitle: svc?.title|| null,
-          serviceDate:  svc?.date || null,
-          part,
-          driveId:      extractDriveId(url) || null,
-          title:        addTitle.trim()      || null,
-          uploaderUid:  user?.uid            || null,
-          uploaderName: user?.name || user?.email || "리더",
-          createdAt:    serverTimestamp(),
-        };
-        // 파트당 20초 타임아웃
         await Promise.race([
-          addDoc(collection(db, "worshipRecordings"), data),
-          new Promise((_, rej) => setTimeout(() => rej(new Error(`${part} 파트 응답 없음 (20초 초과)`)), 20000)),
+          addDoc(collection(db, "worshipRecordings"), {
+            songId:       songId       || null,
+            songTitle:    songTitle    || null,
+            serviceId:    svc?.id      || null,
+            serviceTitle: svc?.title   || null,
+            serviceDate:  svc?.date    || null,
+            part,
+            driveId:      extractDriveId(url) || null,
+            title:        addTitle.trim()      || null,
+            uploaderUid:  user?.uid            || null,
+            uploaderName: user?.name || user?.email || "리더",
+            createdAt:    serverTimestamp(),
+          }),
+          new Promise((_, rej) => setTimeout(() =>
+            rej(new Error(`PERMISSION:${part}`)), 8000)),
         ]);
         saved++;
       }
       setSaveProgress("");
       setPartLinks({}); setAddTitle(""); setShowAdd(false);
     } catch (e) {
+      const msg = e.message || "";
+      if (msg === "NETWORK") {
+        alert("Firestore 연결 불가\n\n네트워크 또는 방화벽 문제입니다.\nWi-Fi를 확인하거나 앱을 완전히 종료 후 재시작해주세요.");
+      } else if (msg.startsWith("PERMISSION:")) {
+        const part = msg.replace("PERMISSION:", "");
+        alert(`저장 권한 오류 — ${part} 파트\n\n리더 권한을 확인해주세요.\n(${saved}/${entries.length}개 완료)`);
+      } else {
+        alert(`저장 실패 (${saved}/${entries.length}개 완료)\n${msg}`);
+      }
       console.error("worshipRecordings 저장 오류:", e);
-      alert(`저장 실패 (${saved}/${entries.length}개 완료)\n${e.message || e}`);
     } finally {
       setSaving(false);
       setSaveProgress("");

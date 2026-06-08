@@ -133,8 +133,7 @@ service cloud.firestore {
     // 예배 녹음 — 읽기 인증된 모두, 쓰기/삭제 리더/어드민
     match /worshipRecordings/{id} {
       allow read: if isAuthed();
-      allow create: if isLeader();
-      allow delete: if isLeader();
+      allow create, update, delete: if isLeader();
     }
   }
 }
