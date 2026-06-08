@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.356";
+const APP_VERSION = "3.357";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2367,6 +2367,12 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                             악보없음
                           </span>
                         )}
+                        {user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1" && (
+                          <span style={{ background:`${C.pur}22`, color:C.pur, border:`1px solid ${C.pur}55`,
+                            borderRadius:6, padding:"1px 6px", fontSize:10, fontWeight:700 }}>
+                            전조
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -3481,7 +3487,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                       {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF · 페이지${song.pdfPage}` : "PDF"} color={C.grn} />}
                       {!song.pdfUrl && song.imageUrl && <Badge label="🖼️ 이미지" color={C.acc} />}
                       {user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1" && (
-                        <Badge label="전조 ON" color={C.grn} />
+                        <Badge label="전조" color={C.pur} />
                       )}
                       {leader && (
                         <button onClick={e => { e.stopPropagation(); setSvcLyricsModal({ song, text: song.lyrics || "" }); }}
