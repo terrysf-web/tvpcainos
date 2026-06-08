@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { auth, db, storage, messagingPromise, firebaseConfigObj } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
-import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage } from "./supabase.js";
+import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveRecordingViaEdge } from "./supabase.js";
 import AIPanel from "./AIPanel.jsx";
 import {
   signOut,
@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.333";
+const APP_VERSION = "3.334";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -4553,7 +4553,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     } catch (e) { alert("수정 실패: " + (e.message || e)); }
   };
 
-  // 11개 개별 문서 → 1개 세션 문서 (REST API PATCH, 단 1회 쓰기)
+  // Supabase Edge Function → Firebase Admin SDK → Firestore (클라이언트 할당량 우회)
   const saveAllLinks = async () => {
     const entries = PARTS
       .map(p => ({ part: p.id, url: (partLinks[p.id] || "").trim() }))
@@ -4567,42 +4567,21 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     setSaving(true);
     setSaveProgress("저장 중...");
     try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) throw new Error("로그인 세션이 만료되었습니다.");
-      const dbPath = `projects/tvpcainos/databases/(default)`;
       const sv = (v) => v ? { stringValue: String(v) } : { nullValue: null };
       const partsFields = {};
       for (const { part, url } of entries) partsFields[part] = { stringValue: extractDriveId(url) || "" };
 
-      const docName = `${dbPath}/documents/worshipRecordings/${sessionDocId}`;
-      const resp = await fetch(
-        `https://firestore.googleapis.com/v1/${docName}`,
-        {
-          method: "PATCH",
-          headers: { "Authorization": `Bearer ${idToken}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: docName,
-            fields: {
-              _session:     { booleanValue: true },
-              songId:       sv(songId),    songTitle:    sv(songTitle),
-              serviceId:    sv(svc?.id),   serviceTitle: sv(svc?.title),
-              serviceDate:  sv(svc?.date),
-              title:        sv(addTitle.trim()),
-              uploaderUid:  sv(user?.uid),
-              uploaderName: { stringValue: user?.name || user?.email || "리더" },
-              updatedAt:    { timestampValue: new Date().toISOString() },
-              parts:        { mapValue: { fields: partsFields } },
-            },
-          }),
-        }
-      );
-      if (!resp.ok) {
-        const e = await resp.json().catch(() => ({}));
-        const msg = e.error?.message || `HTTP ${resp.status}`;
-        if (resp.status === 429 || msg.includes("Quota")) throw new Error("저장 한도 초과\n잠시 후 다시 시도해주세요.");
-        if (resp.status === 403) throw new Error("저장 권한 없음\n리더 계정인지 확인해주세요.");
-        throw new Error(msg);
-      }
+      await saveRecordingViaEdge(sessionDocId, {
+        _session:     { booleanValue: true },
+        songId:       sv(songId),    songTitle:    sv(songTitle),
+        serviceId:    sv(svc?.id),   serviceTitle: sv(svc?.title),
+        serviceDate:  sv(svc?.date),
+        title:        sv(addTitle.trim()),
+        uploaderUid:  sv(user?.uid),
+        uploaderName: { stringValue: user?.name || user?.email || "리더" },
+        updatedAt:    { timestampValue: new Date().toISOString() },
+        parts:        { mapValue: { fields: partsFields } },
+      });
       setPartLinks({}); setAddTitle(""); setShowAdd(false);
     } catch (e) {
       alert(`저장 실패\n${e.message || e}`);

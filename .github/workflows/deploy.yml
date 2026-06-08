@@ -112,7 +112,7 @@ jobs:
         if: steps.check.outputs.has_token == 'true'
         run: npm install -g supabase@latest --silent
 
-      - name: Edge Function 배포 (send-fcm + detect-chords)
+      - name: Edge Function 배포 (send-fcm + detect-chords + save-recording)
         if: steps.check.outputs.has_token == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -121,6 +121,9 @@ jobs:
             --project-ref byvbrsuvporwhlapecja \
             --no-verify-jwt
           supabase functions deploy detect-chords \
+            --project-ref byvbrsuvporwhlapecja \
+            --no-verify-jwt
+          supabase functions deploy save-recording \
             --project-ref byvbrsuvporwhlapecja \
             --no-verify-jwt
 

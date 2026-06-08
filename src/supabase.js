@@ -146,6 +146,19 @@ export async function uploadPdf(file, songId) {
   return `${data.publicUrl}?t=${Date.now()}`;
 }
 
+// 예배 녹음 저장 — Supabase Edge Function 경유 (Firebase Admin SDK로 Firestore 쓰기)
+// 클라이언트 Firestore 할당량을 완전히 우회함
+export async function saveRecordingViaEdge(sessionDocId, fields) {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/save-recording`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_ANON}` },
+    body: JSON.stringify({ sessionDocId, fields }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
 export async function uploadImage(file, songId) {
   const ext  = file.type.includes("png") ? "png" : "jpg";
   const path = `img_${songId}.${ext}`;
