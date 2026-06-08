@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.347";
+const APP_VERSION = "3.348";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -3359,18 +3359,18 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           const practiceEmbedSrc = practiceFileId ? `https://drive.google.com/file/d/${practiceFileId}/preview` : null;
           return (
             <div style={{ marginBottom:10, borderRadius:10, overflow:"hidden",
-              border:`1px solid ${C.acc}44`, background:`${C.acc}08` }}>
+              border:`1px solid ${C.grn}66`, background:`${C.grn}12` }}>
               <button onClick={() => practiceEmbedSrc ? setShowPracticePlayer(v => !v) : (window.location.href = svcPracticeUrl)}
-                style={{ display:"flex", alignItems:"center", gap:8, width:"100%",
-                  background:"none", border:"none", padding:"8px 12px",
+                style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
+                  background:"none", border:"none", padding:"10px 14px",
                   cursor:"pointer", fontFamily:"inherit" }}>
-                <Icon n={showPracticePlayer ? "pause" : "play"} size={14} color={C.acc} />
-                <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:700, color:C.acc }}>예배 연습 녹음</div>
-                {!practiceEmbedSrc && <Icon n="link" size={13} color={C.acc} />}
+                <Icon n={showPracticePlayer ? "pause" : "play"} size={16} color={C.grn} />
+                <div style={{ flex:1, textAlign:"left", fontSize:14, fontWeight:700, color:C.txt }}>예배 연습 녹음 재생</div>
+                {!practiceEmbedSrc && <Icon n="link" size={14} color={C.grn} />}
               </button>
               {showPracticePlayer && practiceEmbedSrc && (
                 <iframe src={practiceEmbedSrc} width="100%" height="80"
-                  allow="autoplay" style={{ display:"block", border:"none", borderTop:`1px solid ${C.acc}33` }}
+                  allow="autoplay" style={{ display:"block", border:"none", borderTop:`1px solid ${C.grn}33` }}
                   title="예배 연습 녹음" />
               )}
             </div>
