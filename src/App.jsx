@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.331";
+const APP_VERSION = "3.332";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -4518,7 +4518,8 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     try {
       // Firestore SDK 쓰기가 일부 네트워크에서 gRPC 블로킹으로 타임아웃됨
       // → REST API (plain HTTPS) 로 직접 commit
-      const idToken = await auth.currentUser.getIdToken(true);
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error("로그인 세션이 만료되었습니다. 다시 로그인 후 시도하세요.");
       const dbPath = `projects/tvpcainos/databases/(default)`;
       const now = new Date().toISOString();
       const sv = (v) => v ? { stringValue: String(v) } : { nullValue: null };
@@ -4552,7 +4553,14 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
       );
       if (!resp.ok) {
         const errData = await resp.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `HTTP ${resp.status}`);
+        const errMsg = errData.error?.message || `HTTP ${resp.status}`;
+        if (resp.status === 429 || errMsg.includes("Quota")) {
+          throw new Error("일일 저장 한도 초과\n\n앱을 완전히 종료 후 재시작하고\n1~2분 후 다시 시도해주세요.");
+        }
+        if (resp.status === 403) {
+          throw new Error("저장 권한 없음\n\n리더 계정으로 로그인되어 있는지 확인해주세요.");
+        }
+        throw new Error(errMsg);
       }
       setPartLinks({}); setAddTitle(""); setShowAdd(false);
     } catch (e) {
