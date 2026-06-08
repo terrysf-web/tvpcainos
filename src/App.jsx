@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.322";
+const APP_VERSION = "3.323";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -4484,22 +4484,25 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
     try {
       await Promise.all(entries.map(({ part, url }) =>
         addDoc(collection(db, "worshipRecordings"), {
-          songId,
-          songTitle,
-          serviceId:    svc?.id    || null,
-          serviceTitle: svc?.title || null,
-          serviceDate:  svc?.date  || null,
+          songId:       songId       || null,
+          songTitle:    songTitle    || null,
+          serviceId:    svc?.id      || null,
+          serviceTitle: svc?.title   || null,
+          serviceDate:  svc?.date    || null,
           part,
           driveId:      extractDriveId(url),
           title:        addTitle.trim() || null,
-          uploaderUid:  user.uid,
-          uploaderName: user.name || user.email || "리더",
+          uploaderUid:  user?.uid    || null,
+          uploaderName: user?.name   || user?.email || "리더",
           createdAt:    serverTimestamp(),
         })
       ));
       setPartLinks({}); setAddTitle(""); setShowAdd(false);
-    } catch (e) { alert("저장 실패: " + (e.message || "")); }
-    setSaving(false);
+    } catch (e) {
+      alert("저장 실패: " + (e.message || e));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const partInfo = (p) => PARTS.find(x => x.id === p) || { emoji: "🎵", label: p || "전체" };
