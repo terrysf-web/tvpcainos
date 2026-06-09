@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.397";
+const APP_VERSION = "3.398";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -5364,7 +5364,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [noteShared,    setNoteShared]    = useState(false); // 팀 메모 여부
   const [showCueInput,  setShowCueInput]  = useState(false);
   const [cueTxt,        setCueTxt]        = useState("");
+  const [cueScr,        setCueScr]        = useState(""); // 필기 스크래치 (큐)
   const [noteTxt,       setNoteTxt]       = useState("");
+  const [noteScr,       setNoteScr]       = useState(""); // 필기 스크래치 (메모)
   const [noteSongId,    setNoteSongId]    = useState(null); // dual 모드에서 노트 저장 대상 악보
   const [saving,        setSaving]        = useState(false);
 
@@ -8920,20 +8922,37 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             )}
             {/* 글자 표시 영역 */}
             <div style={{ background:C.card, border:`1.5px solid ${C.bdr}`, borderRadius:10,
-              padding:"10px 14px", minHeight:60, fontSize:14, color: noteTxt ? C.txt : C.dim,
+              padding:"10px 14px", minHeight:60, fontSize:14, color:C.txt,
               lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-all" }}>
-              {noteTxt || "필기하세요"}
+              {noteTxt || <span style={{ color:C.dim, fontSize:13 }}>작성된 내용이 여기 표시됩니다</span>}
             </div>
             {/* 필기 에리어 박스 */}
-            <textarea value={noteTxt} onChange={e => setNoteTxt(e.target.value)}
+            <textarea value={noteScr} onChange={e => {
+                const v = e.target.value;
+                // 스페이스나 엔터가 입력되면 자동으로 본문에 추가하고 에리어 클리어
+                if (v.endsWith(" ") || v.endsWith("\n")) {
+                  setNoteTxt(p => (p + v).trimEnd() + " ");
+                  setNoteScr("");
+                } else {
+                  setNoteScr(v);
+                }
+              }}
               placeholder="여기에 필기하세요" autoFocus
               style={{ width:"100%", background:`${C.pur}08`, border:`1.5px solid ${C.pur}44`,
                 color:C.txt, padding:"10px 14px", borderRadius:10,
                 fontSize:14, outline:"none", fontFamily:"inherit",
                 resize:"none", height:120, marginTop:8 }} />
             <div style={{ display:"flex", gap:8, marginTop:8 }}>
-              <Btn label="취소" variant="ghost" onClick={() => { setNoteInput(false); setNoteTxt(""); setNoteShared(false); setNoteSongId(null); }} full />
-              <Btn label={saving ? "저장 중..." : "저장"} variant="primary" onClick={saveNote} full disabled={saving} />
+              <Btn label="취소" variant="ghost" onClick={() => { setNoteInput(false); setNoteTxt(""); setNoteScr(""); setNoteShared(false); setNoteSongId(null); }} full />
+              <Btn label={saving ? "저장 중..." : "저장"} variant="primary"
+                onClick={async () => {
+                  const final = (noteTxt + (noteScr.trim() ? " " + noteScr.trim() : "")).trim();
+                  if (!final || saving) return;
+                  setSaving(true);
+                  await onAddAnnotation(effectiveNoteSongId, { text: final, page: pageNum, x: 0, y: 0, shared: noteShared });
+                  setNoteTxt(""); setNoteScr(""); setNoteInput(false); setNoteShared(false); setSaving(false);
+                }}
+                full disabled={saving || (!noteTxt.trim() && !noteScr.trim())} />
             </div>
           </div>
         </div>
@@ -9077,14 +9096,22 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             )}
             {/* 글자 표시 영역 */}
             <div style={{ background:C.card, border:`1.5px solid ${C.bdr}`, borderRadius:10,
-              padding:"10px 14px", minHeight:44, fontSize:14, color: cueTxt ? C.txt : C.dim,
+              padding:"10px 14px", minHeight:44, fontSize:14, color:C.txt,
               lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-all" }}>
-              {cueTxt || "필기하세요"}
+              {cueTxt || <span style={{ color:C.dim, fontSize:13 }}>작성된 내용이 여기 표시됩니다</span>}
             </div>
             {/* 필기 에리어 박스 */}
             <textarea
-              value={cueTxt}
-              onChange={e => setCueTxt(e.target.value)}
+              value={cueScr}
+              onChange={e => {
+                const v = e.target.value;
+                if (v.endsWith(" ") || v.endsWith("\n")) {
+                  setCueTxt(p => (p + v).trimEnd() + " ");
+                  setCueScr("");
+                } else {
+                  setCueScr(v);
+                }
+              }}
               placeholder="여기에 필기하세요"
               autoFocus
               style={{ width:"100%", background:`#ff6f0008`, border:`1.5px solid #ff6f0044`,
@@ -9093,10 +9120,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 resize:"none", height:120, marginTop:8 }}
             />
             <div style={{ display:"flex", gap:8, marginTop:8 }}>
-              <Btn label="취소" variant="ghost" onClick={() => { setShowCueInput(false); setCueTxt(""); }} full />
+              <Btn label="취소" variant="ghost" onClick={() => { setShowCueInput(false); setCueTxt(""); setCueScr(""); }} full />
               <Btn label="전송" variant="primary"
-                onClick={() => { if (cueTxt.trim()) { sendCue?.(selectedSvcId, selectedSongId, cueTxt); setCueTxt(""); setShowCueInput(false); } }}
-                full disabled={!cueTxt.trim()} />
+                onClick={() => {
+                  const final = (cueTxt + (cueScr.trim() ? " " + cueScr.trim() : "")).trim();
+                  if (final) { sendCue?.(selectedSvcId, selectedSongId, final); setCueTxt(""); setCueScr(""); setShowCueInput(false); }
+                }}
+                full disabled={!cueTxt.trim() && !cueScr.trim()} />
             </div>
           </div>
         </div>
