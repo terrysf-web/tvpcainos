@@ -136,5 +136,10 @@ service cloud.firestore {
       allow create: if isAuthed();
       allow update, delete: if isLeader();
     }
+
+    // 큐 노트 — 인증된 모든 팀원 읽기/쓰기
+    match /cueNotes/{id} {
+      allow read, write: if isAuthed();
+    }
   }
 }
