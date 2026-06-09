@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.373";
+const APP_VERSION = "3.374";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -3614,29 +3614,16 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                 opacity: isDragging ? 0.88 : 1, zIndex: isDragging ? 20 : 1,
                 position:"relative", touchAction:"none",
               }}>
-                {landscape && hasNotes ? (
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, alignItems:"start" }}>
-                    {/* 왼쪽: 노트만 */}
-                    <div>{notesEl}</div>
-                    {/* 오른쪽: 번호 + 정보 + 버튼 (다른 카드와 동일 구조) */}
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      {numEl}
-                      {infoEl(true)}
-                      {btnEl}
-                    </div>
+                <>
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    {numEl}
+                    {infoEl(landscape)}
+                    {btnEl}
                   </div>
-                ) : (
-                  <>
-                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                      {numEl}
-                      {infoEl(landscape)}
-                      {btnEl}
-                    </div>
-                    {!landscape && hasNotes && (
-                      <div style={{ marginTop:10 }}>{notesEl}</div>
-                    )}
-                  </>
-                )}
+                  {hasNotes && (
+                    <div style={{ marginTop: landscape ? 6 : 10 }}>{notesEl}</div>
+                  )}
+                </>
               </div>
             </div>
           );
