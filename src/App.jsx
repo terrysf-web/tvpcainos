@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.409";
+const APP_VERSION = "3.410";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2216,20 +2216,20 @@ function CueNotesSection({ svcSongs, songCues, user, deleteCue, editCue, acknowl
                         )}
                         {/* 수정/삭제 (본인 or 리더/어드민) */}
                         {(isOwn || isAdmin) && (
-                          <div style={{ display:"flex", gap:4 }}>
-                            {(isOwn || isAdmin) && (
-                              <button
-                                onClick={() => { setEditingId(cue.id); setEditText(cue.text); }}
-                                style={{ fontSize:10, color:"#888", background:"none",
-                                  border:"none", cursor:"pointer", padding:"0 2px", fontFamily:"inherit" }}>
-                                수정
-                              </button>
-                            )}
+                          <div style={{ display:"flex", gap:5 }}>
+                            <button
+                              onClick={() => { setEditingId(cue.id); setEditText(cue.text); }}
+                              style={{ fontSize:11, fontWeight:700, color:"#5c4000",
+                                background:"#ffe082", border:"1px solid #ffca28",
+                                borderRadius:6, padding:"3px 8px", cursor:"pointer", fontFamily:"inherit" }}>
+                              ✏️ 수정
+                            </button>
                             <button
                               onClick={() => setDeleteConf(cue.id)}
-                              style={{ fontSize:10, color:"#e57373", background:"none",
-                                border:"none", cursor:"pointer", padding:"0 2px", fontFamily:"inherit" }}>
-                              삭제
+                              style={{ fontSize:11, fontWeight:700, color:"#b71c1c",
+                                background:"#ffebee", border:"1px solid #ef9a9a",
+                                borderRadius:6, padding:"3px 8px", cursor:"pointer", fontFamily:"inherit" }}>
+                              🗑️ 삭제
                             </button>
                           </div>
                         )}
