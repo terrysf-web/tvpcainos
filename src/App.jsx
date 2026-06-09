@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.402";
+const APP_VERSION = "3.403";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2224,8 +2224,11 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", justifyContent:"space-between",
       }}>
-        <div style={{ height:32, overflow:"hidden", display:"flex", alignItems:"center" }}>
-          <img src="/icon-192.png" alt="ainos" style={{ height:90, width:"auto", objectFit:"contain", marginTop:-2 }} />
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <div style={{ height:32, overflow:"hidden", display:"flex", alignItems:"center" }}>
+            <img src="/icon-192.png" alt="ainos" style={{ height:90, width:"auto", objectFit:"contain", marginTop:-2 }} />
+          </div>
+          <span style={{ fontSize:10, fontWeight:700, color:C.dim, letterSpacing:"0.03em" }}>v{APP_VERSION}</span>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           {isLeader(user.role) && (
