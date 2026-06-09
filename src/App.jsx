@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.364";
+const APP_VERSION = "3.365";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -9482,6 +9482,8 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
   const [showTeam,    setShowTeam]    = useState(false);
   const [claiming,    setClaiming]    = useState(false);
   const [noLeader,    setNoLeader]    = useState(false);
+  const [myPartSel,   setMyPartSel]   = useState(() => getUserParts(user));
+  const [partSaving,  setPartSaving]  = useState(false);
   const [showInfo,    setShowInfo]    = useState(false);
   const [showHelp,    setShowHelp]    = useState(false);
   const [showContact, setShowContact] = useState(false);
@@ -9592,8 +9594,6 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
 
         {/* 내 파트 선택 */}
         {(() => {
-          const [myPartSel, setMyPartSel] = useState(() => getUserParts(user));
-          const [partSaving, setPartSaving] = useState(false);
           const changed = JSON.stringify(myPartSel.slice().sort()) !== JSON.stringify(getUserParts(user).slice().sort());
           const saveMyParts = async () => {
             setPartSaving(true);
