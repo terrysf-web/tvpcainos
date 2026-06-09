@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.401";
+const APP_VERSION = "3.402";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -12231,16 +12231,17 @@ export default function App() {
     );
   }, [user?.uid]);
 
-  // ── Firestore: 큐 노트 (다음 예배 서비스별)
+  // ── Firestore: 큐 노트 (현재 열린 서비스 우선, 없으면 가장 가까운 서비스)
   useEffect(() => {
     if (!user?.uid) return;
     const todayStr = new Date().toISOString().slice(0, 10);
-    const nextSvcId = services
-      .filter(s => s.date >= todayStr)
-      .sort((a, b) => a.date.localeCompare(b.date))[0]?.id;
-    if (!nextSvcId) { setSongCues({}); return; }
+    const sorted = [...services].sort((a, b) => a.date.localeCompare(b.date));
+    const nearestId = sorted.find(s => s.date >= todayStr)?.id
+                   ?? sorted[sorted.length - 1]?.id;
+    const watchId = selSvcId || nearestId;
+    if (!watchId) { setSongCues({}); return; }
     return onSnapshot(
-      query(collection(db, "cueNotes"), where("svcId", "==", nextSvcId), orderBy("createdAt", "asc")),
+      query(collection(db, "cueNotes"), where("svcId", "==", watchId), orderBy("createdAt", "asc")),
       snap => {
         const bySong = {};
         snap.docs.forEach(d => {
@@ -12251,7 +12252,7 @@ export default function App() {
         setSongCues(bySong);
       }
     );
-  }, [user?.uid, services]);
+  }, [user?.uid, services, selSvcId]);
 
   // ── Firestore: 유저 이름 맵 (uid -> displayName)
   useEffect(() => {
