@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.393";
+const APP_VERSION = "3.394";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -8924,7 +8924,30 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 color:C.txt, padding:"10px 14px", borderRadius:10,
                 fontSize:14, outline:"none", fontFamily:"inherit",
                 resize:"vertical", minHeight:80 }} />
-            <div style={{ display:"flex", gap:8, marginTop:12 }}>
+            <div style={{ display:"flex", gap:6, marginTop:8 }}>
+              <button onClick={() => setNoteTxt(p => p + " ")}
+                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:"pointer",
+                  background:C.card, border:`1px solid ${C.bdr}`,
+                  fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.txt }}>
+                ␣ 스페이스
+              </button>
+              <button onClick={() => setNoteTxt(p => p.slice(0, -1))} disabled={!noteTxt.length}
+                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor: noteTxt.length ? "pointer" : "not-allowed",
+                  background:C.card, border:`1px solid ${C.bdr}`,
+                  fontFamily:"inherit", fontSize:13, fontWeight:700,
+                  color: noteTxt.length ? C.txt : C.dim, opacity: noteTxt.length ? 1 : 0.4 }}>
+                ⌫ 지우기
+              </button>
+              <button onClick={() => setNoteTxt("")} disabled={!noteTxt.length}
+                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor: noteTxt.length ? "pointer" : "not-allowed",
+                  background: noteTxt.length ? `${C.red}18` : C.card,
+                  border:`1px solid ${noteTxt.length ? C.red + "55" : C.bdr}`,
+                  fontFamily:"inherit", fontSize:13, fontWeight:700,
+                  color: noteTxt.length ? C.red : C.dim, opacity: noteTxt.length ? 1 : 0.4 }}>
+                ✕ 전체 삭제
+              </button>
+            </div>
+            <div style={{ display:"flex", gap:8, marginTop:8 }}>
               <Btn label="취소" variant="ghost" onClick={() => { setNoteInput(false); setNoteTxt(""); setNoteShared(false); setNoteSongId(null); }} full />
               <Btn label={saving ? "저장 중..." : "저장"} variant="primary" onClick={saveNote} full disabled={saving} />
             </div>
@@ -9078,18 +9101,20 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 resize:"vertical", minHeight:80 }}
             />
             <div style={{ display:"flex", gap:6, marginTop:8 }}>
-              <button
-                onClick={() => setCueTxt(p => p.slice(0, -1))}
-                disabled={!cueTxt.length}
+              <button onClick={() => setCueTxt(p => p + " ")}
+                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:"pointer",
+                  background:C.card, border:`1px solid ${C.bdr}`,
+                  fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.txt }}>
+                ␣ 스페이스
+              </button>
+              <button onClick={() => setCueTxt(p => p.slice(0, -1))} disabled={!cueTxt.length}
                 style={{ flex:1, padding:"9px 0", borderRadius:10, cursor: cueTxt.length ? "pointer" : "not-allowed",
                   background:C.card, border:`1px solid ${C.bdr}`,
                   fontFamily:"inherit", fontSize:13, fontWeight:700,
                   color: cueTxt.length ? C.txt : C.dim, opacity: cueTxt.length ? 1 : 0.4 }}>
                 ⌫ 지우기
               </button>
-              <button
-                onClick={() => setCueTxt("")}
-                disabled={!cueTxt.length}
+              <button onClick={() => setCueTxt("")} disabled={!cueTxt.length}
                 style={{ flex:1, padding:"9px 0", borderRadius:10, cursor: cueTxt.length ? "pointer" : "not-allowed",
                   background: cueTxt.length ? `${C.red}18` : C.card,
                   border:`1px solid ${cueTxt.length ? C.red + "55" : C.bdr}`,
