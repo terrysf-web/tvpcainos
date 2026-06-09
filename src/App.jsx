@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.359";
+const APP_VERSION = "3.360";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -4059,30 +4059,35 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                   {(() => {
                     const tNotes = (teamAnnotations || {})[song.id] || [];
                     const pNotes = (annotations || {})[song.id] || [];
-                    const all = [...tNotes, ...pNotes];
                     const draws = (songDrawings || {})[song.id] || {};
-                    if (!all.length && !draws.my && !draws.team && !draws.others) return null;
-                    const authorMap = new Map();
-                    [...tNotes, ...pNotes].forEach(n => {
-                      const _a3 = n.authorName || ""; const name = n.userId === user.uid ? "나" : ((_a3.includes("@") ? (userMap||{})[n.userId] : _a3) || (userMap||{})[n.userId] || "팀원");
-                      const entry = authorMap.get(n.userId) || { name, cnt: 0 };
-                      entry.cnt++;
-                      authorMap.set(n.userId, entry);
-                    });
-                    const parts = [];
-                    authorMap.forEach(({ name, cnt }) => parts.push(`${name} 메모 ${cnt}개`));
-                    if (draws.my) parts.push("내 필기");
-                    if (draws.team) parts.push("팀 필기");
-                    if (draws.others) parts.push("팀원 필기");
+                    const hasPersonal = pNotes.length > 0 || draws.my;
+                    const hasTeam = tNotes.length > 0 || draws.team || draws.others;
+                    if (!hasPersonal && !hasTeam) return null;
                     return (
-                      <span style={{
-                        display:"flex", alignItems:"center", gap:3,
-                        background:"#e5393514", border:"1px solid #e5393535",
-                        borderRadius:5, padding:"1px 6px", fontSize:10, fontWeight:700, color:"#e53935",
-                      }}>
-                        <Icon n="users" size={9} color="#e53935" sw={2.5} />
-                        {parts.join(" · ")}
-                      </span>
+                      <>
+                        {hasPersonal && (
+                          <span style={{
+                            display:"flex", alignItems:"center", gap:3,
+                            background:`${C.pur}18`, border:`1px solid ${C.pur}44`,
+                            borderRadius:5, padding:"1px 6px", fontSize:10, fontWeight:700, color:C.pur,
+                          }}>
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={C.pur} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                            </svg>
+                            내 필기
+                          </span>
+                        )}
+                        {hasTeam && (
+                          <span style={{
+                            display:"flex", alignItems:"center", gap:3,
+                            background:"#347C1718", border:"1px solid #347C1744",
+                            borderRadius:5, padding:"1px 6px", fontSize:10, fontWeight:700, color:"#347C17",
+                          }}>
+                            <Icon n="users" size={9} color="#347C17" sw={2.5} />
+                            팀 필기
+                          </span>
+                        )}
+                      </>
                     );
                   })()}
                 </div>
@@ -6567,7 +6572,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const page = isC1 ? (dual ? 1 : pageNum) : (dual ? 2 : pageNum);
     const textStroke = {
       tool: "text", text: textInput.value.trim(),
-      color: drawColor, size: ({ 1: 8, 2: 15, 4: 28 })[drawWidth] || 15,
+      color: activeColor, size: ({ 1: 8, 2: 15, 4: 28 })[drawWidth] || 15,
       points: [{ x: textInput.x, y: textInput.y }],
       ...(isTeam && { team: true }),
     };
@@ -6643,7 +6648,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
   };
 
-  const makeStroke = () => ({ color: drawColor, width: drawWidth, tool: drawTool, points: [] });
+  const TEAM_COLOR = "#347C17";
+  const activeColor = teamDrawMode ? TEAM_COLOR : drawColor;
+
+  const makeStroke = () => ({ color: activeColor, width: drawWidth, tool: drawTool, points: [] });
 
   // ── Canvas 1 handlers (single mode + dual left)
   const handleDraw1Down = (e) => {
@@ -6696,7 +6704,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (drawTool === "shape") {
       const pt = getCanvasPt(e, canvas);
       shapeStart1Ref.current = pt;
-      curStroke1Ref.current = { tool: shapeTool, points: [pt], color: drawColor, width: drawWidth };
+      curStroke1Ref.current = { tool: shapeTool, points: [pt], color: activeColor, width: drawWidth };
       return;
     }
     isDrawing1Ref.current = true;
@@ -6737,7 +6745,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }
     if (drawTool === "shape" && shapeStart1Ref.current) {
       const pt = getCanvasPt(e, canvas);
-      curStroke1Ref.current = { tool: shapeTool, points: [shapeStart1Ref.current, pt], color: drawColor, width: drawWidth };
+      curStroke1Ref.current = { tool: shapeTool, points: [shapeStart1Ref.current, pt], color: activeColor, width: drawWidth };
       { const rc = teamDrawMode && teamDrawCanvas1Ref.current ? teamDrawCanvas1Ref.current : canvas;
         drawStrokes(rc, teamDrawMode ? teamStrokes1Ref.current : strokes1Ref.current, curStroke1Ref.current); }
       return;
@@ -6768,7 +6776,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const coordCanvas = drawCanvas1Ref.current || canvas;
       const pt = e ? getCanvasPt(e, coordCanvas) : lastPt1Ref.current;
       const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
-        color:drawColor, size:stampSize, points:[pt], ...(teamDrawMode && { team: true }) };
+        color:activeColor, size:stampSize, points:[pt], ...(teamDrawMode && { team: true }) };
       const sRef1 = teamDrawMode ? teamStrokes1Ref : strokes1Ref;
       const next = [...sRef1.current, stamp];
       sRef1.current = next;
@@ -6876,7 +6884,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (drawTool === "shape") {
       const pt = getCanvasPt(e, canvas);
       shapeStart2Ref.current = pt;
-      curStroke2Ref.current = { tool: shapeTool, points: [pt], color: drawColor, width: drawWidth };
+      curStroke2Ref.current = { tool: shapeTool, points: [pt], color: activeColor, width: drawWidth };
       return;
     }
     isDrawing2Ref.current = true;
@@ -6917,7 +6925,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }
     if (drawTool === "shape" && shapeStart2Ref.current) {
       const pt = getCanvasPt(e, canvas);
-      curStroke2Ref.current = { tool: shapeTool, points: [shapeStart2Ref.current, pt], color: drawColor, width: drawWidth };
+      curStroke2Ref.current = { tool: shapeTool, points: [shapeStart2Ref.current, pt], color: activeColor, width: drawWidth };
       { const rc = teamDrawMode && teamDrawCanvas2Ref.current ? teamDrawCanvas2Ref.current : canvas;
         drawStrokes(rc, teamDrawMode ? teamStrokes2Ref.current : strokes2Ref.current, curStroke2Ref.current); }
       return;
@@ -6947,7 +6955,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const coordCanvas = drawCanvas2Ref.current || canvas;
       const pt = e ? getCanvasPt(e, coordCanvas) : lastPt2Ref.current;
       const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
-        color:drawColor, size:stampSize, points:[pt], ...(teamDrawMode && { team: true }) };
+        color:activeColor, size:stampSize, points:[pt], ...(teamDrawMode && { team: true }) };
       const sRef2 = teamDrawMode ? teamStrokes2Ref : strokes2Ref;
       const next = [...sRef2.current, stamp];
       sRef2.current = next;
@@ -7622,7 +7630,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             ) : (
               <>
                 {/* 색상 */}
-                {drawTool === "cover" ? (
+                {teamDrawMode ? (
+                  <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                    <div style={{ width:22, height:22, borderRadius:"50%", background:TEAM_COLOR,
+                      border:"3px solid #fff", outline:`2px solid ${TEAM_COLOR}`, flexShrink:0 }} />
+                    <span style={{ fontSize:11, color:TEAM_COLOR, fontWeight:700, flexShrink:0 }}>팀필기 고정색</span>
+                  </div>
+                ) : drawTool === "cover" ? (
                   <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
                     <div style={{ width:22, height:22, borderRadius:"50%", background:"#ffffff",
                       border:"3px solid #bbb", outline:"2px solid #aaa", flexShrink:0 }} />
