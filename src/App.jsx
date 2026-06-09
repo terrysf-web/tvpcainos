@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.385";
+const APP_VERSION = "3.386";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2283,10 +2283,10 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     {/* 가운데 빈 공간: 상태 메시지 */}
                     <div style={{ flex:1, textAlign:"center", padding:"0 8px" }}>
                       {showMsg && (isPianoOn
-                        ? <span style={{ color:C.red, fontWeight:900, fontSize:16, letterSpacing:"0.04em" }}>
+                        ? <span style={{ color:C.red, fontWeight:900, fontSize:22, letterSpacing:"0.04em" }}>
                             PIANO ON &nbsp;·&nbsp; 반주 시작해주세요
                           </span>
-                        : <span style={{ color:C.pur, fontWeight:700, fontSize:14 }}>
+                        : <span style={{ color:C.pur, fontWeight:800, fontSize:18 }}>
                             ⛪ 예배준비 &nbsp;·&nbsp; 예배 시작 시 악보로 자동 이동합니다
                           </span>
                       )}
