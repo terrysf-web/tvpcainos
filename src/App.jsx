@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.384";
+const APP_VERSION = "3.385";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2270,24 +2270,26 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>내일</span>
                       : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>D-{dDay}</span>
                     }
-                    <div style={{ flex:1, minWidth:0 }}>
+                    {/* 날짜 + 서브타이틀 (항상 표시) */}
+                    <div style={{ flexShrink:0, minWidth:0 }}>
                       <div style={{ fontWeight:800, fontSize:18, color:C.txt, lineHeight:1.2 }}>{fmtSvcDate(nextSvc.date)}</div>
-                      {/* 서브라인: 상태 메시지 or 타이틀/시간/곡수 */}
-                      {showMsg
-                        ? isPianoOn
-                          ? <div style={{ fontSize:16, fontWeight:900, color:C.red, marginTop:3, letterSpacing:"0.04em" }}>
-                              PIANO ON &nbsp;·&nbsp; 반주 시작해주세요
-                            </div>
-                          : <div style={{ fontSize:14, fontWeight:700, color:C.pur, marginTop:3 }}>
-                              ⛪ 예배준비 &nbsp;·&nbsp; 예배 시작 시 악보로 자동 이동합니다
-                            </div>
-                        : <div style={{ fontSize:12, color:C.dim, marginTop:2, display:"flex", alignItems:"center", gap:5 }}>
-                            <span>{nextSvc.title}</span>
-                            {nextSvc.time && <><span>·</span><span>{nextSvc.time}</span></>}
-                            <span>·</span>
-                            <span>{svcSongs.length}곡</span>
-                          </div>
-                      }
+                      <div style={{ fontSize:12, color:C.dim, marginTop:2, display:"flex", alignItems:"center", gap:5 }}>
+                        <span>{nextSvc.title}</span>
+                        {nextSvc.time && <><span>·</span><span>{nextSvc.time}</span></>}
+                        <span>·</span>
+                        <span>{svcSongs.length}곡</span>
+                      </div>
+                    </div>
+                    {/* 가운데 빈 공간: 상태 메시지 */}
+                    <div style={{ flex:1, textAlign:"center", padding:"0 8px" }}>
+                      {showMsg && (isPianoOn
+                        ? <span style={{ color:C.red, fontWeight:900, fontSize:16, letterSpacing:"0.04em" }}>
+                            PIANO ON &nbsp;·&nbsp; 반주 시작해주세요
+                          </span>
+                        : <span style={{ color:C.pur, fontWeight:700, fontSize:14 }}>
+                            ⛪ 예배준비 &nbsp;·&nbsp; 예배 시작 시 악보로 자동 이동합니다
+                          </span>
+                      )}
                     </div>
                     {/* 1시간 이내: 카운트다운 / 그 외: 상태 배지 */}
                     {tInHour && tCountdown
