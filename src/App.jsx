@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.365";
+const APP_VERSION = "3.366";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -9286,6 +9286,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
               {/* 파트 편집 */}
               {editPart === m.id ? (
                 <div style={{ marginBottom:8 }}>
+                  {/* 표준 파트 버튼 */}
                   <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:6 }}>
                     {PARTS.filter(p => p.id !== "전체").map(p => {
                       const sel = partVal.includes(p.id);
@@ -9302,6 +9303,33 @@ function TeamManagementModal({ currentUserId, onClose }) {
                         </button>
                       );
                     })}
+                  </div>
+                  {/* 커스텀 파트 (목록에 없는 기존 값) */}
+                  {partVal.filter(v => !PARTS.find(p => p.id === v)).map(v => (
+                    <span key={v} style={{ display:"inline-flex", alignItems:"center", gap:4,
+                      background:`${C.pur}18`, border:`1px solid ${C.pur}44`,
+                      borderRadius:6, padding:"3px 8px", fontSize:11, color:C.pur, marginRight:4, marginBottom:4 }}>
+                      {v}
+                      <button onClick={() => setPartVal(prev => prev.filter(x => x !== v))}
+                        style={{ background:"none", border:"none", cursor:"pointer", color:C.pur, fontSize:13, padding:0, lineHeight:1 }}>×</button>
+                    </span>
+                  ))}
+                  {/* 파트 추가 드롭다운 */}
+                  <div style={{ marginTop:4, marginBottom:6 }}>
+                    <select value="" onChange={e => {
+                      const v = e.target.value;
+                      if (!v) return;
+                      if (!partVal.includes(v)) setPartVal(prev => [...prev, v]);
+                    }} style={{
+                      padding:"4px 9px", borderRadius:6, fontSize:11,
+                      border:`1px solid ${C.bdr}`, background:C.surf, color:C.txt,
+                      fontFamily:"inherit", outline:"none", cursor:"pointer",
+                    }}>
+                      <option value="">+ 파트 추가...</option>
+                      {PARTS.filter(p => p.id !== "전체" && !partVal.includes(p.id)).map(p => (
+                        <option key={p.id} value={p.id}>{p.emoji} {p.label}</option>
+                      ))}
+                    </select>
                   </div>
                   <div style={{ display:"flex", gap:6 }}>
                     <button onClick={() => savePart(m.id)} style={{
@@ -9497,6 +9525,8 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
   const [sharedKeyInput,  setSharedKeyInput]  = useState("");
   const [sharedKeySaving, setSharedKeySaving] = useState(false);
   const [sharedKeyErr,    setSharedKeyErr]    = useState("");
+  const [tapOn,  setTapOn]  = useState(() => localStorage.getItem("tvpc_tapNav")   !== "0");
+  const [swipeOn,setSwipeOn]= useState(() => localStorage.getItem("tvpc_swipeNav") !== "0");
 
   const testApiKey = async () => {
     const k = apiKeyInput.trim();
@@ -9526,6 +9556,20 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
     } finally {
       setApiKeyTesting(false);
     }
+  };
+
+  const partChanged = JSON.stringify(myPartSel.slice().sort()) !== JSON.stringify(getUserParts(user).slice().sort());
+  const saveMyParts = async () => {
+    setPartSaving(true);
+    try {
+      await setDoc(doc(db, "users", user.uid), { parts: myPartSel, part: myPartSel[0] || "" }, { merge: true });
+    } finally { setPartSaving(false); }
+  };
+  const toggleNav = (key, val, setter) => {
+    if (!val && key === "tvpc_tapNav"   && !swipeOn) return;
+    if (!val && key === "tvpc_swipeNav" && !tapOn)   return;
+    localStorage.setItem(key, val ? "1" : "0");
+    setter(val);
   };
 
   const saveApiKey = async () => {
@@ -9593,41 +9637,55 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
         </div>
 
         {/* 내 파트 선택 */}
-        {(() => {
-          const changed = JSON.stringify(myPartSel.slice().sort()) !== JSON.stringify(getUserParts(user).slice().sort());
-          const saveMyParts = async () => {
-            setPartSaving(true);
-            try {
-              await setDoc(doc(db, "users", user.uid), { parts: myPartSel, part: myPartSel[0] || "" }, { merge: true });
-            } finally { setPartSaving(false); }
-          };
-          return (
-            <div style={{ marginTop:14, borderTop:`1px solid ${C.bdr}`, paddingTop:12 }}>
-              <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:8, letterSpacing:".04em" }}>내 파트 선택</div>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:10 }}>
-                {PARTS.filter(p => p.id !== "전체").map(p => {
-                  const sel = myPartSel.includes(p.id);
-                  return (
-                    <button key={p.id} onClick={() => setMyPartSel(prev => sel ? prev.filter(x => x !== p.id) : [...prev, p.id])} style={{
-                      padding:"5px 10px", borderRadius:7, fontSize:12, fontWeight:600,
-                      cursor:"pointer", fontFamily:"inherit",
-                      background: sel ? `${C.acc}22` : C.bg,
-                      color: sel ? C.acc : C.dim,
-                      border:`1px solid ${sel ? C.acc+"66" : C.bdr}`,
-                    }}>{p.emoji} {p.label}</button>
-                  );
-                })}
-              </div>
-              {changed && (
-                <button onClick={saveMyParts} disabled={partSaving} style={{
-                  background:C.acc, border:"none", borderRadius:8, padding:"7px 16px",
-                  fontSize:12, fontWeight:700, color:"#111", cursor:"pointer", fontFamily:"inherit",
-                  opacity: partSaving ? 0.6 : 1,
-                }}>{partSaving ? "저장 중..." : "저장"}</button>
-              )}
-            </div>
-          );
-        })()}
+        <div style={{ marginTop:14, borderTop:`1px solid ${C.bdr}`, paddingTop:12 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:8, letterSpacing:".04em" }}>내 파트 선택</div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:8 }}>
+            {PARTS.filter(p => p.id !== "전체").map(p => {
+              const sel = myPartSel.includes(p.id);
+              return (
+                <button key={p.id} onClick={() => setMyPartSel(prev => sel ? prev.filter(x => x !== p.id) : [...prev, p.id])} style={{
+                  padding:"5px 10px", borderRadius:7, fontSize:12, fontWeight:600,
+                  cursor:"pointer", fontFamily:"inherit",
+                  background: sel ? `${C.acc}22` : C.bg,
+                  color: sel ? C.acc : C.dim,
+                  border:`1px solid ${sel ? C.acc+"66" : C.bdr}`,
+                }}>{p.emoji} {p.label}</button>
+              );
+            })}
+          </div>
+          {myPartSel.filter(v => !PARTS.find(p => p.id === v)).map(v => (
+            <span key={v} style={{ display:"inline-flex", alignItems:"center", gap:4,
+              background:`${C.pur}18`, border:`1px solid ${C.pur}44`,
+              borderRadius:6, padding:"3px 8px", fontSize:11, color:C.pur, marginRight:4, marginBottom:4 }}>
+              {v}
+              <button onClick={() => setMyPartSel(prev => prev.filter(x => x !== v))}
+                style={{ background:"none", border:"none", cursor:"pointer", color:C.pur, fontSize:13, padding:0, lineHeight:1 }}>×</button>
+            </span>
+          ))}
+          <div style={{ marginTop:6, marginBottom:8 }}>
+            <select value="" onChange={e => {
+              const v = e.target.value;
+              if (!v) return;
+              if (!myPartSel.includes(v)) setMyPartSel(prev => [...prev, v]);
+            }} style={{
+              padding:"5px 10px", borderRadius:7, fontSize:12,
+              border:`1px solid ${C.bdr}`, background:C.bg, color:C.txt,
+              fontFamily:"inherit", outline:"none", cursor:"pointer",
+            }}>
+              <option value="">+ 파트 추가...</option>
+              {PARTS.filter(p => p.id !== "전체" && !myPartSel.includes(p.id)).map(p => (
+                <option key={p.id} value={p.id}>{p.emoji} {p.label}</option>
+              ))}
+            </select>
+          </div>
+          {partChanged && (
+            <button onClick={saveMyParts} disabled={partSaving} style={{
+              background:C.acc, border:"none", borderRadius:8, padding:"7px 16px",
+              fontSize:12, fontWeight:700, color:"#111", cursor:"pointer", fontFamily:"inherit",
+              opacity: partSaving ? 0.6 : 1,
+            }}>{partSaving ? "저장 중..." : "저장"}</button>
+          )}
+        </div>
       </div>
 
       {/* 리더 권한 설정 (리더가 없을 때만 표시) */}
@@ -9645,8 +9703,8 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
         </div>
       )}
 
-      {/* 팀 관리 (어드민만) */}
-      {user.role === "admin" && (
+      {/* 팀 관리 (리더/어드민) */}
+      {isLeader(user.role) && (
         <div style={{ marginBottom:12 }}>
           <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
             textTransform:"uppercase", marginBottom:10 }}>팀 관리</div>
@@ -9656,48 +9714,35 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
       )}
 
       {/* 악보 넘기기 설정 */}
-      {(() => {
-        const [tapOn,   setTapOn]   = useState(() => localStorage.getItem("tvpc_tapNav")   !== "0");
-        const [swipeOn, setSwipeOn] = useState(() => localStorage.getItem("tvpc_swipeNav") !== "0");
-        const toggle = (key, val, setter) => {
-          if (!val && key === "tvpc_tapNav"   && !swipeOn) return;
-          if (!val && key === "tvpc_swipeNav" && !tapOn)   return;
-          localStorage.setItem(key, val ? "1" : "0");
-          setter(val);
-        };
-        const Row = ({ label, desc, on, onToggle }) => (
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-            padding:"12px 16px", borderBottom:`1px solid ${C.bdr}` }}>
-            <div>
-              <div style={{ fontSize:14, color:C.txt }}>{label}</div>
-              <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>{desc}</div>
+      <div style={{ marginBottom:16 }}>
+        <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+          textTransform:"uppercase", marginBottom:8 }}>악보 넘기기</div>
+        <div style={{ background:C.card, borderRadius:12, overflow:"hidden", border:`1px solid ${C.bdr}` }}>
+          {[
+            { label:"탭 이동",      desc:"화면 좌/우 탭으로 페이지 넘기기",    on:tapOn,   key:"tvpc_tapNav",   setter:setTapOn },
+            { label:"스와이프 이동", desc:"손가락 좌/우 드래그로 페이지 넘기기", on:swipeOn, key:"tvpc_swipeNav", setter:setSwipeOn },
+          ].map((row, i, arr) => (
+            <div key={row.key} style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+              padding:"12px 16px", borderBottom: i < arr.length-1 ? `1px solid ${C.bdr}` : "none" }}>
+              <div>
+                <div style={{ fontSize:14, color:C.txt }}>{row.label}</div>
+                <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>{row.desc}</div>
+              </div>
+              <button onClick={() => toggleNav(row.key, !row.on, row.setter)} style={{
+                width:44, height:26, borderRadius:13, border:"none", cursor:"pointer",
+                background: row.on ? C.grn : C.bdr, position:"relative", flexShrink:0,
+                transition:"background 0.2s",
+              }}>
+                <div style={{
+                  position:"absolute", top:3, left: row.on ? 21 : 3,
+                  width:20, height:20, borderRadius:"50%", background:"#fff",
+                  transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.3)",
+                }} />
+              </button>
             </div>
-            <button onClick={onToggle} style={{
-              width:44, height:26, borderRadius:13, border:"none", cursor:"pointer",
-              background: on ? C.grn : C.bdr, position:"relative", flexShrink:0,
-              transition:"background 0.2s",
-            }}>
-              <div style={{
-                position:"absolute", top:3, left: on ? 21 : 3,
-                width:20, height:20, borderRadius:"50%", background:"#fff",
-                transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.3)",
-              }} />
-            </button>
-          </div>
-        );
-        return (
-          <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
-              textTransform:"uppercase", marginBottom:8 }}>악보 넘기기</div>
-            <div style={{ background:C.card, borderRadius:12, overflow:"hidden", border:`1px solid ${C.bdr}` }}>
-              <Row label="탭 이동" desc="화면 좌/우 탭으로 페이지 넘기기"
-                on={tapOn}   onToggle={() => toggle("tvpc_tapNav",   !tapOn,   setTapOn)} />
-              <Row label="스와이프 이동" desc="손가락 좌/우 드래그로 페이지 넘기기"
-                on={swipeOn} onToggle={() => toggle("tvpc_swipeNav", !swipeOn, setSwipeOn)} />
-            </div>
-          </div>
-        );
-      })()}
+          ))}
+        </div>
+      </div>
 
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
