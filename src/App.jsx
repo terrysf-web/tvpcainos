@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.412";
+const APP_VERSION = "3.413";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -9047,7 +9047,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   setNoteScr("");
                 }, 700);
               }}
-              placeholder="여기에 필기하세요" autoFocus
+              placeholder="여기에 필기 또는 타입하세요" autoFocus
               style={{ width:"100%", background:`${C.pur}08`, border:`1.5px solid ${C.pur}44`,
                 color:C.txt, padding:"10px 14px", borderRadius:10,
                 fontSize:14, outline:"none", fontFamily:"inherit",
@@ -9294,7 +9294,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   setCueScr("");
                 }, 700);
               }}
-              placeholder="여기에 필기하세요"
+              placeholder="여기에 필기 또는 타입하세요"
               autoFocus
               style={{ width:"100%", background:`#ff6f0008`, border:`1.5px solid #ff6f0044`,
                 color:C.txt, padding:"10px 14px", borderRadius:10,
