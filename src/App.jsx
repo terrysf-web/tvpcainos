@@ -8924,36 +8924,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-all" }}>
               {noteTxt || "필기하세요"}
             </div>
-            {/* 필기 에리어 */}
+            {/* 필기 에리어 박스 */}
             <textarea value={noteTxt} onChange={e => setNoteTxt(e.target.value)}
               placeholder="여기에 필기하세요" autoFocus
               style={{ width:"100%", background:`${C.pur}08`, border:`1.5px solid ${C.pur}44`,
                 color:C.txt, padding:"10px 14px", borderRadius:10,
                 fontSize:14, outline:"none", fontFamily:"inherit",
-                resize:"none", height:90, marginTop:8 }} />
-            <div style={{ display:"flex", gap:6, marginTop:8 }}>
-              <button onClick={() => setNoteTxt(p => p + " ")}
-                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:"pointer",
-                  background:C.card, border:`1px solid ${C.bdr}`,
-                  fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.txt }}>
-                ␣ 스페이스
-              </button>
-              <button onClick={() => setNoteTxt(p => p.slice(0, -1))} disabled={!noteTxt.length}
-                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor: noteTxt.length ? "pointer" : "not-allowed",
-                  background:C.card, border:`1px solid ${C.bdr}`,
-                  fontFamily:"inherit", fontSize:13, fontWeight:700,
-                  color: noteTxt.length ? C.txt : C.dim, opacity: noteTxt.length ? 1 : 0.4 }}>
-                ⌫ 지우기
-              </button>
-              <button onClick={() => setNoteTxt("")} disabled={!noteTxt.length}
-                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor: noteTxt.length ? "pointer" : "not-allowed",
-                  background: noteTxt.length ? `${C.red}18` : C.card,
-                  border:`1px solid ${noteTxt.length ? C.red + "55" : C.bdr}`,
-                  fontFamily:"inherit", fontSize:13, fontWeight:700,
-                  color: noteTxt.length ? C.red : C.dim, opacity: noteTxt.length ? 1 : 0.4 }}>
-                ✕ 전체 삭제
-              </button>
-            </div>
+                resize:"none", height:120, marginTop:8 }} />
             <div style={{ display:"flex", gap:8, marginTop:8 }}>
               <Btn label="취소" variant="ghost" onClick={() => { setNoteInput(false); setNoteTxt(""); setNoteShared(false); setNoteSongId(null); }} full />
               <Btn label={saving ? "저장 중..." : "저장"} variant="primary" onClick={saveNote} full disabled={saving} />
@@ -9104,7 +9081,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-all" }}>
               {cueTxt || "필기하세요"}
             </div>
-            {/* 필기 에리어 */}
+            {/* 필기 에리어 박스 */}
             <textarea
               value={cueTxt}
               onChange={e => setCueTxt(e.target.value)}
@@ -9113,31 +9090,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               style={{ width:"100%", background:`#ff6f0008`, border:`1.5px solid #ff6f0044`,
                 color:C.txt, padding:"10px 14px", borderRadius:10,
                 fontSize:14, outline:"none", fontFamily:"inherit",
-                resize:"none", height:90, marginTop:8 }}
+                resize:"none", height:120, marginTop:8 }}
             />
-            <div style={{ display:"flex", gap:6, marginTop:8 }}>
-              <button onClick={() => setCueTxt(p => p + " ")}
-                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:"pointer",
-                  background:C.card, border:`1px solid ${C.bdr}`,
-                  fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.txt }}>
-                ␣ 스페이스
-              </button>
-              <button onClick={() => setCueTxt(p => p.slice(0, -1))} disabled={!cueTxt.length}
-                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor: cueTxt.length ? "pointer" : "not-allowed",
-                  background:C.card, border:`1px solid ${C.bdr}`,
-                  fontFamily:"inherit", fontSize:13, fontWeight:700,
-                  color: cueTxt.length ? C.txt : C.dim, opacity: cueTxt.length ? 1 : 0.4 }}>
-                ⌫ 지우기
-              </button>
-              <button onClick={() => setCueTxt("")} disabled={!cueTxt.length}
-                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor: cueTxt.length ? "pointer" : "not-allowed",
-                  background: cueTxt.length ? `${C.red}18` : C.card,
-                  border:`1px solid ${cueTxt.length ? C.red + "55" : C.bdr}`,
-                  fontFamily:"inherit", fontSize:13, fontWeight:700,
-                  color: cueTxt.length ? C.red : C.dim, opacity: cueTxt.length ? 1 : 0.4 }}>
-                ✕ 전체 삭제
-              </button>
-            </div>
             <div style={{ display:"flex", gap:8, marginTop:8 }}>
               <Btn label="취소" variant="ghost" onClick={() => { setShowCueInput(false); setCueTxt(""); }} full />
               <Btn label="전송" variant="primary"
