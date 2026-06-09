@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.408";
+const APP_VERSION = "3.409";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2129,8 +2129,7 @@ function CueNotesSection({ svcSongs, songCues, user, deleteCue, editCue, acknowl
               {cues.map(cue => {
                 const isOwn    = !!(user?.uid && cue.userId && cue.userId === user.uid);
                 const isAdmin  = user?.role === "admin" || user?.role === "leader";
-                const acked    = (cue.acknowledgedBy || []).includes(user?.uid);
-                const ackCount = (cue.acknowledgedBy || []).length;
+                const acked    = cue.acknowledged === true;
                 const isEditing = editingId === cue.id;
                 return (
                   <div key={cue.id} style={{
@@ -2178,28 +2177,43 @@ function CueNotesSection({ svcSongs, songCues, user, deleteCue, editCue, acknowl
                         {cue.text}
                       </div>
                     )}
-                    {/* 하단: 수신확인 + 수정/삭제 */}
+                    {/* 하단: 수신확인(어드민만 토글) + 수정/삭제 */}
                     {!isEditing && (
                       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:5 }}>
-                        {/* 수신 확인 체크박스 */}
-                        <button
-                          onClick={() => acknowledgeCue?.(cue.id, acked)}
-                          style={{ display:"flex", alignItems:"center", gap:4,
-                            background:"none", border:"none", cursor:"pointer",
-                            padding:0, fontFamily:"inherit" }}>
-                          <div style={{
-                            width:16, height:16, borderRadius:4,
-                            border:`2px solid ${acked ? "#43a047" : "#bbb"}`,
-                            background: acked ? "#43a047" : "transparent",
-                            display:"flex", alignItems:"center", justifyContent:"center",
-                            flexShrink:0,
-                          }}>
-                            {acked && <span style={{ color:"#fff", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
+                        {/* 수신확인 — 어드민/리더만 토글, 멤버는 읽기 전용 표시 */}
+                        {isAdmin ? (
+                          <button
+                            onClick={() => acknowledgeCue?.(cue.id, acked)}
+                            style={{ display:"flex", alignItems:"center", gap:4,
+                              background:"none", border:"none", cursor:"pointer",
+                              padding:0, fontFamily:"inherit" }}>
+                            <div style={{
+                              width:16, height:16, borderRadius:4,
+                              border:`2px solid ${acked ? "#43a047" : "#bbb"}`,
+                              background: acked ? "#43a047" : "transparent",
+                              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+                            }}>
+                              {acked && <span style={{ color:"#fff", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
+                            </div>
+                            <span style={{ fontSize:10, color: acked ? "#43a047" : "#888", fontWeight:700 }}>
+                              {acked ? "확인됨" : "확인"}
+                            </span>
+                          </button>
+                        ) : (
+                          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                            <div style={{
+                              width:16, height:16, borderRadius:4,
+                              border:`2px solid ${acked ? "#43a047" : "#ddd"}`,
+                              background: acked ? "#43a047" : "transparent",
+                              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+                            }}>
+                              {acked && <span style={{ color:"#fff", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
+                            </div>
+                            <span style={{ fontSize:10, color: acked ? "#43a047" : "#bbb", fontWeight:700 }}>
+                              {acked ? "확인됨" : "미확인"}
+                            </span>
                           </div>
-                          <span style={{ fontSize:10, color: acked ? "#43a047" : "#888", fontWeight:700 }}>
-                            {acked ? "확인" : "수신확인"}{ackCount > 0 ? ` ${ackCount}` : ""}
-                          </span>
-                        </button>
+                        )}
                         {/* 수정/삭제 (본인 or 리더/어드민) */}
                         {(isOwn || isAdmin) && (
                           <div style={{ display:"flex", gap:4 }}>
@@ -12633,9 +12647,7 @@ export default function App() {
 
   const acknowledgeCue = async (cueId, alreadyAcked) => {
     if (!user?.uid) return;
-    await updateDoc(doc(db, "cueNotes", cueId), {
-      acknowledgedBy: alreadyAcked ? arrayRemove(user.uid) : arrayUnion(user.uid),
-    });
+    await updateDoc(doc(db, "cueNotes", cueId), { acknowledged: !alreadyAcked });
   };
 
   const markNotifRead = async (id) => {
