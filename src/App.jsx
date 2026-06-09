@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.381";
+const APP_VERSION = "3.382";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2094,6 +2094,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [worshipReady, setWorshipReady] = useState(false);
   const [worshipEnded, setWorshipEnded] = useState(false);
   const [autoPhase,    setAutoPhase]    = useState("idle"); // idle|vol_down|piano_on|service_start
+  const [testPhase,    setTestPhase]    = useState(0); // 0=off 1=countdown 2=worshipReady 3=piano_on
   const autoNavDone  = useRef(false);
   const phaseFiredRef = useRef({});
   const svcSongsRef  = useRef([]);
@@ -2243,60 +2244,84 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         {nextSvc ? (
           <>
             {/* 이번 예배 히어로 — 1행 전체 */}
-            <div style={{
-              background: (inHour && autoPhase === "piano_on")
-                ? `linear-gradient(135deg, ${C.red}18, ${C.red}08)`
-                : `linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
-              border: (inHour && autoPhase === "piano_on")
-                ? `1.5px solid ${C.red}55`
-                : `1.5px solid ${C.pur}33`,
-              borderRadius:12, padding:"10px 12px", marginBottom:10,
-            }}>
-              {/* Row 1: D-day + 날짜/타이틀 + 카운트다운 or 배지 */}
-              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                {dDay === 0
-                  ? <span style={{ background:C.red, color:"#fff", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>오늘</span>
-                  : dDay === 1
-                  ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>내일</span>
-                  : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>D-{dDay}</span>
-                }
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontWeight:800, fontSize:18, color:C.txt, lineHeight:1.2 }}>{fmtSvcDate(nextSvc.date)}</div>
-                  <div style={{ fontSize:12, color:C.dim, marginTop:2, display:"flex", alignItems:"center", gap:5 }}>
-                    <span>{nextSvc.title}</span>
-                    {nextSvc.time && <><span>·</span><span>{nextSvc.time}</span></>}
-                    <span>·</span>
-                    <span>{svcSongs.length}곡</span>
-                  </div>
-                </div>
-                {/* 1시간 이내: 카운트다운 / 그 외: 상태 배지 */}
-                {inHour && countdown
-                  ? <span style={{
-                      fontVariantNumeric:"tabular-nums", fontWeight:900, fontSize:17,
-                      color: autoPhase === "piano_on" ? C.red : C.pur,
-                      flexShrink:0, letterSpacing:1,
-                    }}>{countdown}</span>
-                  : <span style={{ flexShrink:0 }}><ServiceStatusBadge svc={nextSvc} /></span>
-                }
-              </div>
-              {/* Row 2: 안내 메시지 (T-40s 예배준비 / T-10s PIANO ON) */}
-              {inHour && countdown && (worshipReady || autoPhase === "piano_on") && (
+            {(() => {
+              // testPhase 오버라이드: 0=실제값 1=카운트다운 2=예배준비 3=PIANO ON
+              const tInHour       = testPhase > 0 ? true  : inHour;
+              const tCountdown    = testPhase === 1 ? "45:00" : testPhase === 2 ? "00:35" : testPhase === 3 ? "00:09" : countdown;
+              const tWorshipReady = testPhase === 2 ? true  : testPhase === 3 ? true  : worshipReady;
+              const tPhase        = testPhase === 3 ? "piano_on" : testPhase > 0 ? "bgm_playing" : autoPhase;
+              const isPianoOn     = tPhase === "piano_on";
+              const showMsg       = tInHour && tCountdown && (tWorshipReady || isPianoOn);
+              return (
                 <div style={{
-                  marginTop:8, paddingTop:8,
-                  borderTop:`1px solid ${autoPhase === "piano_on" ? C.red + "33" : C.pur + "22"}`,
-                  textAlign:"center",
+                  background: isPianoOn
+                    ? `linear-gradient(135deg, ${C.red}18, ${C.red}08)`
+                    : `linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
+                  border: isPianoOn
+                    ? `1.5px solid ${C.red}55`
+                    : `1.5px solid ${C.pur}33`,
+                  borderRadius:12, padding:"10px 12px", marginBottom:10,
                 }}>
-                  {autoPhase === "piano_on"
-                    ? <span style={{ color:C.red, fontWeight:900, fontSize:15, letterSpacing:"0.04em" }}>
-                        PIANO ON &nbsp;·&nbsp; 반주 시작해주세요
-                      </span>
-                    : <span style={{ color:C.pur, fontWeight:700, fontSize:12 }}>
-                        ⛪ 예배준비 &nbsp;·&nbsp; 예배 시작 시 악보로 자동 이동합니다
-                      </span>
-                  }
+                  {/* Row 1: D-day + 날짜/타이틀 + 카운트다운 or 배지 */}
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    {dDay === 0
+                      ? <span style={{ background:C.red, color:"#fff", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>오늘</span>
+                      : dDay === 1
+                      ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>내일</span>
+                      : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>D-{dDay}</span>
+                    }
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontWeight:800, fontSize:18, color:C.txt, lineHeight:1.2 }}>{fmtSvcDate(nextSvc.date)}</div>
+                      <div style={{ fontSize:12, color:C.dim, marginTop:2, display:"flex", alignItems:"center", gap:5 }}>
+                        <span>{nextSvc.title}</span>
+                        {nextSvc.time && <><span>·</span><span>{nextSvc.time}</span></>}
+                        <span>·</span>
+                        <span>{svcSongs.length}곡</span>
+                      </div>
+                    </div>
+                    {/* 1시간 이내: 카운트다운 / 그 외: 상태 배지 */}
+                    {tInHour && tCountdown
+                      ? <span style={{
+                          fontVariantNumeric:"tabular-nums", fontWeight:900, fontSize:17,
+                          color: isPianoOn ? C.red : C.pur,
+                          flexShrink:0, letterSpacing:1,
+                        }}>{tCountdown}</span>
+                      : <span style={{ flexShrink:0 }}><ServiceStatusBadge svc={nextSvc} /></span>
+                    }
+                  </div>
+                  {/* Row 2: 안내 메시지 */}
+                  {showMsg && (
+                    <div style={{
+                      marginTop:8, paddingTop:8,
+                      borderTop:`1px solid ${isPianoOn ? C.red + "33" : C.pur + "22"}`,
+                      textAlign:"center",
+                    }}>
+                      {isPianoOn
+                        ? <span style={{ color:C.red, fontWeight:900, fontSize:15, letterSpacing:"0.04em" }}>
+                            PIANO ON &nbsp;·&nbsp; 반주 시작해주세요
+                          </span>
+                        : <span style={{ color:C.pur, fontWeight:700, fontSize:12 }}>
+                            ⛪ 예배준비 &nbsp;·&nbsp; 예배 시작 시 악보로 자동 이동합니다
+                          </span>
+                      }
+                    </div>
+                  )}
+                  {/* 테스트 버튼 (리더만) */}
+                  {isLeader(user?.role) && (
+                    <div style={{ textAlign:"right", marginTop:6 }}>
+                      <button onClick={() => setTestPhase(p => (p + 1) % 4)}
+                        style={{
+                          fontSize:10, fontWeight:700, color:C.dim,
+                          background:"transparent", border:`1px solid ${C.bdr}`,
+                          borderRadius:5, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit",
+                        }}>
+                        {testPhase === 0 ? "TEST" : testPhase === 1 ? "TEST 1/3" : testPhase === 2 ? "TEST 2/3" : "TEST 3/3"}
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
 
             {/* 예배종료 */}
             {worshipEnded && (
