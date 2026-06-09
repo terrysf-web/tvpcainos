@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.387";
+const APP_VERSION = "3.388";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2144,12 +2144,19 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       if (phaseFiredRef.current[phase]) return;
       phaseFiredRef.current[phase] = true;
       setAutoPhase(phase);
-      // PP 스테이지 메시지 (piano_on 때만)
+      // PP REST API 호출
       if (phase === "piano_on") {
+        // 스테이지 메시지 전송
         fetch("http://192.168.1.21:5004/v1/stage/message", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify("PIANO ON"),
+        }).catch(() => {});
+      }
+      if (phase === "service_start") {
+        // 다음 슬라이드 자동 전환
+        fetch("http://192.168.1.21:5004/v1/trigger/next", {
+          method: "GET",
         }).catch(() => {});
       }
       if (!leader) return; // 멤버는 Firestore 쓰기 권한 없음
