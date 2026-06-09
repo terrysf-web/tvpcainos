@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.376";
+const APP_VERSION = "3.377";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2260,6 +2260,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               {nextSvc.time && <span style={{ fontWeight:600, fontSize:14, color:C.dim, flexShrink:0 }}>{nextSvc.time}</span>}
               <span style={{ fontSize:13, color:C.dim, flexShrink:0 }}>·</span>
               <span style={{ fontWeight:600, fontSize:14, color:C.dim, flexShrink:0 }}>{svcSongs.length}곡</span>
+              <span style={{ marginLeft:"auto", flexShrink:0 }}><ServiceStatusBadge svc={nextSvc} /></span>
             </div>
 
             {/* 예배종료 */}
@@ -2662,7 +2663,6 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
             {svc.notified && (
               <span style={{ fontSize:11, color:C.dim }}>✓ 알림완료</span>
             )}
-            {first && !past && <ServiceStatusBadge svc={svc} />}
           </div>
         </div>
         <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:8 }}>
