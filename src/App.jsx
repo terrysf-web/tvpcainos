@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.410";
+const APP_VERSION = "3.411";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -5486,7 +5486,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   );
 }
 
-function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue }) {
+function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue, deleteCue, editCue }) {
   const song = songs.find(s => s.id === selectedSongId);
   const isLibraryMode = backTo === "library"; // 라이브러리에서 열린 경우: 예배 컨텍스트 없음
 
@@ -5550,6 +5550,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [showCueInput,  setShowCueInput]  = useState(false);
   const [cueTxt,        setCueTxt]        = useState("");
   const [cueScr,        setCueScr]        = useState("");
+  const [cueEditId,     setCueEditId]     = useState(null);
+  const [cueEditTxt,    setCueEditTxt]    = useState("");
   const [noteTxt,       setNoteTxt]       = useState("");
   const [noteScr,       setNoteScr]       = useState("");
   const scrFlushRef = useRef(null);
@@ -9297,15 +9299,60 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             <div style={{ fontSize:11, color:C.dim, marginBottom:10 }}>FOH에게 요구하는 사항이나 알림입니다.</div>
             {/* 기존 큐 목록 */}
             {(songCues?.[selectedSongId] || []).length > 0 && (
-              <div style={{ display:"flex", flexDirection:"column", gap:4, marginBottom:10 }}>
-                {(songCues[selectedSongId]).map(cue => (
-                  <div key={cue.id} style={{ padding:"5px 10px", borderRadius:8,
-                    background:"#ff6f0015", border:"1px solid #ff6f0030" }}>
-                    <span style={{ fontSize:11, fontWeight:800, color:"#e65c00" }}>{cue.userPart || cue.userName}</span>
-                    <span style={{ fontSize:11, color:C.dim }}> · </span>
-                    <span style={{ fontSize:12, color:C.txt }}>{cue.text}</span>
-                  </div>
-                ))}
+              <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:10 }}>
+                {(songCues[selectedSongId]).map(cue => {
+                  const isOwn = !!(user?.uid && cue.userId && cue.userId === user.uid);
+                  const isEditing = cueEditId === cue.id;
+                  return (
+                    <div key={cue.id} style={{ padding:"8px 10px", borderRadius:8,
+                      background: isOwn ? "#ff6f0018" : "#ff6f0008",
+                      border:`1px solid ${isOwn ? "#ff6f0055" : "#ff6f0025"}` }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
+                        <span style={{ fontSize:11, fontWeight:800, color:"#e65c00" }}>{cue.userPart || cue.userName}</span>
+                        {isOwn && !isEditing && (
+                          <div style={{ display:"flex", gap:5 }}>
+                            <button onClick={() => { setCueEditId(cue.id); setCueEditTxt(cue.text); }}
+                              style={{ fontSize:11, fontWeight:700, color:"#5c4000",
+                                background:"#ffe082", border:"1px solid #ffca28",
+                                borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>
+                              ✏️ 수정
+                            </button>
+                            <button onClick={async () => { await deleteCue?.(cue.id); }}
+                              style={{ fontSize:11, fontWeight:700, color:"#b71c1c",
+                                background:"#ffebee", border:"1px solid #ef9a9a",
+                                borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>
+                              🗑️ 삭제
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {isEditing ? (
+                        <div>
+                          <textarea value={cueEditTxt} onChange={e => setCueEditTxt(e.target.value)}
+                            autoFocus
+                            style={{ width:"100%", fontSize:13, color:C.txt,
+                              background:C.card, border:`1px solid #ff6f0055`, borderRadius:6,
+                              padding:"6px 8px", resize:"none", height:72,
+                              fontFamily:"inherit", outline:"none", boxSizing:"border-box" }} />
+                          <div style={{ display:"flex", gap:6, marginTop:5 }}>
+                            <button onClick={async () => { await editCue?.(cue.id, cueEditTxt); setCueEditId(null); }}
+                              style={{ flex:1, fontSize:12, fontWeight:700, background:"#e65c00", color:"#fff",
+                                border:"none", borderRadius:7, padding:"6px 0", cursor:"pointer", fontFamily:"inherit" }}>
+                              저장
+                            </button>
+                            <button onClick={() => setCueEditId(null)}
+                              style={{ flex:1, fontSize:12, fontWeight:700, background:C.card, color:C.dim,
+                                border:`1px solid ${C.bdr}`, borderRadius:7, padding:"6px 0", cursor:"pointer", fontFamily:"inherit" }}>
+                              취소
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize:12, color:C.txt }}>{cue.text}</span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
             {/* 글자 표시 영역 */}
