@@ -2,7 +2,7 @@
   "name": "TVPC Worship",
   "short_name": "TVPC Worship",
   "description": "예배 악보 & 연습 앱",
-  "start_url": "./",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#1c1c2e",
   "theme_color": "#e8a93e",
