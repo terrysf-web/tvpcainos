@@ -19,11 +19,12 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.363";
+const APP_VERSION = "3.364";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
-  { id:"밴드",      emoji:"🎶", label:"밴드" },   // 악기 연주자 전용 (보컬 비공개)
+  { id:"밴드",      emoji:"🎶", label:"밴드" },
+  { id:"보컬그룹",  emoji:"🎤", label:"보컬 그룹" },
   { id:"리드보컬",  emoji:"🎤", label:"리드 보컬" },
   { id:"보컬Jeon",  emoji:"🎤", label:"보컬 Jeon" },
   { id:"보컬Chung", emoji:"🎤", label:"보컬 Chung" },
@@ -36,7 +37,11 @@ const PARTS = [
 ];
 
 // 보컬 파트 ID 집합 — "밴드" 녹음 접근 불가
-const VOCALIST_PART_IDS = new Set(["리드보컬", "보컬Jeon", "보컬Chung", "보컬Lee"]);
+const VOCALIST_PART_IDS = new Set(["보컬그룹","리드보컬","보컬Jeon","보컬Chung","보컬Lee"]);
+
+// 사용자 파트 배열 반환 (구버전 part 문자열 호환)
+const getUserParts = (u) => u?.parts?.length ? u.parts : (u?.part ? [u.part] : []);
+const isVocalistUser = (u) => getUserParts(u).some(p => VOCALIST_PART_IDS.has(p));
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -3028,11 +3033,11 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
   // 녹음 있는 곡 목록 — 재생 버튼 색상용 (보컬은 "밴드" 녹음 제외)
   const _songIdsKey = (svc?.songIds || []).join(",");
-  const _isVocalist = VOCALIST_PART_IDS.has(user?.part || "");
+  const _isVocalist = isVocalistUser(user);
   useEffect(() => {
     const ids = svc?.songIds?.filter(Boolean) || [];
     if (!ids.length) { setSongsWithRecs(new Set()); return; }
-    const isVocalist = VOCALIST_PART_IDS.has(user?.part || "");
+    const isVocalist = isVocalistUser(user);
     let cancelled = false;
     let firestoreSet = new Set();
     let supaSet = new Set();
@@ -4609,7 +4614,7 @@ function extractDriveId(url) {
 
 function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   const leader = isLeader(user?.role);
-  const myPart = user?.part || "";
+  const myParts = getUserParts(user);
   // 리더/어드민은 전체 파트 접근, 일반 팀원은 "전체" 믹스 + 자기 파트만
   const canSeeAll = leader;
   const [firestoreRecs, setFirestoreRecs] = useState([]);
@@ -4798,18 +4803,17 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   };
 
   // 보컬 여부 — "밴드" 파트 접근 불가
-  const isVocalist = VOCALIST_PART_IDS.has(myPart);
+  const isVocalist = myParts.some(p => VOCALIST_PART_IDS.has(p));
 
-  // 접근 가능한 파트: 리더는 전체, 악기 연주자는 "전체"+"밴드"+자기파트, 보컬은 "전체"+자기파트
+  // 접근 가능한 파트: 리더는 전체, 일반 팀원은 "전체" + 자기 파트들
   const accessibleParts = canSeeAll
     ? PARTS.map(p => p.id)
-    : ["전체", ...(!isVocalist ? ["밴드"] : []), myPart].filter(Boolean);
+    : ["전체", ...myParts].filter(Boolean);
 
   // 이 사용자가 볼 수 있는 녹음만 필터
   const accessibleRecs = recs.filter(r => {
     if (canSeeAll) return true;
-    if (r.part === "밴드") return !isVocalist;
-    return r.part === "전체" || r.part === myPart;
+    return r.part === "전체" || myParts.includes(r.part);
   });
 
   // 탭으로 필터
@@ -4829,7 +4833,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
             ? accessibleRecs.length
             : accessibleRecs.filter(r => r.part === p.id).length;
           const isActive = partFilter === p.id;
-          const isMine   = p.id !== "전체" && p.id === myPart;
+          const isMine   = p.id !== "전체" && myParts.includes(p.id);
           return (
             <button key={p.id} onClick={() => setPartFilter(p.id)} style={{
               flexShrink:0, padding:"4px 10px", borderRadius:20,
@@ -4846,15 +4850,15 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
       </div>
 
       {/* 비리더: 접근 범위 안내 */}
-      {!canSeeAll && myPart && (
+      {!canSeeAll && myParts.length > 0 && (
         <div style={{ fontSize:11, color:C.dim, marginBottom:8,
           background:`${C.acc}10`, borderRadius:7, padding:"5px 9px",
           display:"flex", alignItems:"center", gap:5 }}>
-          <span>{partInfo(myPart).emoji}</span>
+          <span>🎵</span>
           <span>
             전체 믹스
-            {!isVocalist && <> · <strong style={{ color:C.acc }}>밴드</strong></>}
-            {myPart && <> · <strong style={{ color:C.acc }}>{myPart}</strong></>} 파트 녹음을 들을 수 있습니다
+            {myParts.map(p => <> · <strong key={p} style={{ color:C.acc }}>{p}</strong></>)}
+            {" "}파트 녹음을 들을 수 있습니다
           </span>
         </div>
       )}
@@ -4866,7 +4870,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
           </div>
         ) : filteredRecs.map(rec => {
           const pi = partInfo(rec.part);
-          const isMine   = rec.part === myPart;
+          const isMine   = myParts.includes(rec.part);
           const isOpen   = expandedId === rec.id;
           const isEditing = editingId === rec.id;
           const embedSrc = rec.driveId
@@ -9062,11 +9066,11 @@ function TeamManagementModal({ currentUserId, onClose }) {
   const [loading,        setLoading]        = useState(true);
   const [saving,         setSaving]         = useState(null);
   const [editPart,       setEditPart]       = useState(null);
-  const [partVal,        setPartVal]        = useState("");
+  const [partVal,        setPartVal]        = useState([]);
   const [allowedEmails,  setAllowedEmails]  = useState([]); // [{email, role, part}]
   const [emailInput,     setEmailInput]     = useState("");
   const [newRole,        setNewRole]        = useState("member");
-  const [newPart,        setNewPart]        = useState("");
+  const [newPart,        setNewPart]        = useState([]);
   const [addingEmail,    setAddingEmail]    = useState(false);
   const [emailErr,       setEmailErr]       = useState("");
   const [accessRequests, setAccessRequests] = useState([]); // [{email, name, part, message, ...}]
@@ -9134,11 +9138,12 @@ function TeamManagementModal({ currentUserId, onClose }) {
       await setDoc(doc(db, "allowedEmails", email), {
         addedAt: serverTimestamp(),
         role: newRole,
-        part: newPart.trim(),
+        parts: newPart,
+        part: newPart[0] || "",
       });
       setEmailInput("");
       setNewRole("member");
-      setNewPart("");
+      setNewPart([]);
     } catch (e) {
       setEmailErr("추가 실패: " + (e.code === "permission-denied" ? "권한이 없습니다" : e.message));
     } finally {
@@ -9162,9 +9167,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
   };
 
   const savePart = async (uid) => {
-    const updates = { part: partVal };
-    const member = members.find(u => u.id === uid);
-    if (partVal.trim() === "방송" && member?.role === "member") updates.role = "broadcast";
+    const updates = { parts: partVal, part: partVal[0] || "" };
     await updateDoc(doc(db, "users", uid), updates);
     setMembers(p => p.map(u => u.id === uid ? { ...u, ...updates } : u));
     setEditPart(null);
@@ -9284,11 +9287,10 @@ function TeamManagementModal({ currentUserId, onClose }) {
               {editPart === m.id ? (
                 <div style={{ marginBottom:8 }}>
                   <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:6 }}>
-                    {["", ...PARTS.filter(p => p.id !== "전체").map(p => p.id)].map(pid => {
-                      const pt = PARTS.find(x => x.id === pid);
-                      const sel = partVal === pid;
+                    {PARTS.filter(p => p.id !== "전체").map(p => {
+                      const sel = partVal.includes(p.id);
                       return (
-                        <button key={pid || "none"} onClick={() => setPartVal(pid)} style={{
+                        <button key={p.id} onClick={() => setPartVal(prev => sel ? prev.filter(x => x !== p.id) : [...prev, p.id])} style={{
                           padding:"4px 9px", borderRadius:6,
                           border:`1px solid ${sel ? C.acc + "99" : C.bdr}`,
                           background: sel ? C.acc + "22" : C.surf,
@@ -9296,7 +9298,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
                           fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit",
                           transition:"all .1s",
                         }}>
-                          {pid === "" ? "없음" : `${pt.emoji} ${pt.label}`}
+                          {p.emoji} {p.label}
                         </button>
                       );
                     })}
@@ -9317,9 +9319,9 @@ function TeamManagementModal({ currentUserId, onClose }) {
               ) : (
                 <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
                   <span style={{ fontSize:12, color:C.dim, flex:1 }}>
-                    {m.part || <span style={{ color:`${C.dim}88` }}>파트 미설정</span>}
+                    {getUserParts(m).join(", ") || <span style={{ color:`${C.dim}88` }}>파트 미설정</span>}
                   </span>
-                  <button onClick={() => { setEditPart(m.id); setPartVal(m.part || ""); }} style={{
+                  <button onClick={() => { setEditPart(m.id); setPartVal(getUserParts(m)); }} style={{
                     background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
                     padding:"3px 8px", cursor:"pointer",
                     fontSize:11, color:C.dim, fontFamily:"inherit",
@@ -9392,13 +9394,12 @@ function TeamManagementModal({ currentUserId, onClose }) {
               }}>{label}</button>
             ))}
           </div>
-          {/* 파트 선택 */}
+          {/* 파트 선택 (멀티) */}
           <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
-            {["", ...PARTS.filter(p => p.id !== "전체").map(p => p.id)].map(pid => {
-              const pt = PARTS.find(x => x.id === pid);
-              const sel = newPart === pid;
+            {PARTS.filter(p => p.id !== "전체").map(p => {
+              const sel = newPart.includes(p.id);
               return (
-                <button key={pid || "none"} onClick={() => setNewPart(pid)} style={{
+                <button key={p.id} onClick={() => setNewPart(prev => sel ? prev.filter(x => x !== p.id) : [...prev, p.id])} style={{
                   padding:"4px 9px", borderRadius:6,
                   border:`1px solid ${sel ? C.acc + "99" : C.bdr}`,
                   background: sel ? C.acc + "22" : C.surf,
@@ -9406,7 +9407,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
                   fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit",
                   transition:"all .1s",
                 }}>
-                  {pid === "" ? "없음" : `${pt.emoji} ${pt.label}`}
+                  {p.emoji} {p.label}
                 </button>
               );
             })}
@@ -9580,10 +9581,53 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
               <Badge
                 label={user.role === "admin" ? "어드민" : user.role === "leader" ? "리더" : "멤버"}
                 color={user.role === "admin" ? C.red : user.role === "leader" ? C.acc : C.grn} />
-              {user.part && <span style={{ fontSize:12, color:C.dim }}>{user.part}</span>}
+              {getUserParts(user).map(p => {
+                const pt = PARTS.find(x => x.id === p);
+                return pt ? <span key={p} style={{ fontSize:11, color:C.acc, background:`${C.acc}18`,
+                  border:`1px solid ${C.acc}44`, borderRadius:5, padding:"1px 6px", fontWeight:600 }}>{pt.emoji} {pt.label}</span> : null;
+              })}
             </div>
           </div>
         </div>
+
+        {/* 내 파트 선택 */}
+        {(() => {
+          const [myPartSel, setMyPartSel] = useState(() => getUserParts(user));
+          const [partSaving, setPartSaving] = useState(false);
+          const changed = JSON.stringify(myPartSel.slice().sort()) !== JSON.stringify(getUserParts(user).slice().sort());
+          const saveMyParts = async () => {
+            setPartSaving(true);
+            try {
+              await setDoc(doc(db, "users", user.uid), { parts: myPartSel, part: myPartSel[0] || "" }, { merge: true });
+            } finally { setPartSaving(false); }
+          };
+          return (
+            <div style={{ marginTop:14, borderTop:`1px solid ${C.bdr}`, paddingTop:12 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:8, letterSpacing:".04em" }}>내 파트 선택</div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:10 }}>
+                {PARTS.filter(p => p.id !== "전체").map(p => {
+                  const sel = myPartSel.includes(p.id);
+                  return (
+                    <button key={p.id} onClick={() => setMyPartSel(prev => sel ? prev.filter(x => x !== p.id) : [...prev, p.id])} style={{
+                      padding:"5px 10px", borderRadius:7, fontSize:12, fontWeight:600,
+                      cursor:"pointer", fontFamily:"inherit",
+                      background: sel ? `${C.acc}22` : C.bg,
+                      color: sel ? C.acc : C.dim,
+                      border:`1px solid ${sel ? C.acc+"66" : C.bdr}`,
+                    }}>{p.emoji} {p.label}</button>
+                  );
+                })}
+              </div>
+              {changed && (
+                <button onClick={saveMyParts} disabled={partSaving} style={{
+                  background:C.acc, border:"none", borderRadius:8, padding:"7px 16px",
+                  fontSize:12, fontWeight:700, color:"#111", cursor:"pointer", fontFamily:"inherit",
+                  opacity: partSaving ? 0.6 : 1,
+                }}>{partSaving ? "저장 중..." : "저장"}</button>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* 리더 권한 설정 (리더가 없을 때만 표시) */}
@@ -11423,12 +11467,13 @@ export default function App() {
               allowed = allowedSnap;
             }
             const presetRole = anyAdmin.empty ? "admin" : (allowed?.data()?.role || "member");
-            const presetPart = allowed?.data()?.part || "";
+            const presetParts = allowed?.data()?.parts || (allowed?.data()?.part ? [allowed.data().part] : []);
             await setDoc(uRef, {
               name:  firebaseUser.displayName || firebaseUser.email,
               email: firebaseUser.email,
               role:  presetRole,
-              part:  presetPart,
+              parts: presetParts,
+              part:  presetParts[0] || "",
             });
           }
           // 실제 유저 데이터는 아래 onSnapshot 리스너가 담당
