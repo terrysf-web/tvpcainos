@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.361";
+const APP_VERSION = "3.362";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -5299,6 +5299,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const preClearTeamRef1   = useRef(null);
   const preClearTeamRef2   = useRef(null);
   const [teamDrawMode, setTeamDrawMode] = useState(false);
+  const [hasTeamStrokes, setHasTeamStrokes] = useState(false);
   const stampPressed1Ref   = useRef(false); // Apple Pencil hover guard
   const stampPressed2Ref   = useRef(false);
 
@@ -5511,6 +5512,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   const toTeamColor = strokes => strokes.map(s => ({ ...s, color: TEAM_COLOR }));
 
+  const drawTeamStrokes = (tdcRef, strokes) => {
+    const dc = tdcRef.current;
+    if (!dc) return;
+    dc.getContext("2d").clearRect(0, 0, dc.width, dc.height);
+    if (strokes.length > 0) {
+      if (dc.width > 0) {
+        drawStrokes(dc, strokes);
+      } else {
+        // 캔버스 크기 잡힐 때까지 대기 후 재시도
+        const tid = setInterval(() => {
+          if (dc.width > 0) { clearInterval(tid); dc.getContext("2d").clearRect(0, 0, dc.width, dc.height); drawStrokes(dc, strokes); }
+        }, 50);
+        setTimeout(() => clearInterval(tid), 3000);
+      }
+    }
+  };
+
   const loadTeamDrawing = (songId, page, tStrokesRef, tdcRef, drawingRef) => {
     tStrokesRef.current = [];
     const dc = tdcRef.current;
@@ -5522,11 +5540,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         if (drawingRef?.current) return; // mid-stroke — skip to avoid flicker
         const strokes = toTeamColor(snap.exists() ? (snap.data().strokes || []) : []);
         tStrokesRef.current = strokes;
-        const dc2 = tdcRef.current;
-        if (dc2 && dc2.width > 0) {
-          dc2.getContext("2d").clearRect(0, 0, dc2.width, dc2.height);
-          if (strokes.length > 0) drawStrokes(dc2, strokes);
-        }
+        setHasTeamStrokes(strokes.length > 0);
+        drawTeamStrokes(tdcRef, strokes);
       },
       () => {}
     );
@@ -7520,6 +7535,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           })()}
         </div>
       </div>
+
+      {/* 팀필기 인디케이터 — 이 페이지에 팀필기 있을 때 항상 표시 */}
+      {hasTeamStrokes && !drawMode && (
+        <div style={{ flexShrink:0, background:"#347C1712", borderBottom:`1px solid #347C1733`,
+          display:"flex", alignItems:"center", gap:6, padding:"5px 14px" }}>
+          <Icon n="users" size={11} color="#347C17" sw={2} />
+          <span style={{ fontSize:11, fontWeight:700, color:"#347C17" }}>이 페이지에 팀필기가 있습니다</span>
+        </div>
+      )}
 
       {/* 필기 서브툴바 */}
       {drawMode && (
