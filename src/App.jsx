@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.370";
+const APP_VERSION = "3.371";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -3055,6 +3055,13 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [svcLyricsModal,        setSvcLyricsModal]        = useState(null); // { song, text }
   const [svcLyricsSaving,       setSvcLyricsSaving]       = useState(false);
   const [showKakaoFormatPicker, setShowKakaoFormatPicker] = useState(false);
+  const [landscape, setLandscape] = useState(() => window.innerWidth > window.innerHeight);
+  useEffect(() => {
+    const onResize = () => setLandscape(window.innerWidth > window.innerHeight);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    return () => { window.removeEventListener("resize", onResize); window.removeEventListener("orientationchange", onResize); };
+  }, []);
 
   // 예배 설정 (practiceUrl 등) — Supabase Storage에서 로드
   const [svcPracticeUrl,    setSvcPracticeUrl]    = useState(svc?.practiceUrl || null);
@@ -3461,151 +3468,172 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           const isDragging = drag?.fromIdx === i;
           const dy = isDragging ? drag.curY - drag.startY : 0;
           const isDropTarget = !isDragging && dropIdx === i && drag !== null;
-          // visible order index (among found songs only)
           const visIdx = entries.slice(0, i + 1).filter(e => e.song).length;
+          const hasNotes = teamNotes.length > 0;
+          const hasRec = songsWithRecs.has(song.id);
+
+          const numEl = leader ? (
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0 }}>
+              <div onPointerDown={e => onHandleDown(e, i)} onPointerMove={onHandleMove}
+                onPointerUp={onHandleUp} onPointerCancel={onHandleUp}
+                style={{ cursor:"grab", touchAction:"none", userSelect:"none",
+                  fontSize:16, color:C.dim, lineHeight:1, padding:"4px 6px", borderRadius:6,
+                  background: isDragging ? `${C.acc}18` : "transparent" }}>≡</div>
+              <div style={{ width:26, height:22, borderRadius:7,
+                background:`linear-gradient(135deg, ${C.acc}33, ${C.pur}22)`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontWeight:800, fontSize:12, color:C.acc }}>{visIdx}</div>
+            </div>
+          ) : (
+            <div style={{ width:34, height:34, borderRadius:10, flexShrink:0,
+              background:`linear-gradient(135deg, ${C.acc}33, ${C.pur}22)`,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontWeight:800, fontSize:15, color:C.acc }}>{visIdx}</div>
+          );
+
+          const btnEl = (
+            <div style={{ display:"flex", flexDirection: landscape ? "row" : "column", gap:4, flexShrink:0 }}>
+              <button onClick={e => { e.stopPropagation(); setRecSong({ id: song.id, title: song.title }); }}
+                title={hasRec ? "녹음 재생 준비 완료" : "녹음 파일 없음"}
+                style={{ background: hasRec ? `${C.grn}12` : `${C.dim}10`,
+                  border:`1px solid ${hasRec ? C.grn+"55" : C.dim+"33"}`,
+                  borderRadius:7, cursor:"pointer", padding:"4px 7px",
+                  display:"flex", alignItems:"center", gap:4,
+                  fontSize:10, fontWeight:700,
+                  color: hasRec ? C.grn : C.dim, fontFamily:"inherit" }}>
+                <Icon n="play" size={11} color={hasRec ? C.grn : C.dim} />
+                재생
+              </button>
+              {leader && <>
+                <button onClick={() => duplicateSong(i)} style={{
+                  background:`${C.pur}15`, border:`1px solid ${C.pur}44`,
+                  borderRadius:7, cursor:"pointer", padding:"4px 8px",
+                  fontSize:11, fontWeight:700, color:C.pur, fontFamily:"inherit" }}>복사</button>
+                <button onClick={() => removeSong(i)} style={{
+                  background:"none", border:"none", cursor:"pointer",
+                  padding:4, display:"flex", justifyContent:"center" }}>
+                  <Icon n="xmark" size={16} color={C.dim} />
+                </button>
+              </>}
+            </div>
+          );
+
+          const infoEl = (compact) => (
+            <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
+              onClick={() => !drag && nav("pdfViewer", {
+                songId: song.id,
+                svcSongIdx: validEntries.findIndex(e => e.i === i),
+                backTo: "svcDetail",
+              })}>
+              {compact ? (
+                <div style={{ display:"flex", alignItems:"baseline", gap:6, flexWrap:"wrap" }}>
+                  <span style={{ fontWeight:700, fontSize:14, overflow:"hidden",
+                    textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"40vw" }}>{song.title}</span>
+                  {song.artist && <span style={{ fontSize:11, color:C.dim, whiteSpace:"nowrap" }}>{song.artist}</span>}
+                  {song.bpm ? <span style={{ fontSize:11, color:C.dim }}>♩{song.bpm}</span> : null}
+                  <KeyBadge k={song.key} />
+                  {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF·${song.pdfPage}p` : "PDF"} color={C.grn} />}
+                  {!song.pdfUrl && song.imageUrl && <Badge label="🖼️" color={C.acc} />}
+                  {user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1" && (
+                    <Badge label="전조" color={C.pur} />
+                  )}
+                  {leader && (
+                    <button onClick={e => { e.stopPropagation(); setSvcLyricsModal({ song, text: song.lyrics || "" }); }}
+                      style={{ background: song.lyrics ? `${C.grn}22` : `${C.pur}12`,
+                        border:`1px solid ${song.lyrics ? C.grn+"55" : C.pur+"33"}`,
+                        borderRadius:5, cursor:"pointer", padding:"1px 6px",
+                        fontSize:10, fontWeight:700,
+                        color: song.lyrics ? C.grn : C.dim, fontFamily:"inherit" }}>
+                      {song.lyrics ? "✓ 가사" : "📝 가사"}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
+                    textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
+                  <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>
+                    {song.artist}{song.bpm ? ` · ♩${song.bpm}` : ""}
+                  </div>
+                  <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap", alignItems:"center" }}>
+                    <KeyBadge k={song.key} />
+                    {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF · 페이지${song.pdfPage}` : "PDF"} color={C.grn} />}
+                    {!song.pdfUrl && song.imageUrl && <Badge label="🖼️ 이미지" color={C.acc} />}
+                    {user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1" && (
+                      <Badge label="전조" color={C.pur} />
+                    )}
+                    {leader && (
+                      <button onClick={e => { e.stopPropagation(); setSvcLyricsModal({ song, text: song.lyrics || "" }); }}
+                        style={{ background: song.lyrics ? `${C.grn}22` : `${C.pur}12`,
+                          border:`1px solid ${song.lyrics ? C.grn+"55" : C.pur+"33"}`,
+                          borderRadius:5, cursor:"pointer", padding:"1px 7px",
+                          fontSize:10, fontWeight:700,
+                          color: song.lyrics ? C.grn : C.dim, fontFamily:"inherit",
+                          display:"flex", alignItems:"center", gap:3 }}>
+                        {song.lyrics ? "✓ 가사입력 완료" : "📝 가사"}
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+
+          const notesEl = (
+            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+              {teamNotes.map((m, mi) => {
+                const _a1 = m.authorName || "";
+                const authorName = (_a1.includes("@") ? (userMap||{})[m.userId] : _a1) || (userMap||{})[m.userId] || "팀원";
+                return (
+                  <div key={mi} style={{ padding:"7px 10px", borderRadius:8,
+                    background:"#e5393510", border:"1px solid #e5393530" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:3 }}>
+                      <Icon n="users" size={10} color="#e53935" sw={2.5} />
+                      <span style={{ fontSize:11, fontWeight:700, color:"#e53935" }}>{authorName}</span>
+                    </div>
+                    <div style={{ fontSize:12, color:C.txt, lineHeight:1.5 }}>{m.text}</div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+
           return (
             <div key={`${id}_${i}`} ref={el => cardRefs.current[i] = el}
               style={{ position:"relative" }}>
-              {/* Drop indicator line */}
               {isDropTarget && (
-                <div style={{
-                  height:3, borderRadius:2, background:C.acc,
-                  margin:"0 0 4px", transition:"none",
-                }} />
+                <div style={{ height:3, borderRadius:2, background:C.acc, margin:"0 0 4px", transition:"none" }} />
               )}
               <div className="wFadeIn" style={{
-                background:C.surf, borderRadius:14, padding:"14px 16px",
+                background:C.surf, borderRadius:14,
+                padding: landscape ? "10px 12px" : "14px 16px",
                 marginBottom:8, border:`1px solid ${isDragging ? C.acc : C.bdr}`,
                 boxShadow: isDragging ? "0 8px 24px rgba(0,0,0,.18)" : "0 1px 4px rgba(0,0,0,.05)",
                 transform: isDragging ? `translateY(${dy}px)` : "none",
                 transition: isDragging ? "none" : "transform 0.15s",
-                opacity: isDragging ? 0.88 : 1,
-                zIndex: isDragging ? 20 : 1,
-                position:"relative",
-                touchAction:"none",
+                opacity: isDragging ? 0.88 : 1, zIndex: isDragging ? 20 : 1,
+                position:"relative", touchAction:"none",
               }}>
-                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                  {/* 드래그 핸들 + 번호 (리더만) */}
-                  {leader ? (
-                    <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
-                      gap:2, flexShrink:0 }}>
-                      <div
-                        onPointerDown={e => onHandleDown(e, i)}
-                        onPointerMove={onHandleMove}
-                        onPointerUp={onHandleUp}
-                        onPointerCancel={onHandleUp}
-                        style={{
-                          cursor:"grab", touchAction:"none", userSelect:"none",
-                          fontSize:16, color:C.dim, lineHeight:1,
-                          padding:"4px 6px", borderRadius:6,
-                          background: isDragging ? `${C.acc}18` : "transparent",
-                        }}>≡</div>
-                      <div style={{
-                        width:26, height:22, borderRadius:7,
-                        background:`linear-gradient(135deg, ${C.acc}33, ${C.pur}22)`,
-                        display:"flex", alignItems:"center", justifyContent:"center",
-                        fontWeight:800, fontSize:12, color:C.acc,
-                      }}>{visIdx}</div>
+                {landscape && hasNotes ? (
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, alignItems:"start" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      {numEl}
+                      {infoEl(true)}
+                      {btnEl}
                     </div>
-                  ) : (
-                    <div style={{
-                      width:34, height:34, borderRadius:10, flexShrink:0,
-                      background:`linear-gradient(135deg, ${C.acc}33, ${C.pur}22)`,
-                      display:"flex", alignItems:"center", justifyContent:"center",
-                      fontWeight:800, fontSize:15, color:C.acc,
-                    }}>{visIdx}</div>
-                  )}
-
-                  {/* 곡 정보 */}
-                  <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
-                    onClick={() => !drag && nav("pdfViewer", {
-                      songId: song.id,
-                      svcSongIdx: validEntries.findIndex(e => e.i === i),
-                      backTo: "svcDetail",
-                    })}>
-                    <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
-                      textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
-                    <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>
-                      {song.artist}{song.bpm ? ` · ♩${song.bpm}` : ""}
+                    {notesEl}
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      {numEl}
+                      {infoEl(landscape)}
+                      {btnEl}
                     </div>
-                    <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap", alignItems:"center" }}>
-                      <KeyBadge k={song.key} />
-                      {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF · 페이지${song.pdfPage}` : "PDF"} color={C.grn} />}
-                      {!song.pdfUrl && song.imageUrl && <Badge label="🖼️ 이미지" color={C.acc} />}
-                      {user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1" && (
-                        <Badge label="전조" color={C.pur} />
-                      )}
-                      {leader && (
-                        <button onClick={e => { e.stopPropagation(); setSvcLyricsModal({ song, text: song.lyrics || "" }); }}
-                          style={{ background: song.lyrics ? `${C.grn}22` : `${C.pur}12`,
-                            border:`1px solid ${song.lyrics ? C.grn+"55" : C.pur+"33"}`,
-                            borderRadius:5, cursor:"pointer", padding:"1px 7px",
-                            fontSize:10, fontWeight:700,
-                            color: song.lyrics ? C.grn : C.dim, fontFamily:"inherit",
-                            display:"flex", alignItems:"center", gap:3 }}>
-                          {song.lyrics ? "✓ 가사입력 완료" : "📝 가사"}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 복사·삭제 (리더만) + 녹음 기록 버튼 */}
-                  <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
-                    {/* 예배 녹음 재생 — 녹음 있으면 초록, 없으면 회색 */}
-                    {(() => {
-                      const hasRec = songsWithRecs.has(song.id);
-                      return (
-                        <button onClick={e => { e.stopPropagation(); setRecSong({ id: song.id, title: song.title }); }}
-                          title={hasRec ? "녹음 재생 준비 완료" : "녹음 파일 없음"}
-                          style={{
-                            background: hasRec ? `${C.grn}12` : `${C.dim}10`,
-                            border: `1px solid ${hasRec ? C.grn + "55" : C.dim + "33"}`,
-                            borderRadius:7, cursor:"pointer", padding:"4px 7px",
-                            display:"flex", alignItems:"center", gap:4,
-                            fontSize:10, fontWeight:700,
-                            color: hasRec ? C.grn : C.dim,
-                            fontFamily:"inherit",
-                          }}>
-                          <Icon n="play" size={11} color={hasRec ? C.grn : C.dim} />
-                          재생
-                        </button>
-                      );
-                    })()}
-                    {leader && <>
-                      <button onClick={() => duplicateSong(i)} style={{
-                        background:`${C.pur}15`, border:`1px solid ${C.pur}44`,
-                        borderRadius:7, cursor:"pointer", padding:"4px 8px",
-                        fontSize:11, fontWeight:700, color:C.pur, fontFamily:"inherit",
-                      }}>복사</button>
-                      <button onClick={() => removeSong(i)} style={{
-                        background:"none", border:"none", cursor:"pointer",
-                        padding:4, display:"flex", justifyContent:"center",
-                      }}>
-                        <Icon n="xmark" size={16} color={C.dim} />
-                      </button>
-                    </>}
-                  </div>
-                </div>
-
-                {/* 팀 메모 전체 */}
-                {teamNotes.length > 0 && (
-                  <div style={{ marginTop:10, display:"flex", flexDirection:"column", gap:6 }}>
-                    {teamNotes.map((m, mi) => {
-                      const _a1 = m.authorName || ""; const authorName = (_a1.includes("@") ? (userMap||{})[m.userId] : _a1) || (userMap||{})[m.userId] || "팀원";
-                      return (
-                        <div key={mi} style={{
-                          padding:"7px 10px", borderRadius:8,
-                          background:"#e5393510", border:"1px solid #e5393530",
-                        }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:3 }}>
-                            <Icon n="users" size={10} color="#e53935" sw={2.5} />
-                            <span style={{ fontSize:11, fontWeight:700, color:"#e53935" }}>{authorName}</span>
-                          </div>
-                          <div style={{ fontSize:12, color:C.txt, lineHeight:1.5 }}>{m.text}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                    {!landscape && hasNotes && (
+                      <div style={{ marginTop:10 }}>{notesEl}</div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
