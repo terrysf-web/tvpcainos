@@ -15,11 +15,11 @@ import {
 } from "firebase/auth";
 import {
   collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc,
-  query, orderBy, where, getDoc, getDocs, setDoc, serverTimestamp, arrayUnion, limit, increment, documentId, writeBatch, deleteField,
+  query, orderBy, where, getDoc, getDocs, setDoc, serverTimestamp, arrayUnion, arrayRemove, limit, increment, documentId, writeBatch, deleteField,
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.405";
+const APP_VERSION = "3.406";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2088,7 +2088,172 @@ function PianoOnOverlay({ onDismiss }) {
 /* ══════════════════════════════════════════════════════════════════
    HOME SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues }) {
+/* ── 큐 노트 스티키 섹션 ── */
+function CueNotesSection({ svcSongs, songCues, user, deleteCue, editCue, acknowledgeCue }) {
+  const [editingId,  setEditingId]  = useState(null); // cueId being edited
+  const [editText,   setEditText]   = useState("");
+  const [deleteConf, setDeleteConf] = useState(null); // cueId to confirm delete
+
+  return (
+    <div style={{ marginTop:20, marginBottom:4 }}>
+      <div style={{ fontSize:11, fontWeight:800, color:"#e65c00",
+        letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:10 }}>
+        🎯 큐 노트
+      </div>
+      {/* 가로 스크롤 스티키 노트 행 */}
+      <div style={{ display:"flex", gap:10, overflowX:"auto",
+        paddingBottom:6, WebkitOverflowScrolling:"touch" }}>
+        {svcSongs.map((song, idx) => {
+          const cues = songCues?.[song.id] || [];
+          if (cues.length === 0) return null;
+          return (
+            <div key={song.id} style={{
+              minWidth:200, maxWidth:240, flexShrink:0,
+              background:"#fff8e1", border:"1.5px solid #ffe082",
+              borderRadius:12, padding:"10px 12px",
+              boxShadow:"0 2px 8px rgba(0,0,0,0.08)",
+              display:"flex", flexDirection:"column", gap:6,
+            }}>
+              {/* 곡 번호 + 제목 */}
+              <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                <span style={{ background:"#ff8f00", color:"#fff", fontWeight:800,
+                  fontSize:10, borderRadius:6, padding:"1px 7px", flexShrink:0 }}>
+                  {idx + 1}
+                </span>
+                <span style={{ fontSize:12, fontWeight:700, color:"#4a3500",
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {song.title}
+                </span>
+              </div>
+              {/* 큐 목록 */}
+              {cues.map(cue => {
+                const isOwn    = cue.userId === user?.uid;
+                const isAdmin  = user?.role === "admin";
+                const acked    = (cue.acknowledgedBy || []).includes(user?.uid);
+                const ackCount = (cue.acknowledgedBy || []).length;
+                const isEditing = editingId === cue.id;
+                return (
+                  <div key={cue.id} style={{
+                    background: acked ? "#e8f5e9" : "#fffde7",
+                    border:`1.5px solid ${acked ? "#a5d6a7" : "#ffe082"}`,
+                    borderRadius:8, padding:"7px 9px",
+                  }}>
+                    {/* 보낸 사람 */}
+                    <div style={{ fontSize:10, fontWeight:800, color:"#e65c00", marginBottom:3 }}>
+                      {cue.userName}
+                    </div>
+                    {/* 내용 or 편집 */}
+                    {isEditing ? (
+                      <div>
+                        <textarea
+                          value={editText}
+                          onChange={e => setEditText(e.target.value)}
+                          autoFocus
+                          style={{ width:"100%", fontSize:12, color:"#333",
+                            border:"1px solid #ffe082", borderRadius:6,
+                            padding:"4px 6px", resize:"none", height:60,
+                            fontFamily:"inherit", outline:"none",
+                            background:"#fffde7", boxSizing:"border-box" }}
+                        />
+                        <div style={{ display:"flex", gap:4, marginTop:4 }}>
+                          <button
+                            onClick={async () => { await editCue?.(cue.id, editText); setEditingId(null); }}
+                            style={{ flex:1, fontSize:11, fontWeight:700,
+                              background:"#e65c00", color:"#fff", border:"none",
+                              borderRadius:6, padding:"4px 0", cursor:"pointer", fontFamily:"inherit" }}>
+                            저장
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            style={{ flex:1, fontSize:11, fontWeight:700,
+                              background:"#eee", color:"#555", border:"none",
+                              borderRadius:6, padding:"4px 0", cursor:"pointer", fontFamily:"inherit" }}>
+                            취소
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize:12, color:"#4a3500", lineHeight:1.5,
+                        whiteSpace:"pre-wrap", wordBreak:"break-all" }}>
+                        {cue.text}
+                      </div>
+                    )}
+                    {/* 하단: 수신확인 + 수정/삭제 */}
+                    {!isEditing && (
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:5 }}>
+                        {/* 수신 확인 체크박스 */}
+                        <button
+                          onClick={() => acknowledgeCue?.(cue.id, acked)}
+                          style={{ display:"flex", alignItems:"center", gap:4,
+                            background:"none", border:"none", cursor:"pointer",
+                            padding:0, fontFamily:"inherit" }}>
+                          <div style={{
+                            width:16, height:16, borderRadius:4,
+                            border:`2px solid ${acked ? "#43a047" : "#bbb"}`,
+                            background: acked ? "#43a047" : "transparent",
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                            flexShrink:0,
+                          }}>
+                            {acked && <span style={{ color:"#fff", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
+                          </div>
+                          <span style={{ fontSize:10, color: acked ? "#43a047" : "#888", fontWeight:700 }}>
+                            {acked ? "확인" : "수신확인"}{ackCount > 0 ? ` ${ackCount}` : ""}
+                          </span>
+                        </button>
+                        {/* 수정/삭제 (본인 or admin) */}
+                        {(isOwn || isAdmin) && (
+                          <div style={{ display:"flex", gap:4 }}>
+                            {isOwn && (
+                              <button
+                                onClick={() => { setEditingId(cue.id); setEditText(cue.text); }}
+                                style={{ fontSize:10, color:"#888", background:"none",
+                                  border:"none", cursor:"pointer", padding:"0 2px", fontFamily:"inherit" }}>
+                                수정
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setDeleteConf(cue.id)}
+                              style={{ fontSize:10, color:"#e57373", background:"none",
+                                border:"none", cursor:"pointer", padding:"0 2px", fontFamily:"inherit" }}>
+                              삭제
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+      {/* 삭제 확인 모달 */}
+      {deleteConf && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.6)",
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:300, padding:20 }}
+          onClick={() => setDeleteConf(null)}>
+          <div style={{ background:C.surf, borderRadius:16, padding:24, maxWidth:300, width:"100%",
+            border:`1px solid ${C.bdr}`, textAlign:"center" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:28, marginBottom:8 }}>🗑️</div>
+            <div style={{ fontWeight:800, fontSize:15, marginBottom:6 }}>큐 노트 삭제</div>
+            <div style={{ fontSize:13, color:C.dim, marginBottom:20 }}>이 큐 노트를 삭제할까요?</div>
+            <div style={{ display:"flex", gap:8 }}>
+              <Btn label="취소" variant="ghost" onClick={() => setDeleteConf(null)} full />
+              <Btn label="삭제" variant="danger" onClick={async () => {
+                await deleteCue?.(deleteConf);
+                setDeleteConf(null);
+              }} full />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, deleteCue, editCue, acknowledgeCue }) {
   const [countdown,    setCountdown]    = useState("");
   const [inHour,       setInHour]       = useState(false);
   const [worshipReady, setWorshipReady] = useState(false);
@@ -2440,19 +2605,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       })}
                     </div>
                   )}
-                  {/* 큐 노트 */}
-                  {(songCues?.[song.id] || []).length > 0 && (
-                    <div style={{ display:"flex", flexDirection:"column", gap:3, marginTop: teamNotes.length > 0 ? 4 : 0 }}>
-                      {(songCues[song.id]).map((cue) => (
-                        <div key={cue.id} style={{ padding:"4px 8px", borderRadius:7,
-                          background:"#ff6f0015", border:"1px solid #ff6f0035" }}>
-                          <span style={{ fontSize:10, fontWeight:800, color:"#e65c00" }}>{cue.userName}</span>
-                          <span style={{ fontSize:10, color:C.dim }}> · </span>
-                          <span style={{ fontSize:11, color:C.txt }}>{cue.text}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -2464,6 +2616,22 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 <div style={{ fontSize:14 }}>아직 곡이 없습니다</div>
               </div>
             )}
+
+            {/* ── 큐 노트 섹션 ── */}
+            {(() => {
+              const allCues = svcSongs.flatMap(s => songCues?.[s.id] || []);
+              if (allCues.length === 0) return null;
+              return (
+                <CueNotesSection
+                  svcSongs={svcSongs}
+                  songCues={songCues}
+                  user={user}
+                  deleteCue={deleteCue}
+                  editCue={editCue}
+                  acknowledgeCue={acknowledgeCue}
+                />
+              );
+            })()}
 
             {/* 다음 예배 일정 전체 목록 (admin은 숨김 - 큐 노트 집중) */}
             {otherSvcs.length > 0 && user?.role !== "admin" && (
@@ -12445,6 +12613,23 @@ export default function App() {
       userName: user.displayName || user.name || user.email || "팀원",
       text: text.trim(),
       createdAt: serverTimestamp(),
+      acknowledgedBy: [],
+    });
+  };
+
+  const deleteCue = async (cueId) => {
+    await deleteDoc(doc(db, "cueNotes", cueId));
+  };
+
+  const editCue = async (cueId, newText) => {
+    if (!newText?.trim()) return;
+    await updateDoc(doc(db, "cueNotes", cueId), { text: newText.trim() });
+  };
+
+  const acknowledgeCue = async (cueId, alreadyAcked) => {
+    if (!user?.uid) return;
+    await updateDoc(doc(db, "cueNotes", cueId), {
+      acknowledgedBy: alreadyAcked ? arrayRemove(user.uid) : arrayUnion(user.uid),
     });
   };
 
@@ -12541,7 +12726,7 @@ export default function App() {
     onDeleteAnnotation: deleteAnnotation,
     markNotifRead, markAllNotifRead,
     nav, bgmChannel,
-    songCues, sendCue,
+    songCues, sendCue, deleteCue, editCue, acknowledgeCue,
   };
 
   return (
