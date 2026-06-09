@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.362";
+const APP_VERSION = "3.363";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -6310,6 +6310,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   }, [pageNum, zoomMul, dual, numPages, cSize, dualKey, song]);
 
   useEffect(() => { renderPage(); }, [renderPage, numPages]);
+
+  // 팀 스트로크 도착 시 캔버스에 즉시 재드로우
+  useEffect(() => {
+    if (!hasTeamStrokes) return;
+    if (!dual) {
+      drawTeamStrokes(teamDrawCanvas1Ref, teamStrokes1Ref.current);
+    } else {
+      drawTeamStrokes(teamDrawCanvas1Ref, teamStrokes1Ref.current);
+      drawTeamStrokes(teamDrawCanvas2Ref, teamStrokes2Ref.current);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasTeamStrokes, dual]);
 
   // 듀얼 FIT 모드: dualIdx 변경(새 곡 쌍으로 이동)시 다음 렌더 후 재적용 예약
   useEffect(() => {
