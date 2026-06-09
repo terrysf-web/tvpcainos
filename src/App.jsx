@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.375";
+const APP_VERSION = "3.376";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2566,38 +2566,57 @@ function X32StatusBar() {
 /* ══════════════════════════════════════════════════════════════════
    SERVICES SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createService, nav, teamAnnotations }) {
-  const [showCreate,   setShowCreate]   = useState(false);
-  const [pastExpanded, setPastExpanded] = useState(false);
-  const unread = notifs.filter(n => !n.read).length;
+function ServiceStatusBadge({ svc }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
 
-  const getSvcStatus = (svc) => {
-    if (!svc.time) return { label: "예배 준비중", type: "preparing" };
-    const [hh, mm] = svc.time.split(":").map(Number);
-    const start = new Date(svc.date + "T00:00:00");
-    start.setHours(hh, mm, 0, 0);
-    const secsUntil = (start - now) / 1000;
-    const secsAfter = (now - start) / 1000;
-    if (secsUntil > 3600) return { label: "예배 준비중", type: "preparing" };
-    if (secsUntil > 0) {
-      const t = Math.ceil(secsUntil);
-      const h = Math.floor(t / 3600);
-      const m = Math.floor((t % 3600) / 60);
-      const s = t % 60;
-      const str = h > 0
-        ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`
-        : `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-      return { label: str, type: "countdown" };
-    }
-    if (secsAfter < 5400)  return { label: "예배 진행중", type: "active" };
-    if (secsAfter < 10800) return { label: "예배 종료",   type: "ended" };
-    return { label: "다음 예배 준비중", type: "next" };
-  };
+  if (!svc.time) return <span style={{ fontSize:11, color:C.dim, borderRadius:7, padding:"3px 9px", fontWeight:700, background:`${C.dim}18`, border:`1px solid ${C.bdr}` }}>예배 준비중</span>;
+
+  const [hh, mm] = svc.time.split(":").map(Number);
+  const start = new Date(svc.date + "T00:00:00");
+  start.setHours(hh, mm, 0, 0);
+  const secsUntil = (start - now) / 1000;
+  const secsAfter = (now - start) / 1000;
+
+  let label, type;
+  if (secsUntil > 3600)      { label = "예배 준비중";    type = "preparing"; }
+  else if (secsUntil > 0) {
+    const t = Math.ceil(secsUntil);
+    const h = Math.floor(t / 3600);
+    const m = Math.floor((t % 3600) / 60);
+    const s = t % 60;
+    label = h > 0
+      ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`
+      : `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    type = "countdown";
+  }
+  else if (secsAfter < 5400)  { label = "예배 진행중";    type = "active"; }
+  else if (secsAfter < 10800) { label = "예배 종료";      type = "ended"; }
+  else                        { label = "다음 예배 준비중"; type = "next"; }
+
+  const s = {
+    preparing: { bg:`${C.dim}18`, color:C.dim, border:`1px solid ${C.bdr}` },
+    countdown: { bg:`${C.acc}15`, color:C.acc, border:`1px solid ${C.acc}55`, fontVariantNumeric:"tabular-nums", fontWeight:800, fontSize:15, letterSpacing:"-0.02em" },
+    active:    { bg:`${C.grn}18`, color:C.grn, border:`1px solid ${C.grn}55` },
+    ended:     { bg:`${C.dim}12`, color:C.dim, border:`1px solid ${C.bdr}` },
+    next:      { bg:`${C.pur}15`, color:C.pur, border:`1px solid ${C.pur}44` },
+  }[type];
+
+  return (
+    <span style={{ fontSize:11, borderRadius:7, padding:"3px 9px", fontWeight:700, background:s.bg, color:s.color, border:s.border, ...s }}>
+      {type === "active" && <span style={{ marginRight:4 }}>●</span>}
+      {label}
+    </span>
+  );
+}
+
+function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createService, nav, teamAnnotations }) {
+  const [showCreate,   setShowCreate]   = useState(false);
+  const [pastExpanded, setPastExpanded] = useState(false);
+  const unread = notifs.filter(n => !n.read).length;
 
   const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("ko-KR",
     { month:"long", day:"numeric", weekday:"short" });
@@ -2643,27 +2662,7 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
             {svc.notified && (
               <span style={{ fontSize:11, color:C.dim }}>✓ 알림완료</span>
             )}
-            {first && !past && (() => {
-              const st = getSvcStatus(svc);
-              const styles = {
-                preparing: { bg:`${C.dim}18`,  color:C.dim,  border:`1px solid ${C.bdr}` },
-                countdown: { bg:`${C.acc}15`,  color:C.acc,  border:`1px solid ${C.acc}55`, fontVariantNumeric:"tabular-nums", fontWeight:800 },
-                active:    { bg:`${C.grn}18`,  color:C.grn,  border:`1px solid ${C.grn}55` },
-                ended:     { bg:`${C.dim}12`,  color:C.dim,  border:`1px solid ${C.bdr}` },
-                next:      { bg:`${C.pur}15`,  color:C.pur,  border:`1px solid ${C.pur}44` },
-              }[st.type];
-              return (
-                <span style={{
-                  fontSize: st.type === "countdown" ? 15 : 11,
-                  borderRadius:7, padding:"3px 9px",
-                  fontWeight:700, letterSpacing: st.type === "countdown" ? "-0.02em" : 0,
-                  ...styles,
-                }}>
-                  {st.type === "active" && <span style={{ marginRight:4 }}>●</span>}
-                  {st.label}
-                </span>
-              );
-            })()}
+            {first && !past && <ServiceStatusBadge svc={svc} />}
           </div>
         </div>
         <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:8 }}>
