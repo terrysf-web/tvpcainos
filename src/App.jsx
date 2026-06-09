@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.379";
+const APP_VERSION = "3.380";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2129,14 +2129,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
     setAutoPhase("idle");
   }, [nextSvc?.id]);
 
-  // 40초 도달 시 첫 번째 악보로 자동이동 (1회)
-  useEffect(() => {
-    if (!worshipReady || autoNavDone.current) return;
-    const firstSong = svcSongsRef.current[0];
-    if (!firstSong || !nextSvc) return;
-    autoNavDone.current = true;
-    navRef.current("pdfViewer", { songId: firstSong.id, svcId: nextSvc.id, svcSongIdx: 0, backTo: "home" });
-  }, [worshipReady, nextSvc]);
+  // T-0 도달 시 첫 번째 악보로 자동이동 — tick 내부에서 직접 호출
 
   // 카운트다운: 1시간 이내에만 표시 + 자동화 phase 엔진
   useEffect(() => {
@@ -2169,6 +2162,13 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         setCountdown(""); setInHour(false); setWorshipReady(false);
         setWorshipEnded(true);
         firePhase("service_start", { type:"mute", channel:ch });
+        if (!autoNavDone.current) {
+          const firstSong = svcSongsRef.current[0];
+          if (firstSong) {
+            autoNavDone.current = true;
+            navRef.current("pdfViewer", { songId: firstSong.id, svcId: nextSvc.id, svcSongIdx: 0, backTo: "home" });
+          }
+        }
         return;
       }
 
@@ -2292,36 +2292,46 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             {inHour && countdown && (() => {
               const isPianoOn = autoPhase === "piano_on";
               const isVolDown = autoPhase === "vol_down";
-              const phaseColor = isPianoOn ? C.acc : isVolDown ? "#ff9f0a" : C.pur;
-              const phaseLabel = isPianoOn ? "🎹 Piano ON" : isVolDown ? "🔉 BGM 볼륨 다운" : "예배 시작까지";
+              const phaseColor = isVolDown ? "#ff9f0a" : worshipReady ? C.acc : C.pur;
+              const phaseLabel = isVolDown ? "🔉 BGM 볼륨 다운" : worshipReady ? "⛪ 예배준비" : "예배 시작까지";
               return (
                 <div style={{
                   borderRadius:16, padding:"16px 20px", marginBottom:10,
                   textAlign:"center",
-                  background: worshipReady
-                    ? `linear-gradient(135deg, #ff3b3018, ${C.acc}18)`
+                  background: isPianoOn
+                    ? `linear-gradient(135deg, ${C.red}22, ${C.red}08)`
                     : `linear-gradient(135deg, ${phaseColor}18, ${phaseColor}08)`,
-                  border: `2px solid ${worshipReady ? C.acc : phaseColor}55`,
+                  border: `2px solid ${isPianoOn ? C.red : phaseColor}55`,
                 }}>
-                  <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.08em",
-                    color: worshipReady ? C.acc : phaseColor,
-                    marginBottom:6, textTransform:"uppercase" }}>
-                    {worshipReady ? "⛪ 예배준비" : phaseLabel}
-                  </div>
-                  <div style={{
-                    fontSize:56, fontWeight:900, lineHeight:1,
-                    color: worshipReady ? C.acc : phaseColor,
-                    fontVariantNumeric:"tabular-nums", letterSpacing:4,
-                  }}>{countdown}</div>
-                  {worshipReady && (
-                    <div style={{ fontSize:12, color:C.dim, marginTop:8 }}>
-                      악보 첫 페이지로 이동 중...
-                    </div>
-                  )}
-                  {isPianoOn && !worshipReady && (
-                    <div style={{ fontSize:13, color:C.acc, marginTop:8, fontWeight:700 }}>
-                      피아노 시작 신호 전송됨
-                    </div>
+                  {isPianoOn ? (
+                    <>
+                      <div style={{
+                        fontSize:38, fontWeight:900, color:C.red,
+                        letterSpacing:"0.15em", lineHeight:1, marginBottom:8,
+                      }}>PIANO ON</div>
+                      <div style={{
+                        fontSize:44, fontWeight:900, lineHeight:1,
+                        color:C.red, opacity:0.75,
+                        fontVariantNumeric:"tabular-nums", letterSpacing:4,
+                      }}>{countdown}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.08em",
+                        color:phaseColor, marginBottom:6, textTransform:"uppercase" }}>
+                        {phaseLabel}
+                      </div>
+                      <div style={{
+                        fontSize:56, fontWeight:900, lineHeight:1,
+                        color:phaseColor,
+                        fontVariantNumeric:"tabular-nums", letterSpacing:4,
+                      }}>{countdown}</div>
+                      {worshipReady && (
+                        <div style={{ fontSize:12, color:C.dim, marginTop:8 }}>
+                          예배 시작 시 악보로 자동 이동합니다
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               );
