@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.369";
+const APP_VERSION = "3.370";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -3414,7 +3414,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       {/* 스크롤 영역 */}
       <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
 
-      <div style={{ padding:16, paddingBottom:90 }}>
+      <div style={{ padding:16, paddingBottom:"calc(100px + env(safe-area-inset-bottom))" }}>
         {svcPracticeUrl && (() => {
           const practiceFileId = svcPracticeUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1] || null;
           const practiceEmbedSrc = practiceFileId ? `https://drive.google.com/file/d/${practiceFileId}/preview` : null;
