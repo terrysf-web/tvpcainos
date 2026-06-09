@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.390";
+const APP_VERSION = "3.391";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -9048,65 +9048,41 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
       {/* 큐 입력 패널 */}
       {showCueInput && !isLibraryMode && (
-        <div style={{
-          position:"fixed", bottom:0, left:0, right:0,
-          background:C.surf, borderTop:`2px solid #ff6f0066`,
-          zIndex:200, padding:"10px 14px",
-          paddingBottom:"calc(10px + env(safe-area-inset-bottom))",
-        }}>
-          {/* 이 곡의 기존 큐 표시 */}
-          {(songCues?.[selectedSongId] || []).length > 0 && (
-            <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:8 }}>
-              {(songCues[selectedSongId]).map(cue => (
-                <span key={cue.id} style={{
-                  background:"#ff6f0015", border:"1px solid #ff6f0035",
-                  borderRadius:6, padding:"2px 8px", fontSize:11,
-                }}>
-                  <span style={{ fontWeight:700, color:"#e65c00" }}>{cue.userName}</span>
-                  <span style={{ color:C.dim }}> · </span>
-                  <span style={{ color:C.txt }}>{cue.text}</span>
-                </span>
-              ))}
-            </div>
-          )}
-          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <span style={{ fontSize:11, color:"#e65c00", fontWeight:700, flexShrink:0 }}>
-              🎯 {song?.title}
-            </span>
-            <input
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)",
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, padding:20 }}>
+          <div style={{ background:C.surf, borderRadius:16, padding:20,
+            width:"100%", maxWidth:400, border:`1px solid #ff6f0055` }}>
+            <div style={{ fontWeight:700, marginBottom:4 }}>🎯 큐 노트</div>
+            <div style={{ fontSize:12, color:"#e65c00", marginBottom:12 }}>{song?.title}</div>
+            {/* 기존 큐 목록 */}
+            {(songCues?.[selectedSongId] || []).length > 0 && (
+              <div style={{ display:"flex", flexDirection:"column", gap:4, marginBottom:12 }}>
+                {(songCues[selectedSongId]).map(cue => (
+                  <div key={cue.id} style={{ padding:"5px 10px", borderRadius:8,
+                    background:"#ff6f0015", border:"1px solid #ff6f0030" }}>
+                    <span style={{ fontSize:11, fontWeight:800, color:"#e65c00" }}>{cue.userName}</span>
+                    <span style={{ fontSize:11, color:C.dim }}> · </span>
+                    <span style={{ fontSize:12, color:C.txt }}>{cue.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <textarea
               value={cueTxt}
               onChange={e => setCueTxt(e.target.value)}
-              placeholder="큐 메시지 입력..."
+              placeholder="필기하세요"
               autoFocus
-              style={{
-                flex:1, background:C.card, border:`1px solid ${C.bdr}`,
-                borderRadius:8, padding:"7px 10px", fontSize:13,
-                color:C.txt, fontFamily:"inherit", outline:"none",
-              }}
-              onKeyDown={e => {
-                if (e.key === "Enter" && cueTxt.trim()) {
-                  sendCue?.(selectedSvcId, selectedSongId, cueTxt);
-                  setCueTxt("");
-                }
-              }}
+              style={{ width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
+                color:C.txt, padding:"10px 14px", borderRadius:10,
+                fontSize:14, outline:"none", fontFamily:"inherit",
+                resize:"vertical", minHeight:80 }}
             />
-            <button
-              onClick={() => { sendCue?.(selectedSvcId, selectedSongId, cueTxt); setCueTxt(""); }}
-              disabled={!cueTxt.trim()}
-              style={{
-                background: cueTxt.trim() ? "#e65c00" : C.card,
-                border:"none", borderRadius:8, padding:"7px 14px",
-                cursor: cueTxt.trim() ? "pointer" : "not-allowed",
-                color: cueTxt.trim() ? "#fff" : C.dim,
-                fontWeight:700, fontSize:13, fontFamily:"inherit",
-                opacity: cueTxt.trim() ? 1 : 0.5, flexShrink:0,
-              }}>
-              전송
-            </button>
-            <button onClick={() => setShowCueInput(false)}
-              style={{ background:"none", border:"none", cursor:"pointer", padding:4, display:"flex", flexShrink:0 }}>
-              <Icon n="xmark" size={18} color={C.dim} />
-            </button>
+            <div style={{ display:"flex", gap:8, marginTop:12 }}>
+              <Btn label="취소" variant="ghost" onClick={() => { setShowCueInput(false); setCueTxt(""); }} full />
+              <Btn label="전송" variant="primary"
+                onClick={() => { if (cueTxt.trim()) { sendCue?.(selectedSvcId, selectedSongId, cueTxt); setCueTxt(""); setShowCueInput(false); } }}
+                full disabled={!cueTxt.trim()} />
+            </div>
           </div>
         </div>
       )}
