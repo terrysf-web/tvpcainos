@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.406";
+const APP_VERSION = "3.407";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2140,7 +2140,7 @@ function CueNotesSection({ svcSongs, songCues, user, deleteCue, editCue, acknowl
                   }}>
                     {/* 보낸 사람 */}
                     <div style={{ fontSize:10, fontWeight:800, color:"#e65c00", marginBottom:3 }}>
-                      {cue.userName}
+                      {cue.userPart || cue.userName}
                     </div>
                     {/* 내용 or 편집 */}
                     {isEditing ? (
@@ -9287,7 +9287,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 {(songCues[selectedSongId]).map(cue => (
                   <div key={cue.id} style={{ padding:"5px 10px", borderRadius:8,
                     background:"#ff6f0015", border:"1px solid #ff6f0030" }}>
-                    <span style={{ fontSize:11, fontWeight:800, color:"#e65c00" }}>{cue.userName}</span>
+                    <span style={{ fontSize:11, fontWeight:800, color:"#e65c00" }}>{cue.userPart || cue.userName}</span>
                     <span style={{ fontSize:11, color:C.dim }}> · </span>
                     <span style={{ fontSize:12, color:C.txt }}>{cue.text}</span>
                   </div>
@@ -12607,10 +12607,13 @@ export default function App() {
 
   const sendCue = async (svcId, songId, text) => {
     if (!user?.uid || !text?.trim()) return;
+    const parts = getUserParts(user);
+    const userPart = parts.length > 0 ? parts.join("/") : (user.displayName || user.name || user.email || "팀원");
     await addDoc(collection(db, "cueNotes"), {
       svcId, songId,
       userId: user.uid,
       userName: user.displayName || user.name || user.email || "팀원",
+      userPart,
       text: text.trim(),
       createdAt: serverTimestamp(),
       acknowledgedBy: [],
