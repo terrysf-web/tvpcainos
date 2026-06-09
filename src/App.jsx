@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.377";
+const APP_VERSION = "3.378";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2246,21 +2246,28 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             <div style={{
               background:`linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
               border:`1.5px solid ${C.pur}33`,
-              borderRadius:12, padding:"9px 12px", marginBottom:10,
-              display:"flex", alignItems:"center", gap:8, flexWrap:"wrap",
+              borderRadius:12, padding:"10px 12px", marginBottom:10,
+              display:"flex", alignItems:"center", gap:10,
             }}>
+              {/* D-day badge */}
               {dDay === 0
                 ? <span style={{ background:C.red, color:"#fff", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>오늘</span>
                 : dDay === 1
                 ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>내일</span>
                 : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>D-{dDay}</span>
               }
-              <span style={{ fontWeight:800, fontSize:17, color:C.txt, flexShrink:0 }}>{fmtSvcDate(nextSvc.date)}</span>
-              <span style={{ fontWeight:800, fontSize:17, color:C.txt, flexShrink:0 }}>{nextSvc.title}</span>
-              {nextSvc.time && <span style={{ fontWeight:600, fontSize:14, color:C.dim, flexShrink:0 }}>{nextSvc.time}</span>}
-              <span style={{ fontSize:13, color:C.dim, flexShrink:0 }}>·</span>
-              <span style={{ fontWeight:600, fontSize:14, color:C.dim, flexShrink:0 }}>{svcSongs.length}곡</span>
-              <span style={{ marginLeft:"auto", flexShrink:0 }}><ServiceStatusBadge svc={nextSvc} /></span>
+              {/* 날짜 메인 + 타이틀 서브 */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontWeight:800, fontSize:18, color:C.txt, lineHeight:1.2 }}>{fmtSvcDate(nextSvc.date)}</div>
+                <div style={{ fontSize:12, color:C.dim, marginTop:2, display:"flex", alignItems:"center", gap:5 }}>
+                  <span>{nextSvc.title}</span>
+                  {nextSvc.time && <><span>·</span><span>{nextSvc.time}</span></>}
+                  <span>·</span>
+                  <span>{svcSongs.length}곡</span>
+                </div>
+              </div>
+              {/* 상태 배지 */}
+              <span style={{ flexShrink:0 }}><ServiceStatusBadge svc={nextSvc} /></span>
             </div>
 
             {/* 예배종료 */}
@@ -2574,7 +2581,7 @@ function ServiceStatusBadge({ svc }) {
     return () => clearInterval(id);
   }, []);
 
-  if (!svc.time) return <span style={{ fontSize:11, color:C.dim, borderRadius:7, padding:"3px 9px", fontWeight:700, background:`${C.dim}18`, border:`1px solid ${C.bdr}` }}>예배 준비중</span>;
+  if (!svc.time) return <span style={{ fontSize:13, color:C.dim, borderRadius:7, padding:"4px 10px", fontWeight:700, background:`${C.dim}18`, border:`1px solid ${C.bdr}` }}>예배 준비중</span>;
 
   const [hh, mm] = svc.time.split(":").map(Number);
   const start = new Date(svc.date + "T00:00:00");
@@ -2607,7 +2614,7 @@ function ServiceStatusBadge({ svc }) {
   }[type];
 
   return (
-    <span style={{ fontSize:11, borderRadius:7, padding:"3px 9px", fontWeight:700, background:s.bg, color:s.color, border:s.border, ...s }}>
+    <span style={{ fontSize:13, borderRadius:7, padding:"4px 10px", fontWeight:700, background:s.bg, color:s.color, border:s.border, ...s }}>
       {type === "active" && <span style={{ marginRight:4 }}>●</span>}
       {label}
     </span>
