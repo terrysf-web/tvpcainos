@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.382";
+const APP_VERSION = "3.383";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2306,8 +2306,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       }
                     </div>
                   )}
-                  {/* 테스트 버튼 (리더만) */}
-                  {isLeader(user?.role) && (
+                  {/* 테스트 버튼 (어드민만) */}
+                  {user?.role === "admin" && (
                     <div style={{ textAlign:"right", marginTop:6 }}>
                       <button onClick={() => setTestPhase(p => (p + 1) % 4)}
                         style={{
