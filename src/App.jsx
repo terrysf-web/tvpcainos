@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.404";
+const APP_VERSION = "3.405";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -12244,7 +12244,7 @@ export default function App() {
     const watchId = selSvcId || nearestId;
     if (!watchId) { setSongCues({}); return; }
     return onSnapshot(
-      query(collection(db, "cueNotes"), where("svcId", "==", watchId), orderBy("createdAt", "asc")),
+      query(collection(db, "cueNotes"), where("svcId", "==", watchId)),
       snap => {
         const bySong = {};
         snap.docs.forEach(d => {
@@ -12252,6 +12252,9 @@ export default function App() {
           if (!bySong[data.songId]) bySong[data.songId] = [];
           bySong[data.songId].push({ id: d.id, ...data });
         });
+        Object.values(bySong).forEach(arr =>
+          arr.sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0))
+        );
         setSongCues(bySong);
       }
     );
