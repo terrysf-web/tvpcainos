@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.388";
+const APP_VERSION = "3.390";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2088,7 +2088,7 @@ function PianoOnOverlay({ onDismiss }) {
 /* ══════════════════════════════════════════════════════════════════
    HOME SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel }) {
+function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues }) {
   const [countdown,    setCountdown]    = useState("");
   const [inHour,       setInHour]       = useState(false);
   const [worshipReady, setWorshipReady] = useState(false);
@@ -2437,6 +2437,19 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       })}
                     </div>
                   )}
+                  {/* 큐 노트 */}
+                  {(songCues?.[song.id] || []).length > 0 && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:3, marginTop: teamNotes.length > 0 ? 4 : 0 }}>
+                      {(songCues[song.id]).map((cue) => (
+                        <div key={cue.id} style={{ padding:"4px 8px", borderRadius:7,
+                          background:"#ff6f0015", border:"1px solid #ff6f0035" }}>
+                          <span style={{ fontSize:10, fontWeight:800, color:"#e65c00" }}>{cue.userName}</span>
+                          <span style={{ fontSize:10, color:C.dim }}> · </span>
+                          <span style={{ fontSize:11, color:C.txt }}>{cue.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -2449,8 +2462,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               </div>
             )}
 
-            {/* 다음 예배 일정 전체 목록 */}
-            {otherSvcs.length > 0 && (
+            {/* 다음 예배 일정 전체 목록 (admin은 숨김 - 큐 노트 집중) */}
+            {otherSvcs.length > 0 && user?.role !== "admin" && (
               <>
                 <div style={{ fontSize:11, fontWeight:800, color:C.dim,
                   letterSpacing:"0.05em", textTransform:"uppercase",
@@ -5288,7 +5301,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   );
 }
 
-function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey }) {
+function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue }) {
   const song = songs.find(s => s.id === selectedSongId);
   const isLibraryMode = backTo === "library"; // 라이브러리에서 열린 경우: 예배 컨텍스트 없음
 
@@ -5349,6 +5362,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [showNotePanel, setShowNotePanel] = useState(false);
   const [noteInput,     setNoteInput]     = useState(false);
   const [noteShared,    setNoteShared]    = useState(false); // 팀 메모 여부
+  const [showCueInput,  setShowCueInput]  = useState(false);
+  const [cueTxt,        setCueTxt]        = useState("");
   const [noteTxt,       setNoteTxt]       = useState("");
   const [noteSongId,    setNoteSongId]    = useState(null); // dual 모드에서 노트 저장 대상 악보
   const [saving,        setSaving]        = useState(false);
@@ -7600,6 +7615,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   {sep}
                   {toolBtn("pen",  drawMode,      () => { setDrawMode(p => !p); setDrawTool("pen"); }, "필기 모드")}
                   {toolBtn("note", showNotePanel, () => setShowNotePanel(p => !p), "메모 목록")}
+                  {!isLibraryMode && (
+                    <button onClick={() => setShowCueInput(p => !p)} title="큐 노트"
+                      style={{
+                        background: showCueInput ? "#ff6f0022" : "transparent",
+                        border:`1px solid ${showCueInput ? "#ff6f00" : C.bdr}`,
+                        borderRadius:8, padding: tbNarrow ? 6 : 7, cursor:"pointer",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                      }}>
+                      <span style={{ fontSize:tbNarrow ? 15 : 16, lineHeight:1 }}>🎯</span>
+                    </button>
+                  )}
                   {/* 다운로드: 라이브러리·리더는 항상, 멤버는 리더가 허용 시만 */}
                   {canDownload && toolBtn("download", false, downloadAnnotatedScore, "악보 다운로드")}
                   {/* 리더: 멤버 다운로드 허용 토글 (서비스 모드만) */}
@@ -7860,6 +7886,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             }}>
               <Icon n="dual" size={18} color={dual ? "#fff" : C.dim} />
               <span style={{ fontSize:10, fontWeight:700, color:dual ? "#fff" : C.dim, fontFamily:"inherit" }}>DUAL</span>
+            </button>
+          )}
+          {/* CUE */}
+          {!isLibraryMode && (
+            <button onClick={() => { setShowCueInput(p => !p); setShowMobileMore(false); }} style={{
+              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+              padding:"8px 12px", borderRadius:10, cursor:"pointer",
+              background: showCueInput ? "#ff6f0022" : C.card,
+              border:`1px solid ${showCueInput ? "#ff6f00" : C.bdr}`,
+              flex:"1 1 60px", minWidth:60,
+            }}>
+              <span style={{ fontSize:18, lineHeight:1 }}>🎯</span>
+              <span style={{ fontSize:10, fontWeight:700, color: showCueInput ? "#e65c00" : C.dim, fontFamily:"inherit" }}>CUE</span>
             </button>
           )}
           {/* MEDIA */}
@@ -9006,6 +9045,72 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           }
         </div>
       )}
+
+      {/* 큐 입력 패널 */}
+      {showCueInput && !isLibraryMode && (
+        <div style={{
+          position:"fixed", bottom:0, left:0, right:0,
+          background:C.surf, borderTop:`2px solid #ff6f0066`,
+          zIndex:200, padding:"10px 14px",
+          paddingBottom:"calc(10px + env(safe-area-inset-bottom))",
+        }}>
+          {/* 이 곡의 기존 큐 표시 */}
+          {(songCues?.[selectedSongId] || []).length > 0 && (
+            <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:8 }}>
+              {(songCues[selectedSongId]).map(cue => (
+                <span key={cue.id} style={{
+                  background:"#ff6f0015", border:"1px solid #ff6f0035",
+                  borderRadius:6, padding:"2px 8px", fontSize:11,
+                }}>
+                  <span style={{ fontWeight:700, color:"#e65c00" }}>{cue.userName}</span>
+                  <span style={{ color:C.dim }}> · </span>
+                  <span style={{ color:C.txt }}>{cue.text}</span>
+                </span>
+              ))}
+            </div>
+          )}
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <span style={{ fontSize:11, color:"#e65c00", fontWeight:700, flexShrink:0 }}>
+              🎯 {song?.title}
+            </span>
+            <input
+              value={cueTxt}
+              onChange={e => setCueTxt(e.target.value)}
+              placeholder="큐 메시지 입력..."
+              autoFocus
+              style={{
+                flex:1, background:C.card, border:`1px solid ${C.bdr}`,
+                borderRadius:8, padding:"7px 10px", fontSize:13,
+                color:C.txt, fontFamily:"inherit", outline:"none",
+              }}
+              onKeyDown={e => {
+                if (e.key === "Enter" && cueTxt.trim()) {
+                  sendCue?.(selectedSvcId, selectedSongId, cueTxt);
+                  setCueTxt("");
+                }
+              }}
+            />
+            <button
+              onClick={() => { sendCue?.(selectedSvcId, selectedSongId, cueTxt); setCueTxt(""); }}
+              disabled={!cueTxt.trim()}
+              style={{
+                background: cueTxt.trim() ? "#e65c00" : C.card,
+                border:"none", borderRadius:8, padding:"7px 14px",
+                cursor: cueTxt.trim() ? "pointer" : "not-allowed",
+                color: cueTxt.trim() ? "#fff" : C.dim,
+                fontWeight:700, fontSize:13, fontFamily:"inherit",
+                opacity: cueTxt.trim() ? 1 : 0.5, flexShrink:0,
+              }}>
+              전송
+            </button>
+            <button onClick={() => setShowCueInput(false)}
+              style={{ background:"none", border:"none", cursor:"pointer", padding:4, display:"flex", flexShrink:0 }}>
+              <Icon n="xmark" size={18} color={C.dim} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {showMobileHelp && <HelpModal onClose={() => setShowMobileHelp(false)} />}
       {showRecModal && (
         <RecordingsModal
@@ -11785,6 +11890,7 @@ export default function App() {
     try { return !!localStorage.getItem("tvpc_services_cache"); } catch { return false; }
   });
   const [notifs,      setNotifs]      = useState([]);
+  const [songCues,    setSongCues]    = useState({});
   const [annotations,     setAnnotations]     = useState({}); // 개인 메모
   const [teamAnnotations, setTeamAnnotations] = useState({}); // 팀 공유 메모
   const [userMap,         setUserMap]         = useState({}); // uid -> displayName
@@ -12049,6 +12155,27 @@ export default function App() {
     );
   }, [user?.uid]);
 
+  // ── Firestore: 큐 노트 (다음 예배 서비스별)
+  useEffect(() => {
+    if (!user?.uid) return;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const nextSvcId = services
+      .filter(s => s.date >= todayStr)
+      .sort((a, b) => a.date.localeCompare(b.date))[0]?.id;
+    if (!nextSvcId) { setSongCues({}); return; }
+    return onSnapshot(
+      query(collection(db, "cueNotes"), where("svcId", "==", nextSvcId), orderBy("createdAt", "asc")),
+      snap => {
+        const bySong = {};
+        snap.docs.forEach(d => {
+          const data = d.data();
+          if (!bySong[data.songId]) bySong[data.songId] = [];
+          bySong[data.songId].push({ id: d.id, ...data });
+        });
+        setSongCues(bySong);
+      }
+    );
+  }, [user?.uid, services]);
 
   // ── Firestore: 유저 이름 맵 (uid -> displayName)
   useEffect(() => {
@@ -12227,6 +12354,17 @@ export default function App() {
     await deleteDoc(doc(db, "annotations", noteId));
   };
 
+  const sendCue = async (svcId, songId, text) => {
+    if (!user?.uid || !text?.trim()) return;
+    await addDoc(collection(db, "cueNotes"), {
+      svcId, songId,
+      userId: user.uid,
+      userName: user.displayName || user.name || user.email || "팀원",
+      text: text.trim(),
+      createdAt: serverTimestamp(),
+    });
+  };
+
   const markNotifRead = async (id) => {
     setNotifs(p => p.map(n => n.id === id ? { ...n, read: true } : n));
     await updateDoc(doc(db, "notifications", id), { readBy: arrayUnion(user.uid) });
@@ -12320,6 +12458,7 @@ export default function App() {
     onDeleteAnnotation: deleteAnnotation,
     markNotifRead, markAllNotifRead,
     nav, bgmChannel,
+    songCues, sendCue,
   };
 
   return (
