@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.366";
+const APP_VERSION = "3.367";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2705,12 +2705,12 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
           </>
         )}
 
-        {/* 지난 예배 아카이브 */}
+        {/* 지난 예배 아카이브 — 미니 리스트 */}
         {past.length > 0 && (
           <>
             <div style={{
               display:"flex", alignItems:"center", justifyContent:"space-between",
-              margin:`${upcoming.length > 0 ? "28px" : "16px"} 0 10px`,
+              margin:`${upcoming.length > 0 ? "28px" : "16px"} 0 8px`,
             }}>
               <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
                 textTransform:"uppercase", display:"flex", alignItems:"center", gap:6 }}>
@@ -2721,24 +2721,55 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
                   fontSize:10, fontWeight:700, color:C.dim,
                 }}>{past.length}개</span>
               </div>
-              {past.length > 3 && (
-                <button onClick={() => setPastExpanded(p => !p)} style={{
+              {pastExpanded && (
+                <button onClick={() => setPastExpanded(false)} style={{
                   background:"transparent", border:`1px solid ${C.bdr}`,
                   borderRadius:7, padding:"3px 10px", cursor:"pointer",
                   fontSize:11, color:C.dim, fontFamily:"inherit", fontWeight:600,
-                }}>
-                  {pastExpanded ? "접기" : `전체 보기`}
-                </button>
+                }}>접기</button>
               )}
             </div>
-            {pastShown.map(svc => (
-              <div key={svc.id} style={{ opacity:0.75 }}>
-                <SvcCard svc={svc} past={true} />
-              </div>
-            ))}
+            <div style={{
+              background:C.surf, borderRadius:14, border:`1px solid ${C.bdr}`, overflow:"hidden",
+            }}>
+              {pastShown.map((svc, i) => {
+                const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
+                return (
+                  <div key={svc.id}
+                    onClick={() => nav("svcDetail", { svcId: svc.id })}
+                    style={{
+                      display:"flex", alignItems:"center", gap:12,
+                      padding:"12px 14px", cursor:"pointer",
+                      borderBottom: i < pastShown.length - 1 ? `1px solid ${C.bdr}` : "none",
+                    }}>
+                    <div style={{
+                      width:8, height:8, borderRadius:"50%", flexShrink:0,
+                      background:`${C.dim}44`, border:`1.5px solid ${C.bdr}`,
+                    }} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:11, color:C.dim, fontWeight:600, marginBottom:1 }}>
+                        {fmtDate(svc.date)}
+                      </div>
+                      <div style={{ fontSize:13, color:C.txt, fontWeight:700,
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {svc.title}
+                      </div>
+                    </div>
+                    {svcSongs.length > 0 && (
+                      <span style={{
+                        fontSize:11, color:C.dim,
+                        background:C.bg, border:`1px solid ${C.bdr}`,
+                        borderRadius:5, padding:"1px 6px", flexShrink:0,
+                      }}>{svcSongs.length}곡</span>
+                    )}
+                    <Icon n="chevR" size={14} color={C.bdr} />
+                  </div>
+                );
+              })}
+            </div>
             {!pastExpanded && past.length > 3 && (
               <button onClick={() => setPastExpanded(true)} style={{
-                width:"100%", padding:"10px 0", borderRadius:10, marginTop:2,
+                width:"100%", padding:"10px 0", borderRadius:10, marginTop:6,
                 background:"transparent", border:`1px dashed ${C.bdr}`,
                 cursor:"pointer", fontSize:12, color:C.dim, fontFamily:"inherit",
               }}>
