@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.392";
+const APP_VERSION = "3.393";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -8919,7 +8919,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               </div>
             )}
             <textarea value={noteTxt} onChange={e => setNoteTxt(e.target.value)}
-              placeholder={noteShared ? "팀 전체에 공유할 메모..." : "나만 보이는 메모..."} autoFocus
+              placeholder="필기하세요" autoFocus
               style={{ width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
                 color:C.txt, padding:"10px 14px", borderRadius:10,
                 fontSize:14, outline:"none", fontFamily:"inherit",
