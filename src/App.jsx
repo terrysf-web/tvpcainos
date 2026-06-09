@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.394";
+const APP_VERSION = "3.395";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -9076,7 +9076,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           <div style={{ background:C.surf, borderRadius:16, padding:20,
             width:"100%", maxWidth:400, border:`1px solid #ff6f0055` }}>
             <div style={{ fontWeight:700, marginBottom:4 }}>🎯 큐 노트</div>
-            <div style={{ fontSize:12, color:"#e65c00", marginBottom:12 }}>{song?.title}</div>
+            <div style={{ fontSize:12, color:"#e65c00", marginBottom:4 }}>{song?.title}</div>
+            <div style={{ fontSize:11, color:C.dim, marginBottom:12 }}>FOH에게 요구하는 사항이나 알림입니다.</div>
             {/* 기존 큐 목록 */}
             {(songCues?.[selectedSongId] || []).length > 0 && (
               <div style={{ display:"flex", flexDirection:"column", gap:4, marginBottom:12 }}>
