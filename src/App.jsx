@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.398";
+const APP_VERSION = "3.399";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -8882,7 +8882,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       {/* 메모 입력 */}
       {noteInput && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)",
-          display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, padding:20 }}>
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, padding:20 }}
+          onClick={e => e.stopPropagation()}>
           <div style={{ background:C.surf, borderRadius:16, padding:20,
             width:"100%", maxWidth:400, border:`1px solid ${C.bdr}` }}>
             <div style={{ fontWeight:700, marginBottom:12 }}>메모 추가 (p.{pageNum})</div>
@@ -8929,7 +8930,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             {/* 필기 에리어 박스 */}
             <textarea value={noteScr} onChange={e => {
                 const v = e.target.value;
-                // 스페이스나 엔터가 입력되면 자동으로 본문에 추가하고 에리어 클리어
                 if (v.endsWith(" ") || v.endsWith("\n")) {
                   setNoteTxt(p => (p + v).trimEnd() + " ");
                   setNoteScr("");
@@ -8942,6 +8942,31 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 color:C.txt, padding:"10px 14px", borderRadius:10,
                 fontSize:14, outline:"none", fontFamily:"inherit",
                 resize:"none", height:120, marginTop:8 }} />
+            <div style={{ display:"flex", gap:6, marginTop:8 }}>
+              <button onClick={() => { setNoteTxt(p => (p + (noteScr.trim() ? " " + noteScr.trim() : "")).trimEnd() + " "); setNoteScr(""); }}
+                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:"pointer",
+                  background:C.card, border:`1px solid ${C.bdr}`,
+                  fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.txt }}>
+                ␣ 스페이스
+              </button>
+              <button onClick={() => { if (noteScr) setNoteScr(p => p.slice(0,-1)); else setNoteTxt(p => p.trimEnd().slice(0,-1)); }}
+                disabled={!noteScr && !noteTxt}
+                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor: (noteScr||noteTxt) ? "pointer" : "not-allowed",
+                  background:C.card, border:`1px solid ${C.bdr}`,
+                  fontFamily:"inherit", fontSize:13, fontWeight:700,
+                  color:(noteScr||noteTxt) ? C.txt : C.dim, opacity:(noteScr||noteTxt) ? 1 : 0.4 }}>
+                ⌫ 지우기
+              </button>
+              <button onClick={() => { setNoteTxt(""); setNoteScr(""); }}
+                disabled={!noteScr && !noteTxt}
+                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor: (noteScr||noteTxt) ? "pointer" : "not-allowed",
+                  background: (noteScr||noteTxt) ? `${C.red}18` : C.card,
+                  border:`1px solid ${(noteScr||noteTxt) ? C.red+"55" : C.bdr}`,
+                  fontFamily:"inherit", fontSize:13, fontWeight:700,
+                  color:(noteScr||noteTxt) ? C.red : C.dim, opacity:(noteScr||noteTxt) ? 1 : 0.4 }}>
+                ✕ 전체 삭제
+              </button>
+            </div>
             <div style={{ display:"flex", gap:8, marginTop:8 }}>
               <Btn label="취소" variant="ghost" onClick={() => { setNoteInput(false); setNoteTxt(""); setNoteScr(""); setNoteShared(false); setNoteSongId(null); }} full />
               <Btn label={saving ? "저장 중..." : "저장"} variant="primary"
@@ -9075,7 +9100,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       {/* 큐 입력 패널 */}
       {showCueInput && !isLibraryMode && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)",
-          display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, padding:20 }}>
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, padding:20 }}
+          onClick={e => e.stopPropagation()}>
           <div style={{ background:C.surf, borderRadius:16, padding:20,
             width:"100%", maxWidth:400, border:`1px solid #ff6f0055` }}>
             <div style={{ fontWeight:700, marginBottom:4 }}>🎯 큐 노트</div>
@@ -9119,6 +9145,31 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 fontSize:14, outline:"none", fontFamily:"inherit",
                 resize:"none", height:120, marginTop:8 }}
             />
+            <div style={{ display:"flex", gap:6, marginTop:8 }}>
+              <button onClick={() => { setCueTxt(p => (p + (cueScr.trim() ? " " + cueScr.trim() : "")).trimEnd() + " "); setCueScr(""); }}
+                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:"pointer",
+                  background:C.card, border:`1px solid ${C.bdr}`,
+                  fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.txt }}>
+                ␣ 스페이스
+              </button>
+              <button onClick={() => { if (cueScr) setCueScr(p => p.slice(0,-1)); else setCueTxt(p => p.trimEnd().slice(0,-1)); }}
+                disabled={!cueScr && !cueTxt}
+                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:(cueScr||cueTxt) ? "pointer":"not-allowed",
+                  background:C.card, border:`1px solid ${C.bdr}`,
+                  fontFamily:"inherit", fontSize:13, fontWeight:700,
+                  color:(cueScr||cueTxt) ? C.txt : C.dim, opacity:(cueScr||cueTxt) ? 1 : 0.4 }}>
+                ⌫ 지우기
+              </button>
+              <button onClick={() => { setCueTxt(""); setCueScr(""); }}
+                disabled={!cueScr && !cueTxt}
+                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:(cueScr||cueTxt) ? "pointer":"not-allowed",
+                  background:(cueScr||cueTxt) ? `${C.red}18` : C.card,
+                  border:`1px solid ${(cueScr||cueTxt) ? C.red+"55" : C.bdr}`,
+                  fontFamily:"inherit", fontSize:13, fontWeight:700,
+                  color:(cueScr||cueTxt) ? C.red : C.dim, opacity:(cueScr||cueTxt) ? 1 : 0.4 }}>
+                ✕ 전체 삭제
+              </button>
+            </div>
             <div style={{ display:"flex", gap:8, marginTop:8 }}>
               <Btn label="취소" variant="ghost" onClick={() => { setShowCueInput(false); setCueTxt(""); setCueScr(""); }} full />
               <Btn label="전송" variant="primary"
