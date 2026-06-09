@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.407";
+const APP_VERSION = "3.408";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2127,8 +2127,8 @@ function CueNotesSection({ svcSongs, songCues, user, deleteCue, editCue, acknowl
               </div>
               {/* 큐 목록 */}
               {cues.map(cue => {
-                const isOwn    = cue.userId === user?.uid;
-                const isAdmin  = user?.role === "admin";
+                const isOwn    = !!(user?.uid && cue.userId && cue.userId === user.uid);
+                const isAdmin  = user?.role === "admin" || user?.role === "leader";
                 const acked    = (cue.acknowledgedBy || []).includes(user?.uid);
                 const ackCount = (cue.acknowledgedBy || []).length;
                 const isEditing = editingId === cue.id;
@@ -2200,10 +2200,10 @@ function CueNotesSection({ svcSongs, songCues, user, deleteCue, editCue, acknowl
                             {acked ? "확인" : "수신확인"}{ackCount > 0 ? ` ${ackCount}` : ""}
                           </span>
                         </button>
-                        {/* 수정/삭제 (본인 or admin) */}
+                        {/* 수정/삭제 (본인 or 리더/어드민) */}
                         {(isOwn || isAdmin) && (
                           <div style={{ display:"flex", gap:4 }}>
-                            {isOwn && (
+                            {(isOwn || isAdmin) && (
                               <button
                                 onClick={() => { setEditingId(cue.id); setEditText(cue.text); }}
                                 style={{ fontSize:10, color:"#888", background:"none",
@@ -12262,8 +12262,10 @@ export default function App() {
         const d = snap.data();
         setUser(u => ({
           ...u,
+          uid: u?.uid,
           name: d.name || u.name,
           role: d.role || "member",
+          parts: d.parts || u?.parts || [],
           part: d.part || "",
           geminiKey: d.geminiKey || "",
         }));
