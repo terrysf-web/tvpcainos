@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.378";
+const APP_VERSION = "3.379";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2456,10 +2456,10 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontWeight:700, fontSize:14,
                             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                            {svc.title}
+                            {fmtSvcDate(svc.date)}{svc.time ? ` · ${svc.time}` : ""}
                           </div>
                           <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>
-                            {fmtSvcDate(svc.date)}{svc.time ? ` · ${svc.time}` : ""}
+                            {svc.title}
                           </div>
                         </div>
                         <span style={{ fontSize:12, color:C.dim, flexShrink:0 }}>{cnt}곡</span>
