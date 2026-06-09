@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.411";
+const APP_VERSION = "3.412";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2089,10 +2089,7 @@ function PianoOnOverlay({ onDismiss }) {
    HOME SCREEN
 ══════════════════════════════════════════════════════════════════ */
 /* ── 큐 노트 스티키 섹션 ── */
-function CueNotesSection({ svcSongs, songCues, user, deleteCue, editCue, acknowledgeCue }) {
-  const [editingId,  setEditingId]  = useState(null); // cueId being edited
-  const [editText,   setEditText]   = useState("");
-  const [deleteConf, setDeleteConf] = useState(null); // cueId to confirm delete
+function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
 
   return (
     <div style={{ marginTop:20, marginBottom:4 }}>
@@ -2127,10 +2124,8 @@ function CueNotesSection({ svcSongs, songCues, user, deleteCue, editCue, acknowl
               </div>
               {/* 큐 목록 */}
               {cues.map(cue => {
-                const isOwn    = !!(user?.uid && cue.userId && cue.userId === user.uid);
-                const isAdmin  = user?.role === "admin" || user?.role === "leader";
-                const acked    = cue.acknowledged === true;
-                const isEditing = editingId === cue.id;
+                const isAdmin = user?.role === "admin" || user?.role === "leader";
+                const acked   = cue.acknowledged === true;
                 return (
                   <div key={cue.id} style={{
                     background: acked ? "#e8f5e9" : "#fffde7",
@@ -2141,44 +2136,12 @@ function CueNotesSection({ svcSongs, songCues, user, deleteCue, editCue, acknowl
                     <div style={{ fontSize:10, fontWeight:800, color:"#e65c00", marginBottom:3 }}>
                       {cue.userPart || cue.userName}
                     </div>
-                    {/* 내용 or 편집 */}
-                    {isEditing ? (
-                      <div>
-                        <textarea
-                          value={editText}
-                          onChange={e => setEditText(e.target.value)}
-                          autoFocus
-                          style={{ width:"100%", fontSize:12, color:"#333",
-                            border:"1px solid #ffe082", borderRadius:6,
-                            padding:"4px 6px", resize:"none", height:60,
-                            fontFamily:"inherit", outline:"none",
-                            background:"#fffde7", boxSizing:"border-box" }}
-                        />
-                        <div style={{ display:"flex", gap:4, marginTop:4 }}>
-                          <button
-                            onClick={async () => { await editCue?.(cue.id, editText); setEditingId(null); }}
-                            style={{ flex:1, fontSize:11, fontWeight:700,
-                              background:"#e65c00", color:"#fff", border:"none",
-                              borderRadius:6, padding:"4px 0", cursor:"pointer", fontFamily:"inherit" }}>
-                            저장
-                          </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            style={{ flex:1, fontSize:11, fontWeight:700,
-                              background:"#eee", color:"#555", border:"none",
-                              borderRadius:6, padding:"4px 0", cursor:"pointer", fontFamily:"inherit" }}>
-                            취소
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ fontSize:12, color:"#4a3500", lineHeight:1.5,
-                        whiteSpace:"pre-wrap", wordBreak:"break-all" }}>
-                        {cue.text}
-                      </div>
-                    )}
-                    {/* 하단: 수신확인(어드민만 토글) + 수정/삭제 */}
-                    {!isEditing && (
+                    <div style={{ fontSize:12, color:"#4a3500", lineHeight:1.5,
+                      whiteSpace:"pre-wrap", wordBreak:"break-all", marginBottom:5 }}>
+                      {cue.text}
+                    </div>
+                    {/* 하단: 수신확인(어드민만 토글) */}
+                    {(
                       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:5 }}>
                         {/* 수신확인 — 어드민/리더만 토글, 멤버는 읽기 전용 표시 */}
                         {isAdmin ? (
@@ -2214,25 +2177,6 @@ function CueNotesSection({ svcSongs, songCues, user, deleteCue, editCue, acknowl
                             </span>
                           </div>
                         )}
-                        {/* 수정/삭제 (본인 or 리더/어드민) */}
-                        {(isOwn || isAdmin) && (
-                          <div style={{ display:"flex", gap:5 }}>
-                            <button
-                              onClick={() => { setEditingId(cue.id); setEditText(cue.text); }}
-                              style={{ fontSize:11, fontWeight:700, color:"#5c4000",
-                                background:"#ffe082", border:"1px solid #ffca28",
-                                borderRadius:6, padding:"3px 8px", cursor:"pointer", fontFamily:"inherit" }}>
-                              ✏️ 수정
-                            </button>
-                            <button
-                              onClick={() => setDeleteConf(cue.id)}
-                              style={{ fontSize:11, fontWeight:700, color:"#b71c1c",
-                                background:"#ffebee", border:"1px solid #ef9a9a",
-                                borderRadius:6, padding:"3px 8px", cursor:"pointer", fontFamily:"inherit" }}>
-                              🗑️ 삭제
-                            </button>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -2242,32 +2186,11 @@ function CueNotesSection({ svcSongs, songCues, user, deleteCue, editCue, acknowl
           );
         })}
       </div>
-      {/* 삭제 확인 모달 */}
-      {deleteConf && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.6)",
-          display:"flex", alignItems:"center", justifyContent:"center", zIndex:300, padding:20 }}
-          onClick={() => setDeleteConf(null)}>
-          <div style={{ background:C.surf, borderRadius:16, padding:24, maxWidth:300, width:"100%",
-            border:`1px solid ${C.bdr}`, textAlign:"center" }}
-            onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize:28, marginBottom:8 }}>🗑️</div>
-            <div style={{ fontWeight:800, fontSize:15, marginBottom:6 }}>큐 노트 삭제</div>
-            <div style={{ fontSize:13, color:C.dim, marginBottom:20 }}>이 큐 노트를 삭제할까요?</div>
-            <div style={{ display:"flex", gap:8 }}>
-              <Btn label="취소" variant="ghost" onClick={() => setDeleteConf(null)} full />
-              <Btn label="삭제" variant="danger" onClick={async () => {
-                await deleteCue?.(deleteConf);
-                setDeleteConf(null);
-              }} full />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, deleteCue, editCue, acknowledgeCue }) {
+function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue }) {
   const [countdown,    setCountdown]    = useState("");
   const [inHour,       setInHour]       = useState(false);
   const [worshipReady, setWorshipReady] = useState(false);
@@ -2640,8 +2563,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   svcSongs={svcSongs}
                   songCues={songCues}
                   user={user}
-                  deleteCue={deleteCue}
-                  editCue={editCue}
                   acknowledgeCue={acknowledgeCue}
                 />
               );
