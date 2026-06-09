@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.360";
+const APP_VERSION = "3.361";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -5509,6 +5509,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       }).catch(() => {});
   };
 
+  const toTeamColor = strokes => strokes.map(s => ({ ...s, color: TEAM_COLOR }));
+
   const loadTeamDrawing = (songId, page, tStrokesRef, tdcRef, drawingRef) => {
     tStrokesRef.current = [];
     const dc = tdcRef.current;
@@ -5518,7 +5520,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       doc(db, "customSongs", `drw_TEAM_${songId}_p${page}`),
       snap => {
         if (drawingRef?.current) return; // mid-stroke — skip to avoid flicker
-        const strokes = snap.exists() ? (snap.data().strokes || []) : [];
+        const strokes = toTeamColor(snap.exists() ? (snap.data().strokes || []) : []);
         tStrokesRef.current = strokes;
         const dc2 = tdcRef.current;
         if (dc2 && dc2.width > 0) {
