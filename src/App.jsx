@@ -2423,12 +2423,275 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         </div>
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", padding:"14px 14px 90px" }}>
+      <div style={{ flex:1, overflowY: user?.role === "admin" ? "hidden" : "auto", padding: user?.role === "admin" ? "8px 10px 0" : "14px 14px 90px" }}>
         {nextSvc ? (
+          user?.role === "admin" ? (() => {
+            /* ─── ADMIN: 좌우 2열 고정 레이아웃 ─── */
+            const tInHour       = testPhase > 0 ? true  : inHour;
+            const tCountdown    = testPhase === 1 ? "45:00" : testPhase === 2 ? "00:35" : testPhase === 3 ? "00:09" : countdown;
+            const tWorshipReady = testPhase === 2 ? true  : testPhase === 3 ? true  : worshipReady;
+            const tPhase        = testPhase === 3 ? "piano_on" : testPhase > 0 ? "bgm_playing" : autoPhase;
+            const isPianoOn     = tPhase === "piano_on";
+            const showMsg       = tInHour && tCountdown && (tWorshipReady || isPianoOn);
+
+            const currentParts = sheetSyncAllowedParts ?? DEFAULT_SHEET_PARTS;
+            const syncSong     = activeSyncIdx >= 0 ? svcSongs[activeSyncIdx] : null;
+            const dispIdx      = activeSyncIdx >= 0 ? activeSyncIdx : 0;
+            const dispSong     = svcSongs.length > 0 ? svcSongs[dispIdx] : null;
+
+            const toggleLink = async () => {
+              const newEnabled = !sheetLinkEnabled;
+              await setDoc(doc(db, "liveStatus", "sheetLink"), {
+                enabled: newEnabled, svcId: nextSvc.id,
+                allowedParts: currentParts, updatedAt: serverTimestamp(),
+              }).catch(() => {});
+              if (newEnabled) {
+                const startIdx = activeSyncIdx >= 0 ? activeSyncIdx : 0;
+                const s = svcSongs[startIdx];
+                if (s) await setDoc(doc(db, "liveStatus", "sheetSync"), {
+                  svcId: nextSvc.id, songId: s.id, songIdx: startIdx,
+                  pageNum: 1, linkEnabled: true, updatedAt: serverTimestamp(),
+                }).catch(() => {});
+              }
+            };
+            const togglePart = async (part) => {
+              const next = currentParts.includes(part)
+                ? currentParts.filter(p => p !== part)
+                : [...currentParts, part];
+              await setDoc(doc(db, "liveStatus", "sheetLink"), {
+                enabled: sheetLinkEnabled, svcId: nextSvc.id,
+                allowedParts: next, updatedAt: serverTimestamp(),
+              }).catch(() => {});
+            };
+            const advanceSong = async (delta) => {
+              const base = activeSyncIdx >= 0 ? activeSyncIdx : 0;
+              const newIdx = Math.max(0, Math.min(base + delta, svcSongs.length - 1));
+              const s = svcSongs[newIdx];
+              if (!s) return;
+              await setDoc(doc(db, "liveStatus", "sheetSync"), {
+                svcId: nextSvc.id, songId: s.id, songIdx: newIdx,
+                pageNum: 1, linkEnabled: true, updatedAt: serverTimestamp(),
+              }).catch(() => {});
+            };
+
+            return (
+              <div style={{ display:"flex", gap:10, height:"100%" }}>
+                {/* ── 왼쪽: 히어로 + 컨트롤 ── */}
+                <div style={{ width:"46%", flexShrink:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:8, paddingBottom:90, scrollbarWidth:"none", msOverflowStyle:"none" }}>
+                  {/* 히어로 카드 */}
+                  <div style={{
+                    background: isPianoOn ? `linear-gradient(135deg, ${C.red}18, ${C.red}08)` : `linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
+                    border: isPianoOn ? `1.5px solid ${C.red}55` : `1.5px solid ${C.pur}33`,
+                    borderRadius:12, padding:"10px 12px",
+                  }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      {dDay === 0
+                        ? <span style={{ background:C.red, color:"#fff", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>오늘</span>
+                        : dDay === 1
+                        ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>내일</span>
+                        : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>D-{dDay}</span>
+                      }
+                      <div style={{ flexShrink:0, minWidth:0 }}>
+                        <div style={{ fontWeight:800, fontSize:16, color:C.txt, lineHeight:1.2 }}>{fmtSvcDate(nextSvc.date)}</div>
+                        <div style={{ fontSize:11, color:C.dim, marginTop:2, display:"flex", alignItems:"center", gap:4 }}>
+                          <span>{nextSvc.title}</span>
+                          {nextSvc.time && <><span>·</span><span>{nextSvc.time}</span></>}
+                          <span>·</span><span>{svcSongs.length}곡</span>
+                        </div>
+                      </div>
+                      <div style={{ flex:1, textAlign:"center", padding:"0 6px" }}>
+                        {showMsg && (isPianoOn
+                          ? <span style={{ color:C.red, fontWeight:900, fontSize:14, letterSpacing:"0.04em" }}>PIANO ON &nbsp;·&nbsp; 반주 시작</span>
+                          : <span style={{ color:C.pur, fontWeight:800, fontSize:12 }}>⛪ 예배준비</span>
+                        )}
+                      </div>
+                      {tInHour && tCountdown
+                        ? <span style={{ fontVariantNumeric:"tabular-nums", fontWeight:900, fontSize:16, color: isPianoOn ? C.red : C.pur, flexShrink:0, letterSpacing:1 }}>{tCountdown}</span>
+                        : <span style={{ flexShrink:0 }}><ServiceStatusBadge svc={nextSvc} /></span>
+                      }
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:6 }}>
+                      <button onClick={async () => {
+                        try {
+                          await setDoc(doc(db, "liveStatus", "automation"), {
+                            phase: "piano_on", svcId: nextSvc?.id || null, updatedAt: serverTimestamp(),
+                          });
+                          fetch("http://192.168.1.21:5004/v1/stage/message", {
+                            method: "PUT", headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify("PIANO ON"),
+                          }).catch(() => {});
+                        } catch {}
+                      }} style={{
+                        fontSize:11, fontWeight:800, color:"#fff", background:"#b71c1c",
+                        border:"none", borderRadius:6, padding:"4px 12px", cursor:"pointer", fontFamily:"inherit",
+                      }}>🎹 Piano ON 알림 보내기</button>
+                      <button onClick={() => setTestPhase(p => (p + 1) % 4)} style={{
+                        fontSize:10, fontWeight:700, color:C.dim,
+                        background:"transparent", border:`1px solid ${C.bdr}`,
+                        borderRadius:5, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit",
+                      }}>
+                        {testPhase === 0 ? "TEST" : testPhase === 1 ? "TEST 1/3" : testPhase === 2 ? "TEST 2/3" : "TEST 3/3"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 예배종료 */}
+                  {worshipEnded && (
+                    <div style={{ borderRadius:12, padding:"12px 16px", textAlign:"center",
+                      background:`linear-gradient(135deg, ${C.dim}12, ${C.dim}06)`, border:`2px solid ${C.dim}33` }}>
+                      <div style={{ fontSize:20, marginBottom:2 }}>🙏</div>
+                      <div style={{ fontSize:13, fontWeight:800, color:C.dim }}>예배종료</div>
+                    </div>
+                  )}
+
+                  {/* X32 채널 상태 */}
+                  <X32StatusBar />
+
+                  {/* 악보 링크 컨트롤 */}
+                  {svcSongs.length > 0 && (
+                    <div style={{
+                      background: sheetLinkEnabled ? `${C.pur}0d` : C.surf,
+                      border: `1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
+                      borderRadius: 12, padding: "8px 10px",
+                    }}>
+                      <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:5, marginBottom: sheetLinkEnabled ? 8 : 0 }}>
+                        <span style={{ fontSize:12, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.dim, flexShrink:0 }}>🔗</span>
+                        {SHEET_SYNC_INST_PARTS.map(part => {
+                          const active = currentParts.includes(part);
+                          return (
+                            <button key={part} onClick={() => togglePart(part)} style={{
+                              fontSize:10, fontWeight:700,
+                              background: active ? C.pur : C.card, color: active ? "#fff" : C.dim,
+                              border:`1px solid ${active ? C.pur : C.bdr}`,
+                              borderRadius:20, padding:"2px 7px", cursor:"pointer", fontFamily:"inherit", flexShrink:0,
+                            }}>{part}</button>
+                          );
+                        })}
+                        <button onClick={toggleLink} style={{
+                          marginLeft:"auto", flexShrink:0, display:"flex", alignItems:"center", gap:5,
+                          background: sheetLinkEnabled ? C.pur : C.card,
+                          border:`1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
+                          borderRadius:20, padding:"4px 10px", cursor:"pointer", fontFamily:"inherit",
+                        }}>
+                          <div style={{ width:22, height:13, borderRadius:7, background: sheetLinkEnabled ? "#fff" : C.bdr, position:"relative" }}>
+                            <div style={{ position:"absolute", top:2, left: sheetLinkEnabled ? 10 : 2,
+                              width:9, height:9, borderRadius:"50%",
+                              background: sheetLinkEnabled ? C.pur : "#aaa", transition:"left 0.15s" }} />
+                          </div>
+                          <span style={{ fontSize:11, fontWeight:700, color: sheetLinkEnabled ? "#fff" : C.dim }}>
+                            {sheetLinkEnabled ? "ON" : "OFF"}
+                          </span>
+                        </button>
+                      </div>
+                      {sheetLinkEnabled && (
+                        <>
+                          <div style={{ textAlign:"center", marginBottom:8 }}>
+                            {syncSong ? (
+                              <span>
+                                <span style={{ fontSize:11, color:C.dim, fontWeight:700 }}>{activeSyncIdx + 1} / {svcSongs.length} &nbsp;·&nbsp;</span>
+                                <span style={{ fontSize:14, fontWeight:800, color:C.txt }}>{syncSong.title}</span>
+                              </span>
+                            ) : (
+                              <span style={{ fontSize:12, color:C.dim }}>— 곡 선택 —</span>
+                            )}
+                          </div>
+                          <div style={{ display:"flex", gap:8 }}>
+                            <button onClick={() => advanceSong(-1)} disabled={activeSyncIdx <= 0} style={{
+                              flex:1, height:56, borderRadius:12, cursor:"pointer",
+                              background: activeSyncIdx <= 0 ? C.card : `${C.pur}18`,
+                              border:`1.5px solid ${activeSyncIdx <= 0 ? C.bdr : C.pur}`,
+                              display:"flex", alignItems:"center", justifyContent:"center",
+                              fontSize:18, fontWeight:800, color: activeSyncIdx <= 0 ? C.dim : C.pur,
+                              opacity: activeSyncIdx <= 0 ? 0.4 : 1, fontFamily:"inherit", gap:8,
+                            }}>◀ 이전</button>
+                            <button onClick={() => advanceSong(1)} disabled={activeSyncIdx >= svcSongs.length - 1} style={{
+                              flex:1, height:56, borderRadius:12, cursor:"pointer",
+                              background: activeSyncIdx >= svcSongs.length - 1 ? C.card : `${C.pur}18`,
+                              border:`1.5px solid ${activeSyncIdx >= svcSongs.length - 1 ? C.bdr : C.pur}`,
+                              display:"flex", alignItems:"center", justifyContent:"center",
+                              fontSize:18, fontWeight:800, color: activeSyncIdx >= svcSongs.length - 1 ? C.dim : C.pur,
+                              opacity: activeSyncIdx >= svcSongs.length - 1 ? 0.4 : 1, fontFamily:"inherit", gap:8,
+                            }}>다음 ▶</button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* ── 오른쪽: 현재 악보 1장 ── */}
+                <div style={{ flex:1, display:"flex", flexDirection:"column", paddingBottom:90, minWidth:0 }}>
+                  {dispSong ? (() => {
+                    const hasSheet     = !!(dispSong.pdfUrl || dispSong.imageUrl);
+                    const hasTranspose = user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${dispSong.id}`) === "1";
+                    return (
+                      <>
+                        <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6, flexShrink:0 }}>
+                          <div style={{ width:20, height:20, borderRadius:6,
+                            background: activeSyncIdx >= 0 ? C.pur : `${C.pur}18`,
+                            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                            <span style={{ fontSize:11, fontWeight:800, color: activeSyncIdx >= 0 ? "#fff" : C.pur }}>{dispIdx + 1}</span>
+                          </div>
+                          <span style={{ fontSize:14, fontWeight:800, color: activeSyncIdx >= 0 ? C.pur : C.txt,
+                            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
+                            {dispSong.title}
+                          </span>
+                          <span style={{ fontSize:11, color:C.dim, flexShrink:0 }}>{dispIdx + 1} / {svcSongs.length}</span>
+                        </div>
+                        <div
+                          onClick={() => hasSheet && nav("pdfViewer", { songId:dispSong.id, svcId:nextSvc.id, svcSongIdx:dispIdx, backTo:"home" })}
+                          style={{
+                            flex:1, borderRadius:12, overflow:"hidden",
+                            background:C.card,
+                            border: activeSyncIdx >= 0 ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
+                            boxShadow: activeSyncIdx >= 0 ? `0 0 0 4px ${C.pur}28` : "none",
+                            position:"relative", cursor: hasSheet ? "pointer" : "default",
+                            opacity: hasSheet ? 1 : 0.5,
+                          }}>
+                          {dispSong.imageUrl ? (
+                            <img src={dispSong.imageUrl} alt=""
+                              style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top center" }} />
+                          ) : dispSong.pdfUrl ? (
+                            <div style={{ width:"100%", overflow:"hidden" }}>
+                              <PdfThumb pdfUrl={dispSong.pdfUrl} />
+                            </div>
+                          ) : (
+                            <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                              <span style={{ fontSize:60, opacity:0.15 }}>🎵</span>
+                            </div>
+                          )}
+                          <div style={{ position:"absolute", bottom:8, left:8, display:"flex", gap:4, flexWrap:"wrap" }}>
+                            {dispSong.key && (
+                              <span style={{ background:`${keyColor(dispSong.key)}ee`, color:"#fff",
+                                borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>{dispSong.key}</span>
+                            )}
+                            {dispSong.bpm && (
+                              <span style={{ background:"rgba(0,0,0,0.6)", color:"#fff",
+                                borderRadius:6, padding:"2px 7px", fontSize:10 }}>♩{dispSong.bpm}</span>
+                            )}
+                            {hasTranspose && (
+                              <span style={{ background:`${C.pur}ee`, color:"#fff",
+                                borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>전조</span>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })() : (
+                    <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", color:C.dim }}>
+                      <div style={{ textAlign:"center" }}>
+                        <div style={{ fontSize:40, marginBottom:8, opacity:0.3 }}>🎵</div>
+                        <div style={{ fontSize:13 }}>아직 곡이 없습니다</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })() : (
           <>
-            {/* 이번 예배 히어로 — 1행 전체 */}
+            {/* 이번 예배 히어로 — 1행 전체 (non-admin) */}
             {(() => {
-              // testPhase 오버라이드: 0=실제값 1=카운트다운 2=예배준비 3=PIANO ON
               const tInHour       = testPhase > 0 ? true  : inHour;
               const tCountdown    = testPhase === 1 ? "45:00" : testPhase === 2 ? "00:35" : testPhase === 3 ? "00:09" : countdown;
               const tWorshipReady = testPhase === 2 ? true  : testPhase === 3 ? true  : worshipReady;
@@ -2445,7 +2708,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     : `1.5px solid ${C.pur}33`,
                   borderRadius:12, padding:"10px 12px", marginBottom:10,
                 }}>
-                  {/* Row 1: D-day + 날짜/타이틀 + 카운트다운 or 배지 */}
                   <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                     {dDay === 0
                       ? <span style={{ background:C.red, color:"#fff", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>오늘</span>
@@ -2453,7 +2715,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       ? <span style={{ background:C.acc, color:"#111", fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>내일</span>
                       : <span style={{ background:`${C.pur}22`, color:C.pur, fontWeight:800, fontSize:11, borderRadius:6, padding:"2px 8px", flexShrink:0 }}>D-{dDay}</span>
                     }
-                    {/* 날짜 + 서브타이틀 (항상 표시) */}
                     <div style={{ flexShrink:0, minWidth:0 }}>
                       <div style={{ fontWeight:800, fontSize:18, color:C.txt, lineHeight:1.2 }}>{fmtSvcDate(nextSvc.date)}</div>
                       <div style={{ fontSize:12, color:C.dim, marginTop:2, display:"flex", alignItems:"center", gap:5 }}>
@@ -2463,7 +2724,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         <span>{svcSongs.length}곡</span>
                       </div>
                     </div>
-                    {/* 가운데 빈 공간: 상태 메시지 */}
                     <div style={{ flex:1, textAlign:"center", padding:"0 8px" }}>
                       {showMsg && (isPianoOn
                         ? <span style={{ color:C.red, fontWeight:900, fontSize:22, letterSpacing:"0.04em" }}>
@@ -2474,7 +2734,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           </span>
                       )}
                     </div>
-                    {/* 1시간 이내: 카운트다운 / 그 외: 상태 배지 */}
                     {tInHour && tCountdown
                       ? <span style={{
                           fontVariantNumeric:"tabular-nums", fontWeight:900, fontSize:17,
@@ -2484,40 +2743,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       : <span style={{ flexShrink:0 }}><ServiceStatusBadge svc={nextSvc} /></span>
                     }
                   </div>
-                  {/* 피아노ON 수동 버튼 + TEST (어드민만) */}
-                  {user?.role === "admin" && (
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:6 }}>
-                      <button onClick={async () => {
-                        try {
-                          await setDoc(doc(db, "liveStatus", "automation"), {
-                            phase: "piano_on",
-                            svcId: nextSvc?.id || null,
-                            updatedAt: serverTimestamp(),
-                          });
-                          fetch("http://192.168.1.21:5004/v1/stage/message", {
-                            method: "PUT",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify("PIANO ON"),
-                          }).catch(() => {});
-                        } catch {}
-                      }} style={{
-                        fontSize:11, fontWeight:800, color:"#fff",
-                        background:"#b71c1c",
-                        border:"none", borderRadius:6, padding:"4px 12px",
-                        cursor:"pointer", fontFamily:"inherit",
-                      }}>
-                        🎹 Piano ON 알림 보내기
-                      </button>
-                      <button onClick={() => setTestPhase(p => (p + 1) % 4)}
-                        style={{
-                          fontSize:10, fontWeight:700, color:C.dim,
-                          background:"transparent", border:`1px solid ${C.bdr}`,
-                          borderRadius:5, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit",
-                        }}>
-                        {testPhase === 0 ? "TEST" : testPhase === 1 ? "TEST 1/3" : testPhase === 2 ? "TEST 2/3" : "TEST 3/3"}
-                      </button>
-                    </div>
-                  )}
                 </div>
               );
             })()}
@@ -2543,217 +2768,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             {/* X32 채널 상태 */}
             <X32StatusBar />
 
-            {/* 어드민: 좌우 2컬럼 — 왼쪽 컨트롤 / 오른쪽 악보 리스트 */}
-            {user?.role === "admin" && svcSongs.length > 0 && (() => {
-              const syncSong = activeSyncIdx >= 0 ? svcSongs[activeSyncIdx] : null;
-              const currentParts = sheetSyncAllowedParts ?? DEFAULT_SHEET_PARTS;
-
-              const toggleLink = async () => {
-                const newEnabled = !sheetLinkEnabled;
-                await setDoc(doc(db, "liveStatus", "sheetLink"), {
-                  enabled: newEnabled, svcId: nextSvc.id,
-                  allowedParts: currentParts, updatedAt: serverTimestamp(),
-                }).catch(() => {});
-                if (newEnabled) {
-                  const startIdx = activeSyncIdx >= 0 ? activeSyncIdx : 0;
-                  const s = svcSongs[startIdx];
-                  if (s) await setDoc(doc(db, "liveStatus", "sheetSync"), {
-                    svcId: nextSvc.id, songId: s.id, songIdx: startIdx,
-                    pageNum: 1, linkEnabled: true, updatedAt: serverTimestamp(),
-                  }).catch(() => {});
-                }
-              };
-
-              const togglePart = async (part) => {
-                const next = currentParts.includes(part)
-                  ? currentParts.filter(p => p !== part)
-                  : [...currentParts, part];
-                await setDoc(doc(db, "liveStatus", "sheetLink"), {
-                  enabled: sheetLinkEnabled, svcId: nextSvc.id,
-                  allowedParts: next, updatedAt: serverTimestamp(),
-                }).catch(() => {});
-              };
-
-              const advanceSong = async (delta) => {
-                const base = activeSyncIdx >= 0 ? activeSyncIdx : 0;
-                const newIdx = Math.max(0, Math.min(base + delta, svcSongs.length - 1));
-                const s = svcSongs[newIdx];
-                if (!s) return;
-                await setDoc(doc(db, "liveStatus", "sheetSync"), {
-                  svcId: nextSvc.id, songId: s.id, songIdx: newIdx,
-                  pageNum: 1, linkEnabled: true, updatedAt: serverTimestamp(),
-                }).catch(() => {});
-              };
-
-              return (
-                <div style={{ display:"flex", gap:10, alignItems:"flex-start", marginBottom:10 }}>
-                  {/* 왼쪽: 컨트롤 패널 (46%) */}
-                  <div style={{ width:"46%", flexShrink:0 }}>
-                    <div style={{
-                      background: sheetLinkEnabled ? `${C.pur}0d` : C.surf,
-                      border: `1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
-                      borderRadius: 12, padding: "8px 10px",
-                    }}>
-                      {/* 파트칩 + ON/OFF */}
-                      <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:5, marginBottom: sheetLinkEnabled ? 8 : 0 }}>
-                        <span style={{ fontSize:12, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.dim, flexShrink:0 }}>🔗</span>
-                        {SHEET_SYNC_INST_PARTS.map(part => {
-                          const active = currentParts.includes(part);
-                          return (
-                            <button key={part} onClick={() => togglePart(part)} style={{
-                              fontSize:10, fontWeight:700,
-                              background: active ? C.pur : C.card,
-                              color: active ? "#fff" : C.dim,
-                              border:`1px solid ${active ? C.pur : C.bdr}`,
-                              borderRadius:20, padding:"2px 7px",
-                              cursor:"pointer", fontFamily:"inherit", flexShrink:0,
-                            }}>{part}</button>
-                          );
-                        })}
-                        <button onClick={toggleLink} style={{
-                          marginLeft:"auto", flexShrink:0,
-                          display:"flex", alignItems:"center", gap:5,
-                          background: sheetLinkEnabled ? C.pur : C.card,
-                          border:`1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
-                          borderRadius:20, padding:"4px 10px", cursor:"pointer", fontFamily:"inherit",
-                        }}>
-                          <div style={{ width:22, height:13, borderRadius:7, background: sheetLinkEnabled ? "#fff" : C.bdr, position:"relative" }}>
-                            <div style={{ position:"absolute", top:2, left: sheetLinkEnabled ? 10 : 2,
-                              width:9, height:9, borderRadius:"50%",
-                              background: sheetLinkEnabled ? C.pur : "#aaa", transition:"left 0.15s" }} />
-                          </div>
-                          <span style={{ fontSize:11, fontWeight:700, color: sheetLinkEnabled ? "#fff" : C.dim }}>
-                            {sheetLinkEnabled ? "ON" : "OFF"}
-                          </span>
-                        </button>
-                      </div>
-                      {/* 곡 제목 + 이전/다음 */}
-                      {sheetLinkEnabled && (
-                        <>
-                          <div style={{ textAlign:"center", marginBottom:8 }}>
-                            {syncSong ? (
-                              <span>
-                                <span style={{ fontSize:11, color:C.dim, fontWeight:700 }}>
-                                  {activeSyncIdx + 1} / {svcSongs.length} &nbsp;·&nbsp;
-                                </span>
-                                <span style={{ fontSize:14, fontWeight:800, color:C.txt }}>
-                                  {syncSong.title}
-                                </span>
-                              </span>
-                            ) : (
-                              <span style={{ fontSize:12, color:C.dim }}>— 곡 선택 —</span>
-                            )}
-                          </div>
-                          <div style={{ display:"flex", gap:8 }}>
-                            <button onClick={() => advanceSong(-1)}
-                              disabled={activeSyncIdx <= 0}
-                              style={{
-                                flex:1, height:56, borderRadius:12, cursor:"pointer",
-                                background: activeSyncIdx <= 0 ? C.card : `${C.pur}18`,
-                                border:`1.5px solid ${activeSyncIdx <= 0 ? C.bdr : C.pur}`,
-                                display:"flex", alignItems:"center", justifyContent:"center",
-                                fontSize:18, fontWeight:800,
-                                color: activeSyncIdx <= 0 ? C.dim : C.pur,
-                                opacity: activeSyncIdx <= 0 ? 0.4 : 1,
-                                fontFamily:"inherit", gap:8,
-                              }}>◀ 이전</button>
-                            <button onClick={() => advanceSong(1)}
-                              disabled={activeSyncIdx >= svcSongs.length - 1}
-                              style={{
-                                flex:1, height:56, borderRadius:12, cursor:"pointer",
-                                background: activeSyncIdx >= svcSongs.length - 1 ? C.card : `${C.pur}18`,
-                                border:`1.5px solid ${activeSyncIdx >= svcSongs.length - 1 ? C.bdr : C.pur}`,
-                                display:"flex", alignItems:"center", justifyContent:"center",
-                                fontSize:18, fontWeight:800,
-                                color: activeSyncIdx >= svcSongs.length - 1 ? C.dim : C.pur,
-                                opacity: activeSyncIdx >= svcSongs.length - 1 ? 0.4 : 1,
-                                fontFamily:"inherit", gap:8,
-                              }}>다음 ▶</button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 오른쪽: 악보 세로 리스트 — 화면 우측 절반 */}
-                  <div ref={stripRef} style={{
-                    flex:1,
-                    overflowY:"auto",
-                    maxHeight:"calc(100vh - 220px)",
-                    display:"flex", flexDirection:"column", gap:8,
-                    scrollbarWidth:"none", msOverflowStyle:"none",
-                  }}>
-                    {svcSongs.map((song, idx) => {
-                      const hasSheet    = !!(song.pdfUrl || song.imageUrl);
-                      const hasTranspose = user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1";
-                      const isActive    = idx === activeSyncIdx;
-                      return (
-                        <div key={song.id + idx} id={`sheet-card-${idx}`}
-                          onClick={() => hasSheet && nav("pdfViewer", { songId:song.id, svcId:nextSvc.id, svcSongIdx:idx, backTo:"home" })}
-                          style={{ cursor: hasSheet ? "pointer" : "default" }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
-                            <div style={{ width:18, height:18, borderRadius:5,
-                              background: isActive ? C.pur : `${C.pur}18`,
-                              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                              <span style={{ fontSize:10, fontWeight:800, color: isActive ? "#fff" : C.pur }}>{idx + 1}</span>
-                            </div>
-                            <span style={{ fontSize:11, fontWeight:700, color: isActive ? C.pur : C.txt,
-                              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
-                              {song.title}
-                            </span>
-                          </div>
-                          <div style={{
-                            width:"100%", height:"44vh", borderRadius:10, overflow:"hidden",
-                            background:C.card,
-                            border: isActive ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
-                            boxShadow: isActive ? `0 0 0 3px ${C.pur}28` : "none",
-                            position:"relative",
-                            transition:"border 0.15s, box-shadow 0.15s",
-                            opacity: hasSheet ? 1 : 0.5,
-                          }}>
-                            {song.imageUrl ? (
-                              <img src={song.imageUrl} alt=""
-                                style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top center" }} />
-                            ) : song.pdfUrl ? (
-                              <div style={{ width:"100%", overflow:"hidden" }}>
-                                <PdfThumb pdfUrl={song.pdfUrl} />
-                              </div>
-                            ) : (
-                              <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                                <span style={{ fontSize:40, opacity:0.2 }}>🎵</span>
-                              </div>
-                            )}
-                            <div style={{ position:"absolute", bottom:6, left:6, display:"flex", gap:4, flexWrap:"wrap" }}>
-                              {song.key && (
-                                <span style={{ background:`${keyColor(song.key)}ee`, color:"#fff",
-                                  borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>
-                                  {song.key}
-                                </span>
-                              )}
-                              {song.bpm && (
-                                <span style={{ background:"rgba(0,0,0,0.6)", color:"#fff",
-                                  borderRadius:6, padding:"2px 7px", fontSize:10 }}>
-                                  ♩{song.bpm}
-                                </span>
-                              )}
-                              {hasTranspose && (
-                                <span style={{ background:`${C.pur}ee`, color:"#fff",
-                                  borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>
-                                  전조
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* 非admin: 악보 리스트 — 스냅 캐러셀 */}
-            {user?.role !== "admin" && svcSongs.length > 0 && (
+            {/* 악보 리스트 — 스냅 캐러셀 */}
+            {svcSongs.length > 0 && (
               <>
                 <div style={{ fontSize:11, fontWeight:800, color:C.pur,
                   letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:10 }}>
@@ -2908,6 +2924,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               </>
             )}
           </>
+          )
         ) : (
           <div style={{ textAlign:"center", padding:"80px 20px", color:C.dim }}>
             <div style={{ fontSize:52, marginBottom:16 }}>📋</div>
