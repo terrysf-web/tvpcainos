@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.416";
+const APP_VERSION = "3.417";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -5407,6 +5407,138 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   );
 }
 
+/* 손글씨 패드 — 쓰는 동안 잉크 그대로 유지, 「변환」 버튼을 눌러야만 Gemini가 활자로 변환 */
+function HandwritePad({ accent, apiKey, onText }) {
+  const wrapRef    = useRef(null);
+  const cvsRef     = useRef(null);
+  const strokesRef = useRef([]);   // 획 목록 (CSS px 좌표)
+  const curRef     = useRef(null); // 그리는 중인 획
+  const penSeenRef = useRef(false);
+  const [hasInk, setHasInk] = useState(false);
+  const [busy,   setBusy]   = useState(false);
+  const [err,    setErr]    = useState("");
+
+  useEffect(() => {
+    const cvs = cvsRef.current, wrap = wrapRef.current;
+    if (!cvs || !wrap) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = wrap.clientWidth, h = 160;
+    cvs.width = w * dpr; cvs.height = h * dpr;
+    cvs.style.width = w + "px"; cvs.style.height = h + "px";
+    const c = cvs.getContext("2d");
+    c.scale(dpr, dpr);
+    c.lineWidth = 2.5; c.lineCap = "round"; c.lineJoin = "round";
+    c.strokeStyle = "#1a1a1a";
+  }, []);
+
+  const ctx = () => cvsRef.current.getContext("2d");
+  const pos = e => {
+    const r = cvsRef.current.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+
+  const down = e => {
+    e.preventDefault();
+    if (e.pointerType === "pen") penSeenRef.current = true;
+    // 펜슬 사용자는 손바닥 터치 무시 (팜 리젝션)
+    if (e.pointerType === "touch" && penSeenRef.current) return;
+    cvsRef.current.setPointerCapture?.(e.pointerId);
+    curRef.current = [pos(e)];
+  };
+  const move = e => {
+    if (!curRef.current) return;
+    const pts = curRef.current, last = pts[pts.length - 1], p = pos(e);
+    pts.push(p);
+    const c = ctx();
+    c.beginPath(); c.moveTo(last.x, last.y); c.lineTo(p.x, p.y); c.stroke();
+  };
+  const up = () => {
+    if (!curRef.current) return;
+    if (curRef.current.length > 1) { strokesRef.current.push(curRef.current); setHasInk(true); }
+    curRef.current = null;
+  };
+
+  const redraw = () => {
+    const cvs = cvsRef.current, c = ctx();
+    c.clearRect(0, 0, cvs.width, cvs.height);
+    strokesRef.current.forEach(pts => {
+      c.beginPath(); c.moveTo(pts[0].x, pts[0].y);
+      pts.slice(1).forEach(p => c.lineTo(p.x, p.y));
+      c.stroke();
+    });
+  };
+  const undo  = () => { strokesRef.current.pop(); redraw(); setHasInk(strokesRef.current.length > 0); };
+  const clear = () => { strokesRef.current = []; redraw(); setHasInk(false); };
+
+  const convert = async () => {
+    if (!strokesRef.current.length || busy) return;
+    if (!apiKey) { setErr("AI 키가 없습니다. 프로필 → AI 분석 키를 설정해 주세요."); return; }
+    setBusy(true); setErr("");
+    try {
+      const cvs = cvsRef.current;
+      const out = document.createElement("canvas");
+      out.width = cvs.width; out.height = cvs.height;
+      const oc = out.getContext("2d");
+      oc.fillStyle = "#ffffff"; oc.fillRect(0, 0, out.width, out.height);
+      oc.drawImage(cvs, 0, 0);
+      const b64 = out.toDataURL("image/png").split(",")[1];
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        { method:"POST", headers:{ "content-type":"application/json" },
+          body: JSON.stringify({
+            contents:[{ parts:[
+              { inlineData:{ mimeType:"image/png", data:b64 } },
+              { text:"이미지의 손글씨를 텍스트로 변환하세요. 한국어·영어가 섞여 있을 수 있습니다. 변환된 텍스트만 출력하고 설명이나 따옴표는 붙이지 마세요." },
+            ]}],
+            generationConfig:{ temperature:0, maxOutputTokens:512 },
+          }) }
+      );
+      const d = await res.json();
+      if (d.error) throw new Error(d.error.message || "Gemini 오류");
+      const text = (d.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+      if (!text) throw new Error("글씨를 인식하지 못했어요. 다시 시도해 주세요.");
+      onText(text);
+      clear();
+    } catch (e) {
+      setErr(e.message); // 실패해도 잉크는 그대로 남아 있어 재시도 가능
+    }
+    setBusy(false);
+  };
+
+  const btnStyle = on => ({
+    flex:1, padding:"9px 0", borderRadius:10, cursor: on ? "pointer" : "not-allowed",
+    background:C.card, border:`1px solid ${C.bdr}`,
+    fontFamily:"inherit", fontSize:13, fontWeight:700,
+    color: on ? C.txt : C.dim, opacity: on ? 1 : 0.4,
+  });
+
+  return (
+    <div ref={wrapRef} style={{ marginTop:8 }}>
+      <canvas ref={cvsRef}
+        onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+        style={{ width:"100%", height:160, display:"block", touchAction:"none",
+          background:`${accent}08`, border:`1.5px solid ${accent}44`, borderRadius:10 }} />
+      {!hasInk && !busy && !err && (
+        <div style={{ fontSize:11, color:C.dim, textAlign:"center", marginTop:4 }}>
+          펜으로 자유롭게 쓰세요 — 쓰는 동안 글씨가 바뀌지 않습니다. 다 쓴 후 「⬆ 변환」
+        </div>
+      )}
+      {err && <div style={{ fontSize:11, color:C.red, marginTop:4 }}>{err}</div>}
+      <div style={{ display:"flex", gap:6, marginTop:8 }}>
+        <button onClick={convert} disabled={!hasInk || busy}
+          style={{ flex:1.5, padding:"9px 0", borderRadius:10, cursor:(hasInk && !busy) ? "pointer" : "not-allowed",
+            background:(hasInk && !busy) ? accent : C.card, border:`1px solid ${(hasInk && !busy) ? accent : C.bdr}`,
+            fontFamily:"inherit", fontSize:13, fontWeight:800,
+            color:(hasInk && !busy) ? "#fff" : C.dim, opacity:(hasInk && !busy) ? 1 : 0.4 }}>
+          {busy ? "변환 중..." : "⬆ 변환"}
+        </button>
+        <button onClick={undo}  disabled={!hasInk || busy} style={btnStyle(hasInk && !busy)}>↶ 한 획 취소</button>
+        <button onClick={clear} disabled={!hasInk || busy} style={btnStyle(hasInk && !busy)}>✕ 지우기</button>
+      </div>
+    </div>
+  );
+}
+
 function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue, deleteCue, editCue }) {
   const song = songs.find(s => s.id === selectedSongId);
   const isLibraryMode = backTo === "library"; // 라이브러리에서 열린 경우: 예배 컨텍스트 없음
@@ -5475,6 +5607,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [cueEditTxt,    setCueEditTxt]    = useState("");
   const [noteTxt,       setNoteTxt]       = useState("");
   const [noteScr,       setNoteScr]       = useState("");
+  const [noteInk,       setNoteInk]       = useState(true);  // true=손글씨 캔버스, false=타입
+  const [cueInk,        setCueInk]        = useState(true);
   const [noteSongId,    setNoteSongId]    = useState(null); // dual 모드에서 노트 저장 대상 악보
   const [saving,        setSaving]        = useState(false);
 
@@ -9035,10 +9169,27 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-all" }}>
               {noteTxt || <span style={{ color:C.dim, fontSize:13 }}>작성된 내용이 여기 표시됩니다</span>}
             </div>
-            {/* 필기 에리어 박스 */}
+            {/* 입력 모드: 손글씨(캔버스) / 타입 */}
+            <div style={{ display:"flex", gap:6, marginTop:10 }}>
+              {[{ v:true, label:"✍️ 필기" }, { v:false, label:"⌨️ 타입" }].map(o => (
+                <button key={o.label} onClick={() => setNoteInk(o.v)}
+                  style={{ flex:1, padding:"7px 0", borderRadius:8, cursor:"pointer",
+                    fontFamily:"inherit", fontSize:12, fontWeight:700,
+                    background: noteInk === o.v ? C.pur : C.card,
+                    color: noteInk === o.v ? "#fff" : C.dim,
+                    border:`1.5px solid ${noteInk === o.v ? C.pur : C.bdr}` }}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            {noteInk ? (
+              <HandwritePad accent={C.pur} apiKey={user?.geminiKey || sharedGeminiKey}
+                onText={t => setNoteTxt(p => (p + (p ? " " : "") + t).trim())} />
+            ) : (
+            <>
             <textarea value={noteScr}
               onChange={e => setNoteScr(e.target.value)}
-              placeholder="여기에 필기 또는 타입하세요" autoFocus
+              placeholder="여기에 타입하세요" autoFocus
               style={{ width:"100%", background:`${C.pur}08`, border:`1.5px solid ${C.pur}44`,
                 color:C.txt, padding:"10px 14px", borderRadius:10,
                 fontSize:14, outline:"none", fontFamily:"inherit",
@@ -9076,6 +9227,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 ✕ 전체 삭제
               </button>
             </div>
+            </>
+            )}
             <div style={{ display:"flex", gap:8, marginTop:8 }}>
               <Btn label="취소" variant="ghost" onClick={() => { setNoteInput(false); setNoteTxt(""); setNoteScr(""); setNoteShared(false); setNoteSongId(null); }} full />
               <Btn label={saving ? "저장 중..." : "저장"} variant="primary"
@@ -9280,14 +9433,31 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-all" }}>
               {cueTxt || <span style={{ color:C.dim, fontSize:13 }}>작성된 내용이 여기 표시됩니다</span>}
             </div>
-            {/* 필기 에리어 박스 */}
+            {/* 입력 모드: 손글씨(캔버스) / 타입 */}
+            <div style={{ display:"flex", gap:6, marginTop:10 }}>
+              {[{ v:true, label:"✍️ 필기" }, { v:false, label:"⌨️ 타입" }].map(o => (
+                <button key={o.label} onClick={() => setCueInk(o.v)}
+                  style={{ flex:1, padding:"7px 0", borderRadius:8, cursor:"pointer",
+                    fontFamily:"inherit", fontSize:12, fontWeight:700,
+                    background: cueInk === o.v ? "#ff6f00" : C.card,
+                    color: cueInk === o.v ? "#fff" : C.dim,
+                    border:`1.5px solid ${cueInk === o.v ? "#ff6f00" : C.bdr}` }}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            {cueInk ? (
+              <HandwritePad accent="#ff6f00" apiKey={user?.geminiKey || sharedGeminiKey}
+                onText={t => setCueTxt(p => (p + (p ? " " : "") + t).trim())} />
+            ) : (
+            <>
             <textarea
               value={cueScr}
               onChange={e => {
                 const v = e.target.value;
                 setCueScr(v);
               }}
-              placeholder="여기에 필기 또는 타입하세요"
+              placeholder="여기에 타입하세요"
               autoFocus
               style={{ width:"100%", background:`#ff6f0008`, border:`1.5px solid #ff6f0044`,
                 color:C.txt, padding:"10px 14px", borderRadius:10,
@@ -9327,6 +9497,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 ✕ 전체 삭제
               </button>
             </div>
+            </>
+            )}
             <div style={{ display:"flex", gap:8, marginTop:8 }}>
               <Btn label="취소" variant="ghost" onClick={() => { setShowCueInput(false); setCueTxt(""); setCueScr(""); }} full />
               <Btn label="전송" variant="primary"
