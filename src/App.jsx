@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.419";
+const APP_VERSION = "3.420";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -5463,12 +5463,14 @@ function HandwritePad({ accent, apiKey, onText }) {
 
   const down = e => {
     e.preventDefault();
+    e.stopPropagation(); // 아래 악보 화면의 탭/스와이프 핸들러로 전파 차단
     // 손가락·손바닥 터치는 완전 무시 — 펜슬(또는 마우스)로만 필기
     if (e.pointerType === "touch") return;
     cvsRef.current.setPointerCapture?.(e.pointerId);
     curRef.current = [pos(e)];
   };
   const move = e => {
+    e.stopPropagation();
     if (!curRef.current) return;
     if (e.pointerType === "touch") return;
     const pts = curRef.current;
@@ -5484,6 +5486,7 @@ function HandwritePad({ accent, apiKey, onText }) {
     c.stroke();
   };
   const up = e => {
+    e?.stopPropagation?.();
     if (!curRef.current) return;
     if (e && e.pointerType === "touch") return;
     if (curRef.current.length > 1) {
@@ -9180,7 +9183,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       {noteInput && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)",
           display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, padding:20 }}
-          onClick={e => e.stopPropagation()}>
+          onClick={e => e.stopPropagation()}
+          onPointerDown={e => e.stopPropagation()}
+          onPointerMove={e => e.stopPropagation()}
+          onPointerUp={e => e.stopPropagation()}
+          onTouchStart={e => e.stopPropagation()}
+          onTouchMove={e => e.stopPropagation()}
+          onTouchEnd={e => e.stopPropagation()}>
           <div style={{ background:C.surf, borderRadius:16, padding:20,
             width:"100%", maxWidth:400, border:`1px solid ${C.bdr}` }}>
             <div style={{ fontWeight:700, marginBottom:12 }}>메모 추가 (p.{pageNum})</div>
@@ -9418,7 +9427,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       {showCueInput && !isLibraryMode && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)",
           display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, padding:20 }}
-          onClick={e => e.stopPropagation()}>
+          onClick={e => e.stopPropagation()}
+          onPointerDown={e => e.stopPropagation()}
+          onPointerMove={e => e.stopPropagation()}
+          onPointerUp={e => e.stopPropagation()}
+          onTouchStart={e => e.stopPropagation()}
+          onTouchMove={e => e.stopPropagation()}
+          onTouchEnd={e => e.stopPropagation()}>
           <div style={{ background:C.surf, borderRadius:16, padding:20,
             width:"100%", maxWidth:400, border:`1px solid #ff6f0055` }}>
             <div style={{ fontWeight:700, marginBottom:4 }}>🎯 큐 노트</div>
