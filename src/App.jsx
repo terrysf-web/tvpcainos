@@ -38,6 +38,9 @@ const PARTS = [
 
 // 보컬 파트 ID 집합 — "밴드" 녹음 접근 불가
 const VOCALIST_PART_IDS = new Set(["보컬그룹","리드보컬","보컬Jeon","보컬Chung","보컬Lee"]);
+// 악보 링크 파트 선택 대상 (보컬 제외 악기 파트)
+const SHEET_SYNC_INST_PARTS = ["밴드","기타","베이스","드럼","키보드","일렉기타"];
+const DEFAULT_SHEET_PARTS   = ["밴드","기타","베이스","드럼","키보드","일렉기타"];
 
 // 사용자 파트 배열 반환 (구버전 part 문자열 호환)
 const getUserParts = (u) => u?.parts?.length ? u.parts : (u?.part ? [u.part] : []);
@@ -2190,7 +2193,7 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
   );
 }
 
-function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue, sheetLinkEnabled, sheetSyncTrigger }) {
+function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue, sheetLinkEnabled, sheetSyncTrigger, sheetSyncAllowedParts }) {
   const [countdown,    setCountdown]    = useState("");
   const [inHour,       setInHour]       = useState(false);
   const [worshipReady, setWorshipReady] = useState(false);
@@ -2506,10 +2509,13 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               const activeSyncIdx = syncSvcId === nextSvc.id ? syncSongIdx : -1;
               const syncSong = activeSyncIdx >= 0 ? svcSongs[activeSyncIdx] : null;
 
+              const currentParts = sheetSyncAllowedParts ?? DEFAULT_SHEET_PARTS;
+
               const toggleLink = async () => {
                 const newEnabled = !sheetLinkEnabled;
                 await setDoc(doc(db, "liveStatus", "sheetLink"), {
-                  enabled: newEnabled, svcId: nextSvc.id, updatedAt: serverTimestamp(),
+                  enabled: newEnabled, svcId: nextSvc.id,
+                  allowedParts: currentParts, updatedAt: serverTimestamp(),
                 }).catch(() => {});
                 if (newEnabled) {
                   const startIdx = activeSyncIdx >= 0 ? activeSyncIdx : 0;
@@ -2519,6 +2525,16 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     pageNum: 1, linkEnabled: true, updatedAt: serverTimestamp(),
                   }).catch(() => {});
                 }
+              };
+
+              const togglePart = async (part) => {
+                const next = currentParts.includes(part)
+                  ? currentParts.filter(p => p !== part)
+                  : [...currentParts, part];
+                await setDoc(doc(db, "liveStatus", "sheetLink"), {
+                  enabled: sheetLinkEnabled, svcId: nextSvc.id,
+                  allowedParts: next, updatedAt: serverTimestamp(),
+                }).catch(() => {});
               };
 
               const advanceSong = async (delta) => {
@@ -2560,46 +2576,67 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     </button>
                   </div>
 
-                  {/* 수동 넘김 행 */}
+                  {/* 파트 선택 칩 */}
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:10 }}>
+                    {SHEET_SYNC_INST_PARTS.map(part => {
+                      const active = currentParts.includes(part);
+                      return (
+                        <button key={part} onClick={() => togglePart(part)} style={{
+                          fontSize:11, fontWeight:700,
+                          background: active ? C.pur : C.card,
+                          color: active ? "#fff" : C.dim,
+                          border:`1px solid ${active ? C.pur : C.bdr}`,
+                          borderRadius:20, padding:"3px 10px",
+                          cursor:"pointer", fontFamily:"inherit",
+                        }}>{part}</button>
+                      );
+                    })}
+                  </div>
+
+                  {/* 수동 넘김: 곡 제목 + 와이드 바 버튼 */}
                   {sheetLinkEnabled && (
-                    <div style={{ display:"flex", alignItems:"stretch", gap:10 }}>
-                      <button onClick={() => advanceSong(-1)}
-                        disabled={activeSyncIdx <= 0}
-                        style={{
-                          flex:"0 0 72px", height:52, borderRadius:12, cursor:"pointer",
-                          background:"transparent", border:`1.5px solid ${C.bdr}`,
-                          display:"flex", alignItems:"center", justifyContent:"center",
-                          fontSize:22, opacity: activeSyncIdx <= 0 ? 0.3 : 1,
-                          fontFamily:"inherit",
-                        }}>◀</button>
-                      <div style={{ flex:1, textAlign:"center", minWidth:0,
-                        display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                        padding:"0 4px" }}>
+                    <>
+                      <div style={{ textAlign:"center", marginBottom:8 }}>
                         {syncSong ? (
-                          <>
-                            <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:2 }}>
-                              {activeSyncIdx + 1} / {svcSongs.length}
-                            </div>
-                            <div style={{ fontSize:14, fontWeight:800, color:C.txt,
-                              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-                              width:"100%" }}>
+                          <span>
+                            <span style={{ fontSize:11, color:C.dim, fontWeight:700 }}>
+                              {activeSyncIdx + 1} / {svcSongs.length} &nbsp;·&nbsp;
+                            </span>
+                            <span style={{ fontSize:14, fontWeight:800, color:C.txt }}>
                               {syncSong.title}
-                            </div>
-                          </>
+                            </span>
+                          </span>
                         ) : (
                           <span style={{ fontSize:12, color:C.dim }}>— 곡 선택 —</span>
                         )}
                       </div>
-                      <button onClick={() => advanceSong(1)}
-                        disabled={activeSyncIdx >= svcSongs.length - 1}
-                        style={{
-                          flex:"0 0 72px", height:52, borderRadius:12, cursor:"pointer",
-                          background:"transparent", border:`1.5px solid ${C.bdr}`,
-                          display:"flex", alignItems:"center", justifyContent:"center",
-                          fontSize:22, opacity: activeSyncIdx >= svcSongs.length - 1 ? 0.3 : 1,
-                          fontFamily:"inherit",
-                        }}>▶</button>
-                    </div>
+                      <div style={{ display:"flex", gap:8 }}>
+                        <button onClick={() => advanceSong(-1)}
+                          disabled={activeSyncIdx <= 0}
+                          style={{
+                            flex:1, height:56, borderRadius:12, cursor:"pointer",
+                            background: activeSyncIdx <= 0 ? C.card : `${C.pur}18`,
+                            border:`1.5px solid ${activeSyncIdx <= 0 ? C.bdr : C.pur}`,
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                            fontSize:18, fontWeight:800,
+                            color: activeSyncIdx <= 0 ? C.dim : C.pur,
+                            opacity: activeSyncIdx <= 0 ? 0.4 : 1,
+                            fontFamily:"inherit", gap:8,
+                          }}>◀ 이전</button>
+                        <button onClick={() => advanceSong(1)}
+                          disabled={activeSyncIdx >= svcSongs.length - 1}
+                          style={{
+                            flex:1, height:56, borderRadius:12, cursor:"pointer",
+                            background: activeSyncIdx >= svcSongs.length - 1 ? C.card : `${C.pur}18`,
+                            border:`1.5px solid ${activeSyncIdx >= svcSongs.length - 1 ? C.bdr : C.pur}`,
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                            fontSize:18, fontWeight:800,
+                            color: activeSyncIdx >= svcSongs.length - 1 ? C.dim : C.pur,
+                            opacity: activeSyncIdx >= svcSongs.length - 1 ? 0.4 : 1,
+                            fontFamily:"inherit", gap:8,
+                          }}>다음 ▶</button>
+                      </div>
+                    </>
                   )}
                 </div>
               );
@@ -12539,17 +12576,21 @@ export default function App() {
     localStorage.getItem("tvpc_pianoOverlay_dismissed") || null
   );
   const autoLiveTriggeredRef = useRef(null);
-  const [sheetLinkEnabled,  setSheetLinkEnabled]  = useState(false);
-  const [sheetSyncTrigger,  setSheetSyncTrigger]  = useState(0); // bumped each time sheetSync nav fires
-  const navRef          = useRef(null); // nav is defined after early returns — use ref to avoid TDZ
+  const [sheetLinkEnabled,      setSheetLinkEnabled]      = useState(false);
+  const [sheetSyncAllowedParts, setSheetSyncAllowedParts] = useState(null); // null = 보컬 제외 전체
+  const [sheetSyncTrigger,      setSheetSyncTrigger]      = useState(0);
+  const navRef          = useRef(null);
   const userRoleRef     = useRef(undefined);
   const selSongIdRef    = useRef(null);
   const viewRef         = useRef("home");
   const sheetLinkEnabledRef = useRef(false);
+  const allowedPartsRef = useRef(null);
+  const userPartsRef    = useRef([]);
   const sheetSyncTsRef  = useRef(null);
-  useEffect(() => { userRoleRef.current     = user?.role;    }, [user?.role]);
-  useEffect(() => { selSongIdRef.current    = selSongId;     }, [selSongId]);
-  useEffect(() => { viewRef.current         = view;          }, [view]);
+  useEffect(() => { userRoleRef.current  = user?.role;      }, [user?.role]);
+  useEffect(() => { selSongIdRef.current = selSongId;       }, [selSongId]);
+  useEffect(() => { viewRef.current      = view;            }, [view]);
+  useEffect(() => { userPartsRef.current = getUserParts(user); }, [user]);
 
   // ── Kakao SDK 초기화
   useEffect(() => {
@@ -12584,12 +12625,16 @@ export default function App() {
 
   // (removed: --app-h resize listener — app root is now position:fixed so no resize jumps)
 
-  // ── 악보 링크 ON/OFF 구독
+  // ── 악보 링크 ON/OFF + 파트 필터 구독
   useEffect(() => {
     return onSnapshot(doc(db, "liveStatus", "sheetLink"), snap => {
-      const enabled = snap.exists() ? (snap.data().enabled ?? false) : false;
+      const d = snap.exists() ? snap.data() : {};
+      const enabled = d.enabled ?? false;
+      const parts   = d.allowedParts ?? null;
       sheetLinkEnabledRef.current = enabled;
+      allowedPartsRef.current     = parts;
       setSheetLinkEnabled(enabled);
+      setSheetSyncAllowedParts(parts);
     }, () => {});
   }, []);
 
@@ -12606,6 +12651,14 @@ export default function App() {
       // admin 이 아닌 모든 사용자가 따라감 (leader 포함)
       if (userRoleRef.current === "admin") return;
       if (!sheetLinkEnabledRef.current && !data.linkEnabled) return;
+      // 파트 필터: allowedParts 없으면 보컬만 제외, 있으면 교집합 체크
+      const allowedParts = allowedPartsRef.current ?? data.allowedParts ?? null;
+      if (allowedParts !== null) {
+        const myParts = userPartsRef.current;
+        if (myParts.length > 0 && !myParts.some(p => allowedParts.includes(p) || p === "전체")) return;
+      } else {
+        if (isVocalistUser({ parts: userPartsRef.current })) return;
+      }
       const { svcId, songId, songIdx } = data;
       if (!svcId || !songId) return;
       setSheetSyncTrigger(n => n + 1); // PDFViewerScreen에 듀얼 초기화 신호
@@ -13156,7 +13209,7 @@ export default function App() {
     markNotifRead, markAllNotifRead,
     nav, bgmChannel,
     songCues, sendCue, deleteCue, editCue, acknowledgeCue,
-    sheetLinkEnabled, sheetSyncTrigger,
+    sheetLinkEnabled, sheetSyncTrigger, sheetSyncAllowedParts,
   };
 
   return (
