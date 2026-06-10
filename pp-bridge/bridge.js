@@ -114,7 +114,8 @@ async function triggerNextSlide() {
 // ── ProPresenter 연결 상태 확인 ───────────────────────
 async function checkConnection() {
   try {
-    const r = await ppGet('/v1/version');
+    // PP7 API에서 version만 예외적으로 /v1 prefix 없음
+    const r = await ppGet('/version');
     if (r.status === 200) {
       const ver = r.body?.host?.name || r.body?.version || 'PP7';
       console.log(`✅ ProPresenter 연결됨: ${ver}`);
