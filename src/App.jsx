@@ -2228,6 +2228,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [testPhase,    setTestPhase]    = useState(0); // 0=off 1=countdown 2=worshipReady 3=piano_on
   const [syncSongIdx,  setSyncSongIdx]  = useState(-1);
   const [syncSvcId,    setSyncSvcId]    = useState(null);
+  const [adminDispIdx, setAdminDispIdx] = useState(-1);
   const autoNavDone  = useRef(false);
   const phaseFiredRef = useRef({});
   const svcSongsRef  = useRef([]);
@@ -2436,7 +2437,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
             const currentParts = sheetSyncAllowedParts ?? DEFAULT_SHEET_PARTS;
             const syncSong     = activeSyncIdx >= 0 ? svcSongs[activeSyncIdx] : null;
-            const dispIdx      = activeSyncIdx >= 0 ? activeSyncIdx : 0;
+            // 로컬 즉시 반영: adminDispIdx 우선, 없으면 서버값
+            const dispIdx      = adminDispIdx >= 0 ? adminDispIdx : (activeSyncIdx >= 0 ? activeSyncIdx : 0);
             const dispSong     = svcSongs.length > 0 ? svcSongs[dispIdx] : null;
 
             const toggleLink = async () => {
@@ -2464,10 +2466,11 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               }).catch(() => {});
             };
             const advanceSong = async (delta) => {
-              const base = activeSyncIdx >= 0 ? activeSyncIdx : 0;
+              const base = dispIdx;
               const newIdx = Math.max(0, Math.min(base + delta, svcSongs.length - 1));
               const s = svcSongs[newIdx];
               if (!s) return;
+              setAdminDispIdx(newIdx); // 즉시 로컬 반영
               await setDoc(doc(db, "liveStatus", "sheetSync"), {
                 svcId: nextSvc.id, songId: s.id, songIdx: newIdx,
                 pageNum: 1, linkEnabled: true, updatedAt: serverTimestamp(),
@@ -2643,8 +2646,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           style={{
                             flex:1, borderRadius:12, overflow:"hidden",
                             background:C.card,
-                            border: activeSyncIdx >= 0 ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
-                            boxShadow: activeSyncIdx >= 0 ? `0 0 0 4px ${C.pur}28` : "none",
+                            border: sheetLinkEnabled ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
+                            boxShadow: sheetLinkEnabled ? `0 0 0 4px ${C.pur}28` : "none",
                             position:"relative", cursor: hasSheet ? "pointer" : "default",
                             opacity: hasSheet ? 1 : 0.5,
                           }}>
@@ -2653,7 +2656,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                               style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top center" }} />
                           ) : dispSong.pdfUrl ? (
                             <div style={{ width:"100%", overflow:"hidden" }}>
-                              <PdfThumb pdfUrl={dispSong.pdfUrl} />
+                              <PdfThumb key={dispSong.pdfUrl} pdfUrl={dispSong.pdfUrl} scale={0.5} />
                             </div>
                           ) : (
                             <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}>
