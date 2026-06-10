@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.426";
+const APP_VERSION = "3.427";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2220,7 +2220,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [worshipEnded, setWorshipEnded] = useState(false);
   const [autoPhase,    setAutoPhase]    = useState("idle"); // idle|vol_down|piano_on|service_start
   const [testPhase,    setTestPhase]    = useState(0); // 0=off 1=countdown 2=worshipReady 3=piano_on
-  const autoNavDone  = useRef(false);
   const phaseFiredRef = useRef({});
   const svcSongsRef  = useRef([]);
   const navRef       = useRef(nav);
@@ -2249,7 +2248,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
   // 서비스 변경 시 초기화
   useEffect(() => {
-    autoNavDone.current = false;
     phaseFiredRef.current = {};
     setWorshipEnded(false);
     setAutoPhase("idle");
@@ -2301,14 +2299,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       if (diff <= 0) {
         setCountdown(""); setInHour(false); setWorshipReady(false);
         setWorshipEnded(true);
-        firePhase("service_start", null); // X32는 건드리지 않음 — BGM 정지는 PP 페이드가 처리
-        if (!autoNavDone.current) {
-          const firstSong = svcSongsRef.current[0];
-          if (firstSong) {
-            autoNavDone.current = true;
-            navRef.current("pdfViewer", { songId: firstSong.id, svcId: nextSvc.id, svcSongIdx: 0, backTo: "home" });
-          }
-        }
+        firePhase("service_start", null);
         return;
       }
 
