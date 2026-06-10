@@ -2,14 +2,14 @@
  * ProPresenter 7 Bridge — Firebase Firestore → ProPresenter REST API
  *
  * 사전 준비:
- *   1) ProPresenter 7 → 설정 → 네트워크 → "네트워크 활성화" ON, 포트 1025
+ *   1) ProPresenter 7 → 설정 → 네트워크 → "네트워크 활성화" ON (포트 확인, 기본 5004)
  *   2) Firebase 서비스 계정 JSON → 이 폴더에 service-account.json 으로 저장
  *   3) npm install
- *   4) node bridge.js
+ *   4) node bridge.js   (포트가 다르면: PP_PORT=1025 node bridge.js)
  *
  * 동작:
  *   vol_down  (-60s) : PP 오디오는 X32 bridge가 처리 (PP 측 무동작)
- *   piano_on  (-10s) : ProPresenter 오디오 즉시 정지
+ *   piano_on  (-10s) : PP BGM 정지 — 오디오 일시정지 + 오디오/미디어 레이어 클리어
  *   service_start (0s): ProPresenter 다음 슬라이드로 자동 전환
  */
 'use strict';
@@ -18,8 +18,9 @@ const admin = require('firebase-admin');
 const http  = require('http');
 
 // ── 설정 ──────────────────────────────────────────────
-const PP_HOST = 'localhost';
-const PP_PORT = 1025;           // ProPresenter 7 기본 포트
+// PP7 설정 → 네트워크에 표시된 포트와 반드시 일치해야 함 (Sanctuary MacMini: 5004)
+const PP_HOST = process.env.PP_HOST || 'localhost';
+const PP_PORT = parseInt(process.env.PP_PORT || '5004', 10);
 // ──────────────────────────────────────────────────────
 
 let serviceAccount;
@@ -34,7 +35,7 @@ admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
 // ── ProPresenter 7 REST API 헬퍼 ─────────────────────
-// PP7 API 문서: http://localhost:1025 (PP7 실행 중일 때 Swagger UI)
+// PP7 API 문서: PP 설정 → 네트워크 → "API Documentation..." 버튼
 function ppRequest(method, path, body = null) {
   return new Promise((resolve, reject) => {
     const bodyStr = body ? JSON.stringify(body) : null;
@@ -70,18 +71,25 @@ async function ppPost(path, body) { return ppRequest('POST', path, body); }
 
 // ── ProPresenter 명령 ─────────────────────────────────
 
-// 현재 재생 중인 오디오 정지
+// 현재 재생 중인 BGM 완전 정지 — 오디오/미디어 어느 플레이리스트든 확실히 끔
 async function stopAudio() {
-  try {
-    // PP7 오디오 트랜스포트 정지
-    const r = await ppPut('/v1/audio/active/transport/stop');
-    if (r.status < 300) {
-      console.log('🔇 ProPresenter 오디오 정지됨');
-    } else {
-      console.warn('⚠️  오디오 정지 응답:', r.status, r.body);
+  // PP7 공식 API는 전부 GET 트리거 방식
+  const calls = [
+    ['/v1/transport/audio/pause', '오디오 일시정지'],
+    ['/v1/clear/layer/audio',     '오디오 레이어 클리어'],
+    ['/v1/clear/layer/media',     '미디어 레이어 클리어'],
+  ];
+  for (const [path, label] of calls) {
+    try {
+      const r = await ppGet(path);
+      if (r.status < 300) {
+        console.log(`🔇 ${label} 완료`);
+      } else {
+        console.warn(`⚠️  ${label} 응답:`, r.status, r.body);
+      }
+    } catch (e) {
+      console.error(`${label} 실패:`, e.message);
     }
-  } catch (e) {
-    console.error('오디오 정지 실패:', e.message);
   }
 }
 
@@ -89,14 +97,14 @@ async function stopAudio() {
 // (카운트다운 슬라이드 → 예배 시작 슬라이드)
 async function triggerNextSlide() {
   try {
-    // PP7 next trigger — 슬라이드 순서대로 다음으로 이동
-    const r = await ppPut('/v1/presentation/focused/trigger/next');
+    // PP7 공식 API: GET /v1/trigger/next — 활성 플레이리스트의 다음 큐로 이동
+    const r = await ppGet('/v1/trigger/next');
     if (r.status < 300) {
       console.log('▶️  ProPresenter 다음 슬라이드로 전환');
     } else {
       console.warn('⚠️  슬라이드 전환 응답:', r.status, r.body);
-      // 일부 PP7 버전에서는 다른 경로 사용
-      await ppPost('/v1/trigger/next');
+      // 폴백: 포커스된 프레젠테이션 기준 next
+      await ppGet('/v1/presentation/focused/trigger/next');
     }
   } catch (e) {
     console.error('슬라이드 전환 실패:', e.message);
