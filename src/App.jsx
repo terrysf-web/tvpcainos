@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.413";
+const APP_VERSION = "3.414";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2781,6 +2781,10 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
 
   const SvcCard = ({ svc, past, first }) => {
     const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
+    // 자동 카운트다운: 오늘 기준 예배까지 남은 일수
+    const dday = past ? null : Math.round(
+      (new Date(svc.date + "T00:00:00") - new Date(today + "T00:00:00")) / 86400000
+    );
     const borderStyle = past
       ? `1px solid ${C.bdr}`
       : first
@@ -2804,7 +2808,20 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
         }}>
         <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:10 }}>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontWeight: first ? 800 : 700, fontSize: first ? 17 : 16 }}>{fmtDate(svc.date)}</div>
+            <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+              <div style={{ fontWeight: first ? 800 : 700, fontSize: first ? 17 : 16 }}>{fmtDate(svc.date)}</div>
+              {dday !== null && (
+                <span style={{
+                  fontSize:11, fontWeight:800, lineHeight:1,
+                  padding:"3px 7px", borderRadius:6, flexShrink:0,
+                  background: dday === 0 ? C.red : dday <= 3 ? `${C.acc}22` : C.card,
+                  color: dday === 0 ? "#fff" : dday <= 3 ? C.acc : C.dim,
+                  border: dday === 0 ? "none" : `1px solid ${dday <= 3 ? C.acc + "66" : C.bdr}`,
+                }}>
+                  {dday === 0 ? "D-DAY" : `D-${dday}`}
+                </span>
+              )}
+            </div>
             <div style={{ color: first ? C.acc : C.dim, fontSize:13, marginTop:3, fontWeight: first ? 600 : 400 }}>
               {svc.title}{svc.time ? ` · ${svc.time}` : ""}
             </div>
