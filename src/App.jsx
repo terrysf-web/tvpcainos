@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.414";
+const APP_VERSION = "3.415";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2238,9 +2238,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   useEffect(() => {
     if (!nextSvc?.time) return;
 
-    // leader만 phase 기록 (X32 명령 포함) — 멤버는 구독만
+    // leader만 phase 기록 — 멤버는 구독만
     const leader = isLeader(user?.role);
-    const ch = bgmChannel || "09"; // BGM X32 채널
 
     const firePhase = async (phase, x32Action) => {
       if (phaseFiredRef.current[phase]) return;
@@ -2279,7 +2278,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       if (diff <= 0) {
         setCountdown(""); setInHour(false); setWorshipReady(false);
         setWorshipEnded(true);
-        firePhase("service_start", { type:"mute", channel:ch });
+        firePhase("service_start", null); // X32는 건드리지 않음 — BGM 정지는 PP 페이드가 처리
         if (!autoNavDone.current) {
           const firstSong = svcSongsRef.current[0];
           if (firstSong) {
@@ -2295,13 +2294,12 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       setInHour(within1h);
       setWorshipReady(diff <= 40_000);
 
-      // 자동화 phase 트리거
+      // 자동화 phase 트리거 — X32는 건드리지 않음 (페이더/뮤트 수동 복구 문제).
+      // BGM은 PP 소스 자체를 페이드하므로 예배실·송출 모두 함께 줄어듦.
       if (diff <= 10_000) {
-        firePhase("piano_on", { type:"mute", channel:ch });
+        firePhase("piano_on", null);
       } else if (diff <= 15_000) {
         firePhase("bgm_fade", null); // PP BGM 페이드아웃 시작 (pp-bridge가 처리)
-      } else if (diff <= 60_000) {
-        firePhase("vol_down", { type:"fade_out", channel:ch, duration:50 }); // 50초 서서히 페이드
       } else if (within1h && !phaseFiredRef.current.bgm_playing) {
         firePhase("bgm_playing", null);
       }
