@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.427";
+const APP_VERSION = "3.421";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2061,48 +2061,25 @@ function CropModal({ pdfFile, pdfUrl, imageUrl, onClose, onConfirm, initialCrop 
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   PIANO ON TOAST
+   PIANO ON OVERLAY
 ══════════════════════════════════════════════════════════════════ */
-const PIANO_TOAST_MS = 8000;
 function PianoOnOverlay({ onDismiss }) {
-  const [pct, setPct] = useState(100);
   useEffect(() => {
-    const start = Date.now();
-    const tick = () => {
-      const elapsed = Date.now() - start;
-      const remaining = Math.max(0, 100 - (elapsed / PIANO_TOAST_MS) * 100);
-      setPct(remaining);
-      if (elapsed >= PIANO_TOAST_MS) { onDismiss(); return; }
-      requestAnimationFrame(tick);
-    };
-    const raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const t = setTimeout(onDismiss, 20000);
+    return () => clearTimeout(t);
   }, [onDismiss]);
   return (
     <div onClick={onDismiss} style={{
-      position:"fixed", top:0, left:0, right:0, zIndex:99999,
-      background:"linear-gradient(135deg, #b71c1c, #c62828)",
-      color:"#fff",
-      padding:"env(safe-area-inset-top, 0px) 0 0",
-      boxShadow:"0 4px 24px rgba(183,28,28,0.5)",
-      animation:"pianoToastSlide 0.35s cubic-bezier(0.22,1,0.36,1)",
-      cursor:"pointer",
+      position:"fixed", inset:0, zIndex:99999,
+      background:"rgba(0,0,0,0.88)",
+      display:"flex", flexDirection:"column",
+      alignItems:"center", justifyContent:"center", gap:12,
     }}>
-      <style>{`@keyframes pianoToastSlide{from{transform:translateY(-110%)}to{transform:translateY(0)}}`}</style>
-      <div style={{ display:"flex", alignItems:"center", gap:14, padding:"14px 20px" }}>
-        <span style={{ fontSize:34, lineHeight:1 }}>🎹</span>
-        <div style={{ flex:1 }}>
-          <div style={{ fontWeight:900, fontSize:20, letterSpacing:"0.03em", lineHeight:1.1 }}>Piano ON</div>
-          <div style={{ fontSize:13, opacity:0.8, marginTop:2 }}>반주 시작해주세요</div>
-        </div>
-        <div style={{ fontSize:12, opacity:0.55, flexShrink:0 }}>탭하면 닫힘</div>
-      </div>
-      {/* 진행 바 — 남은 시간 표시 */}
-      <div style={{ height:3, background:"rgba(255,255,255,0.2)" }}>
-        <div style={{
-          height:"100%", background:"rgba(255,255,255,0.7)",
-          width:`${pct}%`, transition:"none",
-        }} />
+      <div style={{ fontSize:88 }}>🎹</div>
+      <div style={{ fontSize:40, fontWeight:900, color:"#fff", letterSpacing:3 }}>Piano ON</div>
+      <div style={{ fontSize:18, color:"rgba(255,255,255,0.65)" }}>피아노 시작 신호</div>
+      <div style={{ fontSize:13, color:"rgba(255,255,255,0.35)", marginTop:20 }}>
+        탭하면 닫힘 · 자동으로 사라집니다
       </div>
     </div>
   );
@@ -2213,7 +2190,7 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
   );
 }
 
-function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue, sheetLinkEnabled }) {
+function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue, sheetLinkEnabled, sheetSyncTrigger }) {
   const [countdown,    setCountdown]    = useState("");
   const [inHour,       setInHour]       = useState(false);
   const [worshipReady, setWorshipReady] = useState(false);
@@ -2222,13 +2199,14 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [testPhase,    setTestPhase]    = useState(0); // 0=off 1=countdown 2=worshipReady 3=piano_on
   const [syncSongIdx,  setSyncSongIdx]  = useState(-1);
   const [syncSvcId,    setSyncSvcId]    = useState(null);
+  const autoNavDone  = useRef(false);
   const phaseFiredRef = useRef({});
   const svcSongsRef  = useRef([]);
   const navRef       = useRef(nav);
   navRef.current     = nav;
   const unread = notifs.filter(n => !n.read).length;
 
-  // 현재 동기화 중인 곡 인덱스 구독 (어드민 전용)
+  // 어드민: 현재 sync 중인 곡 인덱스 구독
   useEffect(() => {
     if (user?.role !== "admin") return;
     return onSnapshot(doc(db, "liveStatus", "sheetSync"), snap => {
@@ -2261,6 +2239,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
   // 서비스 변경 시 초기화
   useEffect(() => {
+    autoNavDone.current = false;
     phaseFiredRef.current = {};
     setWorshipEnded(false);
     setAutoPhase("idle");
@@ -2312,9 +2291,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       if (diff <= 0) {
         setCountdown(""); setInHour(false); setWorshipReady(false);
         setWorshipEnded(true);
-        firePhase("service_start", null);
-        // 예배 시작 → 악보 링크 해제
-        if (leader && !phaseFiredRef.current.sheetLink_off) {
+        firePhase("service_start", null); // X32는 건드리지 않음 — BGM 정지는 PP 페이드가 처리
+        // 예배 시작 → 악보 링크 자동 해제 (어드민만)
+        if (user?.role === "admin" && !phaseFiredRef.current.sheetLink_off) {
           phaseFiredRef.current.sheetLink_off = true;
           setDoc(doc(db, "liveStatus", "sheetLink"), {
             enabled: false, svcId: nextSvc.id, updatedAt: serverTimestamp(),
@@ -2328,19 +2307,20 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       setInHour(within1h);
       setWorshipReady(diff <= 40_000);
 
-      // 10분 전 악보 링크 자동 ON
-      if (leader && diff <= 600_000 && !phaseFiredRef.current.sheetLink_on) {
+      // 어드민: 10분 전 악보 링크 자동 ON
+      if (user?.role === "admin" && diff <= 600_000 && !phaseFiredRef.current.sheetLink_on) {
         phaseFiredRef.current.sheetLink_on = true;
         setDoc(doc(db, "liveStatus", "sheetLink"), {
           enabled: true, svcId: nextSvc.id, updatedAt: serverTimestamp(),
         }).catch(() => {});
       }
 
-      // 자동화 phase 트리거
+      // 자동화 phase 트리거 — X32는 건드리지 않음 (페이더/뮤트 수동 복구 문제).
+      // BGM은 PP 소스 자체를 페이드하므로 예배실·송출 모두 함께 줄어듦.
       if (diff <= 10_000) {
         firePhase("piano_on", null);
       } else if (diff <= 15_000) {
-        firePhase("bgm_fade", null);
+        firePhase("bgm_fade", null); // PP BGM 페이드아웃 시작 (pp-bridge가 처리)
       } else if (within1h && !phaseFiredRef.current.bgm_playing) {
         firePhase("bgm_playing", null);
       }
@@ -2412,11 +2392,15 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               const tWorshipReady = testPhase === 2 ? true  : testPhase === 3 ? true  : worshipReady;
               const tPhase        = testPhase === 3 ? "piano_on" : testPhase > 0 ? "bgm_playing" : autoPhase;
               const isPianoOn     = tPhase === "piano_on";
-              const showMsg       = tInHour && tCountdown && tWorshipReady;
+              const showMsg       = tInHour && tCountdown && (tWorshipReady || isPianoOn);
               return (
                 <div style={{
-                  background: `linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
-                  border: `1.5px solid ${C.pur}33`,
+                  background: isPianoOn
+                    ? `linear-gradient(135deg, ${C.red}18, ${C.red}08)`
+                    : `linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
+                  border: isPianoOn
+                    ? `1.5px solid ${C.red}55`
+                    : `1.5px solid ${C.pur}33`,
                   borderRadius:12, padding:"10px 12px", marginBottom:10,
                 }}>
                   {/* Row 1: D-day + 날짜/타이틀 + 카운트다운 or 배지 */}
@@ -2437,41 +2421,30 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         <span>{svcSongs.length}곡</span>
                       </div>
                     </div>
-                    <div style={{ flex:1 }} />
+                    {/* 가운데 빈 공간: 상태 메시지 */}
+                    <div style={{ flex:1, textAlign:"center", padding:"0 8px" }}>
+                      {showMsg && (isPianoOn
+                        ? <span style={{ color:C.red, fontWeight:900, fontSize:22, letterSpacing:"0.04em" }}>
+                            PIANO ON &nbsp;·&nbsp; 반주 시작해주세요
+                          </span>
+                        : <span style={{ color:C.pur, fontWeight:800, fontSize:18 }}>
+                            ⛪ 예배준비 &nbsp;·&nbsp; 예배 시작 시 악보로 자동 이동합니다
+                          </span>
+                      )}
+                    </div>
                     {/* 1시간 이내: 카운트다운 / 그 외: 상태 배지 */}
                     {tInHour && tCountdown
                       ? <span style={{
                           fontVariantNumeric:"tabular-nums", fontWeight:900, fontSize:17,
-                          color: C.pur,
+                          color: isPianoOn ? C.red : C.pur,
                           flexShrink:0, letterSpacing:1,
                         }}>{tCountdown}</span>
                       : <span style={{ flexShrink:0 }}><ServiceStatusBadge svc={nextSvc} /></span>
                     }
                   </div>
-                  {/* 피아노ON 수동 버튼 + TEST (어드민만) */}
+                  {/* 테스트 버튼 (어드민만) */}
                   {user?.role === "admin" && (
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:6 }}>
-                      <button onClick={async () => {
-                        try {
-                          await setDoc(doc(db, "liveStatus", "automation"), {
-                            phase: "piano_on",
-                            svcId: nextSvc?.id || null,
-                            updatedAt: serverTimestamp(),
-                          });
-                          fetch("http://192.168.1.21:5004/v1/stage/message", {
-                            method: "PUT",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify("PIANO ON"),
-                          }).catch(() => {});
-                        } catch {}
-                      }} style={{
-                        fontSize:11, fontWeight:800, color:"#fff",
-                        background:"#b71c1c",
-                        border:"none", borderRadius:6, padding:"4px 12px",
-                        cursor:"pointer", fontFamily:"inherit",
-                      }}>
-                        🎹 Piano ON 알림 보내기
-                      </button>
+                    <div style={{ textAlign:"right", marginTop:6 }}>
                       <button onClick={() => setTestPhase(p => (p + 1) % 4)}
                         style={{
                           fontSize:10, fontWeight:700, color:C.dim,
@@ -2507,7 +2480,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             {/* X32 채널 상태 */}
             <X32StatusBar />
 
-            {/* 어드민: 악보 링크 컨트롤 */}
+            {/* 어드민 전용: 악보 링크 컨트롤 */}
             {user?.role === "admin" && svcSongs.length > 0 && (() => {
               const activeSyncIdx = syncSvcId === nextSvc.id ? syncSongIdx : -1;
               const syncSong = activeSyncIdx >= 0 ? svcSongs[activeSyncIdx] : null;
@@ -2521,9 +2494,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   const startIdx = activeSyncIdx >= 0 ? activeSyncIdx : 0;
                   const s = svcSongs[startIdx];
                   if (s) await setDoc(doc(db, "liveStatus", "sheetSync"), {
-                    svcId: nextSvc.id, songId: s.id, songIdx: startIdx, pageNum: 1,
-                    linkEnabled: true,
-                    updatedAt: serverTimestamp(),
+                    svcId: nextSvc.id, songId: s.id, songIdx: startIdx,
+                    pageNum: 1, linkEnabled: true, updatedAt: serverTimestamp(),
                   }).catch(() => {});
                 }
               };
@@ -2534,9 +2506,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 const s = svcSongs[newIdx];
                 if (!s) return;
                 await setDoc(doc(db, "liveStatus", "sheetSync"), {
-                  svcId: nextSvc.id, songId: s.id, songIdx: newIdx, pageNum: 1,
-                  linkEnabled: true,
-                  updatedAt: serverTimestamp(),
+                  svcId: nextSvc.id, songId: s.id, songIdx: newIdx,
+                  pageNum: 1, linkEnabled: true, updatedAt: serverTimestamp(),
                 }).catch(() => {});
               };
 
@@ -2547,22 +2518,22 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   borderRadius: 12, padding: "10px 12px", marginBottom: 10,
                 }}>
                   {/* 토글 행 */}
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: sheetLinkEnabled ? 10 : 0 }}>
-                    <span style={{ fontSize:12, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.dim, letterSpacing:"0.04em" }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: sheetLinkEnabled ? 12 : 0 }}>
+                    <span style={{ fontSize:13, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.dim }}>
                       🔗 악보 링크
                     </span>
                     <button onClick={toggleLink} style={{
-                      display:"flex", alignItems:"center", gap:6,
+                      display:"flex", alignItems:"center", gap:7,
                       background: sheetLinkEnabled ? C.pur : C.card,
                       border:`1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
-                      borderRadius:20, padding:"4px 10px", cursor:"pointer", fontFamily:"inherit",
+                      borderRadius:20, padding:"5px 14px", cursor:"pointer", fontFamily:"inherit",
                     }}>
-                      <div style={{ width:26, height:14, borderRadius:7, background: sheetLinkEnabled ? "#fff" : C.bdr, position:"relative" }}>
+                      <div style={{ width:28, height:16, borderRadius:8, background: sheetLinkEnabled ? "#fff" : C.bdr, position:"relative" }}>
                         <div style={{ position:"absolute", top:2, left: sheetLinkEnabled ? 13 : 2,
-                          width:10, height:10, borderRadius:"50%",
+                          width:12, height:12, borderRadius:"50%",
                           background: sheetLinkEnabled ? C.pur : "#aaa", transition:"left 0.15s" }} />
                       </div>
-                      <span style={{ fontSize:11, fontWeight:700, color: sheetLinkEnabled ? "#fff" : C.dim }}>
+                      <span style={{ fontSize:12, fontWeight:700, color: sheetLinkEnabled ? "#fff" : C.dim }}>
                         {sheetLinkEnabled ? "ON" : "OFF"}
                       </span>
                     </button>
@@ -2570,37 +2541,42 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
                   {/* 수동 넘김 행 */}
                   {sheetLinkEnabled && (
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <div style={{ display:"flex", alignItems:"stretch", gap:10 }}>
                       <button onClick={() => advanceSong(-1)}
                         disabled={activeSyncIdx <= 0}
                         style={{
-                          width:36, height:36, borderRadius:10, cursor:"pointer",
+                          flex:"0 0 72px", height:52, borderRadius:12, cursor:"pointer",
                           background:"transparent", border:`1.5px solid ${C.bdr}`,
                           display:"flex", alignItems:"center", justifyContent:"center",
-                          fontSize:16, opacity: activeSyncIdx <= 0 ? 0.35 : 1,
+                          fontSize:22, opacity: activeSyncIdx <= 0 ? 0.3 : 1,
+                          fontFamily:"inherit",
                         }}>◀</button>
-                      <div style={{ flex:1, textAlign:"center", minWidth:0 }}>
+                      <div style={{ flex:1, textAlign:"center", minWidth:0,
+                        display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                        padding:"0 4px" }}>
                         {syncSong ? (
                           <>
-                            <div style={{ fontSize:10, color:C.dim, fontWeight:700 }}>
+                            <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:2 }}>
                               {activeSyncIdx + 1} / {svcSongs.length}
                             </div>
-                            <div style={{ fontSize:13, fontWeight:800, color:C.txt,
-                              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                            <div style={{ fontSize:14, fontWeight:800, color:C.txt,
+                              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                              width:"100%" }}>
                               {syncSong.title}
                             </div>
                           </>
                         ) : (
-                          <span style={{ fontSize:12, color:C.dim }}>곡 선택</span>
+                          <span style={{ fontSize:12, color:C.dim }}>— 곡 선택 —</span>
                         )}
                       </div>
                       <button onClick={() => advanceSong(1)}
                         disabled={activeSyncIdx >= svcSongs.length - 1}
                         style={{
-                          width:36, height:36, borderRadius:10, cursor:"pointer",
+                          flex:"0 0 72px", height:52, borderRadius:12, cursor:"pointer",
                           background:"transparent", border:`1.5px solid ${C.bdr}`,
                           display:"flex", alignItems:"center", justifyContent:"center",
-                          fontSize:16, opacity: activeSyncIdx >= svcSongs.length - 1 ? 0.35 : 1,
+                          fontSize:22, opacity: activeSyncIdx >= svcSongs.length - 1 ? 0.3 : 1,
+                          fontFamily:"inherit",
                         }}>▶</button>
                     </div>
                   )}
@@ -5745,7 +5721,7 @@ function HandwritePad({ accent, apiKey, onText }) {
   );
 }
 
-function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue, deleteCue, editCue, sheetLinkEnabled }) {
+function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue, deleteCue, editCue, sheetLinkEnabled, sheetSyncTrigger }) {
   const song = songs.find(s => s.id === selectedSongId);
   const isLibraryMode = backTo === "library"; // 라이브러리에서 열린 경우: 예배 컨텍스트 없음
 
@@ -5909,6 +5885,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // myNotes / teamNotes / effectiveNoteSongId computed after dualLeftSongId (see below)
   const leader    = isLeader(user.role);
 
+  // sheetSync 신호 도착 시 듀얼 모드 초기화 + 1페이지로 (admin 제외)
+  useEffect(() => {
+    if (user.role === "admin" || sheetSyncTrigger === 0) return;
+    setDual(false);
+    setPageNum(1);
+    setPanOffset({ x: 0, y: 0 });
+    setZoomMul(1.0);
+  }, [sheetSyncTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 메트로놈 상태 ──
   const [metroOn,        setMetroOn]        = useState(false);
@@ -12527,13 +12511,20 @@ export default function App() {
   const [sharedGeminiKey, setSharedGeminiKey] = useState("");
   const [bgmChannel,      setBgmChannel]      = useState("09");
   const [autoPhaseGlobal, setAutoPhaseGlobal] = useState(null); // { phase, svcId }
-  const [pianoOverlayDismissed, setPianoOverlayDismissed] = useState(true); // 기본 닫힘 — 새 이벤트 올 때만 열림
-  const pianoOverlayTsRef = useRef(null);
+  const [pianoOverlayDismissed, setPianoOverlayDismissed] = useState(false);
+  const pianoOverlayPhaseRef = useRef(null);
   const autoLiveTriggeredRef = useRef(null);
-  const [sheetLinkEnabled, setSheetLinkEnabled] = useState(false);
-  const navRef      = useRef(null);  // nav는 early return 뒤에 정의되므로 ref로 접근
-  const userRoleRef = useRef(undefined);
-  useEffect(() => { userRoleRef.current = user?.role; }, [user?.role]);
+  const [sheetLinkEnabled,  setSheetLinkEnabled]  = useState(false);
+  const [sheetSyncTrigger,  setSheetSyncTrigger]  = useState(0); // bumped each time sheetSync nav fires
+  const navRef          = useRef(null); // nav is defined after early returns — use ref to avoid TDZ
+  const userRoleRef     = useRef(undefined);
+  const selSongIdRef    = useRef(null);
+  const viewRef         = useRef("home");
+  const sheetLinkEnabledRef = useRef(false);
+  const sheetSyncTsRef  = useRef(null);
+  useEffect(() => { userRoleRef.current     = user?.role;    }, [user?.role]);
+  useEffect(() => { selSongIdRef.current    = selSongId;     }, [selSongId]);
+  useEffect(() => { viewRef.current         = view;          }, [view]);
 
   // ── Kakao SDK 초기화
   useEffect(() => {
@@ -12552,8 +12543,22 @@ export default function App() {
     return unsub;
   }, []);
 
-  // ── 악보 링크 ON/OFF 구독 (마운트 1회, 항상 최신값 유지)
-  const sheetLinkEnabledRef = useRef(false);
+  // ── Piano ON phase 전체 구독
+  useEffect(() => {
+    return onSnapshot(doc(db, "liveStatus", "automation"), snap => {
+      const data = snap.exists() ? snap.data() : null;
+      setAutoPhaseGlobal(data);
+      // phase가 바뀌면 dismiss 초기화
+      if (data?.phase !== pianoOverlayPhaseRef.current) {
+        pianoOverlayPhaseRef.current = data?.phase || null;
+        setPianoOverlayDismissed(false);
+      }
+    }, () => {});
+  }, []);
+
+  // (removed: --app-h resize listener — app root is now position:fixed so no resize jumps)
+
+  // ── 악보 링크 ON/OFF 구독
   useEffect(() => {
     return onSnapshot(doc(db, "liveStatus", "sheetLink"), snap => {
       const enabled = snap.exists() ? (snap.data().enabled ?? false) : false;
@@ -12562,12 +12567,7 @@ export default function App() {
     }, () => {});
   }, []);
 
-  // ── 악보 동기화 구독 → 팀원 자동 이동 (리더가 악보 뷰어에서 넘기면 팀원도 따라감)
-  const sheetSyncTsRef = useRef(null);
-  const selSongIdRef   = useRef(null);
-  const viewRef        = useRef("home");
-  useEffect(() => { selSongIdRef.current = selSongId; }, [selSongId]);
-  useEffect(() => { viewRef.current = view; }, [view]);
+  // ── 악보 sync 구독 → admin 아닌 모든 사용자 자동 이동
   useEffect(() => {
     let isFirst = true;
     const unsub = onSnapshot(doc(db, "liveStatus", "sheetSync"), snap => {
@@ -12577,37 +12577,17 @@ export default function App() {
       if (isFirst) { isFirst = false; sheetSyncTsRef.current = ts; return; }
       if (ts === sheetSyncTsRef.current) return;
       sheetSyncTsRef.current = ts;
+      // admin 이 아닌 모든 사용자가 따라감 (leader 포함)
+      if (userRoleRef.current === "admin") return;
       if (!sheetLinkEnabledRef.current && !data.linkEnabled) return;
-      if (isLeader(userRoleRef.current)) return;
       const { svcId, songId, songIdx } = data;
       if (!svcId || !songId) return;
+      setSheetSyncTrigger(n => n + 1); // PDFViewerScreen에 듀얼 초기화 신호
       if (viewRef.current === "pdfViewer" && selSongIdRef.current === songId) return;
       navRef.current?.("pdfViewer", { songId, svcId, svcSongIdx: songIdx ?? 0, backTo: "home" });
     }, () => {});
     return unsub;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // ── Piano ON phase 전체 구독
-  useEffect(() => {
-    return onSnapshot(doc(db, "liveStatus", "automation"), snap => {
-      const data = snap.exists() ? snap.data() : null;
-      setAutoPhaseGlobal(data);
-      if (data?.phase === "piano_on") {
-        const ts = data.updatedAt?.toMillis?.() ?? (typeof data.updatedAt === "number" ? data.updatedAt : 0);
-        if (ts === pianoOverlayTsRef.current) return;
-        pianoOverlayTsRef.current = ts;
-        // localStorage에 저장된 "이미 본" ts와 비교 — 새로고침해도 안 뜸
-        const seenTs = parseInt(localStorage.getItem("tvpc_piano_seen") || "0", 10);
-        if (ts > seenTs) {
-          localStorage.setItem("tvpc_piano_seen", String(ts));
-          setPianoOverlayDismissed(false);
-        }
-      }
-    }, () => {});
-  }, []);
-
-  // (removed: --app-h resize listener — app root is now position:fixed so no resize jumps)
 
 
 
@@ -13138,7 +13118,7 @@ export default function App() {
     setView(newView);
     localStorage.setItem("tvpc_view", newView);
   };
-  navRef.current = nav; // 매 렌더마다 최신 nav로 갱신
+  navRef.current = nav; // 매 렌더마다 갱신 — 구독 클로저에서 최신 nav 호출
 
   const unread = notifs.filter(n => !n.read).length;
 
@@ -13150,7 +13130,7 @@ export default function App() {
     markNotifRead, markAllNotifRead,
     nav, bgmChannel,
     songCues, sendCue, deleteCue, editCue, acknowledgeCue,
-    sheetLinkEnabled,
+    sheetLinkEnabled, sheetSyncTrigger,
   };
 
   return (
@@ -13189,8 +13169,7 @@ export default function App() {
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
-      {autoPhaseGlobal?.phase === "piano_on" && !pianoOverlayDismissed &&
-       (user?.role === "admin" || getUserParts(user).some(p => p === "키보드" || p === "piano")) && (
+      {autoPhaseGlobal?.phase === "piano_on" && !pianoOverlayDismissed && (
         <PianoOnOverlay onDismiss={() => setPianoOverlayDismissed(true)} />
       )}
 
