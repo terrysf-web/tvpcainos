@@ -2199,6 +2199,11 @@ function PdfThumb({ pdfUrl, scale = 1.0 }) {
   useEffect(() => {
     if (!pdfUrl) return;
     let cancelled = false;
+    // 로딩 전에 A4 비율로 캔버스 크기 미리 잡아서 블링킹 방지
+    if (cvRef.current) {
+      cvRef.current.width  = Math.round(595 * scale);
+      cvRef.current.height = Math.round(842 * scale);
+    }
     const tryRender = () => {
       if (!window.pdfjsLib) { setTimeout(tryRender, 300); return; }
       window.pdfjsLib.getDocument(pdfUrl).promise
@@ -2625,7 +2630,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 {/* ── 오른쪽: 현재 악보 1장 ── */}
                 <div style={{ flex:1, overflowY:"auto", paddingBottom:90, minWidth:0, scrollbarWidth:"none", msOverflowStyle:"none" }}>
                   {dispSong ? (
-                    <div key={dispSong.id}>
+                    <div>
                       {/* 번호 + 제목 */}
                       <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
                         <div style={{ width:20, height:20, borderRadius:6,
@@ -2653,7 +2658,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         {dispSong.imageUrl ? (
                           <img src={dispSong.imageUrl} alt="" style={{ width:"100%", display:"block" }} />
                         ) : dispSong.pdfUrl ? (
-                          <PdfThumb key={dispSong.id} pdfUrl={dispSong.pdfUrl} scale={0.8} />
+                          <PdfThumb key={dispIdx} pdfUrl={dispSong.pdfUrl} scale={0.8} />
                         ) : (
                           <div style={{ height:"40vh", display:"flex", alignItems:"center", justifyContent:"center" }}>
                             <span style={{ fontSize:60, opacity:0.15 }}>🎵</span>
