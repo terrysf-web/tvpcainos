@@ -2193,6 +2193,32 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
   );
 }
 
+function PdfThumb({ pdfUrl }) {
+  const cvRef = useRef(null);
+  const [err, setErr] = useState(false);
+  useEffect(() => {
+    if (!pdfUrl) return;
+    let cancelled = false;
+    const tryRender = () => {
+      if (!window.pdfjsLib) { setTimeout(tryRender, 300); return; }
+      window.pdfjsLib.getDocument(pdfUrl).promise
+        .then(pdf => pdf.getPage(1))
+        .then(page => {
+          if (cancelled || !cvRef.current) return;
+          const vp = page.getViewport({ scale: 0.35 });
+          const cvs = cvRef.current;
+          cvs.width = vp.width; cvs.height = vp.height;
+          page.render({ canvasContext: cvs.getContext("2d"), viewport: vp });
+        })
+        .catch(() => { if (!cancelled) setErr(true); });
+    };
+    tryRender();
+    return () => { cancelled = true; };
+  }, [pdfUrl]);
+  if (err) return <span style={{ fontSize:18 }}>📄</span>;
+  return <canvas ref={cvRef} style={{ maxWidth:"100%", maxHeight:"100%", display:"block" }} />;
+}
+
 function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue, sheetLinkEnabled, sheetSyncTrigger, sheetSyncAllowedParts }) {
   const [countdown,    setCountdown]    = useState("");
   const [inHour,       setInHour]       = useState(false);
@@ -2642,72 +2668,100 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               );
             })()}
 
-            {/* 악보 리스트 */}
+            {/* 악보 리스트 — 가로 스크롤 미니 악보 스트립 */}
             <div style={{ fontSize:11, fontWeight:800, color:C.pur,
               letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:10 }}>
               이번 주 악보
             </div>
 
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
+            <div style={{
+              display:"flex", gap:10, overflowX:"auto", paddingBottom:6,
+              WebkitOverflowScrolling:"touch",
+              scrollbarWidth:"none", msOverflowStyle:"none",
+            }}>
             {svcSongs.map((song, idx) => {
               const teamNotes = (teamAnnotations || {})[song.id] || [];
               const hasSheet  = !!(song.pdfUrl || song.imageUrl);
+              const hasTranspose = user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1";
               return (
                 <div key={song.id + idx}
                   onClick={() => hasSheet && nav("pdfViewer", { songId:song.id, svcId:nextSvc.id, svcSongIdx:idx, backTo:"home" })}
                   style={{
-                    background:C.surf, border:`1px solid ${C.bdr}`,
-                    borderRadius:14, padding:"11px 12px",
+                    flexShrink:0, width:130,
                     cursor: hasSheet ? "pointer" : "default",
-                    opacity: hasSheet ? 1 : 0.7,
+                    opacity: hasSheet ? 1 : 0.6,
                   }}>
-                  <div style={{ display:"flex", alignItems:"flex-start", gap:8, marginBottom: teamNotes.length > 0 ? 8 : 0 }}>
-                    <div style={{ width:24, height:24, borderRadius:7, background:`${C.pur}18`,
-                      display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
-                      <span style={{ fontSize:11, fontWeight:800, color:C.pur }}>{idx + 1}</span>
+                  {/* 번호 + 제목 */}
+                  <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:5 }}>
+                    <div style={{ width:18, height:18, borderRadius:5, background:`${C.pur}18`,
+                      display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      <span style={{ fontSize:10, fontWeight:800, color:C.pur }}>{idx + 1}</span>
                     </div>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontWeight:700, fontSize:14, marginBottom:5,
-                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                        {song.title}
+                    <span style={{ fontSize:11, fontWeight:700, color:C.txt,
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
+                      {song.title}
+                    </span>
+                    {teamNotes.length > 0 && (
+                      <div style={{ width:6, height:6, borderRadius:"50%", background:"#e53935", flexShrink:0 }} />
+                    )}
+                  </div>
+                  {/* 악보 미니 뷰 */}
+                  <div style={{
+                    width:130, height:180, borderRadius:10, overflow:"hidden",
+                    background:C.card, border:`1px solid ${C.bdr}`,
+                    display:"flex", alignItems:"flex-start", justifyContent:"center",
+                    position:"relative",
+                  }}>
+                    {song.imageUrl ? (
+                      <img src={song.imageUrl} alt=""
+                        style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top center" }} />
+                    ) : song.pdfUrl ? (
+                      <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+                        <PdfThumb pdfUrl={song.pdfUrl} />
                       </div>
-                      <div style={{ display:"flex", gap:4, flexWrap:"wrap", alignItems:"center" }}>
-                        {song.key && (
-                          <span style={{ background:`${keyColor(song.key)}22`, color:keyColor(song.key),
-                            border:`1px solid ${keyColor(song.key)}44`,
-                            borderRadius:6, padding:"1px 6px", fontSize:10, fontWeight:700 }}>
-                            {song.key}
-                          </span>
-                        )}
-                        {song.bpm && (
-                          <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
-                            borderRadius:6, padding:"1px 6px", fontSize:10 }}>
-                            ♩{song.bpm}
-                          </span>
-                        )}
-                        {song.timeSig && (
-                          <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
-                            borderRadius:6, padding:"1px 6px", fontSize:10 }}>
-                            {song.timeSig}
-                          </span>
-                        )}
-                        {!hasSheet && (
-                          <span style={{ background:C.card, color:C.dim, border:`1px solid ${C.bdr}`,
-                            borderRadius:6, padding:"1px 6px", fontSize:10 }}>
-                            악보없음
-                          </span>
-                        )}
-                        {user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1" && (
-                          <span style={{ background:`${C.pur}22`, color:C.pur, border:`1px solid ${C.pur}55`,
-                            borderRadius:6, padding:"1px 6px", fontSize:10, fontWeight:700 }}>
-                            전조
-                          </span>
-                        )}
+                    ) : (
+                      <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        <span style={{ fontSize:28, opacity:0.3 }}>🎵</span>
                       </div>
+                    )}
+                    {/* 뱃지 오버레이 */}
+                    <div style={{ position:"absolute", bottom:5, left:5, display:"flex", gap:3, flexWrap:"wrap" }}>
+                      {song.key && (
+                        <span style={{ background:`${keyColor(song.key)}dd`, color:"#fff",
+                          borderRadius:5, padding:"1px 5px", fontSize:9, fontWeight:800 }}>
+                          {song.key}
+                        </span>
+                      )}
+                      {song.bpm && (
+                        <span style={{ background:"rgba(0,0,0,0.55)", color:"#fff",
+                          borderRadius:5, padding:"1px 5px", fontSize:9 }}>
+                          ♩{song.bpm}
+                        </span>
+                      )}
+                      {hasTranspose && (
+                        <span style={{ background:`${C.pur}dd`, color:"#fff",
+                          borderRadius:5, padding:"1px 5px", fontSize:9, fontWeight:800 }}>
+                          전조
+                        </span>
+                      )}
                     </div>
                   </div>
-                  {/* 팀 메모 */}
-                  {teamNotes.length > 0 && (
+                </div>
+              );
+            })}
+            </div>
+
+            {/* 팀 메모 (미니뷰에서 안 보이므로 곡별로 아래 표시) */}
+            {svcSongs.some(s => ((teamAnnotations||{})[s.id]||[]).length > 0) && (
+              <div style={{ marginTop:10, display:"flex", flexDirection:"column", gap:6 }}>
+              {svcSongs.map((song, idx) => {
+                const teamNotes = (teamAnnotations||{})[song.id]||[];
+                if (teamNotes.length === 0) return null;
+                return (
+                  <div key={song.id}>
+                    <div style={{ fontSize:10, fontWeight:800, color:C.dim, marginBottom:3 }}>
+                      {idx+1}. {song.title}
+                    </div>
                     <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                       {teamNotes.map((m, mi) => {
                         const raw = m.authorName || "";
@@ -2724,11 +2778,11 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         );
                       })}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-            </div>
+                  </div>
+                );
+              })}
+              </div>
+            )}
 
             {svcSongs.length === 0 && (
               <div style={{ textAlign:"center", padding:"32px 0", color:C.dim }}>
