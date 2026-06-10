@@ -12485,7 +12485,8 @@ export default function App() {
   const [bgmChannel,      setBgmChannel]      = useState("09");
   const [autoPhaseGlobal, setAutoPhaseGlobal] = useState(null); // { phase, svcId }
   const [pianoOverlayDismissed, setPianoOverlayDismissed] = useState(false);
-  const pianoOverlayTsRef = useRef(null); // 마지막으로 표시한 updatedAt ms — 동일 phase 재발송 감지
+  const pianoOverlayTsRef = useRef(null);
+  const sessionStartRef   = useRef(Date.now()); // 페이지 로드 시각 — 이 이전 이벤트는 무시
   const autoLiveTriggeredRef = useRef(null);
 
   // ── Kakao SDK 초기화
@@ -12537,8 +12538,8 @@ export default function App() {
         const ts = data.updatedAt?.toMillis?.() ?? (typeof data.updatedAt === "number" ? data.updatedAt : 0);
         if (ts !== pianoOverlayTsRef.current) {
           pianoOverlayTsRef.current = ts;
-          // 20초 이내 이벤트만 표시 — 새로고침 시 오래된 phase 무시
-          if (Date.now() - ts < 20_000) {
+          // 이 세션 시작 이후 발생한 이벤트만 표시 — 새로고침 시 이전 이벤트 완전 무시
+          if (ts > sessionStartRef.current) {
             setPianoOverlayDismissed(false);
           }
         }
