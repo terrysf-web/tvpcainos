@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.417";
+const APP_VERSION = "3.418";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -5413,7 +5413,6 @@ function HandwritePad({ accent, apiKey, onText }) {
   const cvsRef     = useRef(null);
   const strokesRef = useRef([]);   // 획 목록 (CSS px 좌표)
   const curRef     = useRef(null); // 그리는 중인 획
-  const penSeenRef = useRef(false);
   const [hasInk, setHasInk] = useState(false);
   const [busy,   setBusy]   = useState(false);
   const [err,    setErr]    = useState("");
@@ -5421,14 +5420,26 @@ function HandwritePad({ accent, apiKey, onText }) {
   useEffect(() => {
     const cvs = cvsRef.current, wrap = wrapRef.current;
     if (!cvs || !wrap) return;
-    const dpr = window.devicePixelRatio || 1;
-    const w = wrap.clientWidth, h = 160;
-    cvs.width = w * dpr; cvs.height = h * dpr;
-    cvs.style.width = w + "px"; cvs.style.height = h + "px";
-    const c = cvs.getContext("2d");
-    c.scale(dpr, dpr);
-    c.lineWidth = 2.5; c.lineCap = "round"; c.lineJoin = "round";
-    c.strokeStyle = "#1a1a1a";
+    // 모달 레이아웃이 끝난 다음 프레임에 크기 측정 (너비 0 방지)
+    const raf = requestAnimationFrame(() => {
+      const dpr = window.devicePixelRatio || 1;
+      const w = wrap.clientWidth || 320, h = 160;
+      cvs.width = w * dpr; cvs.height = h * dpr;
+      cvs.style.width = w + "px"; cvs.style.height = h + "px";
+      const c = cvs.getContext("2d");
+      c.scale(dpr, dpr);
+      c.lineWidth = 2.5; c.lineCap = "round"; c.lineJoin = "round";
+      c.strokeStyle = "#1a1a1a";
+    });
+    // 사파리가 펜 입력을 스크롤로 오인해 획을 끊는 것 방지 — non-passive로 차단
+    const block = ev => ev.preventDefault();
+    cvs.addEventListener("touchstart", block, { passive:false });
+    cvs.addEventListener("touchmove",  block, { passive:false });
+    return () => {
+      cancelAnimationFrame(raf);
+      cvs.removeEventListener("touchstart", block);
+      cvs.removeEventListener("touchmove",  block);
+    };
   }, []);
 
   const ctx = () => cvsRef.current.getContext("2d");
@@ -5437,35 +5448,56 @@ function HandwritePad({ accent, apiKey, onText }) {
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
 
+  // 중간점 기반 곡선으로 한 획 그리기 — 부드러운 손글씨 라인
+  const drawStroke = (c, pts) => {
+    if (pts.length < 2) return;
+    c.beginPath();
+    c.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const mx = (pts[i].x + pts[i+1].x) / 2, my = (pts[i].y + pts[i+1].y) / 2;
+      c.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+    }
+    c.lineTo(pts[pts.length-1].x, pts[pts.length-1].y);
+    c.stroke();
+  };
+
   const down = e => {
     e.preventDefault();
-    if (e.pointerType === "pen") penSeenRef.current = true;
-    // 펜슬 사용자는 손바닥 터치 무시 (팜 리젝션)
-    if (e.pointerType === "touch" && penSeenRef.current) return;
+    // 손가락·손바닥 터치는 완전 무시 — 펜슬(또는 마우스)로만 필기
+    if (e.pointerType === "touch") return;
     cvsRef.current.setPointerCapture?.(e.pointerId);
     curRef.current = [pos(e)];
   };
   const move = e => {
     if (!curRef.current) return;
-    const pts = curRef.current, last = pts[pts.length - 1], p = pos(e);
-    pts.push(p);
+    if (e.pointerType === "touch") return;
+    const pts = curRef.current;
+    // 펜슬 240Hz 샘플 모두 수집 (코어레스드 이벤트) — 획이 각지거나 빠지는 것 방지
+    const evs = e.getCoalescedEvents?.() || [e];
+    evs.forEach(ev => pts.push(pos(ev)));
+    // 마지막 몇 점만 다시 그려 실시간 미리보기
     const c = ctx();
-    c.beginPath(); c.moveTo(last.x, last.y); c.lineTo(p.x, p.y); c.stroke();
+    const tail = pts.slice(-Math.min(pts.length, evs.length + 2));
+    c.beginPath();
+    c.moveTo(tail[0].x, tail[0].y);
+    tail.slice(1).forEach(p => c.lineTo(p.x, p.y));
+    c.stroke();
   };
-  const up = () => {
+  const up = e => {
     if (!curRef.current) return;
-    if (curRef.current.length > 1) { strokesRef.current.push(curRef.current); setHasInk(true); }
+    if (e && e.pointerType === "touch") return;
+    if (curRef.current.length > 1) {
+      strokesRef.current.push(curRef.current);
+      setHasInk(true);
+    }
     curRef.current = null;
+    redraw(); // 곡선 보정으로 최종 렌더
   };
 
   const redraw = () => {
     const cvs = cvsRef.current, c = ctx();
     c.clearRect(0, 0, cvs.width, cvs.height);
-    strokesRef.current.forEach(pts => {
-      c.beginPath(); c.moveTo(pts[0].x, pts[0].y);
-      pts.slice(1).forEach(p => c.lineTo(p.x, p.y));
-      c.stroke();
-    });
+    strokesRef.current.forEach(pts => drawStroke(c, pts));
   };
   const undo  = () => { strokesRef.current.pop(); redraw(); setHasInk(strokesRef.current.length > 0); };
   const clear = () => { strokesRef.current = []; redraw(); setHasInk(false); };
@@ -5517,6 +5549,7 @@ function HandwritePad({ accent, apiKey, onText }) {
       <canvas ref={cvsRef}
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
         style={{ width:"100%", height:160, display:"block", touchAction:"none",
+          WebkitUserSelect:"none", userSelect:"none", WebkitTouchCallout:"none",
           background:`${accent}08`, border:`1.5px solid ${accent}44`, borderRadius:10 }} />
       {!hasInk && !busy && !err && (
         <div style={{ fontSize:11, color:C.dim, textAlign:"center", marginTop:4 }}>
