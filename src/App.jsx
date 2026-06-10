@@ -12520,7 +12520,6 @@ export default function App() {
   const [autoPhaseGlobal, setAutoPhaseGlobal] = useState(null); // { phase, svcId }
   const [pianoOverlayDismissed, setPianoOverlayDismissed] = useState(false);
   const pianoOverlayTsRef = useRef(null);
-  const sessionStartRef   = useRef(Date.now()); // 페이지 로드 시각 — 이 이전 이벤트는 무시
   const autoLiveTriggeredRef = useRef(null);
 
   // ── Kakao SDK 초기화
@@ -12570,12 +12569,13 @@ export default function App() {
       setAutoPhaseGlobal(data);
       if (data?.phase === "piano_on") {
         const ts = data.updatedAt?.toMillis?.() ?? (typeof data.updatedAt === "number" ? data.updatedAt : 0);
-        if (ts !== pianoOverlayTsRef.current) {
-          pianoOverlayTsRef.current = ts;
-          // 이 세션 시작 이후 발생한 이벤트만 표시 — 새로고침 시 이전 이벤트 완전 무시
-          if (ts > sessionStartRef.current) {
-            setPianoOverlayDismissed(false);
-          }
+        if (ts === pianoOverlayTsRef.current) return;
+        pianoOverlayTsRef.current = ts;
+        // localStorage에 저장된 "이미 본" ts와 비교 — 새로고침해도 안 뜸
+        const seenTs = parseInt(localStorage.getItem("tvpc_piano_seen") || "0", 10);
+        if (ts > seenTs) {
+          localStorage.setItem("tvpc_piano_seen", String(ts));
+          setPianoOverlayDismissed(false);
         }
       }
     }, () => {});
