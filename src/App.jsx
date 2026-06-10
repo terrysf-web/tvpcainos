@@ -10438,6 +10438,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
   const [partVal,        setPartVal]        = useState([]);
   const [partSaving,     setPartSaving]     = useState(false);
   const [partSaveErr,    setPartSaveErr]    = useState("");
+  const [partSaveOk,     setPartSaveOk]     = useState(null); // uid of member just saved
   const [allowedEmails,  setAllowedEmails]  = useState([]); // [{email, role, part}]
   const [emailInput,     setEmailInput]     = useState("");
   const [newRole,        setNewRole]        = useState("member");
@@ -10539,16 +10540,24 @@ function TeamManagementModal({ currentUserId, onClose }) {
 
   const savePart = (uid) => {
     const updates = { parts: partVal, part: partVal[0] || "" };
-    // 로컬 상태 즉시 반영 후 Firestore 백그라운드 쓰기
+    // 롤백용 원본값 캡처
+    const origParts = members.find(u => u.id === uid);
+    const origVal   = origParts ? getUserParts(origParts) : [];
     setMembers(p => p.map(u => u.id === uid ? { ...u, ...updates } : u));
     setEditPart(null);
     setPartSaveErr("");
+    setPartSaveOk(null);
     setDoc(doc(db, "users", uid), updates, { merge: true })
+      .then(() => {
+        setPartSaveOk(uid);
+        setTimeout(() => setPartSaveOk(v => v === uid ? null : v), 2500);
+      })
       .catch(e => {
-        // 백그라운드 실패 시 롤백 + 에러 표시
-        setMembers(p => p.map(u => u.id === uid ? { ...u, parts: partVal, part: partVal[0] || "" } : u));
+        // 원본값으로 롤백
+        setMembers(p => p.map(u => u.id === uid ? { ...u, parts: origVal, part: origVal[0] || "" } : u));
         setPartSaveErr(e.code === "permission-denied" ? "저장 실패: 권한 없음" : "저장 실패: " + e.message);
         setEditPart(uid);
+        console.error("savePart 실패:", e);
       });
   };
 
@@ -10732,7 +10741,10 @@ function TeamManagementModal({ currentUserId, onClose }) {
                   <span style={{ fontSize:12, color:C.dim, flex:1 }}>
                     {getUserParts(m).join(", ") || <span style={{ color:`${C.dim}88` }}>파트 미설정</span>}
                   </span>
-                  <button onClick={() => { setEditPart(m.id); setPartVal(getUserParts(m)); }} style={{
+                  {partSaveOk === m.id && (
+                    <span style={{ fontSize:11, color:C.grn, fontWeight:700 }}>저장됨 ✓</span>
+                  )}
+                  <button onClick={() => { setEditPart(m.id); setPartVal(getUserParts(m)); setPartSaveOk(null); }} style={{
                     background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6,
                     padding:"3px 8px", cursor:"pointer",
                     fontSize:11, color:C.dim, fontFamily:"inherit",
