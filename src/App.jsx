@@ -13220,14 +13220,14 @@ export default function App() {
     );
   }, [user?.uid, services, selSvcId]);
 
-  // ── Firestore: 유저 이름 맵 (uid -> displayName)
+  // ── Firestore: 유저 이름 맵 (uid -> name) — 1회 로드 (실시간 불필요)
   useEffect(() => {
     if (!user?.uid) return;
-    return onSnapshot(collection(db, "users"), snap => {
+    getDocs(collection(db, "users")).then(snap => {
       const m = {};
       snap.docs.forEach(d => { m[d.id] = d.data().displayName || d.data().name || d.data().email || ""; });
       setUserMap(m);
-    });
+    }).catch(() => {});
   }, [user?.uid]);
 
   // ── Firestore: 드로잉 있는 곡 맵 (개인 + 팀)

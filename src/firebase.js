@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { initializeFirestore, memoryLocalCache } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, isSupported } from "firebase/messaging";
 
@@ -15,11 +15,19 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-// memoryLocalCache: IndexedDB 대신 메모리 캐시 사용
-// → iOS Safari에서 IndexedDB 초기화 실패 시 쓰기가 영구 블로킹되는 문제 해결
-// ignoreUndefinedProperties: undefined 필드 자동 제거 (malformed request 방지)
+// persistentLocalCache: IndexedDB에 데이터 캐시 → 재접속 시 서버 읽기 대폭 절감
+// Firestore 규칙이 수정된 이후 쓰기 블로킹 문제 없음
+// IndexedDB 미지원 환경(사파리 사생활 보호 등) → memoryLocalCache 폴백
+function makeLocalCache() {
+  try {
+    if (typeof indexedDB === "undefined" || !indexedDB) return memoryLocalCache();
+    return persistentLocalCache({ tabManager: persistentMultipleTabManager() });
+  } catch {
+    return memoryLocalCache();
+  }
+}
 export const db = initializeFirestore(app, {
-  localCache: memoryLocalCache(),
+  localCache: makeLocalCache(),
   ignoreUndefinedProperties: true,
 });
 export const storage = getStorage(app);
