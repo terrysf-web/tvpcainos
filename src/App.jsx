@@ -10537,19 +10537,19 @@ function TeamManagementModal({ currentUserId, onClose }) {
     setSaving(null);
   };
 
-  const savePart = async (uid) => {
-    setPartSaving(true);
-    setPartSaveErr("");
+  const savePart = (uid) => {
     const updates = { parts: partVal, part: partVal[0] || "" };
-    try {
-      await setDoc(doc(db, "users", uid), updates, { merge: true });
-      setMembers(p => p.map(u => u.id === uid ? { ...u, ...updates } : u));
-      setEditPart(null);
-    } catch (e) {
-      setPartSaveErr(e.code === "permission-denied" ? "권한이 없습니다" : e.message);
-    } finally {
-      setPartSaving(false);
-    }
+    // 로컬 상태 즉시 반영 후 Firestore 백그라운드 쓰기
+    setMembers(p => p.map(u => u.id === uid ? { ...u, ...updates } : u));
+    setEditPart(null);
+    setPartSaveErr("");
+    setDoc(doc(db, "users", uid), updates, { merge: true })
+      .catch(e => {
+        // 백그라운드 실패 시 롤백 + 에러 표시
+        setMembers(p => p.map(u => u.id === uid ? { ...u, parts: partVal, part: partVal[0] || "" } : u));
+        setPartSaveErr(e.code === "permission-denied" ? "저장 실패: 권한 없음" : "저장 실패: " + e.message);
+        setEditPart(uid);
+      });
   };
 
   const ROLES = [["member","멤버"], ["leader","리더"], ["broadcast","방송팀"], ["admin","어드민"]];
