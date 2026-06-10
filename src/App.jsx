@@ -2193,7 +2193,7 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
   );
 }
 
-function PdfThumb({ pdfUrl }) {
+function PdfThumb({ pdfUrl, scale = 1.0 }) {
   const cvRef = useRef(null);
   const [err, setErr] = useState(false);
   useEffect(() => {
@@ -2205,7 +2205,7 @@ function PdfThumb({ pdfUrl }) {
         .then(pdf => pdf.getPage(1))
         .then(page => {
           if (cancelled || !cvRef.current) return;
-          const vp = page.getViewport({ scale: 0.45 });
+          const vp = page.getViewport({ scale });
           const cvs = cvRef.current;
           cvs.width = vp.width; cvs.height = vp.height;
           page.render({ canvasContext: cvs.getContext("2d"), viewport: vp });
@@ -2214,9 +2214,9 @@ function PdfThumb({ pdfUrl }) {
     };
     tryRender();
     return () => { cancelled = true; };
-  }, [pdfUrl]);
+  }, [pdfUrl, scale]);
   if (err) return <span style={{ fontSize:18 }}>📄</span>;
-  return <canvas ref={cvRef} style={{ maxWidth:"100%", maxHeight:"100%", display:"block" }} />;
+  return <canvas ref={cvRef} style={{ width:"100%", display:"block" }} />;
 }
 
 function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue, sheetLinkEnabled, sheetSyncTrigger, sheetSyncAllowedParts }) {
@@ -2259,9 +2259,14 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const activeSyncIdx = (syncSvcId === nextSvc?.id) ? syncSongIdx : -1;
   useEffect(() => {
     if (activeSyncIdx < 0 || !stripRef.current) return;
-    const firstCard = stripRef.current.firstElementChild;
-    const cardW = firstCard ? firstCard.offsetWidth : 300;
-    stripRef.current.scrollTo({ left: activeSyncIdx * (cardW + 14), behavior: "smooth" });
+    if (user?.role === "admin") {
+      const el = document.getElementById(`sheet-card-${activeSyncIdx}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } else {
+      const firstCard = stripRef.current.firstElementChild;
+      const cardW = firstCard ? firstCard.offsetWidth : 300;
+      stripRef.current.scrollTo({ left: activeSyncIdx * (cardW + 14), behavior: "smooth" });
+    }
   }, [activeSyncIdx]);
 
   const dDay = nextSvc ? Math.ceil(
@@ -2538,10 +2543,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             {/* X32 채널 상태 */}
             <X32StatusBar />
 
-            {/* 어드민 전용: 악보 링크 컨트롤 */}
+            {/* 어드민: 좌우 2컬럼 — 왼쪽 컨트롤 / 오른쪽 악보 리스트 */}
             {user?.role === "admin" && svcSongs.length > 0 && (() => {
               const syncSong = activeSyncIdx >= 0 ? svcSongs[activeSyncIdx] : null;
-
               const currentParts = sheetSyncAllowedParts ?? DEFAULT_SHEET_PARTS;
 
               const toggleLink = async () => {
@@ -2582,186 +2586,261 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               };
 
               return (
-                <div style={{
-                  background: sheetLinkEnabled ? `${C.pur}0d` : C.surf,
-                  border: `1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
-                  borderRadius: 12, padding: "8px 10px", marginBottom: 10,
-                }}>
-                  {/* 한 줄: 🔗 | 파트칩들 | ON/OFF */}
-                  <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:5, marginBottom: sheetLinkEnabled ? 8 : 0 }}>
-                    <span style={{ fontSize:12, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.dim, flexShrink:0 }}>
-                      🔗
-                    </span>
-                    {SHEET_SYNC_INST_PARTS.map(part => {
-                      const active = currentParts.includes(part);
-                      return (
-                        <button key={part} onClick={() => togglePart(part)} style={{
-                          fontSize:10, fontWeight:700,
-                          background: active ? C.pur : C.card,
-                          color: active ? "#fff" : C.dim,
-                          border:`1px solid ${active ? C.pur : C.bdr}`,
-                          borderRadius:20, padding:"2px 7px",
-                          cursor:"pointer", fontFamily:"inherit", flexShrink:0,
-                        }}>{part}</button>
-                      );
-                    })}
-                    <button onClick={toggleLink} style={{
-                      marginLeft:"auto", flexShrink:0,
-                      display:"flex", alignItems:"center", gap:5,
-                      background: sheetLinkEnabled ? C.pur : C.card,
-                      border:`1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
-                      borderRadius:20, padding:"4px 10px", cursor:"pointer", fontFamily:"inherit",
+                <div style={{ display:"flex", gap:10, alignItems:"flex-start", marginBottom:10 }}>
+                  {/* 왼쪽: 컨트롤 패널 (46%) */}
+                  <div style={{ width:"46%", flexShrink:0 }}>
+                    <div style={{
+                      background: sheetLinkEnabled ? `${C.pur}0d` : C.surf,
+                      border: `1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
+                      borderRadius: 12, padding: "8px 10px",
                     }}>
-                      <div style={{ width:22, height:13, borderRadius:7, background: sheetLinkEnabled ? "#fff" : C.bdr, position:"relative" }}>
-                        <div style={{ position:"absolute", top:2, left: sheetLinkEnabled ? 10 : 2,
-                          width:9, height:9, borderRadius:"50%",
-                          background: sheetLinkEnabled ? C.pur : "#aaa", transition:"left 0.15s" }} />
+                      {/* 파트칩 + ON/OFF */}
+                      <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:5, marginBottom: sheetLinkEnabled ? 8 : 0 }}>
+                        <span style={{ fontSize:12, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.dim, flexShrink:0 }}>🔗</span>
+                        {SHEET_SYNC_INST_PARTS.map(part => {
+                          const active = currentParts.includes(part);
+                          return (
+                            <button key={part} onClick={() => togglePart(part)} style={{
+                              fontSize:10, fontWeight:700,
+                              background: active ? C.pur : C.card,
+                              color: active ? "#fff" : C.dim,
+                              border:`1px solid ${active ? C.pur : C.bdr}`,
+                              borderRadius:20, padding:"2px 7px",
+                              cursor:"pointer", fontFamily:"inherit", flexShrink:0,
+                            }}>{part}</button>
+                          );
+                        })}
+                        <button onClick={toggleLink} style={{
+                          marginLeft:"auto", flexShrink:0,
+                          display:"flex", alignItems:"center", gap:5,
+                          background: sheetLinkEnabled ? C.pur : C.card,
+                          border:`1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
+                          borderRadius:20, padding:"4px 10px", cursor:"pointer", fontFamily:"inherit",
+                        }}>
+                          <div style={{ width:22, height:13, borderRadius:7, background: sheetLinkEnabled ? "#fff" : C.bdr, position:"relative" }}>
+                            <div style={{ position:"absolute", top:2, left: sheetLinkEnabled ? 10 : 2,
+                              width:9, height:9, borderRadius:"50%",
+                              background: sheetLinkEnabled ? C.pur : "#aaa", transition:"left 0.15s" }} />
+                          </div>
+                          <span style={{ fontSize:11, fontWeight:700, color: sheetLinkEnabled ? "#fff" : C.dim }}>
+                            {sheetLinkEnabled ? "ON" : "OFF"}
+                          </span>
+                        </button>
                       </div>
-                      <span style={{ fontSize:11, fontWeight:700, color: sheetLinkEnabled ? "#fff" : C.dim }}>
-                        {sheetLinkEnabled ? "ON" : "OFF"}
-                      </span>
-                    </button>
+                      {/* 곡 제목 + 이전/다음 */}
+                      {sheetLinkEnabled && (
+                        <>
+                          <div style={{ textAlign:"center", marginBottom:8 }}>
+                            {syncSong ? (
+                              <span>
+                                <span style={{ fontSize:11, color:C.dim, fontWeight:700 }}>
+                                  {activeSyncIdx + 1} / {svcSongs.length} &nbsp;·&nbsp;
+                                </span>
+                                <span style={{ fontSize:14, fontWeight:800, color:C.txt }}>
+                                  {syncSong.title}
+                                </span>
+                              </span>
+                            ) : (
+                              <span style={{ fontSize:12, color:C.dim }}>— 곡 선택 —</span>
+                            )}
+                          </div>
+                          <div style={{ display:"flex", gap:8 }}>
+                            <button onClick={() => advanceSong(-1)}
+                              disabled={activeSyncIdx <= 0}
+                              style={{
+                                flex:1, height:56, borderRadius:12, cursor:"pointer",
+                                background: activeSyncIdx <= 0 ? C.card : `${C.pur}18`,
+                                border:`1.5px solid ${activeSyncIdx <= 0 ? C.bdr : C.pur}`,
+                                display:"flex", alignItems:"center", justifyContent:"center",
+                                fontSize:18, fontWeight:800,
+                                color: activeSyncIdx <= 0 ? C.dim : C.pur,
+                                opacity: activeSyncIdx <= 0 ? 0.4 : 1,
+                                fontFamily:"inherit", gap:8,
+                              }}>◀ 이전</button>
+                            <button onClick={() => advanceSong(1)}
+                              disabled={activeSyncIdx >= svcSongs.length - 1}
+                              style={{
+                                flex:1, height:56, borderRadius:12, cursor:"pointer",
+                                background: activeSyncIdx >= svcSongs.length - 1 ? C.card : `${C.pur}18`,
+                                border:`1.5px solid ${activeSyncIdx >= svcSongs.length - 1 ? C.bdr : C.pur}`,
+                                display:"flex", alignItems:"center", justifyContent:"center",
+                                fontSize:18, fontWeight:800,
+                                color: activeSyncIdx >= svcSongs.length - 1 ? C.dim : C.pur,
+                                opacity: activeSyncIdx >= svcSongs.length - 1 ? 0.4 : 1,
+                                fontFamily:"inherit", gap:8,
+                              }}>다음 ▶</button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
 
-                  {/* 수동 넘김: 곡 제목 + 와이드 바 버튼 */}
-                  {sheetLinkEnabled && (
-                    <>
-                      <div style={{ textAlign:"center", marginBottom:8 }}>
-                        {syncSong ? (
-                          <span>
-                            <span style={{ fontSize:11, color:C.dim, fontWeight:700 }}>
-                              {activeSyncIdx + 1} / {svcSongs.length} &nbsp;·&nbsp;
+                  {/* 오른쪽: 악보 세로 리스트 — 화면 우측 절반 */}
+                  <div ref={stripRef} style={{
+                    flex:1,
+                    overflowY:"auto",
+                    maxHeight:"calc(100vh - 220px)",
+                    display:"flex", flexDirection:"column", gap:8,
+                    scrollbarWidth:"none", msOverflowStyle:"none",
+                  }}>
+                    {svcSongs.map((song, idx) => {
+                      const hasSheet    = !!(song.pdfUrl || song.imageUrl);
+                      const hasTranspose = user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1";
+                      const isActive    = idx === activeSyncIdx;
+                      return (
+                        <div key={song.id + idx} id={`sheet-card-${idx}`}
+                          onClick={() => hasSheet && nav("pdfViewer", { songId:song.id, svcId:nextSvc.id, svcSongIdx:idx, backTo:"home" })}
+                          style={{ cursor: hasSheet ? "pointer" : "default" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                            <div style={{ width:18, height:18, borderRadius:5,
+                              background: isActive ? C.pur : `${C.pur}18`,
+                              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                              <span style={{ fontSize:10, fontWeight:800, color: isActive ? "#fff" : C.pur }}>{idx + 1}</span>
+                            </div>
+                            <span style={{ fontSize:11, fontWeight:700, color: isActive ? C.pur : C.txt,
+                              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
+                              {song.title}
                             </span>
-                            <span style={{ fontSize:14, fontWeight:800, color:C.txt }}>
-                              {syncSong.title}
-                            </span>
-                          </span>
-                        ) : (
-                          <span style={{ fontSize:12, color:C.dim }}>— 곡 선택 —</span>
-                        )}
-                      </div>
-                      <div style={{ display:"flex", gap:8 }}>
-                        <button onClick={() => advanceSong(-1)}
-                          disabled={activeSyncIdx <= 0}
-                          style={{
-                            flex:1, height:56, borderRadius:12, cursor:"pointer",
-                            background: activeSyncIdx <= 0 ? C.card : `${C.pur}18`,
-                            border:`1.5px solid ${activeSyncIdx <= 0 ? C.bdr : C.pur}`,
-                            display:"flex", alignItems:"center", justifyContent:"center",
-                            fontSize:18, fontWeight:800,
-                            color: activeSyncIdx <= 0 ? C.dim : C.pur,
-                            opacity: activeSyncIdx <= 0 ? 0.4 : 1,
-                            fontFamily:"inherit", gap:8,
-                          }}>◀ 이전</button>
-                        <button onClick={() => advanceSong(1)}
-                          disabled={activeSyncIdx >= svcSongs.length - 1}
-                          style={{
-                            flex:1, height:56, borderRadius:12, cursor:"pointer",
-                            background: activeSyncIdx >= svcSongs.length - 1 ? C.card : `${C.pur}18`,
-                            border:`1.5px solid ${activeSyncIdx >= svcSongs.length - 1 ? C.bdr : C.pur}`,
-                            display:"flex", alignItems:"center", justifyContent:"center",
-                            fontSize:18, fontWeight:800,
-                            color: activeSyncIdx >= svcSongs.length - 1 ? C.dim : C.pur,
-                            opacity: activeSyncIdx >= svcSongs.length - 1 ? 0.4 : 1,
-                            fontFamily:"inherit", gap:8,
-                          }}>다음 ▶</button>
-                      </div>
-                    </>
-                  )}
+                          </div>
+                          <div style={{
+                            width:"100%", height:"44vh", borderRadius:10, overflow:"hidden",
+                            background:C.card,
+                            border: isActive ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
+                            boxShadow: isActive ? `0 0 0 3px ${C.pur}28` : "none",
+                            position:"relative",
+                            transition:"border 0.15s, box-shadow 0.15s",
+                            opacity: hasSheet ? 1 : 0.5,
+                          }}>
+                            {song.imageUrl ? (
+                              <img src={song.imageUrl} alt=""
+                                style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top center" }} />
+                            ) : song.pdfUrl ? (
+                              <div style={{ width:"100%", overflow:"hidden" }}>
+                                <PdfThumb pdfUrl={song.pdfUrl} />
+                              </div>
+                            ) : (
+                              <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                                <span style={{ fontSize:40, opacity:0.2 }}>🎵</span>
+                              </div>
+                            )}
+                            <div style={{ position:"absolute", bottom:6, left:6, display:"flex", gap:4, flexWrap:"wrap" }}>
+                              {song.key && (
+                                <span style={{ background:`${keyColor(song.key)}ee`, color:"#fff",
+                                  borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>
+                                  {song.key}
+                                </span>
+                              )}
+                              {song.bpm && (
+                                <span style={{ background:"rgba(0,0,0,0.6)", color:"#fff",
+                                  borderRadius:6, padding:"2px 7px", fontSize:10 }}>
+                                  ♩{song.bpm}
+                                </span>
+                              )}
+                              {hasTranspose && (
+                                <span style={{ background:`${C.pur}ee`, color:"#fff",
+                                  borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>
+                                  전조
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })()}
 
-            {/* 악보 리스트 — 중앙 고정 스냅 캐러셀 */}
-            <div style={{ fontSize:11, fontWeight:800, color:C.pur,
-              letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:10 }}>
-              이번 주 악보
-            </div>
-
-            <div ref={stripRef} style={{
-              display:"flex", gap:14, overflowX:"auto", paddingBottom:8,
-              scrollSnapType:"x mandatory",
-              WebkitOverflowScrolling:"touch",
-              scrollbarWidth:"none", msOverflowStyle:"none",
-              paddingLeft:"calc(50% - 41vw)",
-              paddingRight:"calc(50% - 41vw)",
-              margin:"0 -14px",
-            }}>
-            {svcSongs.map((song, idx) => {
-              const hasSheet    = !!(song.pdfUrl || song.imageUrl);
-              const hasTranspose = user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1";
-              const isActive    = idx === activeSyncIdx;
-              return (
-                <div key={song.id + idx}
-                  onClick={() => hasSheet && nav("pdfViewer", { songId:song.id, svcId:nextSvc.id, svcSongIdx:idx, backTo:"home" })}
-                  style={{
-                    flexShrink:0, width:"82vw",
-                    scrollSnapAlign:"center",
-                    cursor: hasSheet ? "pointer" : "default",
-                  }}>
-                  {/* 번호 + 제목 */}
-                  <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
-                    <div style={{ width:20, height:20, borderRadius:6,
-                      background: isActive ? C.pur : `${C.pur}18`,
-                      display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                      <span style={{ fontSize:11, fontWeight:800, color: isActive ? "#fff" : C.pur }}>{idx + 1}</span>
-                    </div>
-                    <span style={{ fontSize:12, fontWeight:700, color: isActive ? C.pur : C.txt,
-                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
-                      {song.title}
-                    </span>
-                  </div>
-                  {/* 악보 뷰 */}
-                  <div style={{
-                    width:"82vw", height:"60vh", borderRadius:12, overflow:"hidden",
-                    background:C.card,
-                    border: isActive ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
-                    boxShadow: isActive ? `0 0 0 4px ${C.pur}28` : "none",
-                    display:"flex", alignItems:"flex-start", justifyContent:"center",
-                    position:"relative",
-                    transition:"border 0.15s, box-shadow 0.15s",
-                    opacity: hasSheet ? 1 : 0.5,
-                  }}>
-                    {song.imageUrl ? (
-                      <img src={song.imageUrl} alt=""
-                        style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top center" }} />
-                    ) : song.pdfUrl ? (
-                      <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
-                        <PdfThumb pdfUrl={song.pdfUrl} />
-                      </div>
-                    ) : (
-                      <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <span style={{ fontSize:40, opacity:0.2 }}>🎵</span>
-                      </div>
-                    )}
-                    {/* 뱃지 오버레이 */}
-                    <div style={{ position:"absolute", bottom:7, left:7, display:"flex", gap:4, flexWrap:"wrap" }}>
-                      {song.key && (
-                        <span style={{ background:`${keyColor(song.key)}ee`, color:"#fff",
-                          borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>
-                          {song.key}
-                        </span>
-                      )}
-                      {song.bpm && (
-                        <span style={{ background:"rgba(0,0,0,0.6)", color:"#fff",
-                          borderRadius:6, padding:"2px 7px", fontSize:10 }}>
-                          ♩{song.bpm}
-                        </span>
-                      )}
-                      {hasTranspose && (
-                        <span style={{ background:`${C.pur}ee`, color:"#fff",
-                          borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>
-                          전조
-                        </span>
-                      )}
-                    </div>
-                  </div>
+            {/* 非admin: 악보 리스트 — 스냅 캐러셀 */}
+            {user?.role !== "admin" && svcSongs.length > 0 && (
+              <>
+                <div style={{ fontSize:11, fontWeight:800, color:C.pur,
+                  letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:10 }}>
+                  이번 주 악보
                 </div>
-              );
-            })}
-            </div>
+                <div ref={stripRef} style={{
+                  display:"flex", gap:14, overflowX:"auto", paddingBottom:8,
+                  scrollSnapType:"x mandatory",
+                  WebkitOverflowScrolling:"touch",
+                  scrollbarWidth:"none", msOverflowStyle:"none",
+                  paddingLeft:"calc(50% - 41vw)",
+                  paddingRight:"calc(50% - 41vw)",
+                  margin:"0 -14px",
+                }}>
+                  {svcSongs.map((song, idx) => {
+                    const hasSheet    = !!(song.pdfUrl || song.imageUrl);
+                    const hasTranspose = user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1";
+                    const isActive    = idx === activeSyncIdx;
+                    return (
+                      <div key={song.id + idx}
+                        onClick={() => hasSheet && nav("pdfViewer", { songId:song.id, svcId:nextSvc.id, svcSongIdx:idx, backTo:"home" })}
+                        style={{
+                          flexShrink:0, width:"82vw",
+                          scrollSnapAlign:"center",
+                          cursor: hasSheet ? "pointer" : "default",
+                        }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                          <div style={{ width:20, height:20, borderRadius:6,
+                            background: isActive ? C.pur : `${C.pur}18`,
+                            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                            <span style={{ fontSize:11, fontWeight:800, color: isActive ? "#fff" : C.pur }}>{idx + 1}</span>
+                          </div>
+                          <span style={{ fontSize:12, fontWeight:700, color: isActive ? C.pur : C.txt,
+                            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
+                            {song.title}
+                          </span>
+                        </div>
+                        <div style={{
+                          width:"82vw", height:"60vh", borderRadius:12, overflow:"hidden",
+                          background:C.card,
+                          border: isActive ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
+                          boxShadow: isActive ? `0 0 0 4px ${C.pur}28` : "none",
+                          position:"relative",
+                          transition:"border 0.15s, box-shadow 0.15s",
+                          opacity: hasSheet ? 1 : 0.5,
+                        }}>
+                          {song.imageUrl ? (
+                            <img src={song.imageUrl} alt=""
+                              style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top center" }} />
+                          ) : song.pdfUrl ? (
+                            <div style={{ width:"100%", overflow:"hidden" }}>
+                              <PdfThumb pdfUrl={song.pdfUrl} />
+                            </div>
+                          ) : (
+                            <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                              <span style={{ fontSize:40, opacity:0.2 }}>🎵</span>
+                            </div>
+                          )}
+                          <div style={{ position:"absolute", bottom:7, left:7, display:"flex", gap:4, flexWrap:"wrap" }}>
+                            {song.key && (
+                              <span style={{ background:`${keyColor(song.key)}ee`, color:"#fff",
+                                borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>
+                                {song.key}
+                              </span>
+                            )}
+                            {song.bpm && (
+                              <span style={{ background:"rgba(0,0,0,0.6)", color:"#fff",
+                                borderRadius:6, padding:"2px 7px", fontSize:10 }}>
+                                ♩{song.bpm}
+                              </span>
+                            )}
+                            {hasTranspose && (
+                              <span style={{ background:`${C.pur}ee`, color:"#fff",
+                                borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>
+                                전조
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
-            {/* 팀 메모 (미니뷰에서 안 보이므로 곡별로 아래 표시) */}
+            {/* 빈 상태 */}
             {svcSongs.length === 0 && (
               <div style={{ textAlign:"center", padding:"32px 0", color:C.dim }}>
                 <div style={{ fontSize:32, marginBottom:8 }}>🎵</div>
