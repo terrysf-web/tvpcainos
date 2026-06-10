@@ -2193,13 +2193,12 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
   );
 }
 
-function PdfThumb({ pdfUrl, scale = 1.0 }) {
+function PdfThumb({ pdfUrl, scale = 1.0, fitHeight = false }) {
   const cvRef = useRef(null);
   const [err, setErr] = useState(false);
   useEffect(() => {
     if (!pdfUrl) return;
     let cancelled = false;
-    // 로딩 전에 A4 비율로 캔버스 크기 미리 잡아서 블링킹 방지
     if (cvRef.current) {
       cvRef.current.width  = Math.round(595 * scale);
       cvRef.current.height = Math.round(842 * scale);
@@ -2221,6 +2220,12 @@ function PdfThumb({ pdfUrl, scale = 1.0 }) {
     return () => { cancelled = true; };
   }, [pdfUrl, scale]);
   if (err) return <span style={{ fontSize:18 }}>📄</span>;
+  if (fitHeight) return (
+    <canvas ref={cvRef} style={{
+      display:"block", height:"calc(100dvh - 150px)",
+      width:"auto", maxWidth:"100%", margin:"0 auto"
+    }} />
+  );
   return <canvas ref={cvRef} style={{ width:"100%", display:"block" }} />;
 }
 
@@ -2662,11 +2667,10 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           position:"relative",
                         }}>
                         {dispSong.imageUrl ? (
-                          <img src={dispSong.imageUrl} alt="" style={{ width:"100%", display:"block" }} />
+                          <img src={dispSong.imageUrl} alt=""
+                            style={{ display:"block", maxHeight:"calc(100dvh - 150px)", width:"auto", maxWidth:"100%", margin:"0 auto" }} />
                         ) : dispSong.pdfUrl ? (
-                          <PdfThumb key={dispSong.id}
-                            pdfUrl={`https://byvbrsuvporwhlapecja.supabase.co/storage/v1/object/public/pdfs/${dispSong.id}.pdf`}
-                            scale={0.8} />
+                          <PdfThumb key={dispSong.id} pdfUrl={dispSong.pdfUrl} scale={0.8} fitHeight />
                         ) : (
                           <div style={{ height:"40vh", display:"flex", alignItems:"center", justifyContent:"center" }}>
                             <span style={{ fontSize:60, opacity:0.15 }}>🎵</span>
