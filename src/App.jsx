@@ -2578,45 +2578,42 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 <div style={{
                   background: sheetLinkEnabled ? `${C.pur}0d` : C.surf,
                   border: `1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
-                  borderRadius: 12, padding: "10px 12px", marginBottom: 10,
+                  borderRadius: 12, padding: "8px 10px", marginBottom: 10,
                 }}>
-                  {/* 토글 행 */}
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: sheetLinkEnabled ? 12 : 0 }}>
-                    <span style={{ fontSize:13, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.dim }}>
-                      🔗 악보 링크
+                  {/* 한 줄: 🔗 | 파트칩들 | ON/OFF */}
+                  <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:5, marginBottom: sheetLinkEnabled ? 8 : 0 }}>
+                    <span style={{ fontSize:12, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.dim, flexShrink:0 }}>
+                      🔗
                     </span>
-                    <button onClick={toggleLink} style={{
-                      display:"flex", alignItems:"center", gap:7,
-                      background: sheetLinkEnabled ? C.pur : C.card,
-                      border:`1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
-                      borderRadius:20, padding:"5px 14px", cursor:"pointer", fontFamily:"inherit",
-                    }}>
-                      <div style={{ width:28, height:16, borderRadius:8, background: sheetLinkEnabled ? "#fff" : C.bdr, position:"relative" }}>
-                        <div style={{ position:"absolute", top:2, left: sheetLinkEnabled ? 13 : 2,
-                          width:12, height:12, borderRadius:"50%",
-                          background: sheetLinkEnabled ? C.pur : "#aaa", transition:"left 0.15s" }} />
-                      </div>
-                      <span style={{ fontSize:12, fontWeight:700, color: sheetLinkEnabled ? "#fff" : C.dim }}>
-                        {sheetLinkEnabled ? "ON" : "OFF"}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* 파트 선택 칩 */}
-                  <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:10 }}>
                     {SHEET_SYNC_INST_PARTS.map(part => {
                       const active = currentParts.includes(part);
                       return (
                         <button key={part} onClick={() => togglePart(part)} style={{
-                          fontSize:11, fontWeight:700,
+                          fontSize:10, fontWeight:700,
                           background: active ? C.pur : C.card,
                           color: active ? "#fff" : C.dim,
                           border:`1px solid ${active ? C.pur : C.bdr}`,
-                          borderRadius:20, padding:"3px 10px",
-                          cursor:"pointer", fontFamily:"inherit",
+                          borderRadius:20, padding:"2px 7px",
+                          cursor:"pointer", fontFamily:"inherit", flexShrink:0,
                         }}>{part}</button>
                       );
                     })}
+                    <button onClick={toggleLink} style={{
+                      marginLeft:"auto", flexShrink:0,
+                      display:"flex", alignItems:"center", gap:5,
+                      background: sheetLinkEnabled ? C.pur : C.card,
+                      border:`1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
+                      borderRadius:20, padding:"4px 10px", cursor:"pointer", fontFamily:"inherit",
+                    }}>
+                      <div style={{ width:22, height:13, borderRadius:7, background: sheetLinkEnabled ? "#fff" : C.bdr, position:"relative" }}>
+                        <div style={{ position:"absolute", top:2, left: sheetLinkEnabled ? 10 : 2,
+                          width:9, height:9, borderRadius:"50%",
+                          background: sheetLinkEnabled ? C.pur : "#aaa", transition:"left 0.15s" }} />
+                      </div>
+                      <span style={{ fontSize:11, fontWeight:700, color: sheetLinkEnabled ? "#fff" : C.dim }}>
+                        {sheetLinkEnabled ? "ON" : "OFF"}
+                      </span>
+                    </button>
                   </div>
 
                   {/* 수동 넘김: 곡 제목 + 와이드 바 버튼 */}
@@ -2680,14 +2677,13 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               scrollbarWidth:"none", msOverflowStyle:"none",
             }}>
             {svcSongs.map((song, idx) => {
-              const teamNotes = (teamAnnotations || {})[song.id] || [];
               const hasSheet  = !!(song.pdfUrl || song.imageUrl);
               const hasTranspose = user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1";
               return (
                 <div key={song.id + idx}
                   onClick={() => hasSheet && nav("pdfViewer", { songId:song.id, svcId:nextSvc.id, svcSongIdx:idx, backTo:"home" })}
                   style={{
-                    flexShrink:0, width:130,
+                    flexShrink:0, width:180,
                     cursor: hasSheet ? "pointer" : "default",
                     opacity: hasSheet ? 1 : 0.6,
                   }}>
@@ -2701,13 +2697,10 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
                       {song.title}
                     </span>
-                    {teamNotes.length > 0 && (
-                      <div style={{ width:6, height:6, borderRadius:"50%", background:"#e53935", flexShrink:0 }} />
-                    )}
                   </div>
                   {/* 악보 미니 뷰 */}
                   <div style={{
-                    width:130, height:180, borderRadius:10, overflow:"hidden",
+                    width:180, height:250, borderRadius:10, overflow:"hidden",
                     background:C.card, border:`1px solid ${C.bdr}`,
                     display:"flex", alignItems:"flex-start", justifyContent:"center",
                     position:"relative",
@@ -2752,38 +2745,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             </div>
 
             {/* 팀 메모 (미니뷰에서 안 보이므로 곡별로 아래 표시) */}
-            {svcSongs.some(s => ((teamAnnotations||{})[s.id]||[]).length > 0) && (
-              <div style={{ marginTop:10, display:"flex", flexDirection:"column", gap:6 }}>
-              {svcSongs.map((song, idx) => {
-                const teamNotes = (teamAnnotations||{})[song.id]||[];
-                if (teamNotes.length === 0) return null;
-                return (
-                  <div key={song.id}>
-                    <div style={{ fontSize:10, fontWeight:800, color:C.dim, marginBottom:3 }}>
-                      {idx+1}. {song.title}
-                    </div>
-                    <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                      {teamNotes.map((m, mi) => {
-                        const raw = m.authorName || "";
-                        const authorName = (raw.includes("@") ? (userMap||{})[m.userId] : raw) || (userMap||{})[m.userId] || "팀원";
-                        return (
-                          <div key={mi} style={{ padding:"5px 8px", borderRadius:7,
-                            background:"#e5393510", border:"1px solid #e5393530" }}>
-                            <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:2 }}>
-                              <Icon n="users" size={9} color="#e53935" sw={2.5} />
-                              <span style={{ fontSize:10, fontWeight:700, color:"#e53935" }}>{authorName}</span>
-                            </div>
-                            <div style={{ fontSize:11, color:C.txt, lineHeight:1.5 }}>{m.text}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-              </div>
-            )}
-
             {svcSongs.length === 0 && (
               <div style={{ textAlign:"center", padding:"32px 0", color:C.dim }}>
                 <div style={{ fontSize:32, marginBottom:8 }}>🎵</div>
