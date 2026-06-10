@@ -2213,53 +2213,29 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
   );
 }
 
-function SheetPreview({ song }) {
-  if (!song) return null;
-  const driveMatch = (song.pdfUrl || "").match(/\/d\/([a-zA-Z0-9_-]+)/);
-  const embedSrc = driveMatch
-    ? `https://drive.google.com/file/d/${driveMatch[1]}/preview`
-    : null;
-  return (
-    <div style={{
-      marginTop:10, borderRadius:12, overflow:"hidden",
-      border:`1.5px solid ${C.bdr}`, background:C.card,
-    }}>
-      <div style={{ padding:"6px 10px", fontSize:11, fontWeight:700, color:C.dim,
-        borderBottom:`1px solid ${C.bdr}`, display:"flex", alignItems:"center", gap:6 }}>
-        <span>👁 악보 확인</span>
-        <span style={{ fontWeight:400 }}>— {song.title}</span>
-      </div>
-      {song.imageUrl ? (
-        <img src={song.imageUrl} alt={song.title}
-          style={{ width:"100%", maxHeight:220, objectFit:"contain", display:"block", background:"#fff" }} />
-      ) : embedSrc ? (
-        <iframe src={embedSrc} title={song.title}
-          style={{ width:"100%", height:220, border:"none", display:"block" }}
-          allow="autoplay" />
-      ) : (
-        <div style={{ height:80, display:"flex", alignItems:"center", justifyContent:"center",
-          fontSize:12, color:C.dim }}>악보 없음</div>
-      )}
-    </div>
-  );
-}
-
 function LiveSongControl({ svcId, svcSongs }) {
   const [liveSongIdx, setLiveSongIdx] = useState(-1);
+  const [linkOn,      setLinkOn]      = useState(false);
+  const cardRefs = useRef([]);
 
   useEffect(() => {
-    return onSnapshot(doc(db, "liveStatus", "currentSong"), snap => {
+    const u1 = onSnapshot(doc(db, "liveStatus", "currentSong"), snap => {
       if (!snap.exists()) return;
       const d = snap.data();
       if (d.svcId === svcId) setLiveSongIdx(d.songIdx ?? -1);
     }, () => {});
+    const u2 = onSnapshot(doc(db, "liveStatus", "sheetLink"), snap => {
+      setLinkOn(snap.exists() ? (snap.data().enabled ?? false) : false);
+    }, () => {});
+    return () => { u1(); u2(); };
   }, [svcId]);
 
-  const curIdx  = liveSongIdx;
-  const curSong = svcSongs[curIdx];
-  const nextIdx = curIdx + 1;
-  const nxtSong = svcSongs[nextIdx];
-  const hasNext = curIdx < 0 || !!nxtSong;
+  // 현재 곡 카드가 보이도록 스크롤
+  useEffect(() => {
+    if (liveSongIdx >= 0 && cardRefs.current[liveSongIdx]) {
+      cardRefs.current[liveSongIdx].scrollIntoView({ behavior:"smooth", block:"nearest", inline:"center" });
+    }
+  }, [liveSongIdx]);
 
   const broadcast = async (idx) => {
     await setDoc(doc(db, "liveStatus", "currentSong"), {
@@ -2267,63 +2243,112 @@ function LiveSongControl({ svcId, svcSongs }) {
     });
   };
 
+  const toggleLink = async () => {
+    await setDoc(doc(db, "liveStatus", "sheetLink"), {
+      enabled: !linkOn, svcId, updatedAt: serverTimestamp(),
+    });
+  };
+
+  const curSong = svcSongs[liveSongIdx];
+
   return (
     <div style={{ marginBottom:14 }}>
-      <div style={{ fontSize:11, fontWeight:800, color:"#e65c00",
-        letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:8 }}>
-        🎵 곡 순서 제어
+      {/* 헤더: 악보 링크 토글 */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+        <div style={{ fontSize:11, fontWeight:800, color:"#e65c00",
+          letterSpacing:"0.05em", textTransform:"uppercase" }}>
+          🔗 악보 링크
+        </div>
+        <button onClick={toggleLink} style={{
+          display:"flex", alignItems:"center", gap:7,
+          background: linkOn ? C.pur : C.card,
+          border:`1.5px solid ${linkOn ? C.pur : C.bdr}`,
+          borderRadius:20, padding:"5px 12px", cursor:"pointer", fontFamily:"inherit",
+        }}>
+          <div style={{
+            width:28, height:16, borderRadius:8,
+            background: linkOn ? "#fff" : C.bdr,
+            position:"relative", transition:"background 0.2s",
+          }}>
+            <div style={{
+              position:"absolute", top:2, left: linkOn ? 14 : 2,
+              width:12, height:12, borderRadius:"50%",
+              background: linkOn ? C.pur : "#aaa",
+              transition:"left 0.2s",
+            }} />
+          </div>
+          <span style={{ fontSize:12, fontWeight:700, color: linkOn ? "#fff" : C.dim }}>
+            {linkOn ? "ON · 동기화 중" : "OFF"}
+          </span>
+        </button>
       </div>
 
-      {/* 현재 곡 상태 */}
-      {curIdx >= 0 && (
-        <div style={{ background:`${C.pur}12`, border:`1.5px solid ${C.pur}33`,
-          borderRadius:12, padding:"10px 14px", marginBottom:8,
-          display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:10, fontWeight:800, color:C.pur, marginBottom:2 }}>
-              {curIdx + 1}번째 곡 진행 중
+      {/* 가로 스크롤 곡 카드 */}
+      <div style={{
+        display:"flex", gap:8, overflowX:"auto",
+        paddingBottom:6, WebkitOverflowScrolling:"touch",
+        scrollSnapType:"x mandatory",
+      }}>
+        {svcSongs.map((song, idx) => {
+          const isActive = idx === liveSongIdx;
+          return (
+            <div key={song.id + idx}
+              ref={el => cardRefs.current[idx] = el}
+              onClick={() => broadcast(idx)}
+              style={{
+                minWidth:100, maxWidth:120, flexShrink:0,
+                scrollSnapAlign:"start",
+                background: isActive ? C.pur : C.card,
+                border:`2px solid ${isActive ? C.pur : C.bdr}`,
+                borderRadius:12, padding:"10px 10px",
+                cursor:"pointer",
+                boxShadow: isActive ? `0 4px 14px ${C.pur}55` : "none",
+                transition:"all 0.2s",
+              }}>
+              <div style={{
+                fontSize:10, fontWeight:800,
+                color: isActive ? "rgba(255,255,255,0.7)" : C.dim,
+                marginBottom:4,
+              }}>{idx + 1}번째</div>
+              <div style={{
+                fontSize:13, fontWeight:700,
+                color: isActive ? "#fff" : C.txt,
+                overflow:"hidden", display:"-webkit-box",
+                WebkitLineClamp:2, WebkitBoxOrient:"vertical",
+                lineHeight:1.3,
+              }}>{song.title}</div>
+              {song.key && (
+                <div style={{
+                  marginTop:5, fontSize:10, fontWeight:700,
+                  color: isActive ? "rgba(255,255,255,0.8)" : keyColor(song.key),
+                }}>{song.key}</div>
+              )}
             </div>
-            <div style={{ fontWeight:700, fontSize:15, color:C.txt,
-              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {curSong?.title || "—"}
-            </div>
+          );
+        })}
+      </div>
+
+      {/* 현재 악보 미리보기 */}
+      {curSong && (
+        <div style={{ marginTop:10, borderRadius:12, overflow:"hidden",
+          border:`1.5px solid ${C.bdr}`, background:C.card }}>
+          <div style={{ padding:"6px 10px", fontSize:11, fontWeight:700, color:C.dim,
+            borderBottom:`1px solid ${C.bdr}`, display:"flex", alignItems:"center", gap:6 }}>
+            <span>👁 악보 확인</span>
+            <span style={{ fontWeight:400 }}>— {curSong.title}</span>
           </div>
-          {curIdx > 0 && (
-            <button onClick={() => broadcast(curIdx - 1)} style={{
-              background:C.card, border:`1px solid ${C.bdr}`,
-              borderRadius:8, padding:"6px 10px", cursor:"pointer",
-              fontSize:13, fontWeight:700, color:C.dim, fontFamily:"inherit", flexShrink:0,
-            }}>◀ 이전</button>
+          {curSong.imageUrl ? (
+            <img src={curSong.imageUrl} alt={curSong.title}
+              style={{ width:"100%", maxHeight:240, objectFit:"contain", display:"block", background:"#fff" }} />
+          ) : curSong.pdfUrl ? (
+            <iframe src={curSong.pdfUrl} title={curSong.title}
+              style={{ width:"100%", height:240, border:"none", display:"block" }} />
+          ) : (
+            <div style={{ height:60, display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:12, color:C.dim }}>악보 파일 없음</div>
           )}
         </div>
       )}
-
-      {/* 다음 곡 이동 버튼 */}
-      <button
-        disabled={!hasNext}
-        onClick={() => hasNext && broadcast(curIdx < 0 ? 0 : nextIdx)}
-        style={{
-          width:"100%", padding:"16px 0",
-          background: hasNext ? C.pur : `${C.dim}22`,
-          border:"none", borderRadius:14,
-          cursor: hasNext ? "pointer" : "default",
-          display:"flex", alignItems:"center", justifyContent:"center", gap:12,
-          boxShadow: hasNext ? `0 4px 20px ${C.pur}44` : "none",
-          fontFamily:"inherit",
-        }}>
-        <span style={{ fontSize:22 }}>▶</span>
-        <div style={{ textAlign:"left" }}>
-          <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.65)", lineHeight:1.2 }}>
-            {curIdx < 0 ? "첫 번째 곡 시작" : hasNext ? "다음 곡으로 전체 이동" : "마지막 곡입니다"}
-          </div>
-          <div style={{ fontSize:18, fontWeight:900, color: hasNext ? "#fff" : C.dim, lineHeight:1.3 }}>
-            {curIdx < 0 ? (svcSongs[0]?.title || "—") : (nxtSong?.title || "—")}
-          </div>
-        </div>
-      </button>
-
-      {/* 현재 악보 미리보기 */}
-      <SheetPreview song={curSong} />
     </div>
   );
 }
@@ -2415,6 +2440,13 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         setCountdown(""); setInHour(false); setWorshipReady(false);
         setWorshipEnded(true);
         firePhase("service_start", null);
+        // 예배 시작 → 악보 링크 해제
+        if (leader && !phaseFiredRef.current.sheetLink_off) {
+          phaseFiredRef.current.sheetLink_off = true;
+          setDoc(doc(db, "liveStatus", "sheetLink"), {
+            enabled: false, svcId: nextSvc.id, updatedAt: serverTimestamp(),
+          }).catch(() => {});
+        }
         return;
       }
 
@@ -2423,12 +2455,19 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       setInHour(within1h);
       setWorshipReady(diff <= 40_000);
 
-      // 자동화 phase 트리거 — X32는 건드리지 않음 (페이더/뮤트 수동 복구 문제).
-      // BGM은 PP 소스 자체를 페이드하므로 예배실·송출 모두 함께 줄어듦.
+      // 10분 전 악보 링크 자동 ON
+      if (leader && diff <= 600_000 && !phaseFiredRef.current.sheetLink_on) {
+        phaseFiredRef.current.sheetLink_on = true;
+        setDoc(doc(db, "liveStatus", "sheetLink"), {
+          enabled: true, svcId: nextSvc.id, updatedAt: serverTimestamp(),
+        }).catch(() => {});
+      }
+
+      // 자동화 phase 트리거
       if (diff <= 10_000) {
         firePhase("piano_on", null);
       } else if (diff <= 15_000) {
-        firePhase("bgm_fade", null); // PP BGM 페이드아웃 시작 (pp-bridge가 처리)
+        firePhase("bgm_fade", null);
       } else if (within1h && !phaseFiredRef.current.bgm_playing) {
         firePhase("bgm_playing", null);
       }
@@ -12539,17 +12578,23 @@ export default function App() {
     return unsub;
   }, []);
 
-  // ── 다음 곡 브로드캐스트 구독 (리더가 보내면 전체 자동 이동)
+  // ── 악보 링크 구독 + 곡 브로드캐스트 → 팀원 자동 이동
+  const sheetLinkEnabledRef = useRef(false);
   const liveSongTsRef = useRef(null);
   useEffect(() => {
-    return onSnapshot(doc(db, "liveStatus", "currentSong"), snap => {
+    const u1 = onSnapshot(doc(db, "liveStatus", "sheetLink"), snap => {
+      sheetLinkEnabledRef.current = snap.exists() ? (snap.data().enabled ?? false) : false;
+    }, () => {});
+    // ref 초기화 — services/songs 재로드 시 재구독하므로 이전 ts 무효화
+    liveSongTsRef.current = null;
+    const u2 = onSnapshot(doc(db, "liveStatus", "currentSong"), snap => {
       if (!snap.exists()) return;
       const data = snap.data();
       const ts = data.updatedAt?.toMillis?.() ?? 0;
       if (ts === liveSongTsRef.current) return;
       liveSongTsRef.current = ts;
-      if (Date.now() - ts > 15_000) return;
-      if (isLeader(user?.role)) return; // 어드민/리더는 홈에서 프리뷰로 확인 — 이동 안 함
+      if (!sheetLinkEnabledRef.current) return;         // 링크 OFF면 무시
+      if (isLeader(user?.role)) return;                 // 어드민/리더는 홈에 머무름
       const { svcId, songIdx } = data;
       if (!svcId || songIdx == null) return;
       const svc = services.find(s => s.id === svcId);
@@ -12559,6 +12604,7 @@ export default function App() {
       if (!song) return;
       nav("pdfViewer", { songId: song.id, svcId, svcSongIdx: songIdx, backTo: "home" });
     }, () => {});
+    return () => { u1(); u2(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [services, songs]);
 
