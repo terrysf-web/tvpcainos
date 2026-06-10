@@ -2450,6 +2450,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             // 로컬 즉시 반영: adminDispIdx 우선, 없으면 서버 songId 기반 idx
             const dispIdx       = adminDispIdx >= 0 ? adminDispIdx : (firestoreIdx >= 0 ? firestoreIdx : 0);
             const dispSong      = svcSongs.length > 0 ? svcSongs[dispIdx] : null;
+            // 진단용 로그 — 브라우저 F12 콘솔에서 확인
+            console.log("[SHEET] svcSongs:", svcSongs.map((s,i) => `${i+1}.${s.title}|pdf:${s.pdfUrl?.slice(-30)||"없음"}`));
+            console.log("[SHEET] dispIdx:", dispIdx, "dispSong:", dispSong?.title, "|pdf:", dispSong?.pdfUrl?.slice(-50));
 
             const toggleLink = async () => {
               const newEnabled = !sheetLinkEnabled;
