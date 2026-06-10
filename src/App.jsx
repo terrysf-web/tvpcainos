@@ -2625,7 +2625,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 {/* ── 오른쪽: 현재 악보 1장 ── */}
                 <div style={{ flex:1, overflowY:"auto", paddingBottom:90, minWidth:0, scrollbarWidth:"none", msOverflowStyle:"none" }}>
                   {dispSong ? (
-                    <React.Fragment key={dispSong.id}>
+                    <div key={dispSong.id}>
                       {/* 번호 + 제목 */}
                       <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
                         <div style={{ width:20, height:20, borderRadius:6,
@@ -2673,7 +2673,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           </div>
                         )}
                       </div>
-                    </React.Fragment>
+                    </div>
                   ) : (
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", color:C.dim }}>
                       <div style={{ textAlign:"center" }}>
