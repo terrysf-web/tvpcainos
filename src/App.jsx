@@ -12557,7 +12557,7 @@ export default function App() {
   const [sharedGeminiKey, setSharedGeminiKey] = useState("");
   const [bgmChannel,      setBgmChannel]      = useState("09");
   const [autoPhaseGlobal, setAutoPhaseGlobal] = useState(null); // { phase, svcId }
-  const [pianoOverlayDismissed, setPianoOverlayDismissed] = useState(false);
+  const [pianoOverlayDismissed, setPianoOverlayDismissed] = useState(true); // 기본 닫힘 — 새 이벤트 올 때만 열림
   const pianoOverlayTsRef = useRef(null);
   const autoLiveTriggeredRef = useRef(null);
 
