@@ -5906,10 +5906,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // myNotes / teamNotes / effectiveNoteSongId computed after dualLeftSongId (see below)
   const leader    = isLeader(user.role);
 
-  // sheetSync 신호 도착 시 듀얼 모드 초기화 + 1페이지로 (admin 제외)
+  // sheetSync 신호 도착 시 1페이지로 이동 (듀얼/싱글 모드는 유지)
   useEffect(() => {
     if (user.role === "admin" || sheetSyncTrigger === 0) return;
-    setDual(false);
     setPageNum(1);
     setPanOffset({ x: 0, y: 0 });
     setZoomMul(1.0);
