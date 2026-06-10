@@ -2651,6 +2651,21 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           {dispSong.title}
                         </span>
                         <span style={{ fontSize:11, color:C.dim, flexShrink:0 }}>{dispIdx + 1} / {svcSongs.length}</span>
+                        <label title="이 곡 PDF 교체" style={{
+                          background:"none", border:`1px solid ${C.bdr}`, borderRadius:6, padding:"2px 7px",
+                          fontSize:10, color:C.dim, cursor:"pointer", flexShrink:0, userSelect:"none" }}>
+                          📄교체
+                          <input type="file" accept=".pdf,application/pdf" style={{ display:"none" }}
+                            onChange={async (e) => {
+                              const file = e.target.files[0];
+                              if (!file) return;
+                              e.target.value = "";
+                              try {
+                                const url = await uploadPdf(file, dispSong.id);
+                                await updateDoc(doc(db, "songs", dispSong.id), { pdfUrl: url, pdfPage: 1 });
+                              } catch (err) { alert("업로드 실패: " + err.message); }
+                            }} />
+                        </label>
                       </div>
                       {/* 악보 — 전체 세로 표시 */}
                       <div
