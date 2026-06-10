@@ -2259,7 +2259,9 @@ function MiniSheetPreview({ song }) {
           <div style={{ height:60, display:"flex", alignItems:"center", justifyContent:"center",
             fontSize:12, color:C.dim }}>미리보기 불가</div>
         ) : (
-          <canvas ref={canvasRef} style={{ width:"100%", display:"block" }} />
+          <div style={{ maxHeight:220, overflow:"hidden" }}>
+            <canvas ref={canvasRef} style={{ width:"100%", display:"block" }} />
+          </div>
         )
       ) : (
         <div style={{ height:60, display:"flex", alignItems:"center", justifyContent:"center",
