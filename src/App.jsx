@@ -2264,7 +2264,10 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const svcSongs = nextSvc
     ? (nextSvc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean)
     : [];
-  const activeSyncIdx = (syncSvcId === nextSvc?.id) ? syncSongIdx : -1;
+  // activeSyncIdx: songId 기반으로 파생 — Firestore의 숫자 인덱스(songIdx)는 신뢰하지 않음
+  const _syncSongForIdx = (syncSvcId === nextSvc?.id && syncSongId)
+    ? svcSongs.find(s => s.id === syncSongId) ?? null : null;
+  const activeSyncIdx = _syncSongForIdx ? svcSongs.indexOf(_syncSongForIdx) : -1;
   useEffect(() => {
     if (activeSyncIdx < 0 || !stripRef.current) return;
     if (user?.role === "admin") {
@@ -2599,31 +2602,31 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       {sheetLinkEnabled && (
                         <>
                           <div style={{ textAlign:"center", marginBottom:8 }}>
-                            {syncSong ? (
+                            {dispSong ? (
                               <span>
-                                <span style={{ fontSize:11, color:C.dim, fontWeight:700 }}>{activeSyncIdx + 1} / {svcSongs.length} &nbsp;·&nbsp;</span>
-                                <span style={{ fontSize:14, fontWeight:800, color:C.txt }}>{syncSong.title}</span>
+                                <span style={{ fontSize:11, color:C.dim, fontWeight:700 }}>{dispIdx + 1} / {svcSongs.length} &nbsp;·&nbsp;</span>
+                                <span style={{ fontSize:14, fontWeight:800, color:C.txt }}>{dispSong.title}</span>
                               </span>
                             ) : (
-                              <span style={{ fontSize:12, color:C.dim }}>— 곡 선택 —</span>
+                              <span style={{ fontSize:12, color:C.dim }}>— 곡 없음 —</span>
                             )}
                           </div>
                           <div style={{ display:"flex", gap:8 }}>
-                            <button onClick={() => advanceSong(-1)} disabled={activeSyncIdx <= 0} style={{
+                            <button onClick={() => advanceSong(-1)} disabled={dispIdx <= 0} style={{
                               flex:1, height:56, borderRadius:12, cursor:"pointer",
-                              background: activeSyncIdx <= 0 ? C.card : `${C.pur}18`,
-                              border:`1.5px solid ${activeSyncIdx <= 0 ? C.bdr : C.pur}`,
+                              background: dispIdx <= 0 ? C.card : `${C.pur}18`,
+                              border:`1.5px solid ${dispIdx <= 0 ? C.bdr : C.pur}`,
                               display:"flex", alignItems:"center", justifyContent:"center",
-                              fontSize:18, fontWeight:800, color: activeSyncIdx <= 0 ? C.dim : C.pur,
-                              opacity: activeSyncIdx <= 0 ? 0.4 : 1, fontFamily:"inherit", gap:8,
+                              fontSize:18, fontWeight:800, color: dispIdx <= 0 ? C.dim : C.pur,
+                              opacity: dispIdx <= 0 ? 0.4 : 1, fontFamily:"inherit", gap:8,
                             }}>◀ 이전</button>
-                            <button onClick={() => advanceSong(1)} disabled={activeSyncIdx >= svcSongs.length - 1} style={{
+                            <button onClick={() => advanceSong(1)} disabled={dispIdx >= svcSongs.length - 1} style={{
                               flex:1, height:56, borderRadius:12, cursor:"pointer",
-                              background: activeSyncIdx >= svcSongs.length - 1 ? C.card : `${C.pur}18`,
-                              border:`1.5px solid ${activeSyncIdx >= svcSongs.length - 1 ? C.bdr : C.pur}`,
+                              background: dispIdx >= svcSongs.length - 1 ? C.card : `${C.pur}18`,
+                              border:`1.5px solid ${dispIdx >= svcSongs.length - 1 ? C.bdr : C.pur}`,
                               display:"flex", alignItems:"center", justifyContent:"center",
-                              fontSize:18, fontWeight:800, color: activeSyncIdx >= svcSongs.length - 1 ? C.dim : C.pur,
-                              opacity: activeSyncIdx >= svcSongs.length - 1 ? 0.4 : 1, fontFamily:"inherit", gap:8,
+                              fontSize:18, fontWeight:800, color: dispIdx >= svcSongs.length - 1 ? C.dim : C.pur,
+                              opacity: dispIdx >= svcSongs.length - 1 ? 0.4 : 1, fontFamily:"inherit", gap:8,
                             }}>다음 ▶</button>
                           </div>
                         </>
