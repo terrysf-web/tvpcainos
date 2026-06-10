@@ -2444,9 +2444,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
             const currentParts = sheetSyncAllowedParts ?? DEFAULT_SHEET_PARTS;
             // songId 기반 조회 — 인덱스 순서 불일치 방지
-            const firestoreSong = (syncSvcId === nextSvc?.id && syncSongId)
+            const syncSong      = (syncSvcId === nextSvc?.id && syncSongId)
               ? svcSongs.find(s => s.id === syncSongId) ?? null : null;
-            const firestoreIdx  = firestoreSong ? svcSongs.indexOf(firestoreSong) : -1;
+            const firestoreIdx  = syncSong ? svcSongs.indexOf(syncSong) : -1;
             // 로컬 즉시 반영: adminDispIdx 우선, 없으면 서버 songId 기반 idx
             const dispIdx       = adminDispIdx >= 0 ? adminDispIdx : (firestoreIdx >= 0 ? firestoreIdx : 0);
             const dispSong      = svcSongs.length > 0 ? svcSongs[dispIdx] : null;
