@@ -2193,7 +2193,7 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
   );
 }
 
-function PdfThumb({ pdfUrl, scale = 1.0, fitHeight = false }) {
+function PdfThumb({ pdfUrl, scale = 1.0, fitHeight = false, page = 1 }) {
   const cvRef = useRef(null);
   const [err, setErr] = useState(false);
   useEffect(() => {
@@ -2206,19 +2206,19 @@ function PdfThumb({ pdfUrl, scale = 1.0, fitHeight = false }) {
     const tryRender = () => {
       if (!window.pdfjsLib) { setTimeout(tryRender, 300); return; }
       window.pdfjsLib.getDocument(pdfUrl).promise
-        .then(pdf => pdf.getPage(1))
-        .then(page => {
+        .then(pdf => pdf.getPage(Math.min(page || 1, pdf.numPages)))
+        .then(pg => {
           if (cancelled || !cvRef.current) return;
-          const vp = page.getViewport({ scale });
+          const vp = pg.getViewport({ scale });
           const cvs = cvRef.current;
           cvs.width = vp.width; cvs.height = vp.height;
-          page.render({ canvasContext: cvs.getContext("2d"), viewport: vp });
+          pg.render({ canvasContext: cvs.getContext("2d"), viewport: vp });
         })
         .catch(() => { if (!cancelled) setErr(true); });
     };
     tryRender();
     return () => { cancelled = true; };
-  }, [pdfUrl, scale]);
+  }, [pdfUrl, scale, page]);
   if (err) return <span style={{ fontSize:18 }}>📄</span>;
   if (fitHeight) return (
     <canvas ref={cvRef} style={{
@@ -2670,7 +2670,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           <img src={dispSong.imageUrl} alt=""
                             style={{ display:"block", maxHeight:"calc(100dvh - 150px)", width:"auto", maxWidth:"100%", margin:"0 auto" }} />
                         ) : dispSong.pdfUrl ? (
-                          <PdfThumb key={dispSong.id} pdfUrl={dispSong.pdfUrl} scale={0.8} fitHeight />
+                          <PdfThumb key={`${dispSong.id}_p${dispSong.pdfPage||1}`} pdfUrl={dispSong.pdfUrl} scale={0.8} fitHeight page={dispSong.pdfPage || 1} />
                         ) : (
                           <div style={{ height:"40vh", display:"flex", alignItems:"center", justifyContent:"center" }}>
                             <span style={{ fontSize:60, opacity:0.15 }}>🎵</span>
@@ -2835,7 +2835,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                               style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top center" }} />
                           ) : song.pdfUrl ? (
                             <div style={{ width:"100%", overflow:"hidden" }}>
-                              <PdfThumb pdfUrl={song.pdfUrl} />
+                              <PdfThumb pdfUrl={song.pdfUrl} page={song.pdfPage || 1} />
                             </div>
                           ) : (
                             <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}>
