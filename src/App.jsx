@@ -10436,6 +10436,8 @@ function TeamManagementModal({ currentUserId, onClose }) {
   const [saving,         setSaving]         = useState(null);
   const [editPart,       setEditPart]       = useState(null);
   const [partVal,        setPartVal]        = useState([]);
+  const [partSaving,     setPartSaving]     = useState(false);
+  const [partSaveErr,    setPartSaveErr]    = useState("");
   const [allowedEmails,  setAllowedEmails]  = useState([]); // [{email, role, part}]
   const [emailInput,     setEmailInput]     = useState("");
   const [newRole,        setNewRole]        = useState("member");
@@ -10536,13 +10538,17 @@ function TeamManagementModal({ currentUserId, onClose }) {
   };
 
   const savePart = async (uid) => {
+    setPartSaving(true);
+    setPartSaveErr("");
     const updates = { parts: partVal, part: partVal[0] || "" };
     try {
-      await updateDoc(doc(db, "users", uid), updates);
+      await setDoc(doc(db, "users", uid), updates, { merge: true });
       setMembers(p => p.map(u => u.id === uid ? { ...u, ...updates } : u));
       setEditPart(null);
     } catch (e) {
-      setEmailErr("파트 저장 실패: " + e.message);
+      setPartSaveErr(e.code === "permission-denied" ? "권한이 없습니다" : e.message);
+    } finally {
+      setPartSaving(false);
     }
   };
 
@@ -10704,17 +10710,21 @@ function TeamManagementModal({ currentUserId, onClose }) {
                       ))}
                     </select>
                   </div>
-                  <div style={{ display:"flex", gap:6 }}>
-                    <button onClick={() => savePart(m.id)} style={{
+                  <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
+                    <button onClick={() => savePart(m.id)} disabled={partSaving} style={{
                       background:C.acc, border:"none", borderRadius:8,
-                      padding:"6px 12px", cursor:"pointer",
+                      padding:"6px 12px", cursor: partSaving ? "default" : "pointer",
                       fontSize:12, fontWeight:700, color:"#111", fontFamily:"inherit",
-                    }}>저장</button>
-                    <button onClick={() => setEditPart(null)} style={{
+                      opacity: partSaving ? 0.6 : 1,
+                    }}>{partSaving ? "저장 중..." : "저장"}</button>
+                    <button onClick={() => { setEditPart(null); setPartSaveErr(""); }} style={{
                       background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:8,
                       padding:"6px 10px", cursor:"pointer",
                       fontSize:12, color:C.dim, fontFamily:"inherit",
                     }}>취소</button>
+                    {partSaveErr && (
+                      <span style={{ fontSize:11, color:C.red, fontWeight:600 }}>⚠ {partSaveErr}</span>
+                    )}
                   </div>
                 </div>
               ) : (
