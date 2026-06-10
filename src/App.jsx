@@ -2213,6 +2213,62 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
   );
 }
 
+function MiniSheetPreview({ song }) {
+  const canvasRef = useRef(null);
+  const [err, setErr] = useState(false);
+
+  useEffect(() => {
+    if (!song) return;
+    setErr(false);
+    if (song.imageUrl || !song.pdfUrl) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const lib = window.pdfjsLib;
+        if (!lib) return;
+        const pdf = await lib.getDocument(song.pdfUrl).promise;
+        if (cancelled) return;
+        const page = await pdf.getPage(1);
+        if (cancelled) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const w = canvas.parentElement?.clientWidth || 320;
+        const vp = page.getViewport({ scale: 1 });
+        const scale = w / vp.width;
+        const sv = page.getViewport({ scale });
+        canvas.width = sv.width; canvas.height = sv.height;
+        await page.render({ canvasContext: canvas.getContext("2d"), viewport: sv }).promise;
+      } catch { if (!cancelled) setErr(true); }
+    })();
+    return () => { cancelled = true; };
+  }, [song?.pdfUrl, song?.imageUrl]);
+
+  if (!song) return null;
+  return (
+    <div style={{ marginTop:10, borderRadius:12, overflow:"hidden",
+      border:`1.5px solid ${C.bdr}`, background:"#fff" }}>
+      <div style={{ padding:"6px 10px", fontSize:11, fontWeight:700, color:C.dim,
+        borderBottom:`1px solid ${C.bdr}`, background:C.card }}>
+        👁 악보 확인 — {song.title}
+      </div>
+      {song.imageUrl ? (
+        <img src={song.imageUrl} alt={song.title}
+          style={{ width:"100%", maxHeight:260, objectFit:"contain", display:"block" }} />
+      ) : song.pdfUrl ? (
+        err ? (
+          <div style={{ height:60, display:"flex", alignItems:"center", justifyContent:"center",
+            fontSize:12, color:C.dim }}>미리보기 불가</div>
+        ) : (
+          <canvas ref={canvasRef} style={{ width:"100%", display:"block" }} />
+        )
+      ) : (
+        <div style={{ height:60, display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize:12, color:C.dim }}>악보 없음</div>
+      )}
+    </div>
+  );
+}
+
 function LiveSongControl({ svcId, svcSongs }) {
   const [liveSongIdx, setLiveSongIdx] = useState(-1);
   const [linkOn,      setLinkOn]      = useState(false);
@@ -2328,27 +2384,7 @@ function LiveSongControl({ svcId, svcSongs }) {
         })}
       </div>
 
-      {/* 현재 악보 미리보기 */}
-      {curSong && (
-        <div style={{ marginTop:10, borderRadius:12, overflow:"hidden",
-          border:`1.5px solid ${C.bdr}`, background:C.card }}>
-          <div style={{ padding:"6px 10px", fontSize:11, fontWeight:700, color:C.dim,
-            borderBottom:`1px solid ${C.bdr}`, display:"flex", alignItems:"center", gap:6 }}>
-            <span>👁 악보 확인</span>
-            <span style={{ fontWeight:400 }}>— {curSong.title}</span>
-          </div>
-          {curSong.imageUrl ? (
-            <img src={curSong.imageUrl} alt={curSong.title}
-              style={{ width:"100%", maxHeight:240, objectFit:"contain", display:"block", background:"#fff" }} />
-          ) : curSong.pdfUrl ? (
-            <iframe src={curSong.pdfUrl} title={curSong.title}
-              style={{ width:"100%", height:240, border:"none", display:"block" }} />
-          ) : (
-            <div style={{ height:60, display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:12, color:C.dim }}>악보 파일 없음</div>
-          )}
-        </div>
-      )}
+      <MiniSheetPreview song={curSong} />
     </div>
   );
 }
@@ -12578,23 +12614,31 @@ export default function App() {
     return unsub;
   }, []);
 
-  // ── 악보 링크 구독 + 곡 브로드캐스트 → 팀원 자동 이동
+  // ── 악보 링크 ON/OFF 구독 (마운트 1회, 항상 최신값 유지)
   const sheetLinkEnabledRef = useRef(false);
-  const liveSongTsRef = useRef(null);
   useEffect(() => {
-    const u1 = onSnapshot(doc(db, "liveStatus", "sheetLink"), snap => {
+    return onSnapshot(doc(db, "liveStatus", "sheetLink"), snap => {
       sheetLinkEnabledRef.current = snap.exists() ? (snap.data().enabled ?? false) : false;
     }, () => {});
-    // ref 초기화 — services/songs 재로드 시 재구독하므로 이전 ts 무효화
-    liveSongTsRef.current = null;
-    const u2 = onSnapshot(doc(db, "liveStatus", "currentSong"), snap => {
+  }, []);
+
+  // ── 곡 브로드캐스트 구독 → 팀원 자동 이동
+  const liveSongTsRef = useRef(null);
+  useEffect(() => {
+    let isFirst = true; // 첫 스냅샷(기존 데이터)은 ts만 기록하고 이동 안 함
+    const unsub = onSnapshot(doc(db, "liveStatus", "currentSong"), snap => {
       if (!snap.exists()) return;
       const data = snap.data();
       const ts = data.updatedAt?.toMillis?.() ?? 0;
+      if (isFirst) {
+        isFirst = false;
+        liveSongTsRef.current = ts;
+        return;
+      }
       if (ts === liveSongTsRef.current) return;
       liveSongTsRef.current = ts;
-      if (!sheetLinkEnabledRef.current) return;         // 링크 OFF면 무시
-      if (isLeader(user?.role)) return;                 // 어드민/리더는 홈에 머무름
+      if (!sheetLinkEnabledRef.current) return;
+      if (isLeader(user?.role)) return;
       const { svcId, songIdx } = data;
       if (!svcId || songIdx == null) return;
       const svc = services.find(s => s.id === svcId);
@@ -12604,7 +12648,7 @@ export default function App() {
       if (!song) return;
       nav("pdfViewer", { songId: song.id, svcId, svcSongIdx: songIdx, backTo: "home" });
     }, () => {});
-    return () => { u1(); u2(); };
+    return unsub;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [services, songs]);
 
