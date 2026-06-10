@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.415";
+const APP_VERSION = "3.416";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -5475,7 +5475,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [cueEditTxt,    setCueEditTxt]    = useState("");
   const [noteTxt,       setNoteTxt]       = useState("");
   const [noteScr,       setNoteScr]       = useState("");
-  const scrFlushRef = useRef(null);
   const [noteSongId,    setNoteSongId]    = useState(null); // dual 모드에서 노트 저장 대상 악보
   const [saving,        setSaving]        = useState(false);
 
@@ -9038,28 +9037,28 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             </div>
             {/* 필기 에리어 박스 */}
             <textarea value={noteScr}
-              onChange={e => {
-                const v = e.target.value;
-                setNoteScr(v);
-                clearTimeout(scrFlushRef.current);
-                if (v) scrFlushRef.current = setTimeout(() => {
-                  setNoteTxt(p => (p + (p ? " " : "") + v.trim()).trim());
-                  setNoteScr("");
-                }, 700);
-              }}
+              onChange={e => setNoteScr(e.target.value)}
               placeholder="여기에 필기 또는 타입하세요" autoFocus
               style={{ width:"100%", background:`${C.pur}08`, border:`1.5px solid ${C.pur}44`,
                 color:C.txt, padding:"10px 14px", borderRadius:10,
                 fontSize:14, outline:"none", fontFamily:"inherit",
                 resize:"none", height:120, marginTop:8 }} />
             <div style={{ display:"flex", gap:6, marginTop:8 }}>
+              <button onClick={() => { if (noteScr.trim()) { setNoteTxt(p => (p + (p ? " " : "") + noteScr.trim()).trim()); setNoteScr(""); } }}
+                disabled={!noteScr.trim()}
+                style={{ flex:1.3, padding:"9px 0", borderRadius:10, cursor: noteScr.trim() ? "pointer" : "not-allowed",
+                  background: noteScr.trim() ? C.pur : C.card, border:`1px solid ${noteScr.trim() ? C.pur : C.bdr}`,
+                  fontFamily:"inherit", fontSize:13, fontWeight:800,
+                  color: noteScr.trim() ? "#fff" : C.dim, opacity: noteScr.trim() ? 1 : 0.4 }}>
+                ⬆ 올리기
+              </button>
               <button onClick={() => setNoteTxt(p => p + " ")}
                 style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:"pointer",
                   background:C.card, border:`1px solid ${C.bdr}`,
                   fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.txt }}>
                 ␣ 스페이스
               </button>
-              <button onClick={() => { clearTimeout(scrFlushRef.current); setNoteScr(""); setNoteTxt(p => p.slice(0,-1)); }}
+              <button onClick={() => { setNoteScr(""); setNoteTxt(p => p.slice(0,-1)); }}
                 disabled={!noteTxt && !noteScr}
                 style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:(noteTxt||noteScr) ? "pointer":"not-allowed",
                   background:C.card, border:`1px solid ${C.bdr}`,
@@ -9067,7 +9066,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   color:(noteTxt||noteScr) ? C.txt : C.dim, opacity:(noteTxt||noteScr) ? 1 : 0.4 }}>
                 ⌫ 지우기
               </button>
-              <button onClick={() => { clearTimeout(scrFlushRef.current); setNoteScr(""); setNoteTxt(""); }}
+              <button onClick={() => { setNoteScr(""); setNoteTxt(""); }}
                 disabled={!noteTxt && !noteScr}
                 style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:(noteTxt||noteScr) ? "pointer":"not-allowed",
                   background:(noteTxt||noteScr) ? `${C.red}18` : C.card,
@@ -9078,10 +9077,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               </button>
             </div>
             <div style={{ display:"flex", gap:8, marginTop:8 }}>
-              <Btn label="취소" variant="ghost" onClick={() => { clearTimeout(scrFlushRef.current); setNoteInput(false); setNoteTxt(""); setNoteScr(""); setNoteShared(false); setNoteSongId(null); }} full />
+              <Btn label="취소" variant="ghost" onClick={() => { setNoteInput(false); setNoteTxt(""); setNoteScr(""); setNoteShared(false); setNoteSongId(null); }} full />
               <Btn label={saving ? "저장 중..." : "저장"} variant="primary"
                 onClick={async () => {
-                  clearTimeout(scrFlushRef.current);
                   const final = (noteTxt + (noteScr.trim() ? (noteTxt ? " " : "") + noteScr.trim() : "")).trim();
                   if (!final || saving) return;
                   setSaving(true);
@@ -9288,11 +9286,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               onChange={e => {
                 const v = e.target.value;
                 setCueScr(v);
-                clearTimeout(scrFlushRef.current);
-                if (v) scrFlushRef.current = setTimeout(() => {
-                  setCueTxt(p => (p + (p ? " " : "") + v.trim()).trim());
-                  setCueScr("");
-                }, 700);
               }}
               placeholder="여기에 필기 또는 타입하세요"
               autoFocus
@@ -9302,13 +9295,21 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 resize:"none", height:120, marginTop:8 }}
             />
             <div style={{ display:"flex", gap:6, marginTop:8 }}>
+              <button onClick={() => { if (cueScr.trim()) { setCueTxt(p => (p + (p ? " " : "") + cueScr.trim()).trim()); setCueScr(""); } }}
+                disabled={!cueScr.trim()}
+                style={{ flex:1.3, padding:"9px 0", borderRadius:10, cursor: cueScr.trim() ? "pointer" : "not-allowed",
+                  background: cueScr.trim() ? "#ff6f00" : C.card, border:`1px solid ${cueScr.trim() ? "#ff6f00" : C.bdr}`,
+                  fontFamily:"inherit", fontSize:13, fontWeight:800,
+                  color: cueScr.trim() ? "#fff" : C.dim, opacity: cueScr.trim() ? 1 : 0.4 }}>
+                ⬆ 올리기
+              </button>
               <button onClick={() => setCueTxt(p => p + " ")}
                 style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:"pointer",
                   background:C.card, border:`1px solid ${C.bdr}`,
                   fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.txt }}>
                 ␣ 스페이스
               </button>
-              <button onClick={() => { clearTimeout(scrFlushRef.current); setCueScr(""); setCueTxt(p => p.slice(0,-1)); }}
+              <button onClick={() => { setCueScr(""); setCueTxt(p => p.slice(0,-1)); }}
                 disabled={!cueTxt && !cueScr}
                 style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:(cueTxt||cueScr) ? "pointer":"not-allowed",
                   background:C.card, border:`1px solid ${C.bdr}`,
@@ -9316,7 +9317,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   color:(cueTxt||cueScr) ? C.txt : C.dim, opacity:(cueTxt||cueScr) ? 1 : 0.4 }}>
                 ⌫ 지우기
               </button>
-              <button onClick={() => { clearTimeout(scrFlushRef.current); setCueScr(""); setCueTxt(""); }}
+              <button onClick={() => { setCueScr(""); setCueTxt(""); }}
                 disabled={!cueTxt && !cueScr}
                 style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:(cueTxt||cueScr) ? "pointer":"not-allowed",
                   background:(cueTxt||cueScr) ? `${C.red}18` : C.card,
@@ -9327,10 +9328,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               </button>
             </div>
             <div style={{ display:"flex", gap:8, marginTop:8 }}>
-              <Btn label="취소" variant="ghost" onClick={() => { clearTimeout(scrFlushRef.current); setShowCueInput(false); setCueTxt(""); setCueScr(""); }} full />
+              <Btn label="취소" variant="ghost" onClick={() => { setShowCueInput(false); setCueTxt(""); setCueScr(""); }} full />
               <Btn label="전송" variant="primary"
                 onClick={() => {
-                  clearTimeout(scrFlushRef.current);
                   const final = (cueTxt + (cueScr.trim() ? (cueTxt ? " " : "") + cueScr.trim() : "")).trim();
                   if (final) { sendCue?.(selectedSvcId, selectedSongId, final); setCueTxt(""); setCueScr(""); setShowCueInput(false); }
                 }}
