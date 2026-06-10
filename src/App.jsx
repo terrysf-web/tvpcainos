@@ -2825,6 +2825,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               </div>
             )}
 
+            {user?.role === "broadcast" ? (
+            <>
             {/* X32 채널 상태 */}
             <X32StatusBar />
 
@@ -2937,6 +2939,60 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 />
               );
             })()}
+            </> /* broadcast end */
+            ) : (
+            /* 일반 멤버: 단순 곡 리스트 */
+            <>
+              {svcSongs.length > 0 && (
+                <>
+                  <div style={{ fontSize:11, fontWeight:800, color:C.pur,
+                    letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:6 }}>
+                    이번 주 악보
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                    {svcSongs.map((song, idx) => {
+                      const hasSheet = !!(song.pdfUrl || song.imageUrl);
+                      return (
+                        <div key={song.id + idx}
+                          onClick={() => hasSheet && nav("pdfViewer", { songId:song.id, svcId:nextSvc.id, svcSongIdx:idx, backTo:"home" })}
+                          style={{ display:"flex", alignItems:"center", gap:10,
+                            background:C.surf, border:`1px solid ${C.bdr}`,
+                            borderRadius:12, padding:"10px 14px",
+                            cursor: hasSheet ? "pointer" : "default",
+                            opacity: hasSheet ? 1 : 0.65,
+                          }}>
+                          <div style={{ width:26, height:26, borderRadius:8, flexShrink:0,
+                            background:`${C.pur}18`,
+                            display:"flex", alignItems:"center", justifyContent:"center" }}>
+                            <span style={{ fontSize:11, fontWeight:800, color:C.pur }}>{idx + 1}</span>
+                          </div>
+                          <span style={{ flex:1, fontWeight:700, fontSize:15,
+                            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                            {song.title}
+                          </span>
+                          {song.key && (
+                            <span style={{ flexShrink:0, fontSize:11, fontWeight:700,
+                              background:`${keyColor(song.key)}22`, color:keyColor(song.key),
+                              border:`1px solid ${keyColor(song.key)}44`,
+                              borderRadius:6, padding:"2px 8px" }}>
+                              {song.key}
+                            </span>
+                          )}
+                          {hasSheet && <Icon n="chevR" size={14} color={C.dim} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+              {svcSongs.length === 0 && (
+                <div style={{ textAlign:"center", padding:"32px 0", color:C.dim }}>
+                  <div style={{ fontSize:32, marginBottom:8 }}>🎵</div>
+                  <div style={{ fontSize:14 }}>아직 곡이 없습니다</div>
+                </div>
+              )}
+            </> /* 일반 멤버 end */
+            )}
 
             {/* 다음 예배 일정 전체 목록 (admin은 숨김 - 큐 노트 집중) */}
             {otherSvcs.length > 0 && user?.role !== "admin" && (
