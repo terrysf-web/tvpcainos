@@ -2522,6 +2522,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   const s = svcSongs[startIdx];
                   if (s) await setDoc(doc(db, "liveStatus", "sheetSync"), {
                     svcId: nextSvc.id, songId: s.id, songIdx: startIdx, pageNum: 1,
+                    linkEnabled: true,
                     updatedAt: serverTimestamp(),
                   }).catch(() => {});
                 }
@@ -2534,6 +2535,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 if (!s) return;
                 await setDoc(doc(db, "liveStatus", "sheetSync"), {
                   svcId: nextSvc.id, songId: s.id, songIdx: newIdx, pageNum: 1,
+                  linkEnabled: true,
                   updatedAt: serverTimestamp(),
                 }).catch(() => {});
               };
@@ -12529,6 +12531,9 @@ export default function App() {
   const pianoOverlayTsRef = useRef(null);
   const autoLiveTriggeredRef = useRef(null);
   const [sheetLinkEnabled, setSheetLinkEnabled] = useState(false);
+  const navRef      = useRef(null);  // nav는 early return 뒤에 정의되므로 ref로 접근
+  const userRoleRef = useRef(undefined);
+  useEffect(() => { userRoleRef.current = user?.role; }, [user?.role]);
 
   // ── Kakao SDK 초기화
   useEffect(() => {
@@ -12572,13 +12577,12 @@ export default function App() {
       if (isFirst) { isFirst = false; sheetSyncTsRef.current = ts; return; }
       if (ts === sheetSyncTsRef.current) return;
       sheetSyncTsRef.current = ts;
-      if (!sheetLinkEnabledRef.current) return;
-      if (isLeader(user?.role)) return;
+      if (!sheetLinkEnabledRef.current && !data.linkEnabled) return;
+      if (isLeader(userRoleRef.current)) return;
       const { svcId, songId, songIdx } = data;
       if (!svcId || !songId) return;
-      // 같은 곡이면 이동하지 않음 (페이지 동기화는 PDFViewerScreen 내부에서 처리)
       if (viewRef.current === "pdfViewer" && selSongIdRef.current === songId) return;
-      nav("pdfViewer", { songId, svcId, svcSongIdx: songIdx ?? 0, backTo: "home" });
+      navRef.current?.("pdfViewer", { songId, svcId, svcSongIdx: songIdx ?? 0, backTo: "home" });
     }, () => {});
     return unsub;
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -13134,6 +13138,7 @@ export default function App() {
     setView(newView);
     localStorage.setItem("tvpc_view", newView);
   };
+  navRef.current = nav; // 매 렌더마다 최신 nav로 갱신
 
   const unread = notifs.filter(n => !n.read).length;
 
