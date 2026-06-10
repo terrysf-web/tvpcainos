@@ -2654,19 +2654,17 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       </div>
                       {/* 악보 — 전체 세로 표시 */}
                       <div
-                        onClick={() => (dispSong.pdfUrl || dispSong.imageUrl) && nav("pdfViewer", { songId:dispSong.id, svcId:nextSvc.id, svcSongIdx:dispIdx, backTo:"home" })}
                         style={{
                           borderRadius:12, overflow:"hidden",
                           background:C.card,
                           border: sheetLinkEnabled ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
                           boxShadow: sheetLinkEnabled ? `0 0 0 4px ${C.pur}28` : "none",
                           position:"relative",
-                          cursor: (dispSong.pdfUrl || dispSong.imageUrl) ? "pointer" : "default",
                         }}>
                         {dispSong.imageUrl ? (
                           <img src={dispSong.imageUrl} alt="" style={{ width:"100%", display:"block" }} />
                         ) : dispSong.pdfUrl ? (
-                          <PdfThumb key={dispIdx} pdfUrl={dispSong.pdfUrl} scale={0.8} />
+                          <PdfThumb key={dispSong.id} pdfUrl={dispSong.pdfUrl} scale={0.8} />
                         ) : (
                           <div style={{ height:"40vh", display:"flex", alignItems:"center", justifyContent:"center" }}>
                             <span style={{ fontSize:60, opacity:0.15 }}>🎵</span>
