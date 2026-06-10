@@ -12836,6 +12836,30 @@ export default function App() {
   useEffect(() => { viewRef.current      = view;            }, [view]);
   useEffect(() => { userPartsRef.current = getUserParts(user); }, [user]);
 
+  // 로그인 완료 직후: 링크가 ON이면 즉시 악보로 이동 (isFirst 가드 보완)
+  useEffect(() => {
+    if (!user?.uid || user.role === "admin") return;
+    getDoc(doc(db, "liveStatus", "sheetSync")).then(snap => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      if (!data.linkEnabled) return;
+      const ts = data.updatedAt?.toMillis?.() ?? 0;
+      if (ts > 0 && (Date.now() - ts) > 1_800_000) return; // 30분 이상 된 이벤트 무시
+      const allowedParts = allowedPartsRef.current ?? data.allowedParts ?? null;
+      if (allowedParts !== null) {
+        const myParts = getUserParts(user);
+        if (myParts.length > 0 && !myParts.some(p => allowedParts.includes(p) || p === "전체")) return;
+      } else {
+        if (isVocalistUser(user)) return;
+      }
+      const { svcId, songId, songIdx } = data;
+      if (!svcId || !songId) return;
+      sheetSyncTsRef.current = ts; // 중복 방지
+      navRef.current?.("pdfViewer", { songId, svcId, svcSongIdx: songIdx ?? 0, backTo: "home" });
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
+
   // ── Kakao SDK 초기화
   useEffect(() => {
     if (window.Kakao && !window.Kakao.isInitialized()) {
@@ -12889,9 +12913,17 @@ export default function App() {
       if (!snap.exists()) return;
       const data = snap.data();
       const ts = data.updatedAt?.toMillis?.() ?? 0;
-      if (isFirst) { isFirst = false; sheetSyncTsRef.current = ts; return; }
-      if (ts === sheetSyncTsRef.current) return;
-      sheetSyncTsRef.current = ts;
+      if (isFirst) {
+        isFirst = false;
+        sheetSyncTsRef.current = ts;
+        // 앱 첫 로드 시: linkEnabled=true 이고 최근 30분 이내 이벤트면 즉시 이동
+        const ageMs = ts > 0 ? (Date.now() - ts) : Infinity;
+        if (!data.linkEnabled || ageMs > 1_800_000) return;
+        // fall through to navigation logic below
+      } else {
+        if (ts === sheetSyncTsRef.current) return;
+        sheetSyncTsRef.current = ts;
+      }
       // admin 이 아닌 모든 사용자가 따라감 (leader 포함)
       if (userRoleRef.current === "admin") return;
       if (!sheetLinkEnabledRef.current && !data.linkEnabled) return;
