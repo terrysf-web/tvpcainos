@@ -2213,14 +2213,10 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
   );
 }
 
-function MiniSheetPreview({ song }) {
+function SongThumb({ song }) {
   const canvasRef = useRef(null);
-  const [err, setErr] = useState(false);
-
   useEffect(() => {
-    if (!song) return;
-    setErr(false);
-    if (song.imageUrl || !song.pdfUrl) return;
+    if (!song?.pdfUrl || song?.imageUrl) return;
     let cancelled = false;
     (async () => {
       try {
@@ -2232,49 +2228,34 @@ function MiniSheetPreview({ song }) {
         if (cancelled) return;
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const w = canvas.parentElement?.clientWidth || 320;
+        const w = canvas.parentElement?.clientWidth || 140;
         const vp = page.getViewport({ scale: 1 });
         const scale = w / vp.width;
         const sv = page.getViewport({ scale });
         canvas.width = sv.width; canvas.height = sv.height;
         await page.render({ canvasContext: canvas.getContext("2d"), viewport: sv }).promise;
-      } catch { if (!cancelled) setErr(true); }
+      } catch {}
     })();
     return () => { cancelled = true; };
   }, [song?.pdfUrl, song?.imageUrl]);
 
-  if (!song) return null;
-  return (
-    <div style={{ marginTop:10, borderRadius:12, overflow:"hidden",
-      border:`1.5px solid ${C.bdr}`, background:"#fff" }}>
-      <div style={{ padding:"6px 10px", fontSize:11, fontWeight:700, color:C.dim,
-        borderBottom:`1px solid ${C.bdr}`, background:C.card }}>
-        👁 악보 확인 — {song.title}
-      </div>
-      {song.imageUrl ? (
-        <img src={song.imageUrl} alt={song.title}
-          style={{ width:"100%", maxHeight:260, objectFit:"contain", display:"block" }} />
-      ) : song.pdfUrl ? (
-        err ? (
-          <div style={{ height:60, display:"flex", alignItems:"center", justifyContent:"center",
-            fontSize:12, color:C.dim }}>미리보기 불가</div>
-        ) : (
-          <div style={{ maxHeight:220, overflow:"hidden" }}>
-            <canvas ref={canvasRef} style={{ width:"100%", display:"block" }} />
-          </div>
-        )
-      ) : (
-        <div style={{ height:60, display:"flex", alignItems:"center", justifyContent:"center",
-          fontSize:12, color:C.dim }}>악보 없음</div>
-      )}
+  if (!song) return <div style={{ height:90, background:"#f0f0f0" }} />;
+  if (song.imageUrl) return (
+    <img src={song.imageUrl} alt=""
+      style={{ width:"100%", height:90, objectFit:"cover", objectPosition:"top", display:"block" }} />
+  );
+  if (song.pdfUrl) return (
+    <div style={{ overflow:"hidden", height:90, background:"#fff" }}>
+      <canvas ref={canvasRef} style={{ width:"100%", display:"block" }} />
     </div>
   );
+  return <div style={{ height:90, background:"#f5f5f5", display:"flex", alignItems:"center",
+    justifyContent:"center", fontSize:11, color:"#aaa" }}>악보없음</div>;
 }
 
 function LiveSongControl({ svcId, svcSongs }) {
   const [liveSongIdx, setLiveSongIdx] = useState(-1);
   const [linkOn,      setLinkOn]      = useState(false);
-  const cardRefs = useRef([]);
 
   useEffect(() => {
     const u1 = onSnapshot(doc(db, "liveStatus", "currentSong"), snap => {
@@ -2288,13 +2269,6 @@ function LiveSongControl({ svcId, svcSongs }) {
     return () => { u1(); u2(); };
   }, [svcId]);
 
-  // 현재 곡 카드가 보이도록 스크롤
-  useEffect(() => {
-    if (liveSongIdx >= 0 && cardRefs.current[liveSongIdx]) {
-      cardRefs.current[liveSongIdx].scrollIntoView({ behavior:"smooth", block:"nearest", inline:"center" });
-    }
-  }, [liveSongIdx]);
-
   const broadcast = async (idx) => {
     await setDoc(doc(db, "liveStatus", "currentSong"), {
       svcId, songIdx: idx, updatedAt: serverTimestamp(),
@@ -2307,86 +2281,62 @@ function LiveSongControl({ svcId, svcSongs }) {
     });
   };
 
-  const curSong = svcSongs[liveSongIdx];
-
   return (
     <div style={{ marginBottom:14 }}>
       {/* 헤더: 악보 링크 토글 */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
         <div style={{ fontSize:11, fontWeight:800, color:"#e65c00",
           letterSpacing:"0.05em", textTransform:"uppercase" }}>
           🔗 악보 링크
         </div>
         <button onClick={toggleLink} style={{
-          display:"flex", alignItems:"center", gap:7,
+          display:"flex", alignItems:"center", gap:6,
           background: linkOn ? C.pur : C.card,
           border:`1.5px solid ${linkOn ? C.pur : C.bdr}`,
-          borderRadius:20, padding:"5px 12px", cursor:"pointer", fontFamily:"inherit",
+          borderRadius:20, padding:"4px 10px", cursor:"pointer", fontFamily:"inherit",
         }}>
-          <div style={{
-            width:28, height:16, borderRadius:8,
-            background: linkOn ? "#fff" : C.bdr,
-            position:"relative", transition:"background 0.2s",
-          }}>
-            <div style={{
-              position:"absolute", top:2, left: linkOn ? 14 : 2,
-              width:12, height:12, borderRadius:"50%",
-              background: linkOn ? C.pur : "#aaa",
-              transition:"left 0.2s",
-            }} />
+          <div style={{ width:26, height:14, borderRadius:7, background: linkOn ? "#fff" : C.bdr,
+            position:"relative" }}>
+            <div style={{ position:"absolute", top:2, left: linkOn ? 13 : 2,
+              width:10, height:10, borderRadius:"50%",
+              background: linkOn ? C.pur : "#aaa", transition:"left 0.15s" }} />
           </div>
-          <span style={{ fontSize:12, fontWeight:700, color: linkOn ? "#fff" : C.dim }}>
+          <span style={{ fontSize:11, fontWeight:700, color: linkOn ? "#fff" : C.dim }}>
             {linkOn ? "ON · 동기화 중" : "OFF"}
           </span>
         </button>
       </div>
 
-      {/* 가로 스크롤 곡 카드 */}
-      <div style={{
-        display:"flex", gap:8, overflowX:"auto",
-        paddingBottom:6, WebkitOverflowScrolling:"touch",
-        scrollSnapType:"x mandatory",
-      }}>
+      {/* 2열 그리드 — 악보 썸네일 카드 */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
         {svcSongs.map((song, idx) => {
           const isActive = idx === liveSongIdx;
           return (
-            <div key={song.id + idx}
-              ref={el => cardRefs.current[idx] = el}
-              onClick={() => broadcast(idx)}
-              style={{
-                minWidth:100, maxWidth:120, flexShrink:0,
-                scrollSnapAlign:"start",
+            <div key={song.id + idx} onClick={() => broadcast(idx)} style={{
+              borderRadius:10, overflow:"hidden", cursor:"pointer",
+              border:`2.5px solid ${isActive ? C.pur : C.bdr}`,
+              boxShadow: isActive ? `0 3px 12px ${C.pur}55` : "none",
+              background: C.card,
+              transition:"border-color 0.15s, box-shadow 0.15s",
+            }}>
+              <SongThumb song={song} />
+              <div style={{
+                padding:"6px 8px",
                 background: isActive ? C.pur : C.card,
-                border:`2px solid ${isActive ? C.pur : C.bdr}`,
-                borderRadius:12, padding:"10px 10px",
-                cursor:"pointer",
-                boxShadow: isActive ? `0 4px 14px ${C.pur}55` : "none",
-                transition:"all 0.2s",
+                transition:"background 0.15s",
               }}>
-              <div style={{
-                fontSize:10, fontWeight:800,
-                color: isActive ? "rgba(255,255,255,0.7)" : C.dim,
-                marginBottom:4,
-              }}>{idx + 1}번째</div>
-              <div style={{
-                fontSize:13, fontWeight:700,
-                color: isActive ? "#fff" : C.txt,
-                overflow:"hidden", display:"-webkit-box",
-                WebkitLineClamp:2, WebkitBoxOrient:"vertical",
-                lineHeight:1.3,
-              }}>{song.title}</div>
-              {song.key && (
-                <div style={{
-                  marginTop:5, fontSize:10, fontWeight:700,
-                  color: isActive ? "rgba(255,255,255,0.8)" : keyColor(song.key),
-                }}>{song.key}</div>
-              )}
+                <div style={{ fontSize:9, fontWeight:800,
+                  color: isActive ? "rgba(255,255,255,0.65)" : C.dim }}>{idx + 1}번째</div>
+                <div style={{ fontSize:12, fontWeight:700, lineHeight:1.3,
+                  color: isActive ? "#fff" : C.txt,
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {song.title}
+                </div>
+              </div>
             </div>
           );
         })}
       </div>
-
-      <MiniSheetPreview song={curSong} />
     </div>
   );
 }
