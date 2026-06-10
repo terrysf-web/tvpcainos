@@ -35,14 +35,16 @@ service cloud.firestore {
     }
 
     match /annotations/{id} {
-      allow read, delete: if isAuthed() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthed() && (resource.data.userId == request.auth.uid || resource.data.shared == true);
+      allow delete: if isAuthed() && resource.data.userId == request.auth.uid;
       allow create: if isAuthed() && request.resource.data.userId == request.auth.uid;
       allow update: if isAuthed() && resource.data.userId == request.auth.uid;
     }
 
     match /users/{userId} {
       allow read: if isAuthed();
-      allow create, update: if isAuthed() && (request.auth.uid == userId || isLeader());
+      allow create: if isAuthed() && request.auth.uid == userId;
+      allow update: if isAuthed(); // 허용된 이메일만 로그인 가능하므로 인증된 사용자 전체 허용
       allow delete: if isAdmin();
     }
 
@@ -75,6 +77,69 @@ service cloud.firestore {
     }
 
     match /teamSettings/{document=**} {
+      allow read, write: if isAuthed();
+    }
+
+    // 앱 설정 (공유 Gemini 키 등) — 읽기 인증된 모두, 쓰기 어드민만
+    match /settings/{docId} {
+      allow read: if isAuthed();
+      allow write: if isAdmin();
+    }
+
+    // AI 분석 결과 — 인증된 모든 팀원이 읽기/쓰기 가능
+    match /songAnalysis/{songId} {
+      allow read, write: if isAuthed();
+    }
+
+    // 액세스 신청 — 누구나 create, 리더/어드민만 read·delete
+    match /accessRequests/{email} {
+      allow create: if true;
+      allow read, delete: if isLeader();
+    }
+
+    // ProPresenter 가사 — 리더가 쓰고 방송팀 포함 인증된 모두가 읽기
+    match /ppLyrics/{svcId} {
+      allow read: if isAuthed();
+      allow write: if isLeader();
+    }
+
+    // LIVE 예배 세션 — 읽기 인증된 모두, 쓰기 리더/어드민
+    match /liveSession/{svcId} {
+      allow read: if isAuthed();
+      allow write: if isLeader();
+    }
+
+    // LIVE 전체 상태 (방송팀 탭 표시 여부) — 읽기 인증된 모두, 쓰기 리더/어드민
+    match /liveStatus/{docId} {
+      allow read: if isAuthed();
+      allow write: if isLeader();
+    }
+
+    // LIVE 팀 CUE — 인증된 모두 읽기/쓰기 (팀원이 자기 상태 업데이트)
+    match /liveCues/{svcId} {
+      allow read, write: if isAuthed();
+    }
+
+    // LIVE 팀 채팅 — 인증된 모두 읽기/쓰기
+    match /liveChat/{svcId} {
+      allow read: if isAuthed();
+    }
+
+    // X32 믹서 상태 — Admin SDK가 쓰고, 인증된 모두 읽기
+    match /x32/{docId} {
+      allow read: if isAuthed();
+      allow write: if false; // Admin SDK만 쓰기 (서버측 우회)
+    }
+
+    // 예배 녹음 — 읽기/쓰기 인증된 모두 (create), 수정/삭제 리더만
+    match /worshipRecordings/{id} {
+      allow read: if isAuthed();
+      allow create: if isAuthed();
+      allow update, delete: if isLeader();
+    }
+
+    // 큐 노트 — 인증된 모든 팀원 읽기/쓰기
+    match /cueNotes/{id} {
       allow read, write: if isAuthed();
     }
   }

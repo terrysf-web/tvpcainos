@@ -1,0 +1,12 @@
+{
+  "name": "tvpcainos-pp-bridge",
+  "version": "1.0.0",
+  "description": "ProPresenter 7 Bridge for tvpcainos worship app",
+  "main": "bridge.js",
+  "scripts": {
+    "start": "node bridge.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

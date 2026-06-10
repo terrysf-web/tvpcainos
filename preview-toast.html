@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toast Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #1c1c1e;
+    color: #f2f2f7;
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+  .section-label {
+    font-size: 11px; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: #636366; margin-bottom: 12px;
+  }
+
+  /* 악보 배경 시뮬레이션 */
+  .sheet-bg {
+    position: relative; border-radius: 14px; overflow: hidden;
+    height: 120px;
+    background: repeating-linear-gradient(
+      transparent, transparent 19px, #c8c8c8 19px, #c8c8c8 20px
+    ), #f5f2ec;
+    border: 1px solid #3a3a3c;
+  }
+  .toast-wrapper {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    white-space: nowrap;
+  }
+
+  /* ── A: 기존 (검은 그림자) */
+  .toast-a {
+    background: transparent;
+    color: rgba(255,240,150,0.9);
+    font-size: 13px; font-weight: 700;
+    padding: 6px 18px; border-radius: 20px;
+    text-shadow: 0 1px 6px rgba(0,0,0,.6), 0 0 12px rgba(0,0,0,.4);
+  }
+
+  /* ── B: 반투명 다크 pill (추천) */
+  .toast-b {
+    background: rgba(40, 40, 44, 0.55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #ffffff;
+    font-size: 13px; font-weight: 600;
+    padding: 7px 18px; border-radius: 20px;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── C: 얇은 테두리 pill */
+  .toast-c {
+    background: rgba(28, 28, 30, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: rgba(255,255,255,0.92);
+    font-size: 13px; font-weight: 600;
+    padding: 6px 16px; border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.18);
+    letter-spacing: 0.01em;
+  }
+
+  /* ── D: 포인트 컬러 pill */
+  .toast-d {
+    background: rgba(232, 169, 62, 0.30);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #fff;
+    font-size: 13px; font-weight: 600;
+    padding: 7px 18px; border-radius: 20px;
+    border: 1px solid rgba(232, 169, 62, 0.35);
+    letter-spacing: 0.01em;
+  }
+
+  .tag { font-size: 10px; color: #636366; margin-top: 6px; text-align: center; }
+  .rec {
+    font-size: 10px; font-weight: 700; color: #e8a93e;
+    background: rgba(232,169,62,.15); border-radius: 4px;
+    padding: 2px 6px; margin-left: 6px; vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<div class="section-label">A — 기존 (투명 + 노란 텍스트 + 검은 그림자)</div>
+<div class="sheet-bg">
+  <div class="toast-wrapper">
+    <div class="toast-a">첫번째 곡입니다</div>
+  </div>
+</div>
+<div class="tag">현재 적용중 — 그림자가 눈에 거슬림</div>
+
+<div class="section-label">B — 반투명 다크 pill + blur <span class="rec">추천</span></div>
+<div class="sheet-bg">
+  <div class="toast-wrapper">
+    <div class="toast-b">첫번째 곡입니다</div>
+  </div>
+</div>
+<div class="tag">background: rgba(40,40,44, 0.55) + blur · 흰 텍스트 · 그림자 없음</div>
+
+<div class="section-label">C — 반투명 + 얇은 테두리</div>
+<div class="sheet-bg">
+  <div class="toast-wrapper">
+    <div class="toast-c">첫번째 곡입니다</div>
+  </div>
+</div>
+<div class="tag">background: rgba(28,28,30, 0.45) + blur · 흰 테두리 · 그림자 없음</div>
+
+<div class="section-label">D — 앱 포인트 컬러 (황금색) pill</div>
+<div class="sheet-bg">
+  <div class="toast-wrapper">
+    <div class="toast-d">첫번째 곡입니다</div>
+  </div>
+</div>
+<div class="tag">background: 황금색 30% + blur · 흰 텍스트 · 그림자 없음</div>
+
+</body>
+</html>

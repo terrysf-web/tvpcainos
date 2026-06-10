@@ -7,7 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  # ── Job 1: Firebase Hosting (항상 실행)
+  firebase:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,19 +24,132 @@ jobs:
       - name: 빌드
         env:
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
         run: npm run build
 
       - name: Firebase Hosting 배포
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          channelId: live
-          projectId: tvpcainos
-
-      - name: Firestore 규칙 배포
         env:
           SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
           echo "$SERVICE_ACCOUNT_JSON" > /tmp/sa.json
-          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json npx firebase-tools deploy --only firestore:rules --project tvpcainos --non-interactive
+          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json npx firebase-tools deploy \
+            --only hosting \
+            --project tvpcainos \
+            --non-interactive
+
+      - name: Firestore Rules 배포 (REST API)
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          pip install google-auth --quiet
+          python3 - <<'EOF'
+          import json, os, urllib.request
+          import google.oauth2.service_account, google.auth.transport.requests
+
+          sa = json.loads(os.environ["SERVICE_ACCOUNT_JSON"])
+          pid = sa.get("project_id", "tvpcainos")
+          creds = google.oauth2.service_account.Credentials.from_service_account_info(
+              sa, scopes=["https://www.googleapis.com/auth/cloud-platform",
+                          "https://www.googleapis.com/auth/firebase"])
+          creds.refresh(google.auth.transport.requests.Request())
+          tok = creds.token
+
+          with open("firestore.rules") as f:
+              rules = f.read()
+
+          import sys
+
+          def call(url, method, body=None):
+              req = urllib.request.Request(url,
+                  data=json.dumps(body).encode() if body else None,
+                  headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json"},
+                  method=method)
+              try:
+                  return json.loads(urllib.request.urlopen(req).read())
+              except urllib.error.HTTPError as e:
+                  err = e.read().decode()
+                  print(f"HTTP {e.code} {method} {url}: {err}", file=sys.stderr)
+                  raise
+
+          rs = call(f"https://firebaserules.googleapis.com/v1/projects/{pid}/rulesets",
+                    "POST", {"source": {"files": [{"name": "firestore.rules", "content": rules}]}})
+          rs_name = rs["name"]
+          print(f"Ruleset: {rs_name}")
+
+          # Firebase Admin SDK 방식: body를 {"release": {...}} 로 감싸야 함
+          inner = {"name": f"projects/{pid}/releases/cloud.firestore", "rulesetName": rs_name}
+          rel_url = f"https://firebaserules.googleapis.com/v1/projects/{pid}/releases/cloud.firestore"
+          try:
+              call(rel_url + "?updateMask=rulesetName", "PATCH", {"release": inner})
+              print("✓ Firestore Rules 배포 완료 (updated)")
+          except urllib.error.HTTPError as e:
+              if e.code == 404:
+                  call(f"https://firebaserules.googleapis.com/v1/projects/{pid}/releases",
+                       "POST", inner)
+                  print("✓ Firestore Rules 배포 완료 (created)")
+              else:
+                  raise
+          EOF
+
+  # ── Job 2: Supabase Edge Function (SUPABASE_ACCESS_TOKEN 있을 때만)
+  supabase:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 토큰 확인
+        id: check
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then
+            echo "has_token=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_token=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Supabase CLI 설치
+        if: steps.check.outputs.has_token == 'true'
+        run: npm install -g supabase@latest --silent
+
+      - name: Edge Function 배포 (send-fcm + detect-chords + save-recording)
+        if: steps.check.outputs.has_token == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy send-fcm \
+            --project-ref byvbrsuvporwhlapecja \
+            --no-verify-jwt
+          supabase functions deploy detect-chords \
+            --project-ref byvbrsuvporwhlapecja \
+            --no-verify-jwt
+          supabase functions deploy save-recording \
+            --project-ref byvbrsuvporwhlapecja \
+            --no-verify-jwt
+
+      - name: Supabase 시크릿 등록 (Firebase SA + Gemini + Groq)
+        if: steps.check.outputs.has_token == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GEMINI_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          GROQ_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, urllib.request
+          tok     = os.environ["SUPABASE_ACCESS_TOKEN"]
+          secrets = [
+            {"name": "FIREBASE_SERVICE_ACCOUNT", "value": os.environ["FIREBASE_SA"]},
+            {"name": "GEMINI_API_KEY",            "value": os.environ.get("GEMINI_KEY","")},
+            {"name": "GROQ_API_KEY",              "value": os.environ.get("GROQ_KEY","")},
+          ]
+          req = urllib.request.Request(
+            "https://api.supabase.com/v1/projects/byvbrsuvporwhlapecja/secrets",
+            data=json.dumps(secrets).encode(),
+            headers={"Authorization": "Bearer " + tok, "Content-Type": "application/json"},
+            method="POST",
+          )
+          urllib.request.urlopen(req)
+          print("✓ Supabase 시크릿 설정 완료")
+          EOF
