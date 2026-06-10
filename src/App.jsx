@@ -2222,7 +2222,7 @@ function PdfThumb({ pdfUrl, scale = 1.0, fitHeight = false, page = 1 }) {
   if (err) return <span style={{ fontSize:18 }}>📄</span>;
   if (fitHeight) return (
     <canvas ref={cvRef} style={{
-      display:"block", height:"calc(100dvh - 150px)",
+      display:"block", height:"100%",
       width:"auto", maxWidth:"100%", margin:"0 auto"
     }} />
   );
@@ -2483,6 +2483,16 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 allowedParts: next, updatedAt: serverTimestamp(),
               }).catch(() => {});
             };
+            const selectSong = (idx) => {
+              setAdminDispIdx(idx);
+              if (sheetLinkEnabled) {
+                const s = svcSongs[idx];
+                if (s) setDoc(doc(db, "liveStatus", "sheetSync"), {
+                  svcId: nextSvc.id, songId: s.id, songIdx: idx,
+                  pageNum: 1, linkEnabled: true, updatedAt: serverTimestamp(),
+                }).catch(() => {});
+              }
+            };
             const advanceSong = async (delta) => {
               const base = dispIdx;
               const newIdx = Math.max(0, Math.min(base + delta, svcSongs.length - 1));
@@ -2496,9 +2506,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             };
 
             return (
-              <div style={{ display:"flex", gap:10, flex:"1 1 0", height:0, paddingBottom:90 }}>
-                {/* ── 왼쪽: 히어로 + 컨트롤 ── */}
-                <div style={{ width:"46%", flexShrink:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:8, scrollbarWidth:"none", msOverflowStyle:"none" }}>
+              <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, paddingBottom:"calc(90px + env(safe-area-inset-bottom))", overflow:"hidden" }}>
+                {/* ── 왼쪽: 히어로 + 컨트롤 + 곡 목록 ── */}
+                <div style={{ flex:1, minWidth:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", msOverflowStyle:"none" }}>
                   {/* 히어로 카드 */}
                   <div style={{
                     background: isPianoOn ? `linear-gradient(135deg, ${C.red}18, ${C.red}08)` : `linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
@@ -2618,63 +2628,99 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           </div>
                           <div style={{ display:"flex", gap:8 }}>
                             <button onClick={() => advanceSong(-1)} disabled={dispIdx <= 0} style={{
-                              flex:1, height:56, borderRadius:12, cursor:"pointer",
+                              flex:1, height:42, borderRadius:10, cursor:"pointer",
                               background: dispIdx <= 0 ? C.card : `${C.pur}18`,
                               border:`1.5px solid ${dispIdx <= 0 ? C.bdr : C.pur}`,
                               display:"flex", alignItems:"center", justifyContent:"center",
-                              fontSize:18, fontWeight:800, color: dispIdx <= 0 ? C.dim : C.pur,
-                              opacity: dispIdx <= 0 ? 0.4 : 1, fontFamily:"inherit", gap:8,
+                              fontSize:15, fontWeight:800, color: dispIdx <= 0 ? C.dim : C.pur,
+                              opacity: dispIdx <= 0 ? 0.4 : 1, fontFamily:"inherit", gap:6,
                             }}>◀ 이전</button>
                             <button onClick={() => advanceSong(1)} disabled={dispIdx >= svcSongs.length - 1} style={{
-                              flex:1, height:56, borderRadius:12, cursor:"pointer",
+                              flex:1, height:42, borderRadius:10, cursor:"pointer",
                               background: dispIdx >= svcSongs.length - 1 ? C.card : `${C.pur}18`,
                               border:`1.5px solid ${dispIdx >= svcSongs.length - 1 ? C.bdr : C.pur}`,
                               display:"flex", alignItems:"center", justifyContent:"center",
-                              fontSize:18, fontWeight:800, color: dispIdx >= svcSongs.length - 1 ? C.dim : C.pur,
-                              opacity: dispIdx >= svcSongs.length - 1 ? 0.4 : 1, fontFamily:"inherit", gap:8,
+                              fontSize:15, fontWeight:800, color: dispIdx >= svcSongs.length - 1 ? C.dim : C.pur,
+                              opacity: dispIdx >= svcSongs.length - 1 ? 0.4 : 1, fontFamily:"inherit", gap:6,
                             }}>다음 ▶</button>
                           </div>
                         </>
                       )}
                     </div>
                   )}
+
+                  {/* ── 곡 순서 목록 ── */}
+                  {svcSongs.length > 0 && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+                      <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3, paddingLeft:2 }}>
+                        곡 순서
+                      </div>
+                      {svcSongs.map((song, idx) => {
+                        const isActive = idx === dispIdx;
+                        return (
+                          <div key={song.id + idx}
+                            onClick={() => selectSong(idx)}
+                            style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 8px", borderRadius:8, cursor:"pointer",
+                              background: isActive ? `${C.pur}12` : "transparent",
+                              border:`1px solid ${isActive ? C.pur+"44" : "transparent"}`,
+                            }}>
+                            <div style={{ width:22, height:22, borderRadius:6, flexShrink:0,
+                              background: isActive ? C.pur : `${C.pur}18`,
+                              display:"flex", alignItems:"center", justifyContent:"center" }}>
+                              <span style={{ fontSize:10, fontWeight:800, color: isActive ? "#fff" : C.pur }}>{idx+1}</span>
+                            </div>
+                            <span style={{ flex:1, fontSize:12, fontWeight: isActive ? 700 : 500,
+                              color: isActive ? C.pur : C.txt,
+                              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              {song.title}
+                            </span>
+                            {song.key && (
+                              <span style={{ flexShrink:0, fontSize:10, fontWeight:700,
+                                background:`${keyColor(song.key)}22`, color:keyColor(song.key),
+                                borderRadius:4, padding:"1px 5px" }}>
+                                {song.key}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* ── 오른쪽: 현재 악보 1장 ── */}
-                <div style={{ flex:1, overflowY:"auto", minWidth:0, minHeight:0, scrollbarWidth:"none", msOverflowStyle:"none" }}>
+                <div style={{ flexShrink:0, display:"flex", flexDirection:"column", width:"calc((100dvh - 190px) * 0.707)", minWidth:320 }}>
                   {dispSong ? (
-                    <div>
+                    <>
                       {/* 번호 + 제목 */}
-                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5, flexShrink:0 }}>
                         <div style={{ width:20, height:20, borderRadius:6,
                           background: sheetLinkEnabled ? C.pur : `${C.pur}18`,
                           display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                           <span style={{ fontSize:11, fontWeight:800, color: sheetLinkEnabled ? "#fff" : C.pur }}>{dispIdx + 1}</span>
                         </div>
-                        <span style={{ fontSize:14, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.txt,
+                        <span style={{ fontSize:13, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.txt,
                           overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
                           {dispSong.title}
                         </span>
                         <span style={{ fontSize:11, color:C.dim, flexShrink:0 }}>{dispIdx + 1} / {svcSongs.length}</span>
                       </div>
-                      {/* 악보 — 전체 세로 표시 */}
-                      <div
-                        style={{
+                      {/* 악보 — 높이 100% 채우기 */}
+                      <div style={{ flex:"1 1 0", height:0, minHeight:0,
                           borderRadius:12, overflow:"hidden",
                           background:C.card,
                           border: sheetLinkEnabled ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
                           boxShadow: sheetLinkEnabled ? `0 0 0 4px ${C.pur}28` : "none",
                           position:"relative",
+                          display:"flex", alignItems:"center", justifyContent:"center",
                         }}>
                         {dispSong.imageUrl ? (
                           <img src={dispSong.imageUrl} alt=""
-                            style={{ display:"block", maxHeight:"calc(100dvh - 150px)", width:"auto", maxWidth:"100%", margin:"0 auto" }} />
+                            style={{ height:"100%", width:"auto", maxWidth:"100%", display:"block" }} />
                         ) : dispSong.pdfUrl ? (
                           <PdfThumb key={`${dispSong.id}_p${dispSong.pdfPage||1}`} pdfUrl={dispSong.pdfUrl} scale={0.8} fitHeight page={dispSong.pdfPage || 1} />
                         ) : (
-                          <div style={{ height:"40vh", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                            <span style={{ fontSize:60, opacity:0.15 }}>🎵</span>
-                          </div>
+                          <span style={{ fontSize:60, opacity:0.15 }}>🎵</span>
                         )}
                         {/* 뱃지 */}
                         {(dispSong.key || dispSong.bpm) && (
@@ -2690,7 +2736,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           </div>
                         )}
                       </div>
-                    </div>
+                    </>
                   ) : (
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", color:C.dim }}>
                       <div style={{ textAlign:"center" }}>
