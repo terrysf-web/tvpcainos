@@ -2233,6 +2233,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [testPhase,    setTestPhase]    = useState(0); // 0=off 1=countdown 2=worshipReady 3=piano_on
   const [syncSongIdx,  setSyncSongIdx]  = useState(-1);
   const [syncSvcId,    setSyncSvcId]    = useState(null);
+  const [syncSongId,   setSyncSongId]   = useState(null);
   const [adminDispIdx, setAdminDispIdx] = useState(-1);
   const autoNavDone  = useRef(false);
   const phaseFiredRef = useRef({});
@@ -2250,6 +2251,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       const d = snap.data();
       setSyncSongIdx(d.songIdx ?? -1);
       setSyncSvcId(d.svcId ?? null);
+      setSyncSongId(d.songId ?? null);
     }, () => {});
   }, [user?.role]);
 
@@ -2429,7 +2431,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         </div>
       </div>
 
-      <div style={{ flex:1, overflowY: user?.role === "admin" ? "hidden" : "auto", padding: user?.role === "admin" ? "8px 10px 0" : "14px 14px 90px" }}>
+      <div style={{ flex:1, overflowY: user?.role === "admin" ? "hidden" : "auto", padding: user?.role === "admin" ? "8px 10px 90px" : "14px 14px 90px" }}>
         {nextSvc ? (
           user?.role === "admin" ? (() => {
             /* ─── ADMIN: 좌우 2열 고정 레이아웃 ─── */
@@ -2441,10 +2443,13 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             const showMsg       = tInHour && tCountdown && (tWorshipReady || isPianoOn);
 
             const currentParts = sheetSyncAllowedParts ?? DEFAULT_SHEET_PARTS;
-            const syncSong     = activeSyncIdx >= 0 ? svcSongs[activeSyncIdx] : null;
-            // 로컬 즉시 반영: adminDispIdx 우선, 없으면 서버값
-            const dispIdx      = adminDispIdx >= 0 ? adminDispIdx : (activeSyncIdx >= 0 ? activeSyncIdx : 0);
-            const dispSong     = svcSongs.length > 0 ? svcSongs[dispIdx] : null;
+            // songId 기반 조회 — 인덱스 순서 불일치 방지
+            const firestoreSong = (syncSvcId === nextSvc?.id && syncSongId)
+              ? svcSongs.find(s => s.id === syncSongId) ?? null : null;
+            const firestoreIdx  = firestoreSong ? svcSongs.indexOf(firestoreSong) : -1;
+            // 로컬 즉시 반영: adminDispIdx 우선, 없으면 서버 songId 기반 idx
+            const dispIdx       = adminDispIdx >= 0 ? adminDispIdx : (firestoreIdx >= 0 ? firestoreIdx : 0);
+            const dispSong      = svcSongs.length > 0 ? svcSongs[dispIdx] : null;
 
             const toggleLink = async () => {
               const newEnabled = !sheetLinkEnabled;
@@ -2485,7 +2490,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             return (
               <div style={{ display:"flex", gap:10, height:"100%" }}>
                 {/* ── 왼쪽: 히어로 + 컨트롤 ── */}
-                <div style={{ width:"46%", flexShrink:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:8, paddingBottom:90, scrollbarWidth:"none", msOverflowStyle:"none" }}>
+                <div style={{ width:"46%", flexShrink:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:8, scrollbarWidth:"none", msOverflowStyle:"none" }}>
                   {/* 히어로 카드 */}
                   <div style={{
                     background: isPianoOn ? `linear-gradient(135deg, ${C.red}18, ${C.red}08)` : `linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
@@ -2628,7 +2633,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 </div>
 
                 {/* ── 오른쪽: 현재 악보 1장 ── */}
-                <div style={{ flex:1, overflowY:"auto", paddingBottom:90, minWidth:0, scrollbarWidth:"none", msOverflowStyle:"none" }}>
+                <div style={{ flex:1, overflowY:"auto", minWidth:0, scrollbarWidth:"none", msOverflowStyle:"none" }}>
                   {dispSong ? (
                     <div>
                       {/* 번호 + 제목 */}
