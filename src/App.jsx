@@ -2434,7 +2434,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         </div>
       </div>
 
-      <div style={{ flex:1, overflow:"hidden", padding: user?.role === "admin" ? "8px 10px 0" : "14px 14px 90px", ...(user?.role === "admin" && { display:"flex", flexDirection:"column" }) }}>
+      <div style={{ flex:"1 1 0", height:0, overflow:"hidden", padding: user?.role === "admin" ? "8px 10px 0" : "14px 14px 90px", ...(user?.role === "admin" && { display:"flex", flexDirection:"column" }) }}>
         {nextSvc ? (
           user?.role === "admin" ? (() => {
             /* ─── ADMIN: 좌우 2열 고정 레이아웃 ─── */
@@ -2491,7 +2491,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             };
 
             return (
-              <div style={{ display:"flex", gap:10, flex:1, minHeight:0, paddingBottom:90 }}>
+              <div style={{ display:"flex", gap:10, flex:"1 1 0", height:0, paddingBottom:90 }}>
                 {/* ── 왼쪽: 히어로 + 컨트롤 ── */}
                 <div style={{ width:"46%", flexShrink:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:8, scrollbarWidth:"none", msOverflowStyle:"none" }}>
                   {/* 히어로 카드 */}
@@ -2664,7 +2664,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         {dispSong.imageUrl ? (
                           <img src={dispSong.imageUrl} alt="" style={{ width:"100%", display:"block" }} />
                         ) : dispSong.pdfUrl ? (
-                          <PdfThumb key={dispSong.id} pdfUrl={dispSong.pdfUrl} scale={0.8} />
+                          <PdfThumb key={dispSong.id}
+                            pdfUrl={`https://byvbrsuvporwhlapecja.supabase.co/storage/v1/object/public/pdfs/${dispSong.id}.pdf`}
+                            scale={0.8} />
                         ) : (
                           <div style={{ height:"40vh", display:"flex", alignItems:"center", justifyContent:"center" }}>
                             <span style={{ fontSize:60, opacity:0.15 }}>🎵</span>
