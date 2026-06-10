@@ -2431,7 +2431,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         </div>
       </div>
 
-      <div style={{ flex:1, overflowY: user?.role === "admin" ? "hidden" : "auto", padding: user?.role === "admin" ? "8px 10px 90px" : "14px 14px 90px" }}>
+      <div style={{ flex:1, overflow:"hidden", padding: user?.role === "admin" ? "8px 10px 0" : "14px 14px 90px", ...(user?.role === "admin" && { display:"flex", flexDirection:"column" }) }}>
         {nextSvc ? (
           user?.role === "admin" ? (() => {
             /* ─── ADMIN: 좌우 2열 고정 레이아웃 ─── */
@@ -2488,7 +2488,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             };
 
             return (
-              <div style={{ display:"flex", gap:10, height:"100%" }}>
+              <div style={{ display:"flex", gap:10, flex:1, minHeight:0, paddingBottom:90 }}>
                 {/* ── 왼쪽: 히어로 + 컨트롤 ── */}
                 <div style={{ width:"46%", flexShrink:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:8, scrollbarWidth:"none", msOverflowStyle:"none" }}>
                   {/* 히어로 카드 */}
@@ -2633,7 +2633,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 </div>
 
                 {/* ── 오른쪽: 현재 악보 1장 ── */}
-                <div style={{ flex:1, overflowY:"auto", minWidth:0, scrollbarWidth:"none", msOverflowStyle:"none" }}>
+                <div style={{ flex:1, overflowY:"auto", minWidth:0, minHeight:0, scrollbarWidth:"none", msOverflowStyle:"none" }}>
                   {dispSong ? (
                     <div>
                       {/* 번호 + 제목 */}
