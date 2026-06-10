@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.418";
+const APP_VERSION = "3.419";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -5514,21 +5514,43 @@ function HandwritePad({ accent, apiKey, onText }) {
       oc.fillStyle = "#ffffff"; oc.fillRect(0, 0, out.width, out.height);
       oc.drawImage(cvs, 0, 0);
       const b64 = out.toDataURL("image/png").split(",")[1];
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        { method:"POST", headers:{ "content-type":"application/json" },
-          body: JSON.stringify({
-            contents:[{ parts:[
-              { inlineData:{ mimeType:"image/png", data:b64 } },
-              { text:"이미지의 손글씨를 텍스트로 변환하세요. 한국어·영어가 섞여 있을 수 있습니다. 변환된 텍스트만 출력하고 설명이나 따옴표는 붙이지 마세요." },
-            ]}],
-            generationConfig:{ temperature:0, maxOutputTokens:512 },
-          }) }
+      const body = JSON.stringify({
+        contents:[{ parts:[
+          { inlineData:{ mimeType:"image/png", data:b64 } },
+          { text:"이미지의 손글씨를 텍스트로 변환하세요. 한국어·영어가 섞여 있을 수 있습니다. 변환된 텍스트만 출력하고 설명이나 따옴표는 붙이지 마세요." },
+        ]}],
+        generationConfig:{ temperature:0, maxOutputTokens:512 },
+      });
+      // 혼잡(503)·쿼터(429) 시 다른 모델로 자동 전환 — 모델마다 서버 용량이 분리됨
+      const MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
+      let text = "", lastMsg = "";
+      for (const m of MODELS) {
+        try {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`,
+            { method:"POST", headers:{ "content-type":"application/json" }, body }
+          );
+          const d = await res.json();
+          if (d.error) {
+            lastMsg = d.error.message || "Gemini 오류";
+            const retryable = d.error.code === 503 || d.error.code === 429 ||
+              /high demand|overload|exhausted|unavailable/i.test(lastMsg);
+            if (retryable) continue; // 다음 모델로
+            throw new Error(lastMsg);
+          }
+          text = (d.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+          if (text) break;
+          lastMsg = "글씨를 인식하지 못했어요.";
+        } catch (e) {
+          if (e instanceof TypeError) { lastMsg = "네트워크 오류"; continue; }
+          throw e;
+        }
+      }
+      if (!text) throw new Error(
+        /high demand|overload|exhausted|unavailable|503|429/i.test(lastMsg)
+          ? "AI 서버가 지금 혼잡해요. 글씨는 그대로 남아 있으니 잠시 후 「⬆ 변환」을 다시 눌러 주세요."
+          : lastMsg || "변환 실패 — 다시 시도해 주세요."
       );
-      const d = await res.json();
-      if (d.error) throw new Error(d.error.message || "Gemini 오류");
-      const text = (d.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
-      if (!text) throw new Error("글씨를 인식하지 못했어요. 다시 시도해 주세요.");
       onText(text);
       clear();
     } catch (e) {
