@@ -5909,6 +5909,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // sheetSync 신호 도착 시 1페이지로 이동 (듀얼/싱글 모드는 유지)
   useEffect(() => {
     if (user.role === "admin" || sheetSyncTrigger === 0) return;
+    if (dual) setDualIdx(selectedSvcSongIdx); // 듀얼: 왼쪽을 어드민이 선택한 곡으로
     setPageNum(1);
     setPanOffset({ x: 0, y: 0 });
     setZoomMul(1.0);
