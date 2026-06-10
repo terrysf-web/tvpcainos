@@ -2442,9 +2442,30 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       : <span style={{ flexShrink:0 }}><ServiceStatusBadge svc={nextSvc} /></span>
                     }
                   </div>
-                  {/* 테스트 버튼 (어드민만) */}
+                  {/* 피아노ON 수동 버튼 + TEST (어드민만) */}
                   {user?.role === "admin" && (
-                    <div style={{ textAlign:"right", marginTop:6 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:6 }}>
+                      <button onClick={async () => {
+                        try {
+                          await setDoc(doc(db, "liveStatus", "automation"), {
+                            phase: "piano_on",
+                            svcId: nextSvc?.id || null,
+                            updatedAt: serverTimestamp(),
+                          });
+                          fetch("http://192.168.1.21:5004/v1/stage/message", {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify("PIANO ON"),
+                          }).catch(() => {});
+                        } catch {}
+                      }} style={{
+                        fontSize:11, fontWeight:800, color:"#fff",
+                        background:"#b71c1c",
+                        border:"none", borderRadius:6, padding:"4px 12px",
+                        cursor:"pointer", fontFamily:"inherit",
+                      }}>
+                        🎹 Piano ON 알림 보내기
+                      </button>
                       <button onClick={() => setTestPhase(p => (p + 1) % 4)}
                         style={{
                           fontSize:10, fontWeight:700, color:C.dim,
