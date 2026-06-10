@@ -2623,46 +2623,44 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 </div>
 
                 {/* ── 오른쪽: 현재 악보 1장 ── */}
-                <div style={{ flex:1, display:"flex", flexDirection:"column", paddingBottom:90, minWidth:0 }}>
-                  {dispSong ? (() => {
-                    const hasSheet     = !!(dispSong.pdfUrl || dispSong.imageUrl);
-                    const hasTranspose = user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${dispSong.id}`) === "1";
-                    return (
-                      <>
-                        <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6, flexShrink:0 }}>
-                          <div style={{ width:20, height:20, borderRadius:6,
-                            background: activeSyncIdx >= 0 ? C.pur : `${C.pur}18`,
-                            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                            <span style={{ fontSize:11, fontWeight:800, color: activeSyncIdx >= 0 ? "#fff" : C.pur }}>{dispIdx + 1}</span>
-                          </div>
-                          <span style={{ fontSize:14, fontWeight:800, color: activeSyncIdx >= 0 ? C.pur : C.txt,
-                            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
-                            {dispSong.title}
-                          </span>
-                          <span style={{ fontSize:11, color:C.dim, flexShrink:0 }}>{dispIdx + 1} / {svcSongs.length}</span>
+                <div style={{ flex:1, overflowY:"auto", paddingBottom:90, minWidth:0, scrollbarWidth:"none", msOverflowStyle:"none" }}>
+                  {dispSong ? (
+                    <React.Fragment key={dispSong.id}>
+                      {/* 번호 + 제목 */}
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                        <div style={{ width:20, height:20, borderRadius:6,
+                          background: sheetLinkEnabled ? C.pur : `${C.pur}18`,
+                          display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                          <span style={{ fontSize:11, fontWeight:800, color: sheetLinkEnabled ? "#fff" : C.pur }}>{dispIdx + 1}</span>
                         </div>
-                        <div
-                          onClick={() => hasSheet && nav("pdfViewer", { songId:dispSong.id, svcId:nextSvc.id, svcSongIdx:dispIdx, backTo:"home" })}
-                          style={{
-                            flex:1, borderRadius:12, overflow:"hidden",
-                            background:C.card,
-                            border: sheetLinkEnabled ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
-                            boxShadow: sheetLinkEnabled ? `0 0 0 4px ${C.pur}28` : "none",
-                            position:"relative", cursor: hasSheet ? "pointer" : "default",
-                            opacity: hasSheet ? 1 : 0.5,
-                          }}>
-                          {dispSong.imageUrl ? (
-                            <img src={dispSong.imageUrl} alt=""
-                              style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top center" }} />
-                          ) : dispSong.pdfUrl ? (
-                            <div style={{ width:"100%", overflow:"hidden" }}>
-                              <PdfThumb key={dispSong.pdfUrl} pdfUrl={dispSong.pdfUrl} scale={0.5} />
-                            </div>
-                          ) : (
-                            <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                              <span style={{ fontSize:60, opacity:0.15 }}>🎵</span>
-                            </div>
-                          )}
+                        <span style={{ fontSize:14, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.txt,
+                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
+                          {dispSong.title}
+                        </span>
+                        <span style={{ fontSize:11, color:C.dim, flexShrink:0 }}>{dispIdx + 1} / {svcSongs.length}</span>
+                      </div>
+                      {/* 악보 — 전체 세로 표시 */}
+                      <div
+                        onClick={() => (dispSong.pdfUrl || dispSong.imageUrl) && nav("pdfViewer", { songId:dispSong.id, svcId:nextSvc.id, svcSongIdx:dispIdx, backTo:"home" })}
+                        style={{
+                          borderRadius:12, overflow:"hidden",
+                          background:C.card,
+                          border: sheetLinkEnabled ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
+                          boxShadow: sheetLinkEnabled ? `0 0 0 4px ${C.pur}28` : "none",
+                          position:"relative",
+                          cursor: (dispSong.pdfUrl || dispSong.imageUrl) ? "pointer" : "default",
+                        }}>
+                        {dispSong.imageUrl ? (
+                          <img src={dispSong.imageUrl} alt="" style={{ width:"100%", display:"block" }} />
+                        ) : dispSong.pdfUrl ? (
+                          <PdfThumb key={dispSong.id} pdfUrl={dispSong.pdfUrl} scale={0.8} />
+                        ) : (
+                          <div style={{ height:"40vh", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                            <span style={{ fontSize:60, opacity:0.15 }}>🎵</span>
+                          </div>
+                        )}
+                        {/* 뱃지 */}
+                        {(dispSong.key || dispSong.bpm) && (
                           <div style={{ position:"absolute", bottom:8, left:8, display:"flex", gap:4, flexWrap:"wrap" }}>
                             {dispSong.key && (
                               <span style={{ background:`${keyColor(dispSong.key)}ee`, color:"#fff",
@@ -2672,16 +2670,12 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                               <span style={{ background:"rgba(0,0,0,0.6)", color:"#fff",
                                 borderRadius:6, padding:"2px 7px", fontSize:10 }}>♩{dispSong.bpm}</span>
                             )}
-                            {hasTranspose && (
-                              <span style={{ background:`${C.pur}ee`, color:"#fff",
-                                borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>전조</span>
-                            )}
                           </div>
-                        </div>
-                      </>
-                    );
-                  })() : (
-                    <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", color:C.dim }}>
+                        )}
+                      </div>
+                    </React.Fragment>
+                  ) : (
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", color:C.dim }}>
                       <div style={{ textAlign:"center" }}>
                         <div style={{ fontSize:40, marginBottom:8, opacity:0.3 }}>🎵</div>
                         <div style={{ fontSize:13 }}>아직 곡이 없습니다</div>
