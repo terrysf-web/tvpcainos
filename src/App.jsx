@@ -34,6 +34,7 @@ const PARTS = [
   { id:"드럼",      emoji:"🥁", label:"드럼" },
   { id:"키보드",    emoji:"🎹", label:"키보드" },
   { id:"일렉기타",  emoji:"⚡", label:"일렉기타" },
+  { id:"FOH",       emoji:"🎚", label:"FOH" },
 ];
 
 // 보컬 파트 ID 집합 — "밴드" 녹음 접근 불가
@@ -10536,9 +10537,13 @@ function TeamManagementModal({ currentUserId, onClose }) {
 
   const savePart = async (uid) => {
     const updates = { parts: partVal, part: partVal[0] || "" };
-    await updateDoc(doc(db, "users", uid), updates);
-    setMembers(p => p.map(u => u.id === uid ? { ...u, ...updates } : u));
-    setEditPart(null);
+    try {
+      await updateDoc(doc(db, "users", uid), updates);
+      setMembers(p => p.map(u => u.id === uid ? { ...u, ...updates } : u));
+      setEditPart(null);
+    } catch (e) {
+      setEmailErr("파트 저장 실패: " + e.message);
+    }
   };
 
   const ROLES = [["member","멤버"], ["leader","리더"], ["broadcast","방송팀"], ["admin","어드민"]];
@@ -10880,6 +10885,15 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
   const [noLeader,    setNoLeader]    = useState(false);
   const [myPartSel,   setMyPartSel]   = useState(() => getUserParts(user));
   const [partSaving,  setPartSaving]  = useState(false);
+  // 어드민이 Firestore에서 파트를 변경하면 로컬 선택값도 동기화
+  const prevPartsKey = useRef(getUserParts(user).sort().join(","));
+  useEffect(() => {
+    const newKey = getUserParts(user).sort().join(",");
+    if (newKey !== prevPartsKey.current) {
+      prevPartsKey.current = newKey;
+      setMyPartSel(getUserParts(user));
+    }
+  }, [user]);
   const [showInfo,    setShowInfo]    = useState(false);
   const [showHelp,    setShowHelp]    = useState(false);
   const [showContact, setShowContact] = useState(false);
