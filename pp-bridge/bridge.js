@@ -71,12 +71,24 @@ async function ppPost(path, body) { return ppRequest('POST', path, body); }
 
 // ── ProPresenter 명령 ─────────────────────────────────
 
-// 현재 재생 중인 BGM 완전 정지 — 오디오/미디어 어느 플레이리스트든 확실히 끔
+// BGM 페이드아웃 시작 (T-15초) — clear는 PP의 오디오 트랜지션 설정(페이드
+// 시간)을 따라 서서히 줄어들고, 볼륨 페이더는 건드리지 않으므로 다음 재생 시
+// 자동으로 원래 볼륨으로 나옴. PP에서 오디오 트랜지션을 5~7초로 설정할 것.
+async function fadeOutBgm() {
+  try {
+    const r = await ppGet('/v1/clear/layer/audio');
+    if (r.status < 300) console.log('🎚  BGM 페이드아웃 시작 (PP 트랜지션 적용)');
+    else console.warn('⚠️  BGM 페이드아웃 응답:', r.status, r.body);
+  } catch (e) {
+    console.error('BGM 페이드아웃 실패:', e.message);
+  }
+}
+
+// BGM 확실히 정지 (T-10초 안전망) — 오디오/미디어 어느 플레이리스트든 끔
 async function stopAudio() {
   // PP7 공식 API는 전부 GET 트리거 방식
   const calls = [
-    ['/v1/transport/audio/pause', '오디오 일시정지'],
-    ['/v1/clear/layer/audio',     '오디오 레이어 클리어'],
+    ['/v1/clear/layer/audio',     '오디오 레이어 클리어 (페이드아웃)'],
     ['/v1/clear/layer/media',     '미디어 레이어 클리어'],
   ];
   for (const [path, label] of calls) {
@@ -142,8 +154,13 @@ function listenAutomation() {
     console.log(`🎛  Phase: ${data.phase} (svc: ${data.svcId || '-'})`);
 
     switch (data.phase) {
+      case 'bgm_fade':
+        // -15초: BGM 페이드아웃 시작 — PP 오디오 트랜지션 설정 시간만큼 서서히 줄어듦
+        await fadeOutBgm();
+        break;
+
       case 'piano_on':
-        // -10초: PP 오디오 즉시 정지 (X32 bridge도 뮤트 처리)
+        // -10초: 안전망 — 페이드가 어떤 이유로 안 됐어도 여기서 확실히 정지
         await stopAudio();
         break;
 

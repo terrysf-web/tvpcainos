@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.413";
+const APP_VERSION = "3.414";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2298,6 +2298,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       // 자동화 phase 트리거
       if (diff <= 10_000) {
         firePhase("piano_on", { type:"mute", channel:ch });
+      } else if (diff <= 15_000) {
+        firePhase("bgm_fade", null); // PP BGM 페이드아웃 시작 (pp-bridge가 처리)
       } else if (diff <= 60_000) {
         firePhase("vol_down", { type:"fade_out", channel:ch, duration:50 }); // 50초 서서히 페이드
       } else if (within1h && !phaseFiredRef.current.bgm_playing) {
