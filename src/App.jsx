@@ -5803,9 +5803,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const sheetLinkEnabledRef2 = useRef(sheetLinkEnabled);
   useEffect(() => { sheetLinkEnabledRef2.current = sheetLinkEnabled; }, [sheetLinkEnabled]);
 
-  // 리더: 곡 변경 시 sheetSync 브로드캐스트
+  // 어드민: 곡 변경 시 sheetSync 브로드캐스트
   useEffect(() => {
-    if (!leader || !sheetLinkEnabled || isLibraryMode || !song?.id || !selectedSvcId) return;
+    if (user.role !== "admin" || !sheetLinkEnabled || isLibraryMode || !song?.id || !selectedSvcId) return;
     setDoc(doc(db, "liveStatus", "sheetSync"), {
       svcId: selectedSvcId,
       songId: song.id,
@@ -5816,9 +5816,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [song?.id, selectedSvcId, sheetLinkEnabled]);
 
-  // 리더: 페이지 변경 시 sheetSync 브로드캐스트 (300ms 디바운스)
+  // 어드민: 페이지 변경 시 sheetSync 브로드캐스트 (300ms 디바운스)
   useEffect(() => {
-    if (!leader || !sheetLinkEnabled || isLibraryMode || !song?.id || !selectedSvcId) return;
+    if (user.role !== "admin" || !sheetLinkEnabled || isLibraryMode || !song?.id || !selectedSvcId) return;
     const t = setTimeout(() => {
       setDoc(doc(db, "liveStatus", "sheetSync"), {
         svcId: selectedSvcId,
@@ -8034,8 +8034,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       </span>
                     </button>
                   )}
-                  {/* 리더: 악보 링크 토글 — ON이면 리더가 넘기는 악보/페이지를 팀원이 따라옴 */}
-                  {!isLibraryMode && leader && (
+                  {/* 어드민: 악보 링크 토글 — ON이면 어드민이 넘기는 악보/페이지를 팀원이 따라옴 */}
+                  {!isLibraryMode && user.role === "admin" && (
                     <button onClick={async () => {
                       const newEnabled = !sheetLinkEnabled;
                       await setDoc(doc(db, "liveStatus", "sheetLink"), {
