@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.424";
+const APP_VERSION = "3.425";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -12441,11 +12441,13 @@ export default function App() {
       const data = snap.exists() ? snap.data() : null;
       setAutoPhaseGlobal(data);
       if (data?.phase === "piano_on") {
-        // updatedAt ms 기준으로 새 송출 감지 — 같은 phase라도 새로 보내면 표시
         const ts = data.updatedAt?.toMillis?.() ?? (typeof data.updatedAt === "number" ? data.updatedAt : 0);
         if (ts !== pianoOverlayTsRef.current) {
           pianoOverlayTsRef.current = ts;
-          setPianoOverlayDismissed(false);
+          // 20초 이내 이벤트만 표시 — 새로고침 시 오래된 phase 무시
+          if (Date.now() - ts < 20_000) {
+            setPianoOverlayDismissed(false);
+          }
         }
       }
     }, () => {});
