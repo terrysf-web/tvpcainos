@@ -2213,6 +2213,37 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
   );
 }
 
+function SheetPreview({ song }) {
+  if (!song) return null;
+  const driveMatch = (song.pdfUrl || "").match(/\/d\/([a-zA-Z0-9_-]+)/);
+  const embedSrc = driveMatch
+    ? `https://drive.google.com/file/d/${driveMatch[1]}/preview`
+    : null;
+  return (
+    <div style={{
+      marginTop:10, borderRadius:12, overflow:"hidden",
+      border:`1.5px solid ${C.bdr}`, background:C.card,
+    }}>
+      <div style={{ padding:"6px 10px", fontSize:11, fontWeight:700, color:C.dim,
+        borderBottom:`1px solid ${C.bdr}`, display:"flex", alignItems:"center", gap:6 }}>
+        <span>👁 악보 확인</span>
+        <span style={{ fontWeight:400 }}>— {song.title}</span>
+      </div>
+      {song.imageUrl ? (
+        <img src={song.imageUrl} alt={song.title}
+          style={{ width:"100%", maxHeight:220, objectFit:"contain", display:"block", background:"#fff" }} />
+      ) : embedSrc ? (
+        <iframe src={embedSrc} title={song.title}
+          style={{ width:"100%", height:220, border:"none", display:"block" }}
+          allow="autoplay" />
+      ) : (
+        <div style={{ height:80, display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize:12, color:C.dim }}>악보 없음</div>
+      )}
+    </div>
+  );
+}
+
 function LiveSongControl({ svcId, svcSongs }) {
   const [liveSongIdx, setLiveSongIdx] = useState(-1);
 
@@ -2243,7 +2274,7 @@ function LiveSongControl({ svcId, svcSongs }) {
         🎵 곡 순서 제어
       </div>
 
-      {/* 현재 곡 상태 바 */}
+      {/* 현재 곡 상태 */}
       {curIdx >= 0 && (
         <div style={{ background:`${C.pur}12`, border:`1.5px solid ${C.pur}33`,
           borderRadius:12, padding:"10px 14px", marginBottom:8,
@@ -2290,6 +2321,9 @@ function LiveSongControl({ svcId, svcSongs }) {
           </div>
         </div>
       </button>
+
+      {/* 현재 악보 미리보기 */}
+      <SheetPreview song={curSong} />
     </div>
   );
 }
@@ -12515,10 +12549,10 @@ export default function App() {
       const ts = data.updatedAt?.toMillis?.() ?? 0;
       if (ts === liveSongTsRef.current) return;
       liveSongTsRef.current = ts;
-      if (Date.now() - ts > 15_000) return; // 15초 지난 이벤트 무시
+      if (Date.now() - ts > 15_000) return;
+      if (isLeader(user?.role)) return; // 어드민/리더는 홈에서 프리뷰로 확인 — 이동 안 함
       const { svcId, songIdx } = data;
       if (!svcId || songIdx == null) return;
-      // 해당 서비스 곡 찾기
       const svc = services.find(s => s.id === svcId);
       if (!svc) return;
       const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
