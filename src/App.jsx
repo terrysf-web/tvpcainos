@@ -2649,6 +2649,17 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         </span>
                         <span style={{ fontSize:11, color:C.dim, flexShrink:0 }}>{dispIdx + 1} / {svcSongs.length}</span>
                       </div>
+                      {/* 디버그: 서비스 곡 목록 — 어드민 전용 */}
+                      <div style={{ marginBottom:6, display:"flex", flexWrap:"wrap", gap:3 }}>
+                        {svcSongs.map((s, i) => (
+                          <span key={s.id} style={{
+                            fontSize:9, padding:"1px 5px", borderRadius:4,
+                            background: i === dispIdx ? C.pur : `${C.pur}18`,
+                            color: i === dispIdx ? "#fff" : C.dim,
+                            fontWeight: i === dispIdx ? 800 : 400,
+                          }}>{i+1}.{s.title}{s.pdfUrl ? "📄" : s.imageUrl ? "🖼" : "✗"}</span>
+                        ))}
+                      </div>
                       {/* 악보 — 전체 세로 표시 */}
                       <div
                         onClick={() => (dispSong.pdfUrl || dispSong.imageUrl) && nav("pdfViewer", { songId:dispSong.id, svcId:nextSvc.id, svcSongIdx:dispIdx, backTo:"home" })}
