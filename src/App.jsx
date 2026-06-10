@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.425";
+const APP_VERSION = "3.426";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2419,14 +2419,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         <span>{svcSongs.length}곡</span>
                       </div>
                     </div>
-                    {/* 가운데 빈 공간: 상태 메시지 */}
-                    <div style={{ flex:1, textAlign:"center", padding:"0 8px" }}>
-                      {showMsg && (
-                        <span style={{ color:C.pur, fontWeight:800, fontSize:18 }}>
-                          ⛪ 예배준비 &nbsp;·&nbsp; 예배 시작 시 악보로 자동 이동합니다
-                        </span>
-                      )}
-                    </div>
+                    <div style={{ flex:1 }} />
                     {/* 1시간 이내: 카운트다운 / 그 외: 상태 배지 */}
                     {tInHour && tCountdown
                       ? <span style={{
