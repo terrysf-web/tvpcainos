@@ -2205,7 +2205,7 @@ function PdfThumb({ pdfUrl }) {
         .then(pdf => pdf.getPage(1))
         .then(page => {
           if (cancelled || !cvRef.current) return;
-          const vp = page.getViewport({ scale: 0.35 });
+          const vp = page.getViewport({ scale: 0.45 });
           const cvs = cvRef.current;
           cvs.width = vp.width; cvs.height = vp.height;
           page.render({ canvasContext: cvs.getContext("2d"), viewport: vp });
@@ -2255,6 +2255,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const svcSongs = nextSvc
     ? (nextSvc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean)
     : [];
+  const activeSyncIdx = (syncSvcId === nextSvc?.id) ? syncSongIdx : -1;
 
   const dDay = nextSvc ? Math.ceil(
     (new Date(nextSvc.date + "T00:00:00") - new Date(today + "T00:00:00")) / 86400000
@@ -2532,7 +2533,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
             {/* 어드민 전용: 악보 링크 컨트롤 */}
             {user?.role === "admin" && svcSongs.length > 0 && (() => {
-              const activeSyncIdx = syncSvcId === nextSvc.id ? syncSongIdx : -1;
               const syncSong = activeSyncIdx >= 0 ? svcSongs[activeSyncIdx] : null;
 
               const currentParts = sheetSyncAllowedParts ?? DEFAULT_SHEET_PARTS;
@@ -2672,38 +2672,43 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             </div>
 
             <div style={{
-              display:"flex", gap:10, overflowX:"auto", paddingBottom:6,
+              display:"flex", gap:10, overflowX:"auto", paddingBottom:6, paddingRight:16,
               WebkitOverflowScrolling:"touch",
               scrollbarWidth:"none", msOverflowStyle:"none",
             }}>
             {svcSongs.map((song, idx) => {
               const hasSheet  = !!(song.pdfUrl || song.imageUrl);
               const hasTranspose = user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1";
+              const isActive  = idx === activeSyncIdx;
               return (
                 <div key={song.id + idx}
                   onClick={() => hasSheet && nav("pdfViewer", { songId:song.id, svcId:nextSvc.id, svcSongIdx:idx, backTo:"home" })}
                   style={{
-                    flexShrink:0, width:180,
+                    flexShrink:0, width:220,
                     cursor: hasSheet ? "pointer" : "default",
                     opacity: hasSheet ? 1 : 0.6,
                   }}>
                   {/* 번호 + 제목 */}
                   <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:5 }}>
-                    <div style={{ width:18, height:18, borderRadius:5, background:`${C.pur}18`,
+                    <div style={{ width:18, height:18, borderRadius:5,
+                      background: isActive ? C.pur : `${C.pur}18`,
                       display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                      <span style={{ fontSize:10, fontWeight:800, color:C.pur }}>{idx + 1}</span>
+                      <span style={{ fontSize:10, fontWeight:800, color: isActive ? "#fff" : C.pur }}>{idx + 1}</span>
                     </div>
-                    <span style={{ fontSize:11, fontWeight:700, color:C.txt,
+                    <span style={{ fontSize:11, fontWeight:700, color: isActive ? C.pur : C.txt,
                       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
                       {song.title}
                     </span>
                   </div>
                   {/* 악보 미니 뷰 */}
                   <div style={{
-                    width:180, height:250, borderRadius:10, overflow:"hidden",
-                    background:C.card, border:`1px solid ${C.bdr}`,
+                    width:220, height:310, borderRadius:10, overflow:"hidden",
+                    background:C.card,
+                    border: isActive ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
+                    boxShadow: isActive ? `0 0 0 3px ${C.pur}33` : "none",
                     display:"flex", alignItems:"flex-start", justifyContent:"center",
                     position:"relative",
+                    transition:"border 0.15s, box-shadow 0.15s",
                   }}>
                     {song.imageUrl ? (
                       <img src={song.imageUrl} alt=""
