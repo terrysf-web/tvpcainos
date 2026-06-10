@@ -2213,18 +2213,31 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
   );
 }
 
-function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue }) {
+function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue, sheetLinkEnabled }) {
   const [countdown,    setCountdown]    = useState("");
   const [inHour,       setInHour]       = useState(false);
   const [worshipReady, setWorshipReady] = useState(false);
   const [worshipEnded, setWorshipEnded] = useState(false);
   const [autoPhase,    setAutoPhase]    = useState("idle"); // idle|vol_down|piano_on|service_start
   const [testPhase,    setTestPhase]    = useState(0); // 0=off 1=countdown 2=worshipReady 3=piano_on
+  const [syncSongIdx,  setSyncSongIdx]  = useState(-1);
+  const [syncSvcId,    setSyncSvcId]    = useState(null);
   const phaseFiredRef = useRef({});
   const svcSongsRef  = useRef([]);
   const navRef       = useRef(nav);
   navRef.current     = nav;
   const unread = notifs.filter(n => !n.read).length;
+
+  // 현재 동기화 중인 곡 인덱스 구독 (어드민 전용)
+  useEffect(() => {
+    if (user?.role !== "admin") return;
+    return onSnapshot(doc(db, "liveStatus", "sheetSync"), snap => {
+      if (!snap.exists()) return;
+      const d = snap.data();
+      setSyncSongIdx(d.songIdx ?? -1);
+      setSyncSvcId(d.svcId ?? null);
+    }, () => {});
+  }, [user?.role]);
 
   const today    = new Date().toISOString().slice(0, 10);
   const upcoming = services
@@ -2494,7 +2507,105 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             {/* X32 채널 상태 */}
             <X32StatusBar />
 
-            {/* 다음 곡 브로드캐스트 (어드민/리더 전용) */}
+            {/* 어드민: 악보 링크 컨트롤 */}
+            {user?.role === "admin" && svcSongs.length > 0 && (() => {
+              const activeSyncIdx = syncSvcId === nextSvc.id ? syncSongIdx : -1;
+              const syncSong = activeSyncIdx >= 0 ? svcSongs[activeSyncIdx] : null;
+
+              const toggleLink = async () => {
+                const newEnabled = !sheetLinkEnabled;
+                await setDoc(doc(db, "liveStatus", "sheetLink"), {
+                  enabled: newEnabled, svcId: nextSvc.id, updatedAt: serverTimestamp(),
+                }).catch(() => {});
+                if (newEnabled) {
+                  const startIdx = activeSyncIdx >= 0 ? activeSyncIdx : 0;
+                  const s = svcSongs[startIdx];
+                  if (s) await setDoc(doc(db, "liveStatus", "sheetSync"), {
+                    svcId: nextSvc.id, songId: s.id, songIdx: startIdx, pageNum: 1,
+                    updatedAt: serverTimestamp(),
+                  }).catch(() => {});
+                }
+              };
+
+              const advanceSong = async (delta) => {
+                const base = activeSyncIdx >= 0 ? activeSyncIdx : 0;
+                const newIdx = Math.max(0, Math.min(base + delta, svcSongs.length - 1));
+                const s = svcSongs[newIdx];
+                if (!s) return;
+                await setDoc(doc(db, "liveStatus", "sheetSync"), {
+                  svcId: nextSvc.id, songId: s.id, songIdx: newIdx, pageNum: 1,
+                  updatedAt: serverTimestamp(),
+                }).catch(() => {});
+              };
+
+              return (
+                <div style={{
+                  background: sheetLinkEnabled ? `${C.pur}0d` : C.surf,
+                  border: `1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
+                  borderRadius: 12, padding: "10px 12px", marginBottom: 10,
+                }}>
+                  {/* 토글 행 */}
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: sheetLinkEnabled ? 10 : 0 }}>
+                    <span style={{ fontSize:12, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.dim, letterSpacing:"0.04em" }}>
+                      🔗 악보 링크
+                    </span>
+                    <button onClick={toggleLink} style={{
+                      display:"flex", alignItems:"center", gap:6,
+                      background: sheetLinkEnabled ? C.pur : C.card,
+                      border:`1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
+                      borderRadius:20, padding:"4px 10px", cursor:"pointer", fontFamily:"inherit",
+                    }}>
+                      <div style={{ width:26, height:14, borderRadius:7, background: sheetLinkEnabled ? "#fff" : C.bdr, position:"relative" }}>
+                        <div style={{ position:"absolute", top:2, left: sheetLinkEnabled ? 13 : 2,
+                          width:10, height:10, borderRadius:"50%",
+                          background: sheetLinkEnabled ? C.pur : "#aaa", transition:"left 0.15s" }} />
+                      </div>
+                      <span style={{ fontSize:11, fontWeight:700, color: sheetLinkEnabled ? "#fff" : C.dim }}>
+                        {sheetLinkEnabled ? "ON" : "OFF"}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* 수동 넘김 행 */}
+                  {sheetLinkEnabled && (
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <button onClick={() => advanceSong(-1)}
+                        disabled={activeSyncIdx <= 0}
+                        style={{
+                          width:36, height:36, borderRadius:10, cursor:"pointer",
+                          background:"transparent", border:`1.5px solid ${C.bdr}`,
+                          display:"flex", alignItems:"center", justifyContent:"center",
+                          fontSize:16, opacity: activeSyncIdx <= 0 ? 0.35 : 1,
+                        }}>◀</button>
+                      <div style={{ flex:1, textAlign:"center", minWidth:0 }}>
+                        {syncSong ? (
+                          <>
+                            <div style={{ fontSize:10, color:C.dim, fontWeight:700 }}>
+                              {activeSyncIdx + 1} / {svcSongs.length}
+                            </div>
+                            <div style={{ fontSize:13, fontWeight:800, color:C.txt,
+                              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              {syncSong.title}
+                            </div>
+                          </>
+                        ) : (
+                          <span style={{ fontSize:12, color:C.dim }}>곡 선택</span>
+                        )}
+                      </div>
+                      <button onClick={() => advanceSong(1)}
+                        disabled={activeSyncIdx >= svcSongs.length - 1}
+                        style={{
+                          width:36, height:36, borderRadius:10, cursor:"pointer",
+                          background:"transparent", border:`1.5px solid ${C.bdr}`,
+                          display:"flex", alignItems:"center", justifyContent:"center",
+                          fontSize:16, opacity: activeSyncIdx >= svcSongs.length - 1 ? 0.35 : 1,
+                        }}>▶</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* 악보 리스트 */}
             <div style={{ fontSize:11, fontWeight:800, color:C.pur,
               letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:10 }}>
@@ -5796,58 +5907,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // myNotes / teamNotes / effectiveNoteSongId computed after dualLeftSongId (see below)
   const leader    = isLeader(user.role);
 
-  // ── 악보 링크 sync ──
-  // pageNum ref — 구독 클로저에서 최신 pageNum 읽기 위해
-  const pageNumRef = useRef(1);
-  useEffect(() => { pageNumRef.current = pageNum; }, [pageNum]);
-  const sheetLinkEnabledRef2 = useRef(sheetLinkEnabled);
-  useEffect(() => { sheetLinkEnabledRef2.current = sheetLinkEnabled; }, [sheetLinkEnabled]);
-
-  // 어드민: 곡 변경 시 sheetSync 브로드캐스트
-  useEffect(() => {
-    if (user.role !== "admin" || !sheetLinkEnabled || isLibraryMode || !song?.id || !selectedSvcId) return;
-    setDoc(doc(db, "liveStatus", "sheetSync"), {
-      svcId: selectedSvcId,
-      songId: song.id,
-      songIdx: songIdx >= 0 ? songIdx : 0,
-      pageNum: 1,
-      updatedAt: serverTimestamp(),
-    }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [song?.id, selectedSvcId, sheetLinkEnabled]);
-
-  // 어드민: 페이지 변경 시 sheetSync 브로드캐스트 (300ms 디바운스)
-  useEffect(() => {
-    if (user.role !== "admin" || !sheetLinkEnabled || isLibraryMode || !song?.id || !selectedSvcId) return;
-    const t = setTimeout(() => {
-      setDoc(doc(db, "liveStatus", "sheetSync"), {
-        svcId: selectedSvcId,
-        songId: song.id,
-        songIdx: songIdx >= 0 ? songIdx : 0,
-        pageNum,
-        updatedAt: serverTimestamp(),
-      }).catch(() => {});
-    }, 300);
-    return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageNum]);
-
-  // 팀원: sheetSync 구독 → 같은 곡이면 페이지 따라가기
-  useEffect(() => {
-    if (leader || isLibraryMode) return;
-    let isFirst = true;
-    const unsub = onSnapshot(doc(db, "liveStatus", "sheetSync"), snap => {
-      if (!snap.exists()) return;
-      if (isFirst) { isFirst = false; return; }
-      if (!sheetLinkEnabledRef2.current) return;
-      const data = snap.data();
-      if (data.songId !== song?.id) return; // 다른 곡 이동은 App에서 처리
-      const p = data.pageNum ?? 1;
-      if (p !== pageNumRef.current) setPageNum(p);
-    }, () => {});
-    return unsub;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [song?.id, leader, isLibraryMode]);
 
   // ── 메트로놈 상태 ──
   const [metroOn,        setMetroOn]        = useState(false);
@@ -8031,38 +8090,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       <span style={{ fontSize:9, fontWeight:700, lineHeight:1,
                         color: svc.downloadEnabled ? C.grn : C.dim, fontFamily:"inherit", whiteSpace:"nowrap" }}>
                         {svc.downloadEnabled ? "↓허용중" : "↓멤버"}
-                      </span>
-                    </button>
-                  )}
-                  {/* 어드민: 악보 링크 토글 — ON이면 어드민이 넘기는 악보/페이지를 팀원이 따라옴 */}
-                  {!isLibraryMode && user.role === "admin" && (
-                    <button onClick={async () => {
-                      const newEnabled = !sheetLinkEnabled;
-                      await setDoc(doc(db, "liveStatus", "sheetLink"), {
-                        enabled: newEnabled,
-                        svcId: selectedSvcId,
-                        updatedAt: serverTimestamp(),
-                      }).catch(() => {});
-                      if (newEnabled && song?.id && selectedSvcId) {
-                        await setDoc(doc(db, "liveStatus", "sheetSync"), {
-                          svcId: selectedSvcId,
-                          songId: song.id,
-                          songIdx: songIdx >= 0 ? songIdx : 0,
-                          pageNum,
-                          updatedAt: serverTimestamp(),
-                        }).catch(() => {});
-                      }
-                    }} title="악보 링크" style={{
-                      display:"flex", flexDirection:"column", alignItems:"center", gap:1,
-                      padding: narrow ? "4px 6px" : "4px 7px",
-                      background: sheetLinkEnabled ? `${C.pur}22` : "transparent",
-                      border:`1px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
-                      borderRadius:8, cursor:"pointer", flexShrink:0,
-                    }}>
-                      <span style={{ fontSize:tbIconSz, lineHeight:1 }}>🔗</span>
-                      <span style={{ fontSize:9, fontWeight:700, lineHeight:1,
-                        color: sheetLinkEnabled ? C.pur : C.dim, fontFamily:"inherit", whiteSpace:"nowrap" }}>
-                        {sheetLinkEnabled ? "링크ON" : "링크"}
                       </span>
                     </button>
                   )}
