@@ -43,7 +43,8 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAuthed();
-      allow create, update: if isAuthed() && (request.auth.uid == userId || isLeader());
+      allow create: if isAuthed() && request.auth.uid == userId;
+      allow update: if isAuthed(); // 허용된 이메일만 로그인 가능하므로 인증된 사용자 전체 허용
       allow delete: if isAdmin();
     }
 
