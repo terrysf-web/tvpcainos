@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.423";
+const APP_VERSION = "3.424";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2437,49 +2437,40 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       : <span style={{ flexShrink:0 }}><ServiceStatusBadge svc={nextSvc} /></span>
                     }
                   </div>
-                  {/* 피아노ON 수동 버튼 (어드민 + 피아노/키보드 파트) */}
-                  {(() => {
-                    const myParts = getUserParts(user);
-                    const canPiano = user?.role === "admin" || user?.role === "leader" ||
-                      myParts.some(p => p === "piano" || p === "키보드");
-                    if (!canPiano) return null;
-                    return (
-                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:6 }}>
-                        <button onClick={async () => {
-                          try {
-                            await setDoc(doc(db, "liveStatus", "automation"), {
-                              phase: "piano_on",
-                              svcId: nextSvc?.id || null,
-                              updatedAt: serverTimestamp(),
-                            });
-                            fetch("http://192.168.1.21:5004/v1/stage/message", {
-                              method: "PUT",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify("PIANO ON"),
-                            }).catch(() => {});
-                          } catch {}
-                        }} style={{
-                          fontSize:11, fontWeight:800, color:"#fff",
-                          background:"#b71c1c",
-                          border:"none", borderRadius:6, padding:"4px 12px",
-                          cursor:"pointer", fontFamily:"inherit",
-                          display:"flex", alignItems:"center", gap:5,
+                  {/* 피아노ON 수동 버튼 + TEST (어드민만) */}
+                  {user?.role === "admin" && (
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:6 }}>
+                      <button onClick={async () => {
+                        try {
+                          await setDoc(doc(db, "liveStatus", "automation"), {
+                            phase: "piano_on",
+                            svcId: nextSvc?.id || null,
+                            updatedAt: serverTimestamp(),
+                          });
+                          fetch("http://192.168.1.21:5004/v1/stage/message", {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify("PIANO ON"),
+                          }).catch(() => {});
+                        } catch {}
+                      }} style={{
+                        fontSize:11, fontWeight:800, color:"#fff",
+                        background:"#b71c1c",
+                        border:"none", borderRadius:6, padding:"4px 12px",
+                        cursor:"pointer", fontFamily:"inherit",
+                      }}>
+                        🎹 Piano ON 알림 보내기
+                      </button>
+                      <button onClick={() => setTestPhase(p => (p + 1) % 4)}
+                        style={{
+                          fontSize:10, fontWeight:700, color:C.dim,
+                          background:"transparent", border:`1px solid ${C.bdr}`,
+                          borderRadius:5, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit",
                         }}>
-                          🎹 Piano ON 알림 보내기
-                        </button>
-                        {user?.role === "admin" && (
-                          <button onClick={() => setTestPhase(p => (p + 1) % 4)}
-                            style={{
-                              fontSize:10, fontWeight:700, color:C.dim,
-                              background:"transparent", border:`1px solid ${C.bdr}`,
-                              borderRadius:5, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit",
-                            }}>
-                            {testPhase === 0 ? "TEST" : testPhase === 1 ? "TEST 1/3" : testPhase === 2 ? "TEST 2/3" : "TEST 3/3"}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })()}
+                        {testPhase === 0 ? "TEST" : testPhase === 1 ? "TEST 1/3" : testPhase === 2 ? "TEST 2/3" : "TEST 3/3"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -12424,7 +12415,7 @@ export default function App() {
   const [bgmChannel,      setBgmChannel]      = useState("09");
   const [autoPhaseGlobal, setAutoPhaseGlobal] = useState(null); // { phase, svcId }
   const [pianoOverlayDismissed, setPianoOverlayDismissed] = useState(false);
-  const pianoOverlayPhaseRef = useRef(null);
+  const pianoOverlayTsRef = useRef(null); // 마지막으로 표시한 updatedAt ms — 동일 phase 재발송 감지
   const autoLiveTriggeredRef = useRef(null);
 
   // ── Kakao SDK 초기화
@@ -12449,10 +12440,13 @@ export default function App() {
     return onSnapshot(doc(db, "liveStatus", "automation"), snap => {
       const data = snap.exists() ? snap.data() : null;
       setAutoPhaseGlobal(data);
-      // phase가 바뀌면 dismiss 초기화
-      if (data?.phase !== pianoOverlayPhaseRef.current) {
-        pianoOverlayPhaseRef.current = data?.phase || null;
-        setPianoOverlayDismissed(false);
+      if (data?.phase === "piano_on") {
+        // updatedAt ms 기준으로 새 송출 감지 — 같은 phase라도 새로 보내면 표시
+        const ts = data.updatedAt?.toMillis?.() ?? (typeof data.updatedAt === "number" ? data.updatedAt : 0);
+        if (ts !== pianoOverlayTsRef.current) {
+          pianoOverlayTsRef.current = ts;
+          setPianoOverlayDismissed(false);
+        }
       }
     }, () => {});
   }, []);
@@ -13037,7 +13031,8 @@ export default function App() {
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
-      {autoPhaseGlobal?.phase === "piano_on" && !pianoOverlayDismissed && (
+      {autoPhaseGlobal?.phase === "piano_on" && !pianoOverlayDismissed &&
+       (user?.role === "admin" || getUserParts(user).some(p => p === "키보드" || p === "piano")) && (
         <PianoOnOverlay onDismiss={() => setPianoOverlayDismissed(true)} />
       )}
 
