@@ -2232,6 +2232,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const phaseFiredRef = useRef({});
   const svcSongsRef  = useRef([]);
   const navRef       = useRef(nav);
+  const stripRef     = useRef(null);
   navRef.current     = nav;
   const unread = notifs.filter(n => !n.read).length;
 
@@ -2256,6 +2257,10 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
     ? (nextSvc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean)
     : [];
   const activeSyncIdx = (syncSvcId === nextSvc?.id) ? syncSongIdx : -1;
+  useEffect(() => {
+    if (activeSyncIdx < 0 || !stripRef.current) return;
+    stripRef.current.scrollTo({ left: activeSyncIdx * (300 + 14), behavior: "smooth" });
+  }, [activeSyncIdx]);
 
   const dDay = nextSvc ? Math.ceil(
     (new Date(nextSvc.date + "T00:00:00") - new Date(today + "T00:00:00")) / 86400000
@@ -2665,50 +2670,57 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               );
             })()}
 
-            {/* 악보 리스트 — 가로 스크롤 미니 악보 스트립 */}
+            {/* 악보 리스트 — 중앙 고정 스냅 캐러셀 */}
             <div style={{ fontSize:11, fontWeight:800, color:C.pur,
               letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:10 }}>
               이번 주 악보
             </div>
 
-            <div style={{
-              display:"flex", gap:10, overflowX:"auto", paddingBottom:6, paddingRight:16,
+            <div ref={stripRef} style={{
+              display:"flex", gap:14, overflowX:"auto", paddingBottom:8,
+              scrollSnapType:"x mandatory",
               WebkitOverflowScrolling:"touch",
               scrollbarWidth:"none", msOverflowStyle:"none",
+              /* 첫/마지막 카드가 정중앙에 오도록 좌우 여백 */
+              paddingLeft:"calc(50% - 150px)",
+              paddingRight:"calc(50% - 150px)",
+              /* 부모 padding 밖으로 확장 */
+              margin:"0 -14px",
             }}>
             {svcSongs.map((song, idx) => {
-              const hasSheet  = !!(song.pdfUrl || song.imageUrl);
+              const hasSheet    = !!(song.pdfUrl || song.imageUrl);
               const hasTranspose = user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1";
-              const isActive  = idx === activeSyncIdx;
+              const isActive    = idx === activeSyncIdx;
               return (
                 <div key={song.id + idx}
                   onClick={() => hasSheet && nav("pdfViewer", { songId:song.id, svcId:nextSvc.id, svcSongIdx:idx, backTo:"home" })}
                   style={{
-                    flexShrink:0, width:220,
+                    flexShrink:0, width:300,
+                    scrollSnapAlign:"center",
                     cursor: hasSheet ? "pointer" : "default",
-                    opacity: hasSheet ? 1 : 0.6,
                   }}>
                   {/* 번호 + 제목 */}
-                  <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:5 }}>
-                    <div style={{ width:18, height:18, borderRadius:5,
+                  <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                    <div style={{ width:20, height:20, borderRadius:6,
                       background: isActive ? C.pur : `${C.pur}18`,
                       display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                      <span style={{ fontSize:10, fontWeight:800, color: isActive ? "#fff" : C.pur }}>{idx + 1}</span>
+                      <span style={{ fontSize:11, fontWeight:800, color: isActive ? "#fff" : C.pur }}>{idx + 1}</span>
                     </div>
-                    <span style={{ fontSize:11, fontWeight:700, color: isActive ? C.pur : C.txt,
+                    <span style={{ fontSize:12, fontWeight:700, color: isActive ? C.pur : C.txt,
                       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
                       {song.title}
                     </span>
                   </div>
-                  {/* 악보 미니 뷰 */}
+                  {/* 악보 뷰 */}
                   <div style={{
-                    width:220, height:310, borderRadius:10, overflow:"hidden",
+                    width:300, height:"min(58vh, 460px)", borderRadius:12, overflow:"hidden",
                     background:C.card,
                     border: isActive ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
-                    boxShadow: isActive ? `0 0 0 3px ${C.pur}33` : "none",
+                    boxShadow: isActive ? `0 0 0 4px ${C.pur}28` : "none",
                     display:"flex", alignItems:"flex-start", justifyContent:"center",
                     position:"relative",
                     transition:"border 0.15s, box-shadow 0.15s",
+                    opacity: hasSheet ? 1 : 0.5,
                   }}>
                     {song.imageUrl ? (
                       <img src={song.imageUrl} alt=""
@@ -2719,26 +2731,26 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       </div>
                     ) : (
                       <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <span style={{ fontSize:28, opacity:0.3 }}>🎵</span>
+                        <span style={{ fontSize:40, opacity:0.2 }}>🎵</span>
                       </div>
                     )}
                     {/* 뱃지 오버레이 */}
-                    <div style={{ position:"absolute", bottom:5, left:5, display:"flex", gap:3, flexWrap:"wrap" }}>
+                    <div style={{ position:"absolute", bottom:7, left:7, display:"flex", gap:4, flexWrap:"wrap" }}>
                       {song.key && (
-                        <span style={{ background:`${keyColor(song.key)}dd`, color:"#fff",
-                          borderRadius:5, padding:"1px 5px", fontSize:9, fontWeight:800 }}>
+                        <span style={{ background:`${keyColor(song.key)}ee`, color:"#fff",
+                          borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>
                           {song.key}
                         </span>
                       )}
                       {song.bpm && (
-                        <span style={{ background:"rgba(0,0,0,0.55)", color:"#fff",
-                          borderRadius:5, padding:"1px 5px", fontSize:9 }}>
+                        <span style={{ background:"rgba(0,0,0,0.6)", color:"#fff",
+                          borderRadius:6, padding:"2px 7px", fontSize:10 }}>
                           ♩{song.bpm}
                         </span>
                       )}
                       {hasTranspose && (
-                        <span style={{ background:`${C.pur}dd`, color:"#fff",
-                          borderRadius:5, padding:"1px 5px", fontSize:9, fontWeight:800 }}>
+                        <span style={{ background:`${C.pur}ee`, color:"#fff",
+                          borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>
                           전조
                         </span>
                       )}
