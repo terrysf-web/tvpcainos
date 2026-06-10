@@ -2259,7 +2259,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const activeSyncIdx = (syncSvcId === nextSvc?.id) ? syncSongIdx : -1;
   useEffect(() => {
     if (activeSyncIdx < 0 || !stripRef.current) return;
-    stripRef.current.scrollTo({ left: activeSyncIdx * (300 + 14), behavior: "smooth" });
+    const firstCard = stripRef.current.firstElementChild;
+    const cardW = firstCard ? firstCard.offsetWidth : 300;
+    stripRef.current.scrollTo({ left: activeSyncIdx * (cardW + 14), behavior: "smooth" });
   }, [activeSyncIdx]);
 
   const dDay = nextSvc ? Math.ceil(
@@ -2681,10 +2683,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               scrollSnapType:"x mandatory",
               WebkitOverflowScrolling:"touch",
               scrollbarWidth:"none", msOverflowStyle:"none",
-              /* 첫/마지막 카드가 정중앙에 오도록 좌우 여백 */
-              paddingLeft:"calc(50% - 150px)",
-              paddingRight:"calc(50% - 150px)",
-              /* 부모 padding 밖으로 확장 */
+              paddingLeft:"calc(50% - 41vw)",
+              paddingRight:"calc(50% - 41vw)",
               margin:"0 -14px",
             }}>
             {svcSongs.map((song, idx) => {
@@ -2695,7 +2695,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 <div key={song.id + idx}
                   onClick={() => hasSheet && nav("pdfViewer", { songId:song.id, svcId:nextSvc.id, svcSongIdx:idx, backTo:"home" })}
                   style={{
-                    flexShrink:0, width:300,
+                    flexShrink:0, width:"82vw",
                     scrollSnapAlign:"center",
                     cursor: hasSheet ? "pointer" : "default",
                   }}>
@@ -2713,7 +2713,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   </div>
                   {/* 악보 뷰 */}
                   <div style={{
-                    width:300, height:"min(58vh, 460px)", borderRadius:12, overflow:"hidden",
+                    width:"82vw", height:"60vh", borderRadius:12, overflow:"hidden",
                     background:C.card,
                     border: isActive ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
                     boxShadow: isActive ? `0 0 0 4px ${C.pur}28` : "none",
