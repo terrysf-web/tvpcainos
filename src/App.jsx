@@ -2213,6 +2213,87 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
   );
 }
 
+function LiveSongControl({ svcId, svcSongs }) {
+  const [liveSongIdx, setLiveSongIdx] = useState(-1);
+
+  useEffect(() => {
+    return onSnapshot(doc(db, "liveStatus", "currentSong"), snap => {
+      if (!snap.exists()) return;
+      const d = snap.data();
+      if (d.svcId === svcId) setLiveSongIdx(d.songIdx ?? -1);
+    }, () => {});
+  }, [svcId]);
+
+  const curIdx  = liveSongIdx;
+  const curSong = svcSongs[curIdx];
+  const nextIdx = curIdx + 1;
+  const nxtSong = svcSongs[nextIdx];
+  const hasNext = curIdx < 0 || !!nxtSong;
+
+  const broadcast = async (idx) => {
+    await setDoc(doc(db, "liveStatus", "currentSong"), {
+      svcId, songIdx: idx, updatedAt: serverTimestamp(),
+    });
+  };
+
+  return (
+    <div style={{ marginBottom:14 }}>
+      <div style={{ fontSize:11, fontWeight:800, color:"#e65c00",
+        letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:8 }}>
+        🎵 곡 순서 제어
+      </div>
+
+      {/* 현재 곡 상태 바 */}
+      {curIdx >= 0 && (
+        <div style={{ background:`${C.pur}12`, border:`1.5px solid ${C.pur}33`,
+          borderRadius:12, padding:"10px 14px", marginBottom:8,
+          display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:10, fontWeight:800, color:C.pur, marginBottom:2 }}>
+              {curIdx + 1}번째 곡 진행 중
+            </div>
+            <div style={{ fontWeight:700, fontSize:15, color:C.txt,
+              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {curSong?.title || "—"}
+            </div>
+          </div>
+          {curIdx > 0 && (
+            <button onClick={() => broadcast(curIdx - 1)} style={{
+              background:C.card, border:`1px solid ${C.bdr}`,
+              borderRadius:8, padding:"6px 10px", cursor:"pointer",
+              fontSize:13, fontWeight:700, color:C.dim, fontFamily:"inherit", flexShrink:0,
+            }}>◀ 이전</button>
+          )}
+        </div>
+      )}
+
+      {/* 다음 곡 이동 버튼 */}
+      <button
+        disabled={!hasNext}
+        onClick={() => hasNext && broadcast(curIdx < 0 ? 0 : nextIdx)}
+        style={{
+          width:"100%", padding:"16px 0",
+          background: hasNext ? C.pur : `${C.dim}22`,
+          border:"none", borderRadius:14,
+          cursor: hasNext ? "pointer" : "default",
+          display:"flex", alignItems:"center", justifyContent:"center", gap:12,
+          boxShadow: hasNext ? `0 4px 20px ${C.pur}44` : "none",
+          fontFamily:"inherit",
+        }}>
+        <span style={{ fontSize:22 }}>▶</span>
+        <div style={{ textAlign:"left" }}>
+          <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.65)", lineHeight:1.2 }}>
+            {curIdx < 0 ? "첫 번째 곡 시작" : hasNext ? "다음 곡으로 전체 이동" : "마지막 곡입니다"}
+          </div>
+          <div style={{ fontSize:18, fontWeight:900, color: hasNext ? "#fff" : C.dim, lineHeight:1.3 }}>
+            {curIdx < 0 ? (svcSongs[0]?.title || "—") : (nxtSong?.title || "—")}
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+}
+
 function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue }) {
   const [countdown,    setCountdown]    = useState("");
   const [inHour,       setInHour]       = useState(false);
@@ -2479,6 +2560,11 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
             {/* X32 채널 상태 */}
             <X32StatusBar />
+
+            {/* 다음 곡 브로드캐스트 (어드민/리더 전용) */}
+            {isLeader(user?.role) && svcSongs.length > 0 && (
+              <LiveSongControl svcId={nextSvc.id} svcSongs={svcSongs} />
+            )}
 
             {/* 악보 리스트 */}
             <div style={{ fontSize:11, fontWeight:800, color:C.pur,
@@ -12418,6 +12504,29 @@ export default function App() {
     });
     return unsub;
   }, []);
+
+  // ── 다음 곡 브로드캐스트 구독 (리더가 보내면 전체 자동 이동)
+  const liveSongTsRef = useRef(null);
+  useEffect(() => {
+    return onSnapshot(doc(db, "liveStatus", "currentSong"), snap => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      const ts = data.updatedAt?.toMillis?.() ?? 0;
+      if (ts === liveSongTsRef.current) return;
+      liveSongTsRef.current = ts;
+      if (Date.now() - ts > 15_000) return; // 15초 지난 이벤트 무시
+      const { svcId, songIdx } = data;
+      if (!svcId || songIdx == null) return;
+      // 해당 서비스 곡 찾기
+      const svc = services.find(s => s.id === svcId);
+      if (!svc) return;
+      const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
+      const song = svcSongs[songIdx];
+      if (!song) return;
+      nav("pdfViewer", { songId: song.id, svcId, svcSongIdx: songIdx, backTo: "home" });
+    }, () => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services, songs]);
 
   // ── Piano ON phase 전체 구독
   useEffect(() => {
