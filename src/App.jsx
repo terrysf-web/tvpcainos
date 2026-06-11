@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.445";
+const APP_VERSION = "3.446";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2805,7 +2805,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         </div>
                         {dispSong.imageUrl ? (
                           <img src={dispSong.imageUrl} alt=""
-                            style={{ height:"100%", width:"auto", maxWidth:"100%", display:"block" }} />
+                            style={{ width:"100%", height:"100%", objectFit:"contain", display:"block" }} />
                         ) : dispSong.pdfUrl ? (
                           <PdfThumb key={`${dispSong.id}_p${dispSong.pdfPage||1}`} pdfUrl={dispSong.pdfUrl} scale={0.8} fitHeight page={dispSong.pdfPage || 1} />
                         ) : (
