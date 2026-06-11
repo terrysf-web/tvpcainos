@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.466";
+const APP_VERSION = "3.467";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2865,12 +2865,12 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         border:`1px solid ${fohMsgEdit ? C.pur+"44" : C.bdr}`,
                       }}>{fohMsgEdit ? "완료" : "편집"}</button>
                     </div>
-                    {/* 수신자 선택 */}
+
                     {fohMsgEdit ? (
-                      // 편집 모드: 전체 팀원 토글로 수신자 목록 구성
-                      <div style={{ marginBottom:6 }}>
+                      /* ── 편집 모드: 수신자 + 메시지 관리 ── */
+                      <div>
                         <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:3 }}>수신자 목록 편집</div>
-                        <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:8 }}>
                           {teamUsers.length === 0
                             ? <span style={{ fontSize:10, color:C.dim }}>팀원 로딩 중...</span>
                             : teamUsers.map(u => {
@@ -2889,87 +2889,95 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                             })
                           }
                         </div>
+                        <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:3 }}>메시지 편집</div>
+                        <div style={{ display:"flex", flexDirection:"column", gap:3, marginBottom:6 }}>
+                          {fohQuickMsgs.map((msg, idx) => (
+                            <div key={idx} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                              <span style={{ flex:1, fontSize:11, color:C.txt, padding:"3px 6px" }}>{msg}</span>
+                              <button onClick={() => deleteFohMsg(idx)} style={{
+                                flexShrink:0, width:18, height:18, borderRadius:"50%",
+                                background:C.red, color:"#fff", border:"none",
+                                fontSize:11, fontWeight:900, cursor:"pointer", fontFamily:"inherit",
+                                display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
+                              }}>×</button>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display:"flex", gap:4 }}>
+                          <input
+                            value={fohMsgInput}
+                            onChange={e => setFohMsgInput(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && addFohMsg()}
+                            placeholder="새 메시지 입력..."
+                            style={{
+                              flex:1, fontSize:11, padding:"4px 8px", borderRadius:7,
+                              border:`1px solid ${C.bdr}`, background:C.bg, color:C.txt,
+                              outline:"none", fontFamily:"inherit",
+                            }}
+                          />
+                          <button onClick={addFohMsg} style={{
+                            flexShrink:0, padding:"4px 10px", borderRadius:7, cursor:"pointer",
+                            background:C.pur, color:"#fff", border:"none",
+                            fontSize:11, fontWeight:700, fontFamily:"inherit",
+                          }}>추가</button>
+                        </div>
                       </div>
                     ) : (
-                      // 일반 모드: 고정된 수신자만 표시
-                      <div style={{ display:"flex", gap:4, overflowX:"auto", marginBottom:6, scrollbarWidth:"none", msOverflowStyle:"none" }}>
-                        {fohPinnedUids.length === 0
-                          ? <span style={{ fontSize:10, color:C.dim }}>편집에서 수신자를 추가하세요</span>
-                          : teamUsers.filter(u => fohPinnedUids.includes(u.id)).map(u => (
-                            <button key={u.id} onClick={() => setFohMsgTo(u.id === fohMsgTo ? null : u.id)} style={{
-                              flexShrink:0, fontSize:10, fontWeight:700, fontFamily:"inherit",
-                              padding:"3px 8px", borderRadius:12, cursor:"pointer",
-                              background: u.id === fohMsgTo ? C.pur : C.card,
-                              color: u.id === fohMsgTo ? "#fff" : C.dim,
-                              border:`1px solid ${u.id === fohMsgTo ? C.pur : C.bdr}`,
-                            }}>
-                              {u.name.split(" ")[0]}{u.parts.length > 0 ? ` (${u.parts[0]})` : ""}
-                            </button>
-                          ))
-                        }
-                      </div>
-                    )}
-                    {/* 메시지 목록 */}
-                    {fohQuickMsgs.length === 0 && !fohMsgEdit && (
-                      <div style={{ fontSize:11, color:C.dim, padding:"4px 0", marginBottom:6 }}>메시지 없음 — 편집으로 추가하세요</div>
-                    )}
-                    <div style={{ display:"flex", flexDirection:"column", gap:3, marginBottom:6 }}>
-                      {fohQuickMsgs.map((msg, idx) => (
-                        <div key={idx} style={{ display:"flex", alignItems:"center", gap:4 }}>
-                          <button onClick={() => !fohMsgEdit && setFohMsgText(msg === fohMsgText ? null : msg)} style={{
-                            flex:1, textAlign:"left", fontSize:11, fontWeight:600, fontFamily:"inherit",
-                            padding:"4px 8px", borderRadius:8, cursor: fohMsgEdit ? "default" : "pointer",
-                            background: msg === fohMsgText && !fohMsgEdit ? `${C.pur}18` : "transparent",
-                            color: msg === fohMsgText && !fohMsgEdit ? C.pur : C.txt,
-                            border:`1px solid ${msg === fohMsgText && !fohMsgEdit ? C.pur+"55" : "transparent"}`,
-                          }}>{msg}</button>
-                          {fohMsgEdit && (
-                            <button onClick={() => deleteFohMsg(idx)} style={{
-                              flexShrink:0, width:18, height:18, borderRadius:"50%",
-                              background:C.red, color:"#fff", border:"none",
-                              fontSize:11, fontWeight:900, cursor:"pointer", fontFamily:"inherit",
-                              display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
-                            }}>×</button>
-                          )}
+                      /* ── 일반 모드: 좌=멤버, 우=메시지 2컬럼 ── */
+                      <div>
+                        <div style={{ display:"flex", gap:6, marginBottom:6 }}>
+                          {/* 좌: 멤버 선택 */}
+                          <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:3 }}>
+                            <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:2 }}>수신자</div>
+                            {fohPinnedUids.length === 0
+                              ? <span style={{ fontSize:10, color:C.dim }}>편집에서 수신자 추가</span>
+                              : teamUsers.filter(u => fohPinnedUids.includes(u.id)).map(u => (
+                                <button key={u.id} onClick={() => setFohMsgTo(u.id === fohMsgTo ? null : u.id)} style={{
+                                  width:"100%", textAlign:"left", fontSize:11, fontWeight:700, fontFamily:"inherit",
+                                  padding:"5px 8px", borderRadius:8, cursor:"pointer",
+                                  background: u.id === fohMsgTo ? C.pur : C.card,
+                                  color: u.id === fohMsgTo ? "#fff" : C.dim,
+                                  border:`1px solid ${u.id === fohMsgTo ? C.pur : C.bdr}`,
+                                }}>
+                                  {u.name.split(" ")[0]}{u.parts.length > 0 ? ` (${u.parts[0]})` : ""}
+                                </button>
+                              ))
+                            }
+                          </div>
+                          {/* 구분선 */}
+                          <div style={{ width:1, background:C.bdr, flexShrink:0 }} />
+                          {/* 우: 메시지 선택 */}
+                          <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:3 }}>
+                            <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:2 }}>메시지</div>
+                            {fohQuickMsgs.length === 0
+                              ? <span style={{ fontSize:10, color:C.dim }}>편집에서 메시지 추가</span>
+                              : fohQuickMsgs.map((msg, idx) => (
+                                <button key={idx} onClick={() => setFohMsgText(msg === fohMsgText ? null : msg)} style={{
+                                  width:"100%", textAlign:"left", fontSize:11, fontWeight:600, fontFamily:"inherit",
+                                  padding:"5px 8px", borderRadius:8, cursor:"pointer",
+                                  background: msg === fohMsgText ? `${C.pur}18` : C.card,
+                                  color: msg === fohMsgText ? C.pur : C.txt,
+                                  border:`1px solid ${msg === fohMsgText ? C.pur+"55" : C.bdr}`,
+                                }}>{msg}</button>
+                              ))
+                            }
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                    {/* 메시지 추가 (편집 모드) */}
-                    {fohMsgEdit && (
-                      <div style={{ display:"flex", gap:4, marginBottom:6 }}>
-                        <input
-                          value={fohMsgInput}
-                          onChange={e => setFohMsgInput(e.target.value)}
-                          onKeyDown={e => e.key === "Enter" && addFohMsg()}
-                          placeholder="새 메시지 입력..."
+                        {/* 보내기 버튼 */}
+                        <button
+                          disabled={!fohMsgTo || !fohMsgText || fohMsgSending}
+                          onClick={sendFohMessage}
                           style={{
-                            flex:1, fontSize:11, padding:"4px 8px", borderRadius:7,
-                            border:`1px solid ${C.bdr}`, background:C.bg, color:C.txt,
-                            outline:"none", fontFamily:"inherit",
-                          }}
-                        />
-                        <button onClick={addFohMsg} style={{
-                          flexShrink:0, padding:"4px 10px", borderRadius:7, cursor:"pointer",
-                          background:C.pur, color:"#fff", border:"none",
-                          fontSize:11, fontWeight:700, fontFamily:"inherit",
-                        }}>추가</button>
+                            width:"100%", padding:"7px 0", borderRadius:9,
+                            cursor: (fohMsgTo && fohMsgText) ? "pointer" : "default",
+                            background: (fohMsgTo && fohMsgText) ? C.pur : C.card,
+                            color: (fohMsgTo && fohMsgText) ? "#fff" : C.dim,
+                            border:"none", fontSize:12, fontWeight:800, fontFamily:"inherit",
+                            opacity: fohMsgSending ? 0.6 : 1,
+                          }}>
+                          {fohMsgSending ? "전송 중..." : "보내기"}
+                        </button>
                       </div>
-                    )}
-                    {/* 보내기 버튼 */}
-                    {!fohMsgEdit && (
-                      <button
-                        disabled={!fohMsgTo || !fohMsgText || fohMsgSending}
-                        onClick={sendFohMessage}
-                        style={{
-                          width:"100%", padding:"7px 0", borderRadius:9,
-                          cursor: (fohMsgTo && fohMsgText) ? "pointer" : "default",
-                          background: (fohMsgTo && fohMsgText) ? C.pur : C.card,
-                          color: (fohMsgTo && fohMsgText) ? "#fff" : C.dim,
-                          border:"none", fontSize:12, fontWeight:800, fontFamily:"inherit",
-                          opacity: fohMsgSending ? 0.6 : 1,
-                        }}>
-                        {fohMsgSending ? "전송 중..." : "보내기"}
-                      </button>
                     )}
                   </div>
 
