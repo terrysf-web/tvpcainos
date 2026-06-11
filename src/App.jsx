@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.431";
+const APP_VERSION = "3.432";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2842,7 +2842,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               </div>
             )}
 
-            {user?.role === "broadcast" ? (
+            {isBroadcast(user?.role) ? (
             <>
             {/* X32 채널 상태 */}
             <X32StatusBar />
@@ -10204,18 +10204,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         }}>{metroMsg}</div>
       )}
 
-      {/* 패닉 버튼 — 우측 하단 FAB (라이브러리 모드 제외) */}
+      {/* 패닉 버튼 — 우측 하단 코너 FAB (라이브러리 모드 제외, 멤버 전용) */}
       {!isLibraryMode && !leader && (
-        <div style={{ position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 80px)", right:16, zIndex:9990 }}>
+        <div style={{ position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 68px)", right:6, zIndex:9990 }}>
           {/* 옵션 목록 */}
           {showPanicMenu && (
             <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8, marginBottom:10 }}>
               {[
-                { emoji:"🔊", label:"볼륨업" },
-                { emoji:"🔉", label:"볼륨다운" },
+                { emoji:"🔊", label:"볼륨↑" },
+                { emoji:"🔉", label:"볼륨↓" },
+                { emoji:"🔇", label:"MUTE" },
                 { emoji:"⚠️", label:"소리문제" },
-                { emoji:"🎙", label:"마이크문제" },
-                { emoji:"✅", label:"소리 좋아요" },
+                { emoji:"📄", label:"악보 ↑" },
+                { emoji:"📄", label:"악보 ↓" },
               ].map(opt => (
                 <button key={opt.label} onClick={async () => {
                   setShowPanicMenu(false);
@@ -10238,14 +10239,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           )}
           {/* FAB 본체 */}
           <button onClick={() => setShowPanicMenu(p => !p)} style={{
-            width:48, height:48, borderRadius:"50%",
+            width:44, height:44, borderRadius:"50%",
             background: panicSent ? C.grn : (showPanicMenu ? "#c0392b" : "#ff3b30"),
             border:"none", cursor:"pointer",
             display:"flex", alignItems:"center", justifyContent:"center",
-            fontSize:20, color:"#fff",
+            fontSize:19, color:"#fff",
             boxShadow:"0 4px 16px rgba(255,59,48,.5)",
             transition:"background 0.2s",
-            opacity: 0.88,
+            opacity: 0.85,
           }}>
             {panicSent ? "✓" : "🎚"}
           </button>
