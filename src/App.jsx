@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.459";
+const APP_VERSION = "3.460";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -13964,17 +13964,21 @@ export default function App() {
         }} />
       )}
 
-      {/* FOH → 멤버 메시지 오버레이 (피아노 알림과 동일 스타일) */}
+      {/* FOH → 멤버 메시지 배너 */}
       {fohMsgBanner && (
         <div style={{
-          position:"fixed", inset:0, zIndex:99999,
-          background:"rgba(0,0,0,0.88)",
-          display:"flex", flexDirection:"column",
-          alignItems:"center", justifyContent:"center", gap:12,
-          pointerEvents:"none",
+          position:"fixed",
+          top:"calc(env(safe-area-inset-top) + 16px)",
+          left:"50%", transform:"translateX(-50%)",
+          zIndex:99999, pointerEvents:"none",
+          background:"rgba(30,20,60,0.93)",
+          borderRadius:20, padding:"18px 28px",
+          display:"flex", flexDirection:"column", alignItems:"center", gap:8,
+          boxShadow:"0 8px 32px rgba(0,0,0,0.45)",
+          minWidth:240, maxWidth:"80vw", textAlign:"center",
         }}>
-          <div style={{ fontSize:52 }}>📢</div>
-          <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:1, textAlign:"center", padding:"0 32px" }}>
+          <div style={{ fontSize:36 }}>📢</div>
+          <div style={{ fontSize:20, fontWeight:900, color:"#fff", lineHeight:1.3 }}>
             {fohMsgBanner.message}
           </div>
         </div>
