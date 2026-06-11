@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.446";
+const APP_VERSION = "3.447";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2555,7 +2555,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   fontFamily:"inherit", transition:"opacity 0.15s",
                 }}>다음 ▶</button>
               </>)}
-              <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, overflow:"hidden", }}>
+              <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, overflow:"hidden", paddingBottom:4 }}>
                 {/* ── 왼쪽: 히어로 + 컨트롤 + 곡 목록 ── */}
                 <div style={{ flex:1, minWidth:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", msOverflowStyle:"none", padding:"8px 6px 0 8px" }}>
                   {/* 히어로 카드 */}
@@ -2775,7 +2775,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 </div>
 
                 {/* ── 오른쪽: 현재 악보 1장 ── */}
-                <div style={{ flexShrink:0, display:"flex", flexDirection:"column", width:"calc((100dvh - 160px) * 0.707)", minWidth:320 }}>
+                <div style={{ flex:"0 0 58%", minWidth:0, display:"flex", flexDirection:"column" }}>
                   {dispSong ? (
                     <>
                       {/* 악보 — 전체 높이 채우기, 타이틀 오버레이 */}
