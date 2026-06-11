@@ -8141,6 +8141,24 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             )}
           </button>
 
+          {/* 악보 Sync 표시 — 비라이브러리 모드에서만 */}
+          {!isLibraryMode && (
+            <div style={{
+              display:"flex", alignItems:"center", gap:4, flexShrink:0,
+              padding:"4px 8px", borderRadius:8,
+              border:`1px solid ${C.bdr}`,
+              background:"transparent",
+            }}>
+              <span style={{ fontSize:11, color:C.dim, fontWeight:600, letterSpacing:0.2 }}>악보 Sync</span>
+              <span style={{
+                width:8, height:8, borderRadius:"50%", flexShrink:0,
+                background: sheetLinkEnabled ? C.grn : C.dim,
+                boxShadow: sheetLinkEnabled ? `0 0 5px ${C.grn}` : "none",
+                transition:"background 0.3s, box-shadow 0.3s",
+              }} />
+            </div>
+          )}
+
           {/* 제목/키 — 태블릿(wide)에서만 중앙 표시 */}
           {!tbNarrow && (
             <div style={{ flex:1, minWidth:0, textAlign:"center" }}>
