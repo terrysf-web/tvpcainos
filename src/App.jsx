@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.430";
+const APP_VERSION = "3.431";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2094,9 +2094,14 @@ function PianoOnOverlay({ onDismiss }) {
 ══════════════════════════════════════════════════════════════════ */
 /* ── 큐 노트 스티키 섹션 ── */
 function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
-
   return (
     <div style={{ marginTop:20, marginBottom:4 }}>
+      <style>{`
+        @keyframes cueSlideIn {
+          from { opacity:0; transform:translateX(18px); }
+          to   { opacity:1; transform:translateX(0); }
+        }
+      `}</style>
       <div style={{ fontSize:11, fontWeight:800, color:"#e65c00",
         letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:10 }}>
         🎯 큐 노트
@@ -2128,61 +2133,72 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
               </div>
               {/* 큐 목록 */}
               {cues.map(cue => {
-                const isAdmin = user?.role === "admin" || user?.role === "leader";
-                const acked   = cue.acknowledged === true;
+                const isAdmin  = user?.role === "admin" || user?.role === "leader";
+                const acked    = cue.acknowledged === true;
+                const isPanic  = cue.panic === true;
+                const isNew    = isPanic && cue.createdAt?.toMillis?.() > Date.now() - 8000;
+                const cardBg   = isPanic
+                  ? (acked ? "#ffeaea" : "#fff0f0")
+                  : (acked ? "#e8f5e9" : "#fffde7");
+                const cardBdr  = isPanic
+                  ? (acked ? "#ffaaaa" : "#ff3b30")
+                  : (acked ? "#a5d6a7" : "#ffe082");
+                const senderClr = isPanic ? "#c0392b" : "#e65c00";
+                const textClr   = isPanic ? "#7b0000" : "#4a3500";
                 return (
                   <div key={cue.id} style={{
-                    background: acked ? "#e8f5e9" : "#fffde7",
-                    border:`1.5px solid ${acked ? "#a5d6a7" : "#ffe082"}`,
+                    background: cardBg,
+                    border:`1.5px solid ${cardBdr}`,
                     borderRadius:8, padding:"7px 9px",
+                    animation: isNew ? "cueSlideIn 0.3s ease-out" : "none",
                   }}>
                     {/* 보낸 사람 */}
-                    <div style={{ fontSize:10, fontWeight:800, color:"#e65c00", marginBottom:3 }}>
+                    <div style={{ fontSize:10, fontWeight:800, color: senderClr, marginBottom:3,
+                      display:"flex", alignItems:"center", gap:4 }}>
+                      {isPanic && <span style={{ fontSize:11 }}>🚨</span>}
                       {cue.userPart || cue.userName}
                     </div>
-                    <div style={{ fontSize:12, color:"#4a3500", lineHeight:1.5,
-                      whiteSpace:"pre-wrap", wordBreak:"break-all", marginBottom:5 }}>
+                    <div style={{ fontSize:12, color: textClr, lineHeight:1.5,
+                      whiteSpace:"pre-wrap", wordBreak:"break-all", marginBottom:5,
+                      fontWeight: isPanic ? 700 : 400 }}>
                       {cue.text}
                     </div>
                     {/* 하단: 수신확인(어드민만 토글) */}
-                    {(
-                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:5 }}>
-                        {/* 수신확인 — 어드민/리더만 토글, 멤버는 읽기 전용 표시 */}
-                        {isAdmin ? (
-                          <button
-                            onClick={() => acknowledgeCue?.(cue.id, acked)}
-                            style={{ display:"flex", alignItems:"center", gap:4,
-                              background:"none", border:"none", cursor:"pointer",
-                              padding:0, fontFamily:"inherit" }}>
-                            <div style={{
-                              width:16, height:16, borderRadius:4,
-                              border:`2px solid ${acked ? "#43a047" : "#bbb"}`,
-                              background: acked ? "#43a047" : "transparent",
-                              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
-                            }}>
-                              {acked && <span style={{ color:"#fff", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
-                            </div>
-                            <span style={{ fontSize:10, color: acked ? "#43a047" : "#888", fontWeight:700 }}>
-                              {acked ? "확인됨" : "확인"}
-                            </span>
-                          </button>
-                        ) : (
-                          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                            <div style={{
-                              width:16, height:16, borderRadius:4,
-                              border:`2px solid ${acked ? "#43a047" : "#ddd"}`,
-                              background: acked ? "#43a047" : "transparent",
-                              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
-                            }}>
-                              {acked && <span style={{ color:"#fff", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
-                            </div>
-                            <span style={{ fontSize:10, color: acked ? "#43a047" : "#bbb", fontWeight:700 }}>
-                              {acked ? "확인됨" : "미확인"}
-                            </span>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:5 }}>
+                      {isAdmin ? (
+                        <button
+                          onClick={() => acknowledgeCue?.(cue.id, acked)}
+                          style={{ display:"flex", alignItems:"center", gap:4,
+                            background:"none", border:"none", cursor:"pointer",
+                            padding:0, fontFamily:"inherit" }}>
+                          <div style={{
+                            width:16, height:16, borderRadius:4,
+                            border:`2px solid ${acked ? "#43a047" : "#bbb"}`,
+                            background: acked ? "#43a047" : "transparent",
+                            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+                          }}>
+                            {acked && <span style={{ color:"#fff", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
                           </div>
-                        )}
-                      </div>
-                    )}
+                          <span style={{ fontSize:10, color: acked ? "#43a047" : "#888", fontWeight:700 }}>
+                            {acked ? "확인됨" : "확인"}
+                          </span>
+                        </button>
+                      ) : (
+                        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                          <div style={{
+                            width:16, height:16, borderRadius:4,
+                            border:`2px solid ${acked ? "#43a047" : "#ddd"}`,
+                            background: acked ? "#43a047" : "transparent",
+                            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+                          }}>
+                            {acked && <span style={{ color:"#fff", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
+                          </div>
+                          <span style={{ fontSize:10, color: acked ? "#43a047" : "#bbb", fontWeight:700 }}>
+                            {acked ? "확인됨" : "미확인"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -6096,6 +6112,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [cueScr,        setCueScr]        = useState("");
   const [cueEditId,     setCueEditId]     = useState(null);
   const [cueEditTxt,    setCueEditTxt]    = useState("");
+  const [showPanicMenu, setShowPanicMenu] = useState(false);
+  const [panicSent,     setPanicSent]     = useState(null); // 전송된 옵션 라벨
   const [noteTxt,       setNoteTxt]       = useState("");
   const [noteScr,       setNoteScr]       = useState("");
   const [noteInk,       setNoteInk]       = useState(true);  // true=손글씨 캔버스, false=타입
@@ -8733,14 +8751,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         </div>
       )}
 
-      {/* 팀필기 인디케이터 — 이 페이지에 팀필기 있을 때 항상 표시 */}
-      {hasTeamStrokes && !drawMode && (
-        <div style={{ flexShrink:0, background:"#347C1712", borderBottom:`1px solid #347C1733`,
-          display:"flex", alignItems:"center", gap:6, padding:"5px 14px" }}>
-          <Icon n="users" size={11} color="#347C17" sw={2} />
-          <span style={{ fontSize:11, fontWeight:700, color:"#347C17" }}>이 페이지에 팀필기가 있습니다</span>
-        </div>
-      )}
 
       {/* 필기 서브툴바 */}
       {drawMode && (
@@ -10192,6 +10202,59 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           whiteSpace:"pre", textAlign:"center",
           boxShadow:"0 4px 16px rgba(0,0,0,.3)", lineHeight:1.5,
         }}>{metroMsg}</div>
+      )}
+
+      {/* 패닉 버튼 — 우측 하단 FAB (라이브러리 모드 제외) */}
+      {!isLibraryMode && !leader && (
+        <div style={{ position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 80px)", right:16, zIndex:9990 }}>
+          {/* 옵션 목록 */}
+          {showPanicMenu && (
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8, marginBottom:10 }}>
+              {[
+                { emoji:"🔊", label:"볼륨업" },
+                { emoji:"🔉", label:"볼륨다운" },
+                { emoji:"⚠️", label:"소리문제" },
+                { emoji:"🎙", label:"마이크문제" },
+                { emoji:"✅", label:"소리 좋아요" },
+              ].map(opt => (
+                <button key={opt.label} onClick={async () => {
+                  setShowPanicMenu(false);
+                  setPanicSent(opt.label);
+                  setTimeout(() => setPanicSent(null), 2500);
+                  await sendCue?.(selectedSvcId, selectedSongId, `${opt.emoji} ${opt.label}`, { panic: true });
+                }} style={{
+                  display:"flex", alignItems:"center", gap:8,
+                  padding:"9px 16px", borderRadius:20,
+                  background:"#ff3b30", color:"#fff",
+                  border:"none", cursor:"pointer",
+                  fontSize:14, fontWeight:700,
+                  boxShadow:"0 3px 12px rgba(255,59,48,.45)",
+                  whiteSpace:"nowrap",
+                }}>
+                  <span>{opt.emoji}</span><span>{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {/* FAB 본체 */}
+          <button onClick={() => setShowPanicMenu(p => !p)} style={{
+            width:48, height:48, borderRadius:"50%",
+            background: panicSent ? C.grn : (showPanicMenu ? "#c0392b" : "#ff3b30"),
+            border:"none", cursor:"pointer",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontSize:20, color:"#fff",
+            boxShadow:"0 4px 16px rgba(255,59,48,.5)",
+            transition:"background 0.2s",
+            opacity: 0.88,
+          }}>
+            {panicSent ? "✓" : "🎚"}
+          </button>
+        </div>
+      )}
+      {/* 패닉 메뉴 열릴 때 바깥 탭으로 닫기 */}
+      {showPanicMenu && (
+        <div onClick={() => setShowPanicMenu(false)}
+          style={{ position:"fixed", inset:0, zIndex:9989 }} />
       )}
 
       {/* FOH 악보 Sync 시작 배너 */}
@@ -13449,7 +13512,7 @@ export default function App() {
     await deleteDoc(doc(db, "annotations", noteId));
   };
 
-  const sendCue = async (svcId, songId, text) => {
+  const sendCue = async (svcId, songId, text, opts = {}) => {
     if (!user?.uid || !text?.trim()) return;
     const parts = getUserParts(user);
     const userPart = parts.length > 0 ? parts.join("/") : (user.displayName || user.name || user.email || "팀원");
@@ -13461,6 +13524,7 @@ export default function App() {
       text: text.trim(),
       createdAt: serverTimestamp(),
       acknowledgedBy: [],
+      panic: opts.panic ?? false,
     });
   };
 
