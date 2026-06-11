@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.475";
+const APP_VERSION = "3.476";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2867,7 +2867,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                 </div>
                                 <div style={{ fontSize:13, fontWeight:700, color:"#7b0000" }}>{cue.text}</div>
                               </div>
-                              <button onClick={() => acknowledgeCue?.(cue.id, acked)} style={{
+                              <button onClick={() => acknowledgeCue?.(cue.id, acked, { targetUid: cue.userId, cueText: cue.text })} style={{
                                 flexShrink:0, padding:"3px 10px", borderRadius:12,
                                 border:`1px solid ${acked ? "#43a047" : C.red}`,
                                 background: acked ? "#43a047" : "transparent",
@@ -13971,9 +13971,16 @@ export default function App() {
     await updateDoc(doc(db, "cueNotes", cueId), { text: newText.trim() });
   };
 
-  const acknowledgeCue = async (cueId, alreadyAcked) => {
+  const acknowledgeCue = async (cueId, alreadyAcked, opts = {}) => {
     if (!user?.uid) return;
     await updateDoc(doc(db, "cueNotes", cueId), { acknowledged: !alreadyAcked });
+    // 확인 시 (언확인 아닐 때) 발신자에게 FOH 확인 토스트 전송
+    if (!alreadyAcked && opts.targetUid && isFoh(user)) {
+      const msg = opts.cueText ? `✅ ${opts.cueText}` : "✅ FOH 확인";
+      await setDoc(doc(db, "fohMessages", opts.targetUid), {
+        message: msg, sentAt: serverTimestamp(), fromName: user.name || user.email,
+      }).catch(() => {});
+    }
   };
 
   const markNotifRead = async (id) => {
