@@ -12878,23 +12878,18 @@ export default function App() {
     getDoc(doc(db, "liveStatus", "sheetSync")).then(snap => {
       if (!snap.exists()) return;
       const data = snap.data();
-      console.log("[postAuth sheetSync] linkEnabled:", data.linkEnabled, "myParts:", getUserParts(user));
       if (!data.linkEnabled) return;
       const ts = data.updatedAt?.toMillis?.() ?? 0;
       if (ts > 0 && (Date.now() - ts) > 1_800_000) return;
       const allowedParts = allowedPartsRef.current ?? data.allowedParts ?? null;
       if (allowedParts !== null) {
         const myParts = getUserParts(user);
-        if (myParts.length > 0 && !myParts.some(p => allowedParts.includes(p) || p === "전체")) {
-          console.log("[postAuth sheetSync] skip: part filter");
-          return;
-        }
+        if (myParts.length > 0 && !myParts.some(p => allowedParts.includes(p) || p === "전체")) return;
       } else {
-        if (isVocalistUser(user)) { console.log("[postAuth sheetSync] skip: vocalist"); return; }
+        if (isVocalistUser(user)) return;
       }
       const { svcId, songId, songIdx } = data;
       if (!svcId || !songId) return;
-      console.log("[postAuth sheetSync] NAVIGATE → pdfViewer", songId);
       sheetSyncTsRef.current = ts;
       navRef.current?.("pdfViewer", { songId, svcId, svcSongIdx: songIdx ?? 0, backTo: "home" });
     }).catch(() => {});
@@ -12958,28 +12953,22 @@ export default function App() {
         isFirst = false;
         sheetSyncTsRef.current = ts;
         const ageMs = ts > 0 ? (Date.now() - ts) : Infinity;
-        console.log("[sheetSync] first snapshot — linkEnabled:", data.linkEnabled, "ageMs:", ageMs, "role:", userRoleRef.current);
         if (!data.linkEnabled || ageMs > 1_800_000) return;
       } else {
         if (ts === sheetSyncTsRef.current) return;
         sheetSyncTsRef.current = ts;
-        console.log("[sheetSync] new ts — linkEnabled:", data.linkEnabled, "role:", userRoleRef.current, "myParts:", userPartsRef.current);
       }
-      if (userRoleRef.current === "admin") { console.log("[sheetSync] skip: admin"); return; }
-      if (!sheetLinkEnabledRef.current && !data.linkEnabled) { console.log("[sheetSync] skip: linkDisabled"); return; }
+      if (userRoleRef.current === "admin") return;
+      if (!sheetLinkEnabledRef.current && !data.linkEnabled) return;
       const allowedParts = allowedPartsRef.current ?? data.allowedParts ?? null;
       if (allowedParts !== null) {
         const myParts = userPartsRef.current;
-        if (myParts.length > 0 && !myParts.some(p => allowedParts.includes(p) || p === "전체")) {
-          console.log("[sheetSync] skip: part filter — myParts:", myParts, "allowed:", allowedParts);
-          return;
-        }
+        if (myParts.length > 0 && !myParts.some(p => allowedParts.includes(p) || p === "전체")) return;
       } else {
-        if (isVocalistUser({ parts: userPartsRef.current })) { console.log("[sheetSync] skip: vocalist"); return; }
+        if (isVocalistUser({ parts: userPartsRef.current })) return;
       }
       const { svcId, songId, songIdx } = data;
-      if (!svcId || !songId) { console.log("[sheetSync] skip: no svcId/songId"); return; }
-      console.log("[sheetSync] NAVIGATE → pdfViewer", songId);
+      if (!svcId || !songId) return;
       setSheetSyncTrigger(n => n + 1);
       if (viewRef.current === "pdfViewer" && selSongIdRef.current === songId) return;
       navRef.current?.("pdfViewer", { songId, svcId, svcSongIdx: songIdx ?? 0, backTo: "home" });
