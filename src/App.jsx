@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.464";
+const APP_VERSION = "3.465";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2566,6 +2566,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
             const toggleLink = async () => {
               const newEnabled = !sheetLinkEnabled;
+              // 수동 토글 시 tick의 자동 phase가 덮어쓰지 못하도록 양쪽 모두 차단
+              phaseFiredRef.current.sheetLink_on  = true;
+              phaseFiredRef.current.sheetLink_off = true;
               await setDoc(doc(db, "liveStatus", "sheetLink"), {
                 enabled: newEnabled, svcId: nextSvc.id,
                 allowedParts: currentParts, updatedAt: serverTimestamp(),
@@ -2584,9 +2587,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               const next = currentParts.includes(part)
                 ? currentParts.filter(p => p !== part)
                 : [...currentParts, part];
-              await setDoc(doc(db, "liveStatus", "sheetLink"), {
-                enabled: sheetLinkEnabled, svcId: nextSvc.id,
-                allowedParts: next, updatedAt: serverTimestamp(),
+              // updateDoc 사용 — enabled 필드를 건드리지 않음
+              await updateDoc(doc(db, "liveStatus", "sheetLink"), {
+                allowedParts: next, svcId: nextSvc.id,
               }).catch(() => {});
             };
             const selectSong = (idx) => {
