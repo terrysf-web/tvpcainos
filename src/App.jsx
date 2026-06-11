@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.447";
+const APP_VERSION = "3.448";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2456,7 +2456,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         </div>
       </div>
 
-      <div style={{ flex:"1 1 0", height:0, overflow:"hidden", padding: user?.role === "admin" ? "0" : "14px 14px 0", ...(user?.role === "admin" && { display:"flex", flexDirection:"column" }) }}>
+      <div style={{ flex:"1 1 0", height:0, overflow:"hidden", padding: user?.role === "admin" ? "0 6px 0 0" : "14px 14px 0", ...(user?.role === "admin" && { display:"flex", flexDirection:"column" }) }}>
         {nextSvc ? (
           user?.role === "admin" ? (() => {
             /* ─── ADMIN: 좌우 2열 고정 레이아웃 ─── */
@@ -12455,7 +12455,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
   /* ────────────────────────── MOBILE LAYOUT ────────────────────────── */
   return (
     <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.bg,
-      paddingBottom:"calc(70px + env(safe-area-inset-bottom))" }}>
+      paddingBottom:"calc(78px + env(safe-area-inset-bottom))" }}>
 
       {/* ── Header */}
       <div style={{ padding:"calc(12px + env(safe-area-inset-top)) 16px 0",
