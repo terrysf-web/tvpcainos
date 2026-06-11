@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.436";
+const APP_VERSION = "3.437";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -6280,6 +6280,24 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setPanOffset({ x: 0, y: 0 });
     setZoomMul(1.0);
   }, [sheetSyncTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 블루투스 리모컨 / 키보드 페이지 넘김
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " " || e.key === "PageDown") {
+        e.preventDefault();
+        if (dual) setDualIdx(p => Math.min(p + 1, svcSongs.length - 2));
+        else setPageNum(p => Math.min(p + 1, numPages || p + 1));
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "PageUp") {
+        e.preventDefault();
+        if (dual) setDualIdx(p => Math.max(p - 1, 0));
+        else setPageNum(p => Math.max(p - 1, 1));
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [dual, numPages, svcSongs.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 악보 Sync 배너 ──
   const [syncBanner, setSyncBanner] = useState(false);
