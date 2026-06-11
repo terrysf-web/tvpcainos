@@ -12878,19 +12878,24 @@ export default function App() {
     getDoc(doc(db, "liveStatus", "sheetSync")).then(snap => {
       if (!snap.exists()) return;
       const data = snap.data();
+      console.log("[postAuth sheetSync] linkEnabled:", data.linkEnabled, "myParts:", getUserParts(user));
       if (!data.linkEnabled) return;
       const ts = data.updatedAt?.toMillis?.() ?? 0;
-      if (ts > 0 && (Date.now() - ts) > 1_800_000) return; // 30분 이상 된 이벤트 무시
+      if (ts > 0 && (Date.now() - ts) > 1_800_000) return;
       const allowedParts = allowedPartsRef.current ?? data.allowedParts ?? null;
       if (allowedParts !== null) {
         const myParts = getUserParts(user);
-        if (myParts.length > 0 && !myParts.some(p => allowedParts.includes(p) || p === "전체")) return;
+        if (myParts.length > 0 && !myParts.some(p => allowedParts.includes(p) || p === "전체")) {
+          console.log("[postAuth sheetSync] skip: part filter");
+          return;
+        }
       } else {
-        if (isVocalistUser(user)) return;
+        if (isVocalistUser(user)) { console.log("[postAuth sheetSync] skip: vocalist"); return; }
       }
       const { svcId, songId, songIdx } = data;
       if (!svcId || !songId) return;
-      sheetSyncTsRef.current = ts; // 중복 방지
+      console.log("[postAuth sheetSync] NAVIGATE → pdfViewer", songId);
+      sheetSyncTsRef.current = ts;
       navRef.current?.("pdfViewer", { songId, svcId, svcSongIdx: songIdx ?? 0, backTo: "home" });
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -12952,28 +12957,30 @@ export default function App() {
       if (isFirst) {
         isFirst = false;
         sheetSyncTsRef.current = ts;
-        // 앱 첫 로드 시: linkEnabled=true 이고 최근 30분 이내 이벤트면 즉시 이동
         const ageMs = ts > 0 ? (Date.now() - ts) : Infinity;
+        console.log("[sheetSync] first snapshot — linkEnabled:", data.linkEnabled, "ageMs:", ageMs, "role:", userRoleRef.current);
         if (!data.linkEnabled || ageMs > 1_800_000) return;
-        // fall through to navigation logic below
       } else {
         if (ts === sheetSyncTsRef.current) return;
         sheetSyncTsRef.current = ts;
+        console.log("[sheetSync] new ts — linkEnabled:", data.linkEnabled, "role:", userRoleRef.current, "myParts:", userPartsRef.current);
       }
-      // admin 이 아닌 모든 사용자가 따라감 (leader 포함)
-      if (userRoleRef.current === "admin") return;
-      if (!sheetLinkEnabledRef.current && !data.linkEnabled) return;
-      // 파트 필터: allowedParts 없으면 보컬만 제외, 있으면 교집합 체크
+      if (userRoleRef.current === "admin") { console.log("[sheetSync] skip: admin"); return; }
+      if (!sheetLinkEnabledRef.current && !data.linkEnabled) { console.log("[sheetSync] skip: linkDisabled"); return; }
       const allowedParts = allowedPartsRef.current ?? data.allowedParts ?? null;
       if (allowedParts !== null) {
         const myParts = userPartsRef.current;
-        if (myParts.length > 0 && !myParts.some(p => allowedParts.includes(p) || p === "전체")) return;
+        if (myParts.length > 0 && !myParts.some(p => allowedParts.includes(p) || p === "전체")) {
+          console.log("[sheetSync] skip: part filter — myParts:", myParts, "allowed:", allowedParts);
+          return;
+        }
       } else {
-        if (isVocalistUser({ parts: userPartsRef.current })) return;
+        if (isVocalistUser({ parts: userPartsRef.current })) { console.log("[sheetSync] skip: vocalist"); return; }
       }
       const { svcId, songId, songIdx } = data;
-      if (!svcId || !songId) return;
-      setSheetSyncTrigger(n => n + 1); // PDFViewerScreen에 듀얼 초기화 신호
+      if (!svcId || !songId) { console.log("[sheetSync] skip: no svcId/songId"); return; }
+      console.log("[sheetSync] NAVIGATE → pdfViewer", songId);
+      setSheetSyncTrigger(n => n + 1);
       if (viewRef.current === "pdfViewer" && selSongIdRef.current === songId) return;
       navRef.current?.("pdfViewer", { songId, svcId, svcSongIdx: songIdx ?? 0, backTo: "home" });
     }, () => {});
