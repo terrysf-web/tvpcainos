@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.434";
+const APP_VERSION = "3.435";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2483,10 +2483,10 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 allowedParts: currentParts, updatedAt: serverTimestamp(),
               }).catch(() => {});
               if (newEnabled) {
-                const startIdx = activeSyncIdx >= 0 ? activeSyncIdx : 0;
-                const s = svcSongs[startIdx];
+                // 싱크 ON 시 항상 첫 번째 곡으로 이동
+                const s = svcSongs[0];
                 if (s) await setDoc(doc(db, "liveStatus", "sheetSync"), {
-                  svcId: nextSvc.id, songId: s.id, songIdx: startIdx,
+                  svcId: nextSvc.id, songId: s.id, songIdx: 0,
                   pageNum: 1, linkEnabled: true, updatedAt: serverTimestamp(),
                 }).catch(() => {});
               }
@@ -6270,10 +6270,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // myNotes / teamNotes / effectiveNoteSongId computed after dualLeftSongId (see below)
   const leader    = isLeader(user.role);
 
-  // sheetSync 신호 도착 시 1페이지로 이동 (듀얼/싱글 모드는 유지)
+  // sheetSync 신호 도착 시 1페이지로 이동
+  // 태블릿 가로모드 감지 시 자동 듀얼 ON
   useEffect(() => {
     if (user.role === "admin" || sheetSyncTrigger === 0) return;
-    if (dual) setDualIdx(selectedSvcSongIdx); // 듀얼: 왼쪽을 어드민이 선택한 곡으로
+    const landscape  = window.matchMedia("(orientation: landscape)").matches;
+    const wideScreen = Math.min(window.screen.width, window.screen.height) >= 768;
+    const autoDual   = landscape && wideScreen;
+    if (autoDual && !dual) setDual(true);
+    if (dual || autoDual) setDualIdx(selectedSvcSongIdx);
     setPageNum(1);
     setPanOffset({ x: 0, y: 0 });
     setZoomMul(1.0);
