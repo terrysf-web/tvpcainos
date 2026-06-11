@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.451";
+const APP_VERSION = "3.452";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2456,7 +2456,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         </div>
       </div>
 
-      <div style={{ flex:"1 1 0", height:0, overflow:"hidden", padding: user?.role === "admin" ? "0" : "14px 14px 0", ...(user?.role === "admin" && { display:"flex", flexDirection:"column" }) }}>
+      <div style={{ flex:"1 1 0", height:0, overflow:"hidden", padding: user?.role === "admin" ? "8px 10px 0" : "14px 14px 0", ...(user?.role === "admin" && { display:"flex", flexDirection:"column" }) }}>
         {nextSvc ? (
           user?.role === "admin" ? (() => {
             /* ─── ADMIN: 좌우 2열 고정 레이아웃 ─── */
@@ -2557,7 +2557,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               </>)}
               <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, overflow:"hidden" }}>
                 {/* ── 왼쪽: 히어로 + 컨트롤 + 곡 목록 ── */}
-                <div style={{ flexShrink:0, width:220, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", msOverflowStyle:"none", padding:"8px 4px 0 8px" }}>
+                <div style={{ flex:1, minWidth:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", msOverflowStyle:"none" }}>
                   {/* 히어로 카드 */}
                   <div style={{
                     background: isPianoOn ? `linear-gradient(135deg, ${C.red}18, ${C.red}08)` : `linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
@@ -2775,33 +2775,34 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 </div>
 
                 {/* ── 오른쪽: 현재 악보 1장 ── */}
-                <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column" }}>
+                <div style={{ flexShrink:0, display:"flex", flexDirection:"column", width:"calc((100dvh - 190px) * 0.707)", minWidth:320 }}>
                   {dispSong ? (
                     <>
-                      {/* 악보 — 전체 높이, 타이틀 오버레이 */}
+                      {/* 번호 + 제목 */}
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5, flexShrink:0 }}>
+                        <div style={{ width:20, height:20, borderRadius:6,
+                          background: sheetLinkEnabled ? C.pur : `${C.pur}18`,
+                          display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                          <span style={{ fontSize:11, fontWeight:800, color: sheetLinkEnabled ? "#fff" : C.pur }}>{dispIdx + 1}</span>
+                        </div>
+                        <span style={{ fontSize:13, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.txt,
+                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
+                          {dispSong.title}
+                        </span>
+                        <span style={{ fontSize:11, color:C.dim, flexShrink:0 }}>{dispIdx + 1} / {svcSongs.length}</span>
+                      </div>
+                      {/* 악보 — 높이 100% 채우기 */}
                       <div style={{ flex:"1 1 0", height:0, minHeight:0,
-                          overflow:"hidden", background:C.card,
-                          border: sheetLinkEnabled ? `2px solid ${C.pur}` : `1px solid ${C.bdr}`,
-                          boxShadow: sheetLinkEnabled ? `0 0 0 3px ${C.pur}28` : "none",
+                          borderRadius:12, overflow:"hidden",
+                          background:C.card,
+                          border: sheetLinkEnabled ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
+                          boxShadow: sheetLinkEnabled ? `0 0 0 4px ${C.pur}28` : "none",
                           position:"relative",
                           display:"flex", alignItems:"center", justifyContent:"center",
                         }}>
-                        {/* 곡명 오버레이 */}
-                        <div style={{ position:"absolute", top:6, left:8, right:8, zIndex:2,
-                          display:"flex", alignItems:"center", gap:5, pointerEvents:"none" }}>
-                          <span style={{ background: sheetLinkEnabled ? C.pur : "rgba(0,0,0,0.55)",
-                            color:"#fff", fontSize:10, fontWeight:800, borderRadius:5, padding:"2px 6px", flexShrink:0 }}>
-                            {dispIdx + 1}/{svcSongs.length}
-                          </span>
-                          <span style={{ fontSize:12, fontWeight:800, color:"#fff",
-                            textShadow:"0 1px 4px rgba(0,0,0,0.8)",
-                            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                            {dispSong.title}
-                          </span>
-                        </div>
                         {dispSong.imageUrl ? (
                           <img src={dispSong.imageUrl} alt=""
-                            style={{ width:"100%", height:"100%", objectFit:"contain", display:"block" }} />
+                            style={{ height:"100%", width:"auto", maxWidth:"100%", display:"block" }} />
                         ) : dispSong.pdfUrl ? (
                           <PdfThumb key={`${dispSong.id}_p${dispSong.pdfPage||1}`} pdfUrl={dispSong.pdfUrl} scale={0.8} fitHeight page={dispSong.pdfPage || 1} />
                         ) : (
