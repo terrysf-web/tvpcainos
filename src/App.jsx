@@ -6872,11 +6872,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
 
   // PDF 로드 (싱글 모드) — _pdfCache로 재파싱 없이 즉시 사용
+  const prevSongIdRef = useRef(selectedSongId);
   useEffect(() => {
     if (dual) return;
     pdfDocRef.current = null;
     imageRef.current  = null;
-    setPageNum(song?.pdfPage || 1); setNumPages(0); setLoadErr("");
+    // 같은 곡의 새로고침: localStorage 저장 페이지 복원 / 곡 변경: pdfPage || 1
+    const isSameSong = prevSongIdRef.current === selectedSongId;
+    prevSongIdRef.current = selectedSongId;
+    const savedPage = isSameSong ? parseInt(localStorage.getItem("tvpc_pageNum") || "0") : 0;
+    setPageNum(savedPage > 0 ? savedPage : (song?.pdfPage || 1));
+    setNumPages(0); setLoadErr("");
     if (!song?.pdfUrl || !pdfjsReady || !window.pdfjsLib) return;
     const url = song.pdfUrl;
     if (_pdfCache[url]) {
@@ -12918,8 +12924,15 @@ export default function App() {
   const [sheetSyncTrigger,      setSheetSyncTrigger]      = useState(0);
   const navRef          = useRef(null);
   const userRoleRef     = useRef(undefined);
-  const selSongIdRef    = useRef(null);
-  const viewRef         = useRef("home");
+  // localStorage 복원값으로 초기화 — onSnapshot이 첫 렌더 직후 발화해도 올바른 값을 가짐
+  const selSongIdRef    = useRef(localStorage.getItem("tvpc_selSongId") || null);
+  const viewRef         = useRef(
+    localStorage.getItem("tvpc_view") === "pdfViewer" && localStorage.getItem("tvpc_selSongId")
+      ? "pdfViewer"
+      : localStorage.getItem("tvpc_view") === "svcDetail"
+      ? "home"
+      : (localStorage.getItem("tvpc_view") || "home")
+  );
   const sheetLinkEnabledRef = useRef(false);
   const allowedPartsRef = useRef(null);
   const userPartsRef    = useRef([]);
@@ -12947,6 +12960,8 @@ export default function App() {
       }
       const { svcId, songId, songIdx } = data;
       if (!svcId || !songId) return;
+      // 이미 해당 곡을 보고 있으면 저장된 페이지 유지 (불필요한 네비게이션 방지)
+      if (viewRef.current === "pdfViewer" && selSongIdRef.current === songId) return;
       sheetSyncTsRef.current = ts;
       navRef.current?.("pdfViewer", { songId, svcId, svcSongIdx: songIdx ?? 0, backTo: "home" });
     }).catch(() => {});
@@ -13006,6 +13021,7 @@ export default function App() {
       if (!snap.exists()) return;
       const data = snap.data();
       const ts = data.updatedAt?.toMillis?.() ?? 0;
+      const wasInitial = isFirst;
       if (isFirst) {
         isFirst = false;
         sheetSyncTsRef.current = ts;
@@ -13026,6 +13042,8 @@ export default function App() {
       }
       const { svcId, songId, songIdx } = data;
       if (!svcId || !songId) return;
+      // 초기 로드(새로고침) 시 이미 해당 곡을 보고 있으면 저장된 페이지 유지
+      if (wasInitial && viewRef.current === "pdfViewer" && selSongIdRef.current === songId) return;
       setSheetSyncTrigger(n => n + 1);
       if (viewRef.current === "pdfViewer" && selSongIdRef.current === songId) return;
       navRef.current?.("pdfViewer", { songId, svcId, svcSongIdx: songIdx ?? 0, backTo: "home" });
