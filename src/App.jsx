@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.476";
+const APP_VERSION = "3.477";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2957,13 +2957,13 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         </div>
                       </div>
                     ) : (
-                      /* ── 일반 모드: 좌=수신자(그룹+개인), 우=메시지 2컬럼 ── */
+                      /* ── 일반 모드: 좌=수신자 그리드, 우=메시지 그리드 ── */
                       <div>
                         <div style={{ display:"flex", gap:6, marginBottom:6 }}>
-                          {/* 좌: 수신자 선택 */}
-                          <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:3 }}>
-                            <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:2 }}>수신자</div>
-                            {/* 그룹 버튼 */}
+                          {/* 좌: 수신자 */}
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:4 }}>수신자</div>
+                            {/* 그룹 버튼 — 가로 전체 */}
                             {[["밴드","🎶"],["보컬그룹","🎤"]].map(([groupId, emoji]) => {
                               const members = teamUsers.filter(u => getUserParts(u).includes(groupId));
                               if (members.length === 0) return null;
@@ -2971,56 +2971,72 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                               const sel = fohMsgTo === gKey;
                               return (
                                 <button key={gKey} onClick={() => setFohMsgTo(sel ? null : gKey)} style={{
-                                  width:"100%", textAlign:"left", fontSize:11, fontWeight:700, fontFamily:"inherit",
-                                  padding:"4px 8px", borderRadius:8, cursor:"pointer",
+                                  width:"100%", textAlign:"center", fontFamily:"inherit", cursor:"pointer",
+                                  padding:"8px 6px", borderRadius:10, marginBottom:4,
                                   background: sel ? "#0a84ff" : "#0a84ff12",
                                   color: sel ? "#fff" : "#0a84ff",
-                                  border:`1px solid ${sel ? "#0a84ff" : "#0a84ff33"}`,
+                                  border:`1.5px solid ${sel ? "#0a84ff" : "#0a84ff33"}`,
+                                  display:"flex", alignItems:"center", justifyContent:"center", gap:5,
                                 }}>
-                                  {emoji} {groupId} <span style={{ opacity:0.7, fontWeight:500, fontSize:10 }}>({members.length}명)</span>
+                                  <span style={{ fontSize:16 }}>{emoji}</span>
+                                  <div>
+                                    <div style={{ fontSize:12, fontWeight:800, lineHeight:1.1 }}>{groupId}</div>
+                                    <div style={{ fontSize:9, opacity:0.7, fontWeight:500 }}>{members.length}명</div>
+                                  </div>
                                 </button>
                               );
                             })}
-                            {/* 그룹/개인 구분선 */}
-                            {teamUsers.some(u => ["밴드","보컬그룹"].some(g => getUserParts(u).includes(g))) && fohPinnedUids.length > 0 && (
-                              <div style={{ height:1, background:C.bdr, margin:"1px 0" }} />
-                            )}
-                            {/* 개인 수신자 */}
+                            {/* 개인 수신자 — 2열 그리드 */}
                             {fohPinnedUids.length === 0
                               ? <span style={{ fontSize:10, color:C.dim }}>편집에서 수신자 추가</span>
-                              : teamUsers.filter(u => fohPinnedUids.includes(u.id)).map(u => {
-                                const dp = getUserDisplayPart(u);
-                                const sel = fohMsgTo === u.id;
-                                return (
-                                  <button key={u.id} onClick={() => setFohMsgTo(sel ? null : u.id)} style={{
-                                    width:"100%", textAlign:"left", fontSize:11, fontWeight:700, fontFamily:"inherit",
-                                    padding:"4px 8px", borderRadius:8, cursor:"pointer",
-                                    background: sel ? C.pur : C.card,
-                                    color: sel ? "#fff" : C.dim,
-                                    border:`1px solid ${sel ? C.pur : C.bdr}`,
-                                  }}>
-                                    {u.name.split(" ")[0]}{dp ? ` (${dp})` : ""}
-                                  </button>
-                                );
-                              })
+                              : <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:4 }}>
+                                  {teamUsers.filter(u => fohPinnedUids.includes(u.id)).map(u => {
+                                    const dp = getUserDisplayPart(u);
+                                    const sel = fohMsgTo === u.id;
+                                    return (
+                                      <button key={u.id} onClick={() => setFohMsgTo(sel ? null : u.id)} style={{
+                                        fontFamily:"inherit", cursor:"pointer", borderRadius:10,
+                                        padding:"8px 4px", textAlign:"center",
+                                        background: sel ? C.pur : C.card,
+                                        color: sel ? "#fff" : C.txt,
+                                        border:`1.5px solid ${sel ? C.pur : C.bdr}`,
+                                        display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+                                        minHeight:52,
+                                      }}>
+                                        <div style={{ fontSize:13, fontWeight:800, lineHeight:1.1,
+                                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", width:"100%", textAlign:"center" }}>
+                                          {u.name.split(" ")[0]}
+                                        </div>
+                                        {dp && <div style={{ fontSize:9, fontWeight:600, opacity: sel ? 0.85 : 0.55, lineHeight:1 }}>{dp}</div>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                             }
                           </div>
                           {/* 구분선 */}
                           <div style={{ width:1, background:C.bdr, flexShrink:0 }} />
-                          {/* 우: 메시지 선택 */}
-                          <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:3 }}>
-                            <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:2 }}>메시지</div>
+                          {/* 우: 메시지 */}
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:4 }}>메시지</div>
                             {fohQuickMsgs.length === 0
                               ? <span style={{ fontSize:10, color:C.dim }}>편집에서 메시지 추가</span>
-                              : fohQuickMsgs.map((msg, idx) => (
-                                <button key={idx} onClick={() => setFohMsgText(msg === fohMsgText ? null : msg)} style={{
-                                  width:"100%", textAlign:"left", fontSize:11, fontWeight:600, fontFamily:"inherit",
-                                  padding:"5px 8px", borderRadius:8, cursor:"pointer",
-                                  background: msg === fohMsgText ? `${C.pur}18` : C.card,
-                                  color: msg === fohMsgText ? C.pur : C.txt,
-                                  border:`1px solid ${msg === fohMsgText ? C.pur+"55" : C.bdr}`,
-                                }}>{msg}</button>
-                              ))
+                              : <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                                  {fohQuickMsgs.map((msg, idx) => {
+                                    const sel = msg === fohMsgText;
+                                    return (
+                                      <button key={idx} onClick={() => setFohMsgText(sel ? null : msg)} style={{
+                                        width:"100%", textAlign:"center", fontFamily:"inherit", cursor:"pointer",
+                                        padding:"8px 6px", borderRadius:10, minHeight:44,
+                                        background: sel ? C.pur : C.card,
+                                        color: sel ? "#fff" : C.txt,
+                                        border:`1.5px solid ${sel ? C.pur : C.bdr}`,
+                                        fontSize:11, fontWeight:700, lineHeight:1.3,
+                                        display:"flex", alignItems:"center", justifyContent:"center",
+                                      }}>{msg}</button>
+                                    );
+                                  })}
+                                </div>
                             }
                           </div>
                         </div>
@@ -3029,14 +3045,14 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           disabled={!fohMsgTo || !fohMsgText || fohMsgSending}
                           onClick={sendFohMessage}
                           style={{
-                            width:"100%", padding:"7px 0", borderRadius:9,
+                            width:"100%", padding:"10px 0", borderRadius:10,
                             cursor: (fohMsgTo && fohMsgText) ? "pointer" : "default",
                             background: (fohMsgTo && fohMsgText) ? C.pur : C.card,
                             color: (fohMsgTo && fohMsgText) ? "#fff" : C.dim,
-                            border:"none", fontSize:12, fontWeight:800, fontFamily:"inherit",
+                            border:"none", fontSize:13, fontWeight:800, fontFamily:"inherit",
                             opacity: fohMsgSending ? 0.6 : 1,
                           }}>
-                          {fohMsgSending ? "전송 중..." : fohMsgTo?.startsWith?.("group:") ? `그룹 보내기` : "보내기"}
+                          {fohMsgSending ? "전송 중..." : fohMsgTo?.startsWith?.("group:") ? "그룹 보내기" : "보내기"}
                         </button>
                       </div>
                     )}
