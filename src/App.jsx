@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.460";
+const APP_VERSION = "3.461";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2067,23 +2067,42 @@ function CropModal({ pdfFile, pdfUrl, imageUrl, onClose, onConfirm, initialCrop 
 /* ══════════════════════════════════════════════════════════════════
    PIANO ON OVERLAY
 ══════════════════════════════════════════════════════════════════ */
+const PIANO_TOAST_MS = 8000;
 function PianoOnOverlay({ onDismiss }) {
+  const [pct, setPct] = useState(100);
   useEffect(() => {
-    const t = setTimeout(onDismiss, 20000);
-    return () => clearTimeout(t);
+    const start = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - start;
+      const remaining = Math.max(0, 100 - (elapsed / PIANO_TOAST_MS) * 100);
+      setPct(remaining);
+      if (elapsed >= PIANO_TOAST_MS) { onDismiss(); return; }
+      requestAnimationFrame(tick);
+    };
+    const raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [onDismiss]);
   return (
     <div onClick={onDismiss} style={{
-      position:"fixed", inset:0, zIndex:99999,
-      background:"rgba(0,0,0,0.88)",
-      display:"flex", flexDirection:"column",
-      alignItems:"center", justifyContent:"center", gap:12,
+      position:"fixed", top:0, left:0, right:0, zIndex:99999,
+      background:"linear-gradient(135deg, #b71c1c, #c62828)",
+      color:"#fff",
+      paddingTop:"env(safe-area-inset-top, 0px)",
+      boxShadow:"0 4px 24px rgba(183,28,28,0.5)",
+      animation:"pianoToastSlide 0.35s cubic-bezier(0.22,1,0.36,1)",
+      cursor:"pointer",
     }}>
-      <div style={{ fontSize:88 }}>🎹</div>
-      <div style={{ fontSize:40, fontWeight:900, color:"#fff", letterSpacing:3 }}>Piano ON</div>
-      <div style={{ fontSize:18, color:"rgba(255,255,255,0.65)" }}>피아노 시작 신호</div>
-      <div style={{ fontSize:13, color:"rgba(255,255,255,0.35)", marginTop:20 }}>
-        탭하면 닫힘 · 자동으로 사라집니다
+      <style>{`@keyframes pianoToastSlide{from{transform:translateY(-110%)}to{transform:translateY(0)}}`}</style>
+      <div style={{ display:"flex", alignItems:"center", gap:14, padding:"14px 20px" }}>
+        <span style={{ fontSize:34, lineHeight:1 }}>🎹</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:900, fontSize:20, letterSpacing:"0.03em", lineHeight:1.1 }}>Piano ON</div>
+          <div style={{ fontSize:13, opacity:0.8, marginTop:2 }}>반주 시작해주세요</div>
+        </div>
+        <div style={{ fontSize:12, opacity:0.55, flexShrink:0 }}>탭하면 닫힘</div>
+      </div>
+      <div style={{ height:3, background:"rgba(255,255,255,0.2)" }}>
+        <div style={{ height:"100%", background:"rgba(255,255,255,0.7)", width:`${pct}%`, transition:"none" }} />
       </div>
     </div>
   );
