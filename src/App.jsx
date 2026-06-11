@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.469";
+const APP_VERSION = "3.470";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2538,9 +2538,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       </div>
 
       <div style={{ flex:"1 1 0", height:0, overflow:"hidden", padding: isFoh(user?.role) ? "8px 10px 0" : "14px 14px 0", ...(isFoh(user?.role) && { display:"flex", flexDirection:"column" }) }}>
-        {nextSvc ? (
-          isFoh(user?.role) ? (() => {
-            /* ─── FOH/ADMIN: 좌우 2열 고정 레이아웃 ─── */
+        {isFoh(user?.role) ? (() => {
+            /* ─── FOH/ADMIN: 좌우 2열 고정 레이아웃 (nextSvc 유무 무관) ─── */
             const tInHour       = testPhase > 0 ? true  : inHour;
             const tCountdown    = testPhase === 1 ? "45:00" : testPhase === 2 ? "00:35" : testPhase === 3 ? "00:09" : countdown;
             const tWorshipReady = testPhase === 2 ? true  : testPhase === 3 ? true  : worshipReady;
@@ -3084,7 +3083,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               </>
             );
           })() : (
-          <>
+          nextSvc ? (<>
             {/* 이번 예배 히어로 — 1행 전체 (non-admin) */}
             {(() => {
               const tInHour       = testPhase > 0 ? true  : inHour;
@@ -3374,24 +3373,17 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 </div>
               </>
             )}
-          </>
-          )
-        ) : (
-          <div style={{ textAlign:"center", padding:"80px 20px", color:C.dim }}>
-            <div style={{ fontSize:52, marginBottom:16 }}>📋</div>
-            <div style={{ fontWeight:700, fontSize:16, marginBottom:8, color:C.txt }}>
-              예정된 예배가 없습니다
+          </>) : (
+            <div style={{ textAlign:"center", padding:"80px 20px", color:C.dim }}>
+              <div style={{ fontSize:52, marginBottom:16 }}>📋</div>
+              <div style={{ fontWeight:700, fontSize:16, marginBottom:8, color:C.txt }}>예정된 예배가 없습니다</div>
+              <div style={{ fontSize:13, marginBottom:24 }}>예배를 추가해 악보를 준비하세요</div>
+              {isLeader(user.role) && (
+                <button onClick={() => nav("services")} style={{ background:C.pur, border:"none", borderRadius:12, padding:"12px 28px", cursor:"pointer", fontSize:14, fontWeight:700, color:"#fff", fontFamily:"inherit" }}>예배 관리로 이동</button>
+              )}
             </div>
-            <div style={{ fontSize:13, marginBottom:24 }}>예배를 추가해 악보를 준비하세요</div>
-            {isLeader(user.role) && (
-              <button onClick={() => nav("services")}
-                style={{ background:C.pur, border:"none", borderRadius:12,
-                  padding:"12px 28px", cursor:"pointer",
-                  fontSize:14, fontWeight:700, color:"#fff", fontFamily:"inherit" }}>
-                예배 관리로 이동
-              </button>
-            )}
-          </div>
+          )
+        )}
         )}
       </div>
     </div>
@@ -6533,7 +6525,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // sheetSync 신호 도착 시 1페이지로 이동
   // 태블릿 가로모드 감지 시 자동 듀얼 ON
   useEffect(() => {
-    if (user.role === "admin" || sheetSyncTrigger === 0) return;
+    if (isFoh(user.role) || sheetSyncTrigger === 0) return;
     const landscape  = window.matchMedia("(orientation: landscape)").matches;
     const wideScreen = Math.min(window.screen.width, window.screen.height) >= 768;
     const autoDual   = landscape && wideScreen;
