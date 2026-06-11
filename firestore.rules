@@ -19,7 +19,7 @@ service cloud.firestore {
 
     function isFoh() {
       return isAuthed() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["foh", "admin"];
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["foh", "FOH", "admin"];
     }
 
     match /songs/{id} {

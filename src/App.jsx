@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.471";
+const APP_VERSION = "3.472";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -83,7 +83,7 @@ const keyColor = (k) => KEY_CLR[k ? k[0].toUpperCase() : "C"] || C.acc;
 
 const isLeader = (role) => role === "leader" || role === "admin";
 const isBroadcast = (role) => role === "broadcast" || isLeader(role);
-const isFoh = (role) => role === "foh" || role === "admin";
+const isFoh = (role) => role?.toLowerCase() === "foh" || role === "admin";
 
 const fmtTime = (ts) => {
   if (!ts?.toDate) return "방금";
@@ -11048,7 +11048,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
   };
 
   const ROLES = [["member","멤버"], ["leader","리더"], ["broadcast","방송팀"], ["foh","FOH"], ["admin","어드민"]];
-  const roleColor = (r) => r === "admin" ? C.red : r === "leader" ? C.acc : r === "broadcast" ? "#ff9f0a" : r === "foh" ? "#0a84ff" : C.grn;
+  const roleColor = (r) => r === "admin" ? C.red : r === "leader" ? C.acc : r === "broadcast" ? "#ff9f0a" : r?.toLowerCase() === "foh" ? "#0a84ff" : C.grn;
 
   return (
     <Modal title={`팀원 관리 · ${members.length}명`} onClose={onClose}>
