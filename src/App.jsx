@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.462";
+const APP_VERSION = "3.463";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -13713,13 +13713,13 @@ export default function App() {
   useEffect(() => {
     if (!user?.uid || user.role === "admin") return;
     return onSnapshot(doc(db, "fohMessages", user.uid), snap => {
-      if (!snap.exists()) return;
+      if (!snap.exists() || snap.metadata.hasPendingWrites) return;
       const data = snap.data();
       const ts = data.sentAt?.toMillis?.() ?? 0;
       if (fohMsgTsRef.current === null) { fohMsgTsRef.current = ts; return; }
       if (ts === fohMsgTsRef.current) return;
       fohMsgTsRef.current = ts;
-      if (Date.now() - ts > 10_000) return; // 10초 이상 된 메시지 무시
+      if (Date.now() - ts > 10_000) return;
       setFohMsgBanner({ message: data.message });
     }, () => {});
   }, [user?.uid, user?.role]);
