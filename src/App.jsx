@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.441";
+const APP_VERSION = "3.442";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2456,7 +2456,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         </div>
       </div>
 
-      <div style={{ flex:"1 1 0", height:0, overflow:"hidden", padding: user?.role === "admin" ? "8px 10px 0" : "14px 14px 90px", ...(user?.role === "admin" && { display:"flex", flexDirection:"column" }) }}>
+      <div style={{ flex:"1 1 0", height:0, overflow:"hidden", padding: user?.role === "admin" ? "8px 10px 0" : "14px 14px 0", ...(user?.role === "admin" && { display:"flex", flexDirection:"column" }) }}>
         {nextSvc ? (
           user?.role === "admin" ? (() => {
             /* ─── ADMIN: 좌우 2열 고정 레이아웃 ─── */
@@ -2565,7 +2565,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   }}>다음 ▶</button>
                 </div>
               )}
-              <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, paddingBottom:"calc(70px + env(safe-area-inset-bottom))", overflow:"hidden" }}>
+              <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, overflow:"hidden" }}>
                 {/* ── 왼쪽: 히어로 + 컨트롤 + 곡 목록 ── */}
                 <div style={{ flex:1, minWidth:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", msOverflowStyle:"none" }}>
                   {/* 히어로 카드 */}
