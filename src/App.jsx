@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.458";
+const APP_VERSION = "3.459";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -13964,18 +13964,20 @@ export default function App() {
         }} />
       )}
 
-      {/* FOH → 멤버 드롭다운 메시지 배너 */}
+      {/* FOH → 멤버 메시지 오버레이 (피아노 알림과 동일 스타일) */}
       {fohMsgBanner && (
         <div style={{
-          position:"fixed", top:"calc(env(safe-area-inset-top) + 56px)",
-          left:"50%", transform:"translateX(-50%)",
-          background:C.pur, color:"#fff",
-          padding:"10px 24px", borderRadius:20,
-          fontSize:14, fontWeight:700,
-          zIndex:99999, pointerEvents:"none",
-          boxShadow:"0 4px 20px rgba(0,0,0,.3)",
-          maxWidth:"80vw", textAlign:"center", whiteSpace:"nowrap",
-        }}>📢 {fohMsgBanner.message}</div>
+          position:"fixed", inset:0, zIndex:99999,
+          background:"rgba(0,0,0,0.88)",
+          display:"flex", flexDirection:"column",
+          alignItems:"center", justifyContent:"center", gap:12,
+          pointerEvents:"none",
+        }}>
+          <div style={{ fontSize:52 }}>📢</div>
+          <div style={{ fontSize:28, fontWeight:900, color:"#fff", letterSpacing:1, textAlign:"center", padding:"0 32px" }}>
+            {fohMsgBanner.message}
+          </div>
+        </div>
       )}
 
       {notifPopup && (
