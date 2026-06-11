@@ -6050,11 +6050,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const pdfDocRef    = useRef(null);
   const imageRef     = useRef(null);  // 이미지 악보용
   const [numPages, setNumPages] = useState(0);
-  const [pageNum,  setPageNum]  = useState(1);
+  const [pageNum,  setPageNum]  = useState(() => {
+    const saved = parseInt(localStorage.getItem("tvpc_pageNum") || "0");
+    const savedSong = localStorage.getItem("tvpc_selSongId");
+    return (saved > 0 && savedSong === selectedSongId) ? saved : 1;
+  });
   const [zoomMul,  setZoomMul]  = useState(1.0);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const panIntervalRef = useRef(null);
   const [loadErr,  setLoadErr]  = useState("");
+  // pageNum 변경 시 localStorage 저장 (새로고침 복원용)
+  useEffect(() => { try { localStorage.setItem("tvpc_pageNum", pageNum); } catch {} }, [pageNum]);
   const [cSize,    setCSize]    = useState({ w: 0, h: 0 });
   const [dualIdx,  setDualIdx]  = useState(Math.max(0, songIdx));
   const dualPdf1Ref = useRef(null);  // dual left song PDF doc
@@ -6196,6 +6202,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setPanOffset({ x: 0, y: 0 });
     setZoomMul(1.0);
   }, [sheetSyncTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 악보 Sync 배너 ──
+  const [syncBanner, setSyncBanner] = useState(false);
+  const syncBannerTimer = useRef(null);
+  const prevSheetLinkRef = useRef(sheetLinkEnabled);
+  useEffect(() => {
+    if (sheetLinkEnabled && !prevSheetLinkRef.current) {
+      setSyncBanner(true);
+      clearTimeout(syncBannerTimer.current);
+      syncBannerTimer.current = setTimeout(() => setSyncBanner(false), 3000);
+    }
+    prevSheetLinkRef.current = sheetLinkEnabled;
+  }, [sheetLinkEnabled]);
 
   // ── 메트로놈 상태 ──
   const [metroOn,        setMetroOn]        = useState(false);
@@ -8145,15 +8164,20 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           {!isLibraryMode && (
             <div style={{
               display:"flex", alignItems:"center", gap:4, flexShrink:0,
-              padding:"4px 8px", borderRadius:8,
-              border:`1px solid ${C.bdr}`,
-              background:"transparent",
+              padding:"4px 9px", borderRadius:8,
+              border:`1px solid ${sheetLinkEnabled ? C.grn : C.bdr}`,
+              background: sheetLinkEnabled ? `${C.grn}22` : "transparent",
+              transition:"background 0.3s, border-color 0.3s",
             }}>
-              <span style={{ fontSize:11, color:C.dim, fontWeight:600, letterSpacing:0.2 }}>악보 Sync</span>
               <span style={{
-                width:8, height:8, borderRadius:"50%", flexShrink:0,
-                background: sheetLinkEnabled ? C.grn : C.dim,
-                boxShadow: sheetLinkEnabled ? `0 0 5px ${C.grn}` : "none",
+                fontSize:11, fontWeight:700, letterSpacing:0.2,
+                color: sheetLinkEnabled ? C.grn : C.dim,
+                transition:"color 0.3s",
+              }}>악보 Sync</span>
+              <span style={{
+                width:7, height:7, borderRadius:"50%", flexShrink:0,
+                background: sheetLinkEnabled ? C.grn : `${C.dim}66`,
+                boxShadow: sheetLinkEnabled ? `0 0 4px ${C.grn}` : "none",
                 transition:"background 0.3s, box-shadow 0.3s",
               }} />
             </div>
@@ -10162,6 +10186,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           whiteSpace:"pre", textAlign:"center",
           boxShadow:"0 4px 16px rgba(0,0,0,.3)", lineHeight:1.5,
         }}>{metroMsg}</div>
+      )}
+
+      {/* FOH 악보 Sync 시작 배너 */}
+      {syncBanner && (
+        <div style={{
+          position:"fixed", top:"calc(env(safe-area-inset-top) + 62px)",
+          left:"50%", transform:"translateX(-50%)",
+          background:C.grn, color:"#fff",
+          padding:"10px 22px", borderRadius:20,
+          fontSize:14, fontWeight:700,
+          zIndex:99998, pointerEvents:"none",
+          boxShadow:"0 4px 16px rgba(0,0,0,.25)",
+        }}>🔗 FOH 악보 동기화 시작</div>
       )}
     </div>
   );
@@ -12837,8 +12874,10 @@ export default function App() {
   const [loginBlockedUser,setLoginBlockedUser] = useState(null); // { email, name } 미등록 로그인 시도
   const [view,        setView]        = useState(() => {
     const saved = localStorage.getItem("tvpc_view") || "home";
-    // pdfViewer/svcDetail는 selSongId/selSvcId가 필요한데 새로고침 시 사라지므로 home으로 복원
-    return (saved === "pdfViewer" || saved === "svcDetail") ? "home" : saved;
+    // selSongId가 저장돼 있으면 pdfViewer 복원 허용
+    if (saved === "pdfViewer" && localStorage.getItem("tvpc_selSongId")) return "pdfViewer";
+    if (saved === "svcDetail") return "home";
+    return saved;
   });
   const [songs,       setSongs]       = useState(() => {
     try { const c = localStorage.getItem("tvpc_songs_cache"); return c ? JSON.parse(c) : []; } catch { return []; }
@@ -12856,9 +12895,9 @@ export default function App() {
   const [userMap,         setUserMap]         = useState({}); // uid -> displayName
   const [songDrawings,    setSongDrawings]    = useState({}); // songId -> { my: bool, team: bool }
   const [anyLiveActive,   setAnyLiveActive]   = useState(false); // 방송팀 라이브탭 표시 여부
-  const [selSvcId,      setSelSvcId]      = useState(null);
-  const [selSongId,     setSelSongId]     = useState(null);
-  const [selSvcSongIdx, setSelSvcSongIdx] = useState(-1); // 서비스 내 곡 인덱스 (복사 곡 대응)
+  const [selSvcId,      setSelSvcId]      = useState(() => localStorage.getItem("tvpc_selSvcId") || null);
+  const [selSongId,     setSelSongId]     = useState(() => localStorage.getItem("tvpc_selSongId") || null);
+  const [selSvcSongIdx, setSelSvcSongIdx] = useState(() => parseInt(localStorage.getItem("tvpc_selSvcSongIdx") || "-1"));
   const [backTo,        setBackTo]        = useState("library");
   const [pdfjsReady,    setPdfjsReady]    = useState(false);
   const [showHelp,      setShowHelp]      = useState(false);
@@ -13516,9 +13555,9 @@ export default function App() {
     onClearErr={() => { setLoginErr(""); setLoginBlockedUser(null); }} />;
 
   const nav = (newView, params = {}) => {
-    if (params.svcId       !== undefined) setSelSvcId(params.svcId);
-    if (params.songId      !== undefined) setSelSongId(params.songId);
-    if (params.svcSongIdx  !== undefined) setSelSvcSongIdx(params.svcSongIdx);
+    if (params.svcId       !== undefined) { setSelSvcId(params.svcId);           localStorage.setItem("tvpc_selSvcId", params.svcId ?? ""); }
+    if (params.songId      !== undefined) { setSelSongId(params.songId);          localStorage.setItem("tvpc_selSongId", params.songId ?? ""); }
+    if (params.svcSongIdx  !== undefined) { setSelSvcSongIdx(params.svcSongIdx);  localStorage.setItem("tvpc_selSvcSongIdx", params.svcSongIdx ?? -1); }
     if (params.backTo      !== undefined) setBackTo(params.backTo);
     setView(newView);
     localStorage.setItem("tvpc_view", newView);
