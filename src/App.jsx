@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.465";
+const APP_VERSION = "3.466";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2469,14 +2469,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       const within1h = diff <= 3_600_000;
       setInHour(within1h);
       setWorshipReady(diff <= 40_000);
-
-      // 어드민: 10분 전 악보 링크 자동 ON
-      if (user?.role === "admin" && diff <= 600_000 && !phaseFiredRef.current.sheetLink_on) {
-        phaseFiredRef.current.sheetLink_on = true;
-        setDoc(doc(db, "liveStatus", "sheetLink"), {
-          enabled: true, svcId: nextSvc.id, updatedAt: serverTimestamp(),
-        }).catch(() => {});
-      }
 
       // 자동화 phase 트리거 — X32는 건드리지 않음 (페이더/뮤트 수동 복구 문제).
       // BGM은 PP 소스 자체를 페이드하므로 예배실·송출 모두 함께 줄어듦.
