@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.453";
+const APP_VERSION = "3.454";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2484,6 +2484,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               }).catch(() => {});
               if (newEnabled) {
                 // 싱크 ON 시 항상 첫 번째 곡으로 이동
+                setAdminDispIdx(-1); // 로컬 선택 초기화 → firestoreIdx(0) 우선
                 const s = svcSongs[0];
                 if (s) await setDoc(doc(db, "liveStatus", "sheetSync"), {
                   svcId: nextSvc.id, songId: s.id, songIdx: 0,
