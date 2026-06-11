@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.454";
+const APP_VERSION = "3.455";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -6318,7 +6318,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // ── 악보 Sync 배너 ──
   const [syncBanner, setSyncBanner] = useState(false);
   const syncBannerTimer = useRef(null);
-  const prevSheetLinkRef = useRef(sheetLinkEnabled);
+  const prevSheetLinkRef = useRef(false);
   useEffect(() => {
     if (sheetLinkEnabled && !prevSheetLinkRef.current) {
       setSyncBanner(true);
