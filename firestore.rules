@@ -142,5 +142,11 @@ service cloud.firestore {
     match /cueNotes/{id} {
       allow read, write: if isAuthed();
     }
+
+    // FOH → 멤버 개별 메시지 (doc ID = 수신자 uid)
+    match /fohMessages/{uid} {
+      allow read: if isAuthed() && request.auth.uid == uid;
+      allow write: if isLeader();
+    }
   }
 }

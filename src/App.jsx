@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.456";
+const APP_VERSION = "3.457";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2257,6 +2257,10 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [syncSvcId,    setSyncSvcId]    = useState(null);
   const [syncSongId,   setSyncSongId]   = useState(null);
   const [adminDispIdx, setAdminDispIdx] = useState(-1);
+  const [fohMsgTo,     setFohMsgTo]     = useState(null); // 선택된 수신자 uid
+  const [fohMsgText,   setFohMsgText]   = useState(null); // 선택된 메시지
+  const [teamUsers,    setTeamUsers]    = useState([]);   // [{id,name,parts}]
+  const [fohMsgSending,setFohMsgSending]= useState(false);
   const autoNavDone  = useRef(false);
   const phaseFiredRef = useRef({});
   const svcSongsRef  = useRef([]);
@@ -2276,6 +2280,17 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       setSyncSongId(d.songId ?? null);
     }, () => {});
   }, [user?.role]);
+
+  // 어드민: 팀원 목록 로드 (FOH 메시지 수신자 선택용)
+  useEffect(() => {
+    if (user?.role !== "admin") return;
+    getDocs(collection(db, "users")).then(snap => {
+      setTeamUsers(snap.docs
+        .map(d => ({ id: d.id, name: d.data().name || d.data().displayName || d.data().email || "", parts: d.data().parts || [] }))
+        .filter(u => u.id !== user.uid)
+        .sort((a, b) => a.name.localeCompare(b.name)));
+    }).catch(() => {});
+  }, [user?.uid, user?.role]);
 
   const today    = new Date().toISOString().slice(0, 10);
   const upcoming = services
@@ -2511,6 +2526,29 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 }).catch(() => {});
               }
             };
+            const FOH_QUICK_MSGS = [
+              "피아노 연주 시작해 주세요 🎹",
+              "볼륨 줄여주세요 🔉",
+              "볼륨 높여주세요 🔊",
+              "마이크 확인해 주세요 🎙",
+              "준비해 주세요 ✅",
+              "잠깐 멈춰주세요 ✋",
+              "다음 곡 준비 🎵",
+              "템포 천천히 ⏱",
+            ];
+            const sendFohMessage = async () => {
+              if (!fohMsgTo || !fohMsgText) return;
+              setFohMsgSending(true);
+              try {
+                await setDoc(doc(db, "fohMessages", fohMsgTo), {
+                  message: fohMsgText, sentAt: serverTimestamp(),
+                  fromName: user.name || user.email,
+                });
+                setFohMsgText(null);
+              } catch(e) {}
+              setFohMsgSending(false);
+            };
+
             const advanceSong = async (delta) => {
               const base = dispIdx;
               const newIdx = Math.max(0, Math.min(base + delta, svcSongs.length - 1));
@@ -2734,6 +2772,55 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       </div>
                     );
                   })()}
+
+                  {/* ── FOH 팀 메시지 ── */}
+                  <div style={{ borderRadius:12, padding:"8px 10px", background:C.surf, border:`1px solid ${C.bdr}`, flexShrink:0 }}>
+                    <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:6 }}>
+                      📢 팀 메시지
+                    </div>
+                    {/* 수신자 선택 */}
+                    <div style={{ display:"flex", gap:4, overflowX:"auto", marginBottom:6, scrollbarWidth:"none", msOverflowStyle:"none" }}>
+                      {teamUsers.length === 0
+                        ? <span style={{ fontSize:10, color:C.dim }}>팀원 로딩 중...</span>
+                        : teamUsers.map(u => (
+                          <button key={u.id} onClick={() => setFohMsgTo(u.id === fohMsgTo ? null : u.id)} style={{
+                            flexShrink:0, fontSize:10, fontWeight:700, fontFamily:"inherit",
+                            padding:"3px 8px", borderRadius:12, cursor:"pointer",
+                            background: u.id === fohMsgTo ? C.pur : C.card,
+                            color: u.id === fohMsgTo ? "#fff" : C.dim,
+                            border:`1px solid ${u.id === fohMsgTo ? C.pur : C.bdr}`,
+                          }}>
+                            {u.name.split(" ")[0]}{u.parts.length > 0 ? ` (${u.parts[0]})` : ""}
+                          </button>
+                        ))
+                      }
+                    </div>
+                    {/* 메시지 선택 */}
+                    <div style={{ display:"flex", flexDirection:"column", gap:3, marginBottom:6 }}>
+                      {FOH_QUICK_MSGS.map(msg => (
+                        <button key={msg} onClick={() => setFohMsgText(msg === fohMsgText ? null : msg)} style={{
+                          textAlign:"left", fontSize:11, fontWeight:600, fontFamily:"inherit",
+                          padding:"4px 8px", borderRadius:8, cursor:"pointer",
+                          background: msg === fohMsgText ? `${C.pur}18` : "transparent",
+                          color: msg === fohMsgText ? C.pur : C.txt,
+                          border:`1px solid ${msg === fohMsgText ? C.pur+"55" : "transparent"}`,
+                        }}>{msg}</button>
+                      ))}
+                    </div>
+                    {/* 보내기 버튼 */}
+                    <button
+                      disabled={!fohMsgTo || !fohMsgText || fohMsgSending}
+                      onClick={sendFohMessage}
+                      style={{
+                        width:"100%", padding:"7px 0", borderRadius:9, cursor: (fohMsgTo && fohMsgText) ? "pointer" : "default",
+                        background: (fohMsgTo && fohMsgText) ? C.pur : C.card,
+                        color: (fohMsgTo && fohMsgText) ? "#fff" : C.dim,
+                        border:"none", fontSize:12, fontWeight:800, fontFamily:"inherit",
+                        opacity: fohMsgSending ? 0.6 : 1,
+                      }}>
+                      {fohMsgSending ? "전송 중..." : "보내기"}
+                    </button>
+                  </div>
 
                   {/* ── 곡 순서 목록 ── */}
                   {svcSongs.length > 0 && (
@@ -13097,8 +13184,11 @@ export default function App() {
   );
   const autoLiveTriggeredRef = useRef(null);
   const [sheetLinkEnabled,      setSheetLinkEnabled]      = useState(false);
-  const [sheetSyncAllowedParts, setSheetSyncAllowedParts] = useState(null); // null = 보컬 제외 전체
+  const [sheetSyncAllowedParts, setSheetSyncAllowedParts] = useState(null);
   const [sheetSyncTrigger,      setSheetSyncTrigger]      = useState(0);
+  const [fohMsgBanner,          setFohMsgBanner]          = useState(null); // { message }
+  const fohMsgBannerTimer = useRef(null);
+  const fohMsgTsRef       = useRef(null);
   const navRef          = useRef(null);
   const userRoleRef     = useRef(undefined);
   // localStorage 복원값으로 초기화 — onSnapshot이 첫 렌더 직후 발화해도 올바른 값을 가짐
@@ -13501,6 +13591,23 @@ export default function App() {
     });
   }, []);
 
+  // ── FOH 팀 메시지 수신 (멤버 전용)
+  useEffect(() => {
+    if (!user?.uid || user.role === "admin") return;
+    return onSnapshot(doc(db, "fohMessages", user.uid), snap => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      const ts = data.sentAt?.toMillis?.() ?? 0;
+      if (fohMsgTsRef.current === null) { fohMsgTsRef.current = ts; return; }
+      if (ts === fohMsgTsRef.current) return;
+      fohMsgTsRef.current = ts;
+      if (Date.now() - ts > 10_000) return; // 10초 이상 된 메시지 무시
+      setFohMsgBanner({ message: data.message });
+      clearTimeout(fohMsgBannerTimer.current);
+      fohMsgBannerTimer.current = setTimeout(() => setFohMsgBanner(null), 2000);
+    }, () => {});
+  }, [user?.uid, user?.role]);
+
   // ── PDF.js 로더
   useEffect(() => {
     if (window.pdfjsLib) { setPdfjsReady(true); return; }
@@ -13795,6 +13902,20 @@ export default function App() {
           setPianoOverlayDismissed(true);
           localStorage.setItem("tvpc_pianoOverlay_dismissed", "piano_on");
         }} />
+      )}
+
+      {/* FOH → 멤버 드롭다운 메시지 배너 */}
+      {fohMsgBanner && (
+        <div style={{
+          position:"fixed", top:"calc(env(safe-area-inset-top) + 56px)",
+          left:"50%", transform:"translateX(-50%)",
+          background:C.pur, color:"#fff",
+          padding:"10px 24px", borderRadius:20,
+          fontSize:14, fontWeight:700,
+          zIndex:99999, pointerEvents:"none",
+          boxShadow:"0 4px 20px rgba(0,0,0,.3)",
+          maxWidth:"80vw", textAlign:"center", whiteSpace:"nowrap",
+        }}>📢 {fohMsgBanner.message}</div>
       )}
 
       {notifPopup && (
