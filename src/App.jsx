@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.448";
+const APP_VERSION = "3.449";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2555,7 +2555,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   fontFamily:"inherit", transition:"opacity 0.15s",
                 }}>다음 ▶</button>
               </>)}
-              <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, overflow:"hidden", paddingBottom:4 }}>
+              <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, overflow:"hidden" }}>
                 {/* ── 왼쪽: 히어로 + 컨트롤 + 곡 목록 ── */}
                 <div style={{ flex:1, minWidth:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", msOverflowStyle:"none", padding:"8px 6px 0 8px" }}>
                   {/* 히어로 카드 */}
@@ -3417,7 +3417,7 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
         </div>
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:70 }}>
+      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:69 }}>
         {/* 다가오는 예배 */}
         {upcoming.length > 0 && (
           <>
@@ -10478,7 +10478,7 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
       </div>
 
       {/* list */}
-      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:70 }}>
+      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:69 }}>
         {/* 알림 권한 배너 */}
         {perm === "default" && (
           <div style={{ marginBottom:12, padding:"12px 14px", borderRadius:12,
@@ -11233,7 +11233,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
         borderBottom:`1px solid ${C.bdr}` }}>
         <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>내 정보</div>
       </div>
-      <div style={{ flex:1, overflowY:"auto", padding:20, paddingBottom:70 }}>
+      <div style={{ flex:1, overflowY:"auto", padding:20, paddingBottom:69 }}>
 
       {/* 내 프로필 카드 */}
       <div style={{ background:C.surf, borderRadius:16, padding:20,
@@ -12455,7 +12455,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
   /* ────────────────────────── MOBILE LAYOUT ────────────────────────── */
   return (
     <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.bg,
-      paddingBottom:"calc(78px + env(safe-area-inset-bottom))" }}>
+      paddingBottom:"calc(69px + env(safe-area-inset-bottom))" }}>
 
       {/* ── Header */}
       <div style={{ padding:"calc(12px + env(safe-area-inset-top)) 16px 0",
