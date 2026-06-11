@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.461";
+const APP_VERSION = "3.462";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2068,6 +2068,46 @@ function CropModal({ pdfFile, pdfUrl, imageUrl, onClose, onConfirm, initialCrop 
    PIANO ON OVERLAY
 ══════════════════════════════════════════════════════════════════ */
 const PIANO_TOAST_MS = 8000;
+
+/* ── FOH 팀 메시지 토스트 ── */
+const FOH_MSG_MS = 3000;
+function FohMsgToast({ message, onDismiss }) {
+  const [pct, setPct] = useState(100);
+  useEffect(() => {
+    const start = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - start;
+      const remaining = Math.max(0, 100 - (elapsed / FOH_MSG_MS) * 100);
+      setPct(remaining);
+      if (elapsed >= FOH_MSG_MS) { onDismiss(); return; }
+      requestAnimationFrame(tick);
+    };
+    const raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [onDismiss]);
+  return (
+    <div onClick={onDismiss} style={{
+      position:"fixed", top:0, left:0, right:0, zIndex:99999,
+      background:"linear-gradient(135deg, #1a237e, #283593)",
+      color:"#fff",
+      paddingTop:"env(safe-area-inset-top, 0px)",
+      boxShadow:"0 4px 24px rgba(26,35,126,0.5)",
+      animation:"pianoToastSlide 0.35s cubic-bezier(0.22,1,0.36,1)",
+      cursor:"pointer",
+    }}>
+      <div style={{ display:"flex", alignItems:"center", gap:14, padding:"14px 20px" }}>
+        <span style={{ fontSize:34, lineHeight:1 }}>📢</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:900, fontSize:20, letterSpacing:"0.03em", lineHeight:1.1 }}>{message}</div>
+        </div>
+        <div style={{ fontSize:12, opacity:0.55, flexShrink:0 }}>탭하면 닫힘</div>
+      </div>
+      <div style={{ height:3, background:"rgba(255,255,255,0.2)" }}>
+        <div style={{ height:"100%", background:"rgba(255,255,255,0.7)", width:`${pct}%`, transition:"none" }} />
+      </div>
+    </div>
+  );
+}
 function PianoOnOverlay({ onDismiss }) {
   const [pct, setPct] = useState(100);
   useEffect(() => {
@@ -13266,7 +13306,6 @@ export default function App() {
   const [sheetSyncAllowedParts, setSheetSyncAllowedParts] = useState(null);
   const [sheetSyncTrigger,      setSheetSyncTrigger]      = useState(0);
   const [fohMsgBanner,          setFohMsgBanner]          = useState(null); // { message }
-  const fohMsgBannerTimer = useRef(null);
   const fohMsgTsRef       = useRef(null);
   const navRef          = useRef(null);
   const userRoleRef     = useRef(undefined);
@@ -13682,8 +13721,6 @@ export default function App() {
       fohMsgTsRef.current = ts;
       if (Date.now() - ts > 10_000) return; // 10초 이상 된 메시지 무시
       setFohMsgBanner({ message: data.message });
-      clearTimeout(fohMsgBannerTimer.current);
-      fohMsgBannerTimer.current = setTimeout(() => setFohMsgBanner(null), 2000);
     }, () => {});
   }, [user?.uid, user?.role]);
 
@@ -13985,22 +14022,7 @@ export default function App() {
 
       {/* FOH → 멤버 메시지 배너 */}
       {fohMsgBanner && (
-        <div style={{
-          position:"fixed",
-          top:"calc(env(safe-area-inset-top) + 16px)",
-          left:"50%", transform:"translateX(-50%)",
-          zIndex:99999, pointerEvents:"none",
-          background:"rgba(30,20,60,0.93)",
-          borderRadius:20, padding:"18px 28px",
-          display:"flex", flexDirection:"column", alignItems:"center", gap:8,
-          boxShadow:"0 8px 32px rgba(0,0,0,0.45)",
-          minWidth:240, maxWidth:"80vw", textAlign:"center",
-        }}>
-          <div style={{ fontSize:36 }}>📢</div>
-          <div style={{ fontSize:20, fontWeight:900, color:"#fff", lineHeight:1.3 }}>
-            {fohMsgBanner.message}
-          </div>
-        </div>
+        <FohMsgToast message={fohMsgBanner.message} onDismiss={() => setFohMsgBanner(null)} />
       )}
 
       {notifPopup && (
