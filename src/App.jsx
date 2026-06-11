@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.474";
+const APP_VERSION = "3.475";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2348,10 +2348,11 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const stripRef     = useRef(null);
   navRef.current     = nav;
   const unread = notifs.filter(n => !n.read).length;
+  const userIsFoh = isFoh(user); // parts 포함 FOH 여부 — dep array에 사용
 
   // FOH/어드민: 현재 sync 중인 곡 인덱스 구독
   useEffect(() => {
-    if (!isFoh(user)) return;
+    if (!userIsFoh) return;
     return onSnapshot(doc(db, "liveStatus", "sheetSync"), snap => {
       if (!snap.exists()) return;
       const d = snap.data();
@@ -2359,28 +2360,28 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       setSyncSvcId(d.svcId ?? null);
       setSyncSongId(d.songId ?? null);
     }, () => {});
-  }, [user?.role]);
+  }, [userIsFoh]);
 
-  // 어드민: 팀원 목록 로드
+  // FOH/어드민: 팀원 목록 로드
   useEffect(() => {
-    if (!isFoh(user)) return;
+    if (!userIsFoh) return;
     getDocs(collection(db, "users")).then(snap => {
       setTeamUsers(snap.docs
         .map(d => ({ id: d.id, name: d.data().name || d.data().displayName || d.data().email || "", parts: d.data().parts || [] }))
         .filter(u => u.id !== user.uid)
         .sort((a, b) => a.name.localeCompare(b.name)));
     }).catch(() => {});
-  }, [user?.uid, user?.role]);
+  }, [user?.uid, userIsFoh]);
 
-  // 어드민: FOH 프리메이드 메시지 목록 구독
+  // FOH/어드민: FOH 프리메이드 메시지 목록 구독
   useEffect(() => {
-    if (!isFoh(user)) return;
+    if (!userIsFoh) return;
     return onSnapshot(doc(db, "settings", "fohMessages"), snap => {
       const d = snap.exists() ? snap.data() : {};
       setFohQuickMsgs(d.messages || []);
       setFohPinnedUids(d.recipients || []);
     }, () => {});
-  }, [user?.role]);
+  }, [userIsFoh]);
 
   const today    = new Date().toISOString().slice(0, 10);
   const upcoming = services
@@ -2553,8 +2554,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         </div>
       </div>
 
-      <div style={{ flex:"1 1 0", height:0, overflow:"hidden", padding: isFoh(user) ? "8px 10px 0" : "14px 14px 0", ...(isFoh(user) && { display:"flex", flexDirection:"column" }) }}>
-        {isFoh(user) ? (() => {
+      <div style={{ flex:"1 1 0", height:0, overflow:"hidden", padding: userIsFoh ? "8px 10px 0" : "14px 14px 0", ...(userIsFoh && { display:"flex", flexDirection:"column" }) }}>
+        {userIsFoh ? (() => {
             /* ─── FOH/ADMIN: 좌우 2열 고정 레이아웃 (nextSvc 유무 무관) ─── */
             const tInHour       = testPhase > 0 ? true  : inHour;
             const tCountdown    = testPhase === 1 ? "45:00" : testPhase === 2 ? "00:35" : testPhase === 3 ? "00:09" : countdown;
