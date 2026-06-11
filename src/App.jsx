@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.429";
+const APP_VERSION = "3.430";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -12942,28 +12942,13 @@ export default function App() {
   useEffect(() => { viewRef.current      = view;            }, [view]);
   useEffect(() => { userPartsRef.current = getUserParts(user); }, [user]);
 
-  // 로그인 완료 직후: 링크가 ON이면 즉시 악보로 이동 (isFirst 가드 보완)
+  // 로그인/새로고침 직후 sheetSyncTsRef 초기화 — 이동은 하지 않음 (저장 위치 유지)
   useEffect(() => {
-    if (!user?.uid || user.role === "admin") return;
+    if (!user?.uid) return;
     getDoc(doc(db, "liveStatus", "sheetSync")).then(snap => {
       if (!snap.exists()) return;
-      const data = snap.data();
-      if (!data.linkEnabled) return;
-      const ts = data.updatedAt?.toMillis?.() ?? 0;
-      if (ts > 0 && (Date.now() - ts) > 1_800_000) return;
-      const allowedParts = allowedPartsRef.current ?? data.allowedParts ?? null;
-      if (allowedParts !== null) {
-        const myParts = getUserParts(user);
-        if (myParts.length > 0 && !myParts.some(p => allowedParts.includes(p) || p === "전체")) return;
-      } else {
-        if (isVocalistUser(user)) return;
-      }
-      const { svcId, songId, songIdx } = data;
-      if (!svcId || !songId) return;
-      // 이미 해당 곡을 보고 있으면 저장된 페이지 유지 (불필요한 네비게이션 방지)
-      if (viewRef.current === "pdfViewer" && selSongIdRef.current === songId) return;
-      sheetSyncTsRef.current = ts;
-      navRef.current?.("pdfViewer", { songId, svcId, svcSongIdx: songIdx ?? 0, backTo: "home" });
+      const ts = snap.data().updatedAt?.toMillis?.() ?? 0;
+      if (sheetSyncTsRef.current === null) sheetSyncTsRef.current = ts;
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid]);
@@ -13021,16 +13006,14 @@ export default function App() {
       if (!snap.exists()) return;
       const data = snap.data();
       const ts = data.updatedAt?.toMillis?.() ?? 0;
-      const wasInitial = isFirst;
       if (isFirst) {
+        // 새로고침/첫 로드 시 ts만 기록하고 이동하지 않음 — 저장 위치 유지
         isFirst = false;
         sheetSyncTsRef.current = ts;
-        const ageMs = ts > 0 ? (Date.now() - ts) : Infinity;
-        if (!data.linkEnabled || ageMs > 1_800_000) return;
-      } else {
-        if (ts === sheetSyncTsRef.current) return;
-        sheetSyncTsRef.current = ts;
+        return;
       }
+      if (ts === sheetSyncTsRef.current) return;
+      sheetSyncTsRef.current = ts;
       if (userRoleRef.current === "admin") return;
       if (!sheetLinkEnabledRef.current && !data.linkEnabled) return;
       const allowedParts = allowedPartsRef.current ?? data.allowedParts ?? null;
@@ -13042,8 +13025,6 @@ export default function App() {
       }
       const { svcId, songId, songIdx } = data;
       if (!svcId || !songId) return;
-      // 초기 로드(새로고침) 시 이미 해당 곡을 보고 있으면 저장된 페이지 유지
-      if (wasInitial && viewRef.current === "pdfViewer" && selSongIdRef.current === songId) return;
       setSheetSyncTrigger(n => n + 1);
       if (viewRef.current === "pdfViewer" && selSongIdRef.current === songId) return;
       navRef.current?.("pdfViewer", { songId, svcId, svcSongIdx: songIdx ?? 0, backTo: "home" });
