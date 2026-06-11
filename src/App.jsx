@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.443";
+const APP_VERSION = "3.444";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2525,47 +2525,37 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             return (
               <>
               {/* ── 싱크 ON 플로팅 이전/다음 버튼 ── */}
-              {sheetLinkEnabled && svcSongs.length > 0 && (
-                <div style={{
-                  position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 72px)",
-                  left:8, right:8, zIndex:8800,
-                  display:"flex", gap:8, alignItems:"stretch",
-                  borderRadius:16, overflow:"hidden",
-                  boxShadow:`0 4px 20px rgba(0,0,0,0.18)`,
-                }}>
-                  <button onClick={() => advanceSong(-1)} disabled={dispIdx <= 0} style={{
-                    flex:1, height:58, cursor: dispIdx <= 0 ? "default" : "pointer",
-                    background: dispIdx <= 0 ? C.card : C.pur,
-                    border:"none",
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    fontSize:20, fontWeight:900, gap:8,
-                    color: dispIdx <= 0 ? C.dim : "#fff",
-                    opacity: dispIdx <= 0 ? 0.35 : 1,
-                    fontFamily:"inherit", borderRadius:16,
-                    transition:"opacity 0.15s",
-                  }}>◀ 이전</button>
-                  <div style={{
-                    display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                    width:58, flexShrink:0,
-                    background:C.surf, borderRadius:16,
-                  }}>
-                    <span style={{ fontSize:14, fontWeight:900, color:C.pur }}>{dispIdx + 1}</span>
-                    <span style={{ fontSize:9, fontWeight:700, color:C.dim }}>/ {svcSongs.length}</span>
-                  </div>
-                  <button onClick={() => advanceSong(1)} disabled={dispIdx >= svcSongs.length - 1} style={{
-                    flex:1, height:58, cursor: dispIdx >= svcSongs.length - 1 ? "default" : "pointer",
-                    background: dispIdx >= svcSongs.length - 1 ? C.card : C.pur,
-                    border:"none",
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    fontSize:20, fontWeight:900, gap:8,
-                    color: dispIdx >= svcSongs.length - 1 ? C.dim : "#fff",
-                    opacity: dispIdx >= svcSongs.length - 1 ? 0.35 : 1,
-                    fontFamily:"inherit", borderRadius:16,
-                    transition:"opacity 0.15s",
-                  }}>다음 ▶</button>
-                </div>
-              )}
-              <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, overflow:"hidden", paddingBottom: sheetLinkEnabled && svcSongs.length > 0 ? 62 : 0 }}>
+              {sheetLinkEnabled && svcSongs.length > 0 && (<>
+                {/* ◀ 이전 — nav bar 왼쪽 빈 공간 */}
+                <button onClick={() => advanceSong(-1)} disabled={dispIdx <= 0} style={{
+                  position:"fixed", bottom:0,
+                  left:0, right:"calc(50% + 320px)",
+                  height:`calc(env(safe-area-inset-bottom) + 62px)`,
+                  paddingBottom:"env(safe-area-inset-bottom)",
+                  zIndex:8800, cursor: dispIdx <= 0 ? "default" : "pointer",
+                  background: dispIdx <= 0 ? C.card : C.pur,
+                  border:"none", borderTop:`1px solid ${C.bdr}`,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:18, fontWeight:900, color: dispIdx <= 0 ? C.dim : "#fff",
+                  opacity: dispIdx <= 0 ? 0.35 : 1,
+                  fontFamily:"inherit", transition:"opacity 0.15s",
+                }}>◀ 이전</button>
+                {/* 다음 ▶ — nav bar 오른쪽 빈 공간 */}
+                <button onClick={() => advanceSong(1)} disabled={dispIdx >= svcSongs.length - 1} style={{
+                  position:"fixed", bottom:0,
+                  left:"calc(50% + 320px)", right:0,
+                  height:`calc(env(safe-area-inset-bottom) + 62px)`,
+                  paddingBottom:"env(safe-area-inset-bottom)",
+                  zIndex:8800, cursor: dispIdx >= svcSongs.length - 1 ? "default" : "pointer",
+                  background: dispIdx >= svcSongs.length - 1 ? C.card : C.pur,
+                  border:"none", borderTop:`1px solid ${C.bdr}`,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:18, fontWeight:900, color: dispIdx >= svcSongs.length - 1 ? C.dim : "#fff",
+                  opacity: dispIdx >= svcSongs.length - 1 ? 0.35 : 1,
+                  fontFamily:"inherit", transition:"opacity 0.15s",
+                }}>다음 ▶</button>
+              </>)}
+              <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, overflow:"hidden", }}>
                 {/* ── 왼쪽: 히어로 + 컨트롤 + 곡 목록 ── */}
                 <div style={{ flex:1, minWidth:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", msOverflowStyle:"none" }}>
                   {/* 히어로 카드 */}
