@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.470";
+const APP_VERSION = "3.471";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2678,6 +2678,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 {/* ── 왼쪽: 히어로 + 컨트롤 + 곡 목록 ── */}
                 <div style={{ flex:1, minWidth:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", msOverflowStyle:"none" }}>
                   {/* 히어로 카드 */}
+                  {nextSvc ? (
                   <div style={{
                     background: isPianoOn ? `linear-gradient(135deg, ${C.red}18, ${C.red}08)` : `linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
                     border: isPianoOn ? `1.5px solid ${C.red}55` : `1.5px solid ${C.pur}33`,
@@ -2733,6 +2734,13 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       </button>
                     </div>
                   </div>
+                  ) : (
+                  <div style={{ borderRadius:12, padding:"12px 14px",
+                    background:`linear-gradient(135deg, ${C.pur}18, ${C.acc}0a)`,
+                    border:`1.5px solid ${C.pur}33` }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:C.dim, textAlign:"center" }}>예정된 예배 없음</div>
+                  </div>
+                  )}
 
                   {/* 예배종료 */}
                   {worshipEnded && (
