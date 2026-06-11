@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.433";
+const APP_VERSION = "3.434";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2246,7 +2246,7 @@ function PdfThumb({ pdfUrl, scale = 1.0, fitHeight = false, page = 1 }) {
   return <canvas ref={cvRef} style={{ width:"100%", display:"block" }} />;
 }
 
-function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue, sheetLinkEnabled, sheetSyncTrigger, sheetSyncAllowedParts }) {
+function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue, deleteCue, sheetLinkEnabled, sheetSyncTrigger, sheetSyncAllowedParts }) {
   const [countdown,    setCountdown]    = useState("");
   const [inHour,       setInHour]       = useState(false);
   const [worshipReady, setWorshipReady] = useState(false);
@@ -2747,6 +2747,13 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                   fontSize:10, fontWeight:700, cursor:"pointer",
                                   fontFamily:"inherit",
                                 }}>{acked ? "확인됨" : "확인"}</button>
+                                <button onClick={() => deleteCue?.(cue.id)} style={{
+                                  flexShrink:0, padding:"3px 8px", borderRadius:12,
+                                  border:`1px solid ${C.bdr}`,
+                                  background:"transparent", color:C.dim,
+                                  fontSize:10, fontWeight:700, cursor:"pointer",
+                                  fontFamily:"inherit",
+                                }}>×</button>
                               </div>
                             );
                           })
@@ -10255,8 +10262,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         }}>{metroMsg}</div>
       )}
 
-      {/* 패닉 버튼 — 우측 하단 코너 FAB (라이브러리 모드 제외, 멤버 전용) */}
-      {!isLibraryMode && !leader && (
+      {/* 패닉 버튼 — FOH 싱크 ON 상태에서만 표시 (예배 중, 라이브러리 제외, 멤버 전용) */}
+      {!isLibraryMode && !leader && sheetLinkEnabled && (
         <div style={{ position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 58px)", right:4, zIndex:9990 }}>
           {/* 옵션 목록 */}
           {showPanicMenu && (
