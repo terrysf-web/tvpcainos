@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.472";
+const APP_VERSION = "3.473";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -46,6 +46,14 @@ const DEFAULT_SHEET_PARTS   = ["밴드","기타","베이스","드럼","키보드
 // 사용자 파트 배열 반환 (구버전 part 문자열 호환)
 const getUserParts = (u) => u?.parts?.length ? u.parts : (u?.part ? [u.part] : []);
 const isVocalistUser = (u) => getUserParts(u).some(p => VOCALIST_PART_IDS.has(p));
+// 그룹 파트 ID — 악기가 아닌 그룹 레이블
+const GROUP_PART_IDS = new Set(["밴드", "보컬그룹"]);
+// 표시용 파트: 개인 악기 우선, 없으면 그룹, 없으면 빈 문자열
+const getUserDisplayPart = (u) => {
+  const parts = getUserParts(u);
+  const inst = parts.find(p => !GROUP_PART_IDS.has(p) && p !== "전체");
+  return inst || parts[0] || "";
+};
 
 const INST_MODES = [
   { id:"piano",    emoji:"🎹", label:"피아노" },
@@ -2620,10 +2628,19 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               if (!fohMsgTo || !fohMsgText) return;
               setFohMsgSending(true);
               try {
-                await setDoc(doc(db, "fohMessages", fohMsgTo), {
-                  message: fohMsgText, sentAt: serverTimestamp(),
-                  fromName: user.name || user.email,
-                });
+                if (typeof fohMsgTo === "string" && fohMsgTo.startsWith("group:")) {
+                  const groupId = fohMsgTo.slice(6);
+                  const targets = teamUsers.filter(u => getUserParts(u).includes(groupId));
+                  await Promise.all(targets.map(u => setDoc(doc(db, "fohMessages", u.id), {
+                    message: fohMsgText, sentAt: serverTimestamp(),
+                    fromName: user.name || user.email,
+                  })));
+                } else {
+                  await setDoc(doc(db, "fohMessages", fohMsgTo), {
+                    message: fohMsgText, sentAt: serverTimestamp(),
+                    fromName: user.name || user.email,
+                  });
+                }
                 setFohMsgText(null);
               } catch(e) {}
               setFohMsgSending(false);
@@ -2891,7 +2908,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                   color: pinned ? "#fff" : C.dim,
                                   border:`1px solid ${pinned ? C.pur : C.bdr}`,
                                 }}>
-                                  {pinned ? "✓ " : ""}{u.name.split(" ")[0]}{u.parts.length > 0 ? ` (${u.parts[0]})` : ""}
+                                  {pinned ? "✓ " : ""}{u.name.split(" ")[0]}{getUserDisplayPart(u) ? ` (${getUserDisplayPart(u)})` : ""}
                                 </button>
                               );
                             })
@@ -2931,25 +2948,52 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         </div>
                       </div>
                     ) : (
-                      /* ── 일반 모드: 좌=멤버, 우=메시지 2컬럼 ── */
+                      /* ── 일반 모드: 좌=수신자(그룹+개인), 우=메시지 2컬럼 ── */
                       <div>
                         <div style={{ display:"flex", gap:6, marginBottom:6 }}>
-                          {/* 좌: 멤버 선택 */}
+                          {/* 좌: 수신자 선택 */}
                           <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:3 }}>
                             <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:2 }}>수신자</div>
+                            {/* 그룹 버튼 */}
+                            {[["밴드","🎶"],["보컬그룹","🎤"]].map(([groupId, emoji]) => {
+                              const members = teamUsers.filter(u => getUserParts(u).includes(groupId));
+                              if (members.length === 0) return null;
+                              const gKey = `group:${groupId}`;
+                              const sel = fohMsgTo === gKey;
+                              return (
+                                <button key={gKey} onClick={() => setFohMsgTo(sel ? null : gKey)} style={{
+                                  width:"100%", textAlign:"left", fontSize:11, fontWeight:700, fontFamily:"inherit",
+                                  padding:"4px 8px", borderRadius:8, cursor:"pointer",
+                                  background: sel ? "#0a84ff" : "#0a84ff12",
+                                  color: sel ? "#fff" : "#0a84ff",
+                                  border:`1px solid ${sel ? "#0a84ff" : "#0a84ff33"}`,
+                                }}>
+                                  {emoji} {groupId} <span style={{ opacity:0.7, fontWeight:500, fontSize:10 }}>({members.length}명)</span>
+                                </button>
+                              );
+                            })}
+                            {/* 그룹/개인 구분선 */}
+                            {teamUsers.some(u => ["밴드","보컬그룹"].some(g => getUserParts(u).includes(g))) && fohPinnedUids.length > 0 && (
+                              <div style={{ height:1, background:C.bdr, margin:"1px 0" }} />
+                            )}
+                            {/* 개인 수신자 */}
                             {fohPinnedUids.length === 0
                               ? <span style={{ fontSize:10, color:C.dim }}>편집에서 수신자 추가</span>
-                              : teamUsers.filter(u => fohPinnedUids.includes(u.id)).map(u => (
-                                <button key={u.id} onClick={() => setFohMsgTo(u.id === fohMsgTo ? null : u.id)} style={{
-                                  width:"100%", textAlign:"left", fontSize:11, fontWeight:700, fontFamily:"inherit",
-                                  padding:"5px 8px", borderRadius:8, cursor:"pointer",
-                                  background: u.id === fohMsgTo ? C.pur : C.card,
-                                  color: u.id === fohMsgTo ? "#fff" : C.dim,
-                                  border:`1px solid ${u.id === fohMsgTo ? C.pur : C.bdr}`,
-                                }}>
-                                  {u.name.split(" ")[0]}{u.parts.length > 0 ? ` (${u.parts[0]})` : ""}
-                                </button>
-                              ))
+                              : teamUsers.filter(u => fohPinnedUids.includes(u.id)).map(u => {
+                                const dp = getUserDisplayPart(u);
+                                const sel = fohMsgTo === u.id;
+                                return (
+                                  <button key={u.id} onClick={() => setFohMsgTo(sel ? null : u.id)} style={{
+                                    width:"100%", textAlign:"left", fontSize:11, fontWeight:700, fontFamily:"inherit",
+                                    padding:"4px 8px", borderRadius:8, cursor:"pointer",
+                                    background: sel ? C.pur : C.card,
+                                    color: sel ? "#fff" : C.dim,
+                                    border:`1px solid ${sel ? C.pur : C.bdr}`,
+                                  }}>
+                                    {u.name.split(" ")[0]}{dp ? ` (${dp})` : ""}
+                                  </button>
+                                );
+                              })
                             }
                           </div>
                           {/* 구분선 */}
@@ -2983,7 +3027,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                             border:"none", fontSize:12, fontWeight:800, fontFamily:"inherit",
                             opacity: fohMsgSending ? 0.6 : 1,
                           }}>
-                          {fohMsgSending ? "전송 중..." : "보내기"}
+                          {fohMsgSending ? "전송 중..." : fohMsgTo?.startsWith?.("group:") ? `그룹 보내기` : "보내기"}
                         </button>
                       </div>
                     )}
