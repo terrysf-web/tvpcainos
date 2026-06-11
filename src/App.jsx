@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.467";
+const APP_VERSION = "3.468";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -10560,7 +10560,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               {[
                 { emoji:"🔊", label:"볼륨↑" },
                 { emoji:"🔉", label:"볼륨↓" },
-                { emoji:"🔇", label:"MUTE" },
+                { emoji:"🔇", label:"MUTE ON" },
+                { emoji:"🔊", label:"MUTE OFF" },
                 { emoji:"⚠️", label:"소리문제" },
                 { emoji:"📄", label:"악보 ↑" },
                 { emoji:"📄", label:"악보 ↓" },
