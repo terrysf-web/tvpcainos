@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.473";
+const APP_VERSION = "3.474";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -91,7 +91,15 @@ const keyColor = (k) => KEY_CLR[k ? k[0].toUpperCase() : "C"] || C.acc;
 
 const isLeader = (role) => role === "leader" || role === "admin";
 const isBroadcast = (role) => role === "broadcast" || isLeader(role);
-const isFoh = (role) => role?.toLowerCase() === "foh" || role === "admin";
+const isFoh = (userOrRole) => {
+  if (!userOrRole) return false;
+  if (typeof userOrRole === "string") {
+    return userOrRole === "admin" || userOrRole.toLowerCase() === "foh";
+  }
+  return userOrRole.role === "admin" ||
+         userOrRole.role?.toLowerCase() === "foh" ||
+         getUserParts(userOrRole).some(p => p?.toLowerCase() === "foh");
+};
 
 const fmtTime = (ts) => {
   if (!ts?.toDate) return "방금";
@@ -2343,7 +2351,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
   // FOH/어드민: 현재 sync 중인 곡 인덱스 구독
   useEffect(() => {
-    if (!isFoh(user?.role)) return;
+    if (!isFoh(user)) return;
     return onSnapshot(doc(db, "liveStatus", "sheetSync"), snap => {
       if (!snap.exists()) return;
       const d = snap.data();
@@ -2355,7 +2363,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
   // 어드민: 팀원 목록 로드
   useEffect(() => {
-    if (!isFoh(user?.role)) return;
+    if (!isFoh(user)) return;
     getDocs(collection(db, "users")).then(snap => {
       setTeamUsers(snap.docs
         .map(d => ({ id: d.id, name: d.data().name || d.data().displayName || d.data().email || "", parts: d.data().parts || [] }))
@@ -2366,7 +2374,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
   // 어드민: FOH 프리메이드 메시지 목록 구독
   useEffect(() => {
-    if (!isFoh(user?.role)) return;
+    if (!isFoh(user)) return;
     return onSnapshot(doc(db, "settings", "fohMessages"), snap => {
       const d = snap.exists() ? snap.data() : {};
       setFohQuickMsgs(d.messages || []);
@@ -2389,7 +2397,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const activeSyncIdx = _syncSongForIdx ? svcSongs.indexOf(_syncSongForIdx) : -1;
   useEffect(() => {
     if (activeSyncIdx < 0 || !stripRef.current) return;
-    if (isFoh(user?.role)) {
+    if (isFoh(user)) {
       const el = document.getElementById(`sheet-card-${activeSyncIdx}`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
     } else {
@@ -2465,7 +2473,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         setWorshipEnded(true);
         firePhase("service_start", null); // X32는 건드리지 않음 — BGM 정지는 PP 페이드가 처리
         // 예배 시작 → 악보 링크 자동 해제 (어드민만)
-        if (isFoh(user?.role) && !phaseFiredRef.current.sheetLink_off) {
+        if (isFoh(user) && !phaseFiredRef.current.sheetLink_off) {
           phaseFiredRef.current.sheetLink_off = true;
           setDoc(doc(db, "liveStatus", "sheetLink"), {
             enabled: false, svcId: nextSvc.id, updatedAt: serverTimestamp(),
@@ -2545,8 +2553,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         </div>
       </div>
 
-      <div style={{ flex:"1 1 0", height:0, overflow:"hidden", padding: isFoh(user?.role) ? "8px 10px 0" : "14px 14px 0", ...(isFoh(user?.role) && { display:"flex", flexDirection:"column" }) }}>
-        {isFoh(user?.role) ? (() => {
+      <div style={{ flex:"1 1 0", height:0, overflow:"hidden", padding: isFoh(user) ? "8px 10px 0" : "14px 14px 0", ...(isFoh(user) && { display:"flex", flexDirection:"column" }) }}>
+        {isFoh(user) ? (() => {
             /* ─── FOH/ADMIN: 좌우 2열 고정 레이아웃 (nextSvc 유무 무관) ─── */
             const tInHour       = testPhase > 0 ? true  : inHour;
             const tCountdown    = testPhase === 1 ? "45:00" : testPhase === 2 ? "00:35" : testPhase === 3 ? "00:09" : countdown;
@@ -6577,7 +6585,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // sheetSync 신호 도착 시 1페이지로 이동
   // 태블릿 가로모드 감지 시 자동 듀얼 ON
   useEffect(() => {
-    if (isFoh(user.role) || sheetSyncTrigger === 0) return;
+    if (isFoh(user) || sheetSyncTrigger === 0) return;
     const landscape  = window.matchMedia("(orientation: landscape)").matches;
     const wideScreen = Math.min(window.screen.width, window.screen.height) >= 768;
     const autoDual   = landscape && wideScreen;
@@ -13395,6 +13403,7 @@ export default function App() {
   const fohMsgTsRef       = useRef(null);
   const navRef          = useRef(null);
   const userRoleRef     = useRef(undefined);
+  const userIsFohRef    = useRef(false);
   // localStorage 복원값으로 초기화 — onSnapshot이 첫 렌더 직후 발화해도 올바른 값을 가짐
   const selSongIdRef    = useRef(localStorage.getItem("tvpc_selSongId") || null);
   const viewRef         = useRef(
@@ -13412,6 +13421,7 @@ export default function App() {
   useEffect(() => { selSongIdRef.current = selSongId;       }, [selSongId]);
   useEffect(() => { viewRef.current      = view;            }, [view]);
   useEffect(() => { userPartsRef.current = getUserParts(user); }, [user]);
+  useEffect(() => { userIsFohRef.current  = isFoh(user);           }, [user]);
 
   // 로그인/새로고침 직후 sheetSyncTsRef 초기화 — 이동은 하지 않음 (저장 위치 유지)
   useEffect(() => {
@@ -13485,7 +13495,7 @@ export default function App() {
       }
       if (ts === sheetSyncTsRef.current) return;
       sheetSyncTsRef.current = ts;
-      if (isFoh(userRoleRef.current)) return;
+      if (userIsFohRef.current) return;
       if (!sheetLinkEnabledRef.current && !data.linkEnabled) return;
       const allowedParts = allowedPartsRef.current ?? data.allowedParts ?? null;
       if (allowedParts !== null) {
@@ -13797,7 +13807,7 @@ export default function App() {
 
   // ── FOH 팀 메시지 수신 (멤버 전용)
   useEffect(() => {
-    if (!user?.uid || isFoh(user.role)) return;
+    if (!user?.uid || isFoh(user)) return;
     return onSnapshot(doc(db, "fohMessages", user.uid), snap => {
       if (!snap.exists() || snap.metadata.hasPendingWrites) return;
       const data = snap.data();
