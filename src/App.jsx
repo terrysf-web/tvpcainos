@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.455";
+const APP_VERSION = "3.456";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -6316,14 +6316,21 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   }, [dual, numPages, svcSongs.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 악보 Sync 배너 ──
-  const [syncBanner, setSyncBanner] = useState(false);
-  const syncBannerTimer = useRef(null);
+  const [syncBanner,    setSyncBanner]    = useState(false);
+  const [syncOffBanner, setSyncOffBanner] = useState(false);
+  const syncBannerTimer    = useRef(null);
+  const syncOffBannerTimer = useRef(null);
   const prevSheetLinkRef = useRef(false);
   useEffect(() => {
     if (sheetLinkEnabled && !prevSheetLinkRef.current) {
       setSyncBanner(true);
       clearTimeout(syncBannerTimer.current);
       syncBannerTimer.current = setTimeout(() => setSyncBanner(false), 3000);
+    }
+    if (!sheetLinkEnabled && prevSheetLinkRef.current) {
+      setSyncOffBanner(true);
+      clearTimeout(syncOffBannerTimer.current);
+      syncOffBannerTimer.current = setTimeout(() => setSyncOffBanner(false), 3000);
     }
     prevSheetLinkRef.current = sheetLinkEnabled;
   }, [sheetLinkEnabled]);
@@ -10363,6 +10370,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           zIndex:99998, pointerEvents:"none",
           boxShadow:"0 4px 16px rgba(0,0,0,.25)",
         }}>🔗 FOH 악보 동기화 시작</div>
+      )}
+      {/* FOH 악보 Sync 종료 배너 */}
+      {syncOffBanner && (
+        <div style={{
+          position:"fixed", top:"calc(env(safe-area-inset-top) + 62px)",
+          left:"50%", transform:"translateX(-50%)",
+          background:"rgba(255,152,0,0.92)", color:"#fff",
+          padding:"10px 22px", borderRadius:20,
+          fontSize:14, fontWeight:700,
+          zIndex:99998, pointerEvents:"none",
+          boxShadow:"0 4px 16px rgba(0,0,0,.25)",
+        }}>🔗 FOH 악보 동기화 종료</div>
       )}
     </div>
   );
