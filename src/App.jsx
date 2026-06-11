@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.440";
+const APP_VERSION = "3.441";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2527,7 +2527,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               {/* ── 싱크 ON 플로팅 이전/다음 버튼 ── */}
               {sheetLinkEnabled && svcSongs.length > 0 && (
                 <div style={{
-                  position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 90px)",
+                  position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 72px)",
                   left:8, right:8, zIndex:8800,
                   display:"flex", gap:8, alignItems:"stretch",
                   borderRadius:16, overflow:"hidden",
@@ -2565,7 +2565,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   }}>다음 ▶</button>
                 </div>
               )}
-              <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, paddingBottom:"calc(90px + env(safe-area-inset-bottom))", overflow:"hidden" }}>
+              <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, paddingBottom:"calc(70px + env(safe-area-inset-bottom))", overflow:"hidden" }}>
                 {/* ── 왼쪽: 히어로 + 컨트롤 + 곡 목록 ── */}
                 <div style={{ flex:1, minWidth:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", msOverflowStyle:"none" }}>
                   {/* 히어로 카드 */}
@@ -3424,7 +3424,7 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
         </div>
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:90 }}>
+      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:70 }}>
         {/* 다가오는 예배 */}
         {upcoming.length > 0 && (
           <>
@@ -10485,7 +10485,7 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
       </div>
 
       {/* list */}
-      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:90 }}>
+      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:70 }}>
         {/* 알림 권한 배너 */}
         {perm === "default" && (
           <div style={{ marginBottom:12, padding:"12px 14px", borderRadius:12,
@@ -11240,7 +11240,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
         borderBottom:`1px solid ${C.bdr}` }}>
         <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>내 정보</div>
       </div>
-      <div style={{ flex:1, overflowY:"auto", padding:20, paddingBottom:90 }}>
+      <div style={{ flex:1, overflowY:"auto", padding:20, paddingBottom:70 }}>
 
       {/* 내 프로필 카드 */}
       <div style={{ background:C.surf, borderRadius:16, padding:20,
@@ -12462,7 +12462,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
   /* ────────────────────────── MOBILE LAYOUT ────────────────────────── */
   return (
     <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.bg,
-      paddingBottom:"calc(90px + env(safe-area-inset-bottom))" }}>
+      paddingBottom:"calc(70px + env(safe-area-inset-bottom))" }}>
 
       {/* ── Header */}
       <div style={{ padding:"calc(12px + env(safe-area-inset-top)) 16px 0",
@@ -12986,8 +12986,8 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
       width:"100%", maxWidth:640,
       background:C.surf, borderTop:`1px solid ${C.bdr}`,
       display:"flex", alignItems:"center",
-      padding:"8px 0",
-      paddingBottom:"calc(14px + env(safe-area-inset-bottom))",
+      padding:"4px 0",
+      paddingBottom:"calc(4px + env(safe-area-inset-bottom))",
       zIndex:500,
     }}>
       {tabs.map(t => {
@@ -12995,7 +12995,7 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
         return (
           <button key={t.id} onClick={() => nav(t.id)}
             style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center",
-              gap:4, background:"none", border:"none", cursor:"pointer", padding:"2px 0" }}>
+              gap:3, background:"none", border:"none", cursor:"pointer", padding:"1px 0" }}>
             <div style={{ position:"relative" }}>
               <div style={{
                 width:44, height:44, borderRadius:12,
