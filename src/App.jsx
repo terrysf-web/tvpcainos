@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.437";
+const APP_VERSION = "3.438";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2523,6 +2523,52 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             };
 
             return (
+              <>
+              {/* ── 싱크 ON 플로팅 이전/다음 버튼 ── */}
+              {sheetLinkEnabled && svcSongs.length > 0 && (
+                <div style={{
+                  position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 64px)",
+                  left:8, right:8, zIndex:8800,
+                  display:"flex", gap:10, pointerEvents:"none",
+                }}>
+                  <button onClick={() => advanceSong(-1)} disabled={dispIdx <= 0} style={{
+                    flex:1, height:64, borderRadius:18, cursor: dispIdx <= 0 ? "default" : "pointer",
+                    pointerEvents:"auto",
+                    background: dispIdx <= 0 ? "rgba(var(--c-card-rgb,240,240,240),0.85)" : `${C.pur}e8`,
+                    border:`2.5px solid ${dispIdx <= 0 ? C.bdr : C.pur}`,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:22, fontWeight:900, gap:8,
+                    color: dispIdx <= 0 ? C.dim : "#fff",
+                    opacity: dispIdx <= 0 ? 0.35 : 1,
+                    fontFamily:"inherit",
+                    boxShadow: dispIdx <= 0 ? "none" : `0 4px 20px ${C.pur}55`,
+                    backdropFilter:"blur(10px)", WebkitBackdropFilter:"blur(10px)",
+                    transition:"opacity 0.15s",
+                  }}>◀ 이전</button>
+                  <div style={{
+                    display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                    minWidth:60, pointerEvents:"none",
+                    color:"#fff", textShadow:"0 1px 4px rgba(0,0,0,0.5)",
+                  }}>
+                    <span style={{ fontSize:13, fontWeight:900, color:C.pur }}>{dispIdx + 1}</span>
+                    <span style={{ fontSize:9, fontWeight:700, color:C.dim }}>/ {svcSongs.length}</span>
+                  </div>
+                  <button onClick={() => advanceSong(1)} disabled={dispIdx >= svcSongs.length - 1} style={{
+                    flex:1, height:64, borderRadius:18, cursor: dispIdx >= svcSongs.length - 1 ? "default" : "pointer",
+                    pointerEvents:"auto",
+                    background: dispIdx >= svcSongs.length - 1 ? "rgba(var(--c-card-rgb,240,240,240),0.85)" : `${C.pur}e8`,
+                    border:`2.5px solid ${dispIdx >= svcSongs.length - 1 ? C.bdr : C.pur}`,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:22, fontWeight:900, gap:8,
+                    color: dispIdx >= svcSongs.length - 1 ? C.dim : "#fff",
+                    opacity: dispIdx >= svcSongs.length - 1 ? 0.35 : 1,
+                    fontFamily:"inherit",
+                    boxShadow: dispIdx >= svcSongs.length - 1 ? "none" : `0 4px 20px ${C.pur}55`,
+                    backdropFilter:"blur(10px)", WebkitBackdropFilter:"blur(10px)",
+                    transition:"opacity 0.15s",
+                  }}>다음 ▶</button>
+                </div>
+              )}
               <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, paddingBottom:"calc(90px + env(safe-area-inset-bottom))", overflow:"hidden" }}>
                 {/* ── 왼쪽: 히어로 + 컨트롤 + 곡 목록 ── */}
                 <div style={{ flex:1, minWidth:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", msOverflowStyle:"none" }}>
@@ -2819,6 +2865,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   )}
                 </div>
               </div>
+              </>
             );
           })() : (
           <>
