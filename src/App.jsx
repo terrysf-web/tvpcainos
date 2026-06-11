@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.463";
+const APP_VERSION = "3.464";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2321,6 +2321,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [teamUsers,    setTeamUsers]    = useState([]);
   const [fohMsgSending,setFohMsgSending]= useState(false);
   const [fohQuickMsgs, setFohQuickMsgs] = useState([]);
+  const [fohPinnedUids,setFohPinnedUids]= useState([]);
   const [fohMsgEdit,   setFohMsgEdit]   = useState(false);
   const [fohMsgInput,  setFohMsgInput]  = useState("");
   const autoNavDone  = useRef(false);
@@ -2358,7 +2359,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   useEffect(() => {
     if (user?.role !== "admin") return;
     return onSnapshot(doc(db, "settings", "fohMessages"), snap => {
-      setFohQuickMsgs(snap.exists() ? (snap.data().messages || []) : []);
+      const d = snap.exists() ? snap.data() : {};
+      setFohQuickMsgs(d.messages || []);
+      setFohPinnedUids(d.recipients || []);
     }, () => {});
   }, [user?.role]);
 
@@ -2596,20 +2599,27 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 }).catch(() => {});
               }
             };
-            const saveFohMsgs = async (msgs) => {
-              await setDoc(doc(db, "settings", "fohMessages"), { messages: msgs }).catch(() => {});
+            const saveFohSettings = async (msgs, recipients) => {
+              await setDoc(doc(db, "settings", "fohMessages"), { messages: msgs, recipients }).catch(() => {});
             };
             const addFohMsg = async () => {
               const t = fohMsgInput.trim();
               if (!t) return;
               const next = [...fohQuickMsgs, t];
               setFohMsgInput("");
-              await saveFohMsgs(next);
+              await saveFohSettings(next, fohPinnedUids);
             };
             const deleteFohMsg = async (idx) => {
               const next = fohQuickMsgs.filter((_, i) => i !== idx);
               if (fohMsgText === fohQuickMsgs[idx]) setFohMsgText(null);
-              await saveFohMsgs(next);
+              await saveFohSettings(next, fohPinnedUids);
+            };
+            const togglePinnedUid = async (uid) => {
+              const next = fohPinnedUids.includes(uid)
+                ? fohPinnedUids.filter(id => id !== uid)
+                : [...fohPinnedUids, uid];
+              if (!next.includes(fohMsgTo)) setFohMsgTo(null);
+              await saveFohSettings(fohQuickMsgs, next);
             };
             const sendFohMessage = async () => {
               if (!fohMsgTo || !fohMsgText) return;
@@ -2861,22 +2871,49 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       }}>{fohMsgEdit ? "완료" : "편집"}</button>
                     </div>
                     {/* 수신자 선택 */}
-                    <div style={{ display:"flex", gap:4, overflowX:"auto", marginBottom:6, scrollbarWidth:"none", msOverflowStyle:"none" }}>
-                      {teamUsers.length === 0
-                        ? <span style={{ fontSize:10, color:C.dim }}>팀원 로딩 중...</span>
-                        : teamUsers.map(u => (
-                          <button key={u.id} onClick={() => setFohMsgTo(u.id === fohMsgTo ? null : u.id)} style={{
-                            flexShrink:0, fontSize:10, fontWeight:700, fontFamily:"inherit",
-                            padding:"3px 8px", borderRadius:12, cursor:"pointer",
-                            background: u.id === fohMsgTo ? C.pur : C.card,
-                            color: u.id === fohMsgTo ? "#fff" : C.dim,
-                            border:`1px solid ${u.id === fohMsgTo ? C.pur : C.bdr}`,
-                          }}>
-                            {u.name.split(" ")[0]}{u.parts.length > 0 ? ` (${u.parts[0]})` : ""}
-                          </button>
-                        ))
-                      }
-                    </div>
+                    {fohMsgEdit ? (
+                      // 편집 모드: 전체 팀원 토글로 수신자 목록 구성
+                      <div style={{ marginBottom:6 }}>
+                        <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:3 }}>수신자 목록 편집</div>
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                          {teamUsers.length === 0
+                            ? <span style={{ fontSize:10, color:C.dim }}>팀원 로딩 중...</span>
+                            : teamUsers.map(u => {
+                              const pinned = fohPinnedUids.includes(u.id);
+                              return (
+                                <button key={u.id} onClick={() => togglePinnedUid(u.id)} style={{
+                                  flexShrink:0, fontSize:10, fontWeight:700, fontFamily:"inherit",
+                                  padding:"3px 8px", borderRadius:12, cursor:"pointer",
+                                  background: pinned ? C.pur : C.card,
+                                  color: pinned ? "#fff" : C.dim,
+                                  border:`1px solid ${pinned ? C.pur : C.bdr}`,
+                                }}>
+                                  {pinned ? "✓ " : ""}{u.name.split(" ")[0]}{u.parts.length > 0 ? ` (${u.parts[0]})` : ""}
+                                </button>
+                              );
+                            })
+                          }
+                        </div>
+                      </div>
+                    ) : (
+                      // 일반 모드: 고정된 수신자만 표시
+                      <div style={{ display:"flex", gap:4, overflowX:"auto", marginBottom:6, scrollbarWidth:"none", msOverflowStyle:"none" }}>
+                        {fohPinnedUids.length === 0
+                          ? <span style={{ fontSize:10, color:C.dim }}>편집에서 수신자를 추가하세요</span>
+                          : teamUsers.filter(u => fohPinnedUids.includes(u.id)).map(u => (
+                            <button key={u.id} onClick={() => setFohMsgTo(u.id === fohMsgTo ? null : u.id)} style={{
+                              flexShrink:0, fontSize:10, fontWeight:700, fontFamily:"inherit",
+                              padding:"3px 8px", borderRadius:12, cursor:"pointer",
+                              background: u.id === fohMsgTo ? C.pur : C.card,
+                              color: u.id === fohMsgTo ? "#fff" : C.dim,
+                              border:`1px solid ${u.id === fohMsgTo ? C.pur : C.bdr}`,
+                            }}>
+                              {u.name.split(" ")[0]}{u.parts.length > 0 ? ` (${u.parts[0]})` : ""}
+                            </button>
+                          ))
+                        }
+                      </div>
+                    )}
                     {/* 메시지 목록 */}
                     {fohQuickMsgs.length === 0 && !fohMsgEdit && (
                       <div style={{ fontSize:11, color:C.dim, padding:"4px 0", marginBottom:6 }}>메시지 없음 — 편집으로 추가하세요</div>
