@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.485";
+const APP_VERSION = "3.486";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -3043,41 +3043,92 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     )}
                   </div>
 
-                  {/* ── 곡 순서 목록 ── */}
+                  {/* ── 곡 순서 + 큐 노트 2열 ── */}
                   {svcSongs.length > 0 && (
-                    <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
-                      <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3, paddingLeft:2 }}>
-                        곡 순서
-                      </div>
-                      {svcSongs.map((song, idx) => {
-                        const isActive = idx === dispIdx;
-                        return (
-                          <div key={song.id + idx}
-                            onClick={() => selectSong(idx)}
-                            style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 8px", borderRadius:8, cursor:"pointer",
-                              background: isActive ? `${C.pur}12` : "transparent",
-                              border:`1px solid ${isActive ? C.pur+"44" : "transparent"}`,
-                            }}>
-                            <div style={{ width:22, height:22, borderRadius:6, flexShrink:0,
-                              background: isActive ? C.pur : `${C.pur}18`,
-                              display:"flex", alignItems:"center", justifyContent:"center" }}>
-                              <span style={{ fontSize:10, fontWeight:800, color: isActive ? "#fff" : C.pur }}>{idx+1}</span>
-                            </div>
-                            <span style={{ flex:1, fontSize:12, fontWeight: isActive ? 700 : 500,
-                              color: isActive ? C.pur : C.txt,
-                              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                              {song.title}
-                            </span>
-                            {song.key && (
-                              <span style={{ flexShrink:0, fontSize:10, fontWeight:700,
-                                background:`${keyColor(song.key)}22`, color:keyColor(song.key),
-                                borderRadius:4, padding:"1px 5px" }}>
-                                {song.key}
+                    <div style={{ display:"flex", gap:6 }}>
+                      {/* 좌: 곡 순서 */}
+                      <div style={{ flex:"0 0 52%", display:"flex", flexDirection:"column", gap:1 }}>
+                        <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3, paddingLeft:2 }}>
+                          곡 순서
+                        </div>
+                        {svcSongs.map((song, idx) => {
+                          const isActive = idx === dispIdx;
+                          const hasCues = (songCues?.[song.id] || []).filter(c => !c.panic).length > 0;
+                          return (
+                            <div key={song.id + idx}
+                              onClick={() => selectSong(idx)}
+                              style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 8px", borderRadius:8, cursor:"pointer",
+                                background: isActive ? `${C.pur}12` : "transparent",
+                                border:`1px solid ${isActive ? C.pur+"44" : "transparent"}`,
+                              }}>
+                              <div style={{ width:22, height:22, borderRadius:6, flexShrink:0,
+                                background: isActive ? C.pur : `${C.pur}18`,
+                                display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
+                                <span style={{ fontSize:10, fontWeight:800, color: isActive ? "#fff" : C.pur }}>{idx+1}</span>
+                                {hasCues && <div style={{ position:"absolute", top:-2, right:-2, width:5, height:5, borderRadius:"50%", background:C.acc }} />}
+                              </div>
+                              <span style={{ flex:1, fontSize:12, fontWeight: isActive ? 700 : 500,
+                                color: isActive ? C.pur : C.txt,
+                                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                                {song.title}
                               </span>
-                            )}
-                          </div>
-                        );
-                      })}
+                              {song.key && (
+                                <span style={{ flexShrink:0, fontSize:10, fontWeight:700,
+                                  background:`${keyColor(song.key)}22`, color:keyColor(song.key),
+                                  borderRadius:4, padding:"1px 5px" }}>
+                                  {song.key}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* 구분선 */}
+                      <div style={{ width:1, background:C.bdr, flexShrink:0 }} />
+
+                      {/* 우: 큐 노트 (현재 곡 기준) */}
+                      <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:3 }}>
+                        <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3 }}>
+                          큐 노트
+                        </div>
+                        {(() => {
+                          const notes = svcSongs.flatMap((s, si) =>
+                            (songCues?.[s.id] || [])
+                              .filter(c => !c.panic)
+                              .map(c => ({ ...c, _songIdx: si, _songTitle: s.title }))
+                          ).sort((a, b) => (a._songIdx - b._songIdx) || ((a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0)));
+                          if (notes.length === 0) return (
+                            <div style={{ fontSize:10, color:C.dim, padding:"5px 8px",
+                              background:C.card, borderRadius:7, border:`1px solid ${C.bdr}` }}>
+                              노트 없음
+                            </div>
+                          );
+                          return notes.map(cue => (
+                            <div key={cue.id} style={{
+                              background: C.card, border:`1px solid ${C.bdr}`,
+                              borderRadius:7, padding:"5px 8px",
+                            }}>
+                              <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:2 }}>
+                                <span style={{ fontSize:8, fontWeight:800, color:C.pur,
+                                  background:`${C.pur}18`, borderRadius:3, padding:"1px 4px", flexShrink:0 }}>
+                                  {cue._songIdx + 1}
+                                </span>
+                                <span style={{ fontSize:8, color:C.dim, flexShrink:0 }}>
+                                  {cue.userPart || cue.userName || ""}
+                                </span>
+                                <button onClick={() => deleteCue?.(cue.id)} style={{
+                                  marginLeft:"auto", flexShrink:0, width:14, height:14, borderRadius:"50%",
+                                  background:"transparent", border:`1px solid ${C.bdr}`,
+                                  color:C.dim, fontSize:9, cursor:"pointer", fontFamily:"inherit",
+                                  display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
+                                }}>×</button>
+                              </div>
+                              <div style={{ fontSize:11, color:C.txt, lineHeight:1.4, wordBreak:"break-all" }}>{cue.text}</div>
+                            </div>
+                          ));
+                        })()}
+                      </div>
                     </div>
                   )}
 
