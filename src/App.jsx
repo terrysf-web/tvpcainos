@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.488";
+const APP_VERSION = "3.489";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -6862,6 +6862,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const effectiveNoteSongId = dual ? (noteSongId || dualLeftSongId) : selectedSongId;
   const myNotes   = annotations[effectiveNoteSongId]     || [];
   const teamNotes = (teamAnnotations || {})[effectiveNoteSongId] || [];
+  // 큐 노트는 듀얼 시 항상 왼쪽 악보 기준
+  const cueSongId = dual ? (dualLeftSongId || selectedSongId) : selectedSongId;
+  const cueSong   = songs.find(s => s.id === cueSongId) || song;
 
   // drawings stored under customSongs/drw_{uid}_{songId}_p{page}
   // — customSongs has "allow read, write: if isAuthed()" in live Firestore rules
@@ -10374,26 +10377,27 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           onTouchStart={e => e.stopPropagation()}
           onTouchMove={e => e.stopPropagation()}
           onTouchEnd={e => e.stopPropagation()}>
-          {/* 헤더 */}
-          <div style={{ padding:"12px 16px 8px", borderBottom:`1px solid ${C.bdr}`, flexShrink:0,
+          {/* 헤더 — safe-area 아래로 */}
+          <div style={{ paddingTop:"calc(14px + env(safe-area-inset-top, 0px))", paddingLeft:16, paddingRight:16, paddingBottom:8,
+            borderBottom:`1px solid ${C.bdr}`, flexShrink:0,
             display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
             <div>
               <div style={{ fontWeight:700, fontSize:13 }}>🎯 큐 노트</div>
-              <div style={{ fontSize:11, color:"#e65c00", marginTop:2 }}>{song?.title}</div>
-              <div style={{ fontSize:10, color:C.dim, marginTop:1 }}>FOH에게 전달하는 요청 / 알림</div>
+              <div style={{ fontSize:11, color:"#e65c00", marginTop:2 }}>{cueSong?.title}</div>
+              <div style={{ fontSize:10, color:C.dim, marginTop:1 }}>FOH에게 전달하는 요청 / 알림{dual ? " (왼쪽 악보 기준)" : ""}</div>
             </div>
             <button onClick={() => { setShowCueInput(false); setCueTxt(""); setCueScr(""); }}
               style={{ flexShrink:0, background:"transparent", border:`1px solid ${C.bdr}`,
                 borderRadius:8, padding:"3px 8px", cursor:"pointer", color:C.dim, fontSize:13,
-                fontFamily:"inherit", fontWeight:700 }}>✕</button>
+                fontFamily:"inherit", fontWeight:700, marginTop:"env(safe-area-inset-top, 0px)" }}>✕</button>
           </div>
           {/* 스크롤 가능 콘텐츠 */}
           <div style={{ flex:1, overflowY:"auto", padding:"10px 16px", display:"flex", flexDirection:"column", gap:0 }}>
           <div style={{ width:"100%" }}>
             {/* 기존 큐 목록 */}
-            {(songCues?.[selectedSongId] || []).length > 0 && (
+            {(songCues?.[cueSongId] || []).length > 0 && (
               <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:10 }}>
-                {(songCues[selectedSongId]).map(cue => {
+                {(songCues[cueSongId]).map(cue => {
                   const isOwn = !!(user?.uid && cue.userId && cue.userId === user.uid);
                   const isEditing = cueEditId === cue.id;
                   return (
@@ -10531,7 +10535,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             <Btn label="전송" variant="primary"
               onClick={() => {
                 const final = (cueTxt + (cueScr.trim() ? (cueTxt ? " " : "") + cueScr.trim() : "")).trim();
-                if (final) { sendCue?.(selectedSvcId, selectedSongId, final); setCueTxt(""); setCueScr(""); setShowCueInput(false); }
+                if (final) { sendCue?.(selectedSvcId, cueSongId, final); setCueTxt(""); setCueScr(""); setShowCueInput(false); }
               }}
               full disabled={!cueTxt.trim() && !cueScr.trim()} />
           </div>
