@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.492";
+const APP_VERSION = "3.493";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -6279,9 +6279,10 @@ function HandwritePad({ accent, apiKey, onText }) {
   const cvsRef     = useRef(null);
   const strokesRef = useRef([]);   // 획 목록 (CSS px 좌표)
   const curRef     = useRef(null); // 그리는 중인 획
-  const [hasInk, setHasInk] = useState(false);
-  const [busy,   setBusy]   = useState(false);
-  const [err,    setErr]    = useState("");
+  const [hasInk,        setHasInk]        = useState(false);
+  const [busy,          setBusy]          = useState(false);
+  const [err,           setErr]           = useState("");
+  const [clearConfirm,  setClearConfirm]  = useState(false);
 
   useEffect(() => {
     const cvs = cvsRef.current, wrap = wrapRef.current;
@@ -6447,16 +6448,27 @@ function HandwritePad({ accent, apiKey, onText }) {
         color: err ? C.red : C.dim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
         {busy ? "변환 중..." : err ? err : "펜으로 쓰세요 — 다 쓴 후 「⬆ 변환」"}
       </div>
-      {/* 버튼들 — 처음부터 활성 스타일 고정 (필기 시작해도 모양 안 바뀜) */}
+      {/* 버튼 1줄: 변환 */}
       <div style={{ display:"flex", gap:6, marginTop:8 }}>
         <button onClick={convert}
-          style={{ flex:1.5, padding:"9px 0", borderRadius:10, cursor:"pointer",
+          style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:"pointer",
             background:accent, border:`1px solid ${accent}`,
             fontFamily:"inherit", fontSize:13, fontWeight:800, color:"#fff" }}>
           {busy ? "변환 중..." : "⬆ 변환"}
         </button>
-        <button onClick={undo}  style={btnStyle(true)}>↶ 한 획 취소</button>
-        <button onClick={clear} style={btnStyle(true)}>✕ 지우기</button>
+      </div>
+      {/* 버튼 2줄: 한 획 취소 + 지우기(확인) */}
+      <div style={{ display:"flex", gap:6, marginTop:6 }}>
+        <button onClick={() => { undo(); setClearConfirm(false); }} style={btnStyle(true)}>↶ 한 획 취소</button>
+        {clearConfirm ? (
+          <button
+            onClick={() => { clear(); setClearConfirm(false); }}
+            style={{ ...btnStyle(true), background:`${C.red}18`, border:`1px solid ${C.red}55`, color:C.red }}>
+            정말 지우기?
+          </button>
+        ) : (
+          <button onClick={() => setClearConfirm(true)} style={btnStyle(true)}>✕ 지우기</button>
+        )}
       </div>
     </div>
   );
