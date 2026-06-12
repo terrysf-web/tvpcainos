@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.491";
+const APP_VERSION = "3.492";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2670,9 +2670,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
             // 곡 번호별 구별 색상 (최대 12곡)
             const SONG_PALETTE = [
-              "#e53935","#1e88e5","#43a047","#fb8c00",
-              "#8e24aa","#00897b","#d81b60","#546e7a",
-              "#f4511e","#039be5","#c0ca33","#6d4c41",
+              "#ef9a9a","#90caf9","#a5d6a7","#ffcc80",
+              "#ce93d8","#80cbc4","#f48fb1","#b0bec5",
+              "#ffab91","#81d4fa","#dce775","#bcaaa4",
             ];
             const songColor = (idx) => SONG_PALETTE[idx % SONG_PALETTE.length];
 
@@ -3154,7 +3154,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         <div style={{ width:20, height:20, borderRadius:6,
                           background: sheetLinkEnabled ? C.pur : `${C.pur}18`,
                           display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                          <span style={{ fontSize:11, fontWeight:800, color: sheetLinkEnabled ? "#fff" : C.pur }}>{dispIdx + 1}</span>
+                          <span style={{ fontSize:11, fontWeight:800, color: sheetLinkEnabled ? "#fff" : C.dim }}>{dispIdx + 1}</span>
                         </div>
                         <span style={{ fontSize:13, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.txt,
                           overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
