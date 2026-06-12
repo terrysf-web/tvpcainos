@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.487";
+const APP_VERSION = "3.488";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -10358,10 +10358,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         </div>
       )}
 
-      {/* 큐 입력 패널 */}
+      {/* 큐 입력 패널 — 오른쪽 사이드 패널 (악보 보면서 작성) */}
       {showCueInput && !isLibraryMode && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)",
-          display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, padding:20 }}
+        <div style={{
+            position:"fixed", top:0, right:0, bottom:0,
+            width:"clamp(300px, 38vw, 420px)",
+            background:C.surf, borderLeft:`2px solid #ff6f0044`,
+            boxShadow:"-6px 0 32px rgba(0,0,0,0.18)",
+            zIndex:200, display:"flex", flexDirection:"column",
+          }}
           onClick={e => e.stopPropagation()}
           onPointerDown={e => e.stopPropagation()}
           onPointerMove={e => e.stopPropagation()}
@@ -10369,11 +10374,22 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           onTouchStart={e => e.stopPropagation()}
           onTouchMove={e => e.stopPropagation()}
           onTouchEnd={e => e.stopPropagation()}>
-          <div style={{ background:C.surf, borderRadius:16, padding:20,
-            width:"100%", maxWidth:400, border:`1px solid #ff6f0055` }}>
-            <div style={{ fontWeight:700, marginBottom:4 }}>🎯 큐 노트</div>
-            <div style={{ fontSize:12, color:"#e65c00", marginBottom:2 }}>{song?.title}</div>
-            <div style={{ fontSize:11, color:C.dim, marginBottom:10 }}>FOH에게 요구하는 사항이나 알림입니다.</div>
+          {/* 헤더 */}
+          <div style={{ padding:"12px 16px 8px", borderBottom:`1px solid ${C.bdr}`, flexShrink:0,
+            display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
+            <div>
+              <div style={{ fontWeight:700, fontSize:13 }}>🎯 큐 노트</div>
+              <div style={{ fontSize:11, color:"#e65c00", marginTop:2 }}>{song?.title}</div>
+              <div style={{ fontSize:10, color:C.dim, marginTop:1 }}>FOH에게 전달하는 요청 / 알림</div>
+            </div>
+            <button onClick={() => { setShowCueInput(false); setCueTxt(""); setCueScr(""); }}
+              style={{ flexShrink:0, background:"transparent", border:`1px solid ${C.bdr}`,
+                borderRadius:8, padding:"3px 8px", cursor:"pointer", color:C.dim, fontSize:13,
+                fontFamily:"inherit", fontWeight:700 }}>✕</button>
+          </div>
+          {/* 스크롤 가능 콘텐츠 */}
+          <div style={{ flex:1, overflowY:"auto", padding:"10px 16px", display:"flex", flexDirection:"column", gap:0 }}>
+          <div style={{ width:"100%" }}>
             {/* 기존 큐 목록 */}
             {(songCues?.[selectedSongId] || []).length > 0 && (
               <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:10 }}>
@@ -10508,15 +10524,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             </div>
             </>
             )}
-            <div style={{ display:"flex", gap:8, marginTop:8 }}>
-              <Btn label="취소" variant="ghost" onClick={() => { setShowCueInput(false); setCueTxt(""); setCueScr(""); }} full />
-              <Btn label="전송" variant="primary"
-                onClick={() => {
-                  const final = (cueTxt + (cueScr.trim() ? (cueTxt ? " " : "") + cueScr.trim() : "")).trim();
-                  if (final) { sendCue?.(selectedSvcId, selectedSongId, final); setCueTxt(""); setCueScr(""); setShowCueInput(false); }
-                }}
-                full disabled={!cueTxt.trim() && !cueScr.trim()} />
-            </div>
+          </div>{/* /스크롤 콘텐츠 inner */}
+          </div>{/* /스크롤 콘텐츠 */}
+          {/* 하단 전송 버튼 */}
+          <div style={{ padding:"10px 16px", borderTop:`1px solid ${C.bdr}`, flexShrink:0 }}>
+            <Btn label="전송" variant="primary"
+              onClick={() => {
+                const final = (cueTxt + (cueScr.trim() ? (cueTxt ? " " : "") + cueScr.trim() : "")).trim();
+                if (final) { sendCue?.(selectedSvcId, selectedSongId, final); setCueTxt(""); setCueScr(""); setShowCueInput(false); }
+              }}
+              full disabled={!cueTxt.trim() && !cueScr.trim()} />
           </div>
         </div>
       )}
