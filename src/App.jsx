@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.493";
+const APP_VERSION = "3.494";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -3074,7 +3074,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                 background: sc,
                                 display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
                                 <span style={{ fontSize:10, fontWeight:800, color:"#fff" }}>{idx+1}</span>
-                                {hasCues && <div style={{ position:"absolute", top:-2, right:-2, width:5, height:5, borderRadius:"50%", background:"#fff", border:`1px solid ${sc}` }} />}
+                                {hasCues && <div style={{ position:"absolute", top:-4, right:-4, width:9, height:9, borderRadius:"50%", background:"#ff6f00", border:"2px solid #fff" }} />}
                               </div>
                               <span style={{ flex:1, fontSize:12, fontWeight: isActive ? 700 : 500,
                                 color: isActive ? C.pur : C.txt,
