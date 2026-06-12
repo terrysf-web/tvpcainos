@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.481";
+const APP_VERSION = "3.482";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -33,6 +33,7 @@ const PARTS = [
   { id:"베이스",    emoji:"🎶", label:"베이스" },
   { id:"드럼",      emoji:"🥁", label:"드럼" },
   { id:"키보드",    emoji:"🎹", label:"키보드" },
+  { id:"피아노",    emoji:"🎹", label:"피아노" },
   { id:"일렉기타",  emoji:"⚡", label:"일렉기타" },
   { id:"FOH",       emoji:"🎚", label:"FOH" },
 ];
@@ -40,8 +41,8 @@ const PARTS = [
 // 보컬 파트 ID 집합 — "밴드" 녹음 접근 불가
 const VOCALIST_PART_IDS = new Set(["보컬그룹","리드보컬","보컬Jeon","보컬Chung","보컬Lee"]);
 // 악보 링크 파트 선택 대상 (보컬 제외 악기 파트)
-const SHEET_SYNC_INST_PARTS = ["밴드","기타","베이스","드럼","키보드","일렉기타"];
-const DEFAULT_SHEET_PARTS   = ["밴드","기타","베이스","드럼","키보드","일렉기타"];
+const SHEET_SYNC_INST_PARTS = ["밴드","기타","베이스","드럼","키보드","피아노","일렉기타"];
+const DEFAULT_SHEET_PARTS   = ["밴드","기타","베이스","드럼","키보드","피아노","일렉기타"];
 
 // 사용자 파트 배열 반환 (구버전 part 문자열 호환)
 const getUserParts = (u) => u?.parts?.length ? u.parts : (u?.part ? [u.part] : []);
