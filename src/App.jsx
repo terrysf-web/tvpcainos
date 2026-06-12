@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.489";
+const APP_VERSION = "3.490";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -3047,7 +3047,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   {svcSongs.length > 0 && (
                     <div style={{ display:"flex", gap:6 }}>
                       {/* 좌: 곡 순서 */}
-                      <div style={{ flex:"0 0 52%", display:"flex", flexDirection:"column", gap:1 }}>
+                      <div style={{ flex:"0 0 38%", display:"flex", flexDirection:"column", gap:1 }}>
                         <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3, paddingLeft:2 }}>
                           곡 순서
                         </div>
