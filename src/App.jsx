@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.479";
+const APP_VERSION = "3.480";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -3445,7 +3445,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
             </div>
           )
         )}
-        )}
       </div>
     </div>
   );
@@ -3482,45 +3481,34 @@ function X32StatusBar() {
   // 오프라인이면 작은 뱃지만 표시
   if (!live) {
     return (
-      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10,
-        padding:"6px 10px", borderRadius:8,
+      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6,
+        padding:"5px 8px", borderRadius:8,
         background:C.surf, border:`1px solid ${C.bdr}` }}>
         <div style={{ width:6, height:6, borderRadius:"50%", background:C.dim, flexShrink:0 }} />
-        <span style={{ fontSize:11, color:C.dim }}>믹서 오프라인</span>
-        <span style={{ fontSize:10, color:`${C.dim}66`, fontFamily:"monospace", marginLeft:"auto" }}>192.168.1.24</span>
+        <span style={{ fontSize:10, color:C.dim }}>믹서 오프라인</span>
       </div>
     );
   }
 
   return (
-    <div style={{ marginBottom:10 }}>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
-        <span style={{ fontSize:11, fontWeight:800, color:C.txt }}>밴드 악기 상태</span>
-        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-          <div style={{ width:6, height:6, borderRadius:"50%", background:C.grn }} />
-          <span style={{ fontSize:10, color:C.grn, fontWeight:700 }}>LIVE</span>
-          <span style={{ fontSize:10, color:C.dim, fontFamily:"monospace" }}>192.168.1.24</span>
+    <div style={{ padding:"5px 8px", borderRadius:8, background:C.surf, border:`1px solid ${C.bdr}`, marginBottom:6 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:3, flexShrink:0 }}>
+          <div style={{ width:6, height:6, borderRadius:"50%", background:C.grn, flexShrink:0 }} />
+          <span style={{ fontSize:10, fontWeight:800, color:C.grn }}>LIVE</span>
         </div>
-      </div>
-      <div style={{ display:"flex", gap:6 }}>
         {X32_CHANNELS.map(ch => {
           const g     = groups.find(g => g.id === ch.id);
           const pct   = Math.round((g?.fader ?? 0) * 100);
           const muted = g?.muted ?? false;
           const color = muted ? C.acc : pct > 90 ? C.red : C.grn;
           return (
-            <div key={ch.id} style={{ flex:1, background:C.surf, border:`1px solid ${C.bdr}`,
-              borderRadius:10, padding:"8px 6px 8px", display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
-              <div style={{ fontSize:26 }}>{ch.icon}</div>
-              <div style={{ fontSize:12, fontWeight:700, color:C.txt, textAlign:"center", lineHeight:1.2 }}>{ch.label}</div>
-              <div style={{ fontSize:11, color:C.dim }}>{ch.chs}</div>
-              <div style={{ width:"100%", height:8, background:C.bdr, borderRadius:4, overflow:"hidden" }}>
-                <div style={{ height:"100%", borderRadius:4, width:pct+"%",
-                  background:color, transition:"width 0.3s" }} />
+            <div key={ch.id} style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+              <span style={{ fontSize:9, fontWeight:700, color: muted ? C.acc : C.dim, lineHeight:1 }}>{ch.label}</span>
+              <div style={{ width:"100%", height:4, background:C.bdr, borderRadius:2, overflow:"hidden" }}>
+                <div style={{ height:"100%", borderRadius:2, width:pct+"%", background:color, transition:"width 0.3s" }} />
               </div>
-              <div style={{ fontSize:12, fontWeight:800, color: muted ? C.acc : C.grn }}>
-                {muted ? "MUTE" : "LIVE"}
-              </div>
+              {muted && <span style={{ fontSize:8, fontWeight:800, color:C.acc, lineHeight:1 }}>MUTE</span>}
             </div>
           );
         })}
