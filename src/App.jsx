@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.486";
+const APP_VERSION = "3.487";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -10432,12 +10432,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 })}
               </div>
             )}
-            {/* 글자 표시 영역 */}
-            <div style={{ background:C.card, border:`1.5px solid ${C.bdr}`, borderRadius:10,
-              padding:"10px 14px", minHeight:44, fontSize:14, color:C.txt,
-              lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-all" }}>
-              {cueTxt || <span style={{ color:C.dim, fontSize:13 }}>작성된 내용이 여기 표시됩니다</span>}
-            </div>
+            {/* 글자 표시/편집 영역 — 변환 후 직접 수정 가능 */}
+            <textarea
+              value={cueTxt}
+              onChange={e => setCueTxt(e.target.value)}
+              placeholder="작성된 내용이 여기 표시됩니다"
+              style={{ width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`, borderRadius:10,
+                padding:"10px 14px", minHeight:44, fontSize:14, color:C.txt,
+                lineHeight:1.6, resize:"none", outline:"none",
+                fontFamily:"inherit", boxSizing:"border-box" }}
+            />
             {/* 입력 모드: 손글씨(캔버스) / 타입 */}
             <div style={{ display:"flex", gap:6, marginTop:10 }}>
               {[{ v:true, label:"✍️ 필기" }, { v:false, label:"⌨️ 타입" }].map(o => (
