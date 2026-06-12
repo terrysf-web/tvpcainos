@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.494";
+const APP_VERSION = "3.495";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -3135,7 +3135,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                   display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
                                 }}>×</button>
                               </div>
-                              <div style={{ fontSize:11, color:"#5d4037", lineHeight:1.4, wordBreak:"break-all" }}>{cue.text}</div>
+                              <div style={{ fontSize:11, fontWeight:700, color:"#5d4037", lineHeight:1.4, wordBreak:"break-all" }}>{cue.text}</div>
                             </div>
                           );});
                         })()}
