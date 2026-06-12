@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.490";
+const APP_VERSION = "3.491";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -2668,6 +2668,14 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
               }).catch(() => {});
             };
 
+            // 곡 번호별 구별 색상 (최대 12곡)
+            const SONG_PALETTE = [
+              "#e53935","#1e88e5","#43a047","#fb8c00",
+              "#8e24aa","#00897b","#d81b60","#546e7a",
+              "#f4511e","#039be5","#c0ca33","#6d4c41",
+            ];
+            const songColor = (idx) => SONG_PALETTE[idx % SONG_PALETTE.length];
+
             return (
               <>
               {/* ── 싱크 ON 플로팅 이전/다음 버튼 ── */}
@@ -3053,19 +3061,20 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         </div>
                         {svcSongs.map((song, idx) => {
                           const isActive = idx === dispIdx;
+                          const sc = songColor(idx);
                           const hasCues = (songCues?.[song.id] || []).filter(c => !c.panic).length > 0;
                           return (
                             <div key={song.id + idx}
                               onClick={() => selectSong(idx)}
                               style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 8px", borderRadius:8, cursor:"pointer",
-                                background: isActive ? `${C.pur}12` : "transparent",
-                                border:`1px solid ${isActive ? C.pur+"44" : "transparent"}`,
+                                background: isActive ? `${sc}18` : "transparent",
+                                border:`1px solid ${isActive ? sc+"66" : "transparent"}`,
                               }}>
                               <div style={{ width:22, height:22, borderRadius:6, flexShrink:0,
-                                background: isActive ? C.pur : `${C.pur}18`,
+                                background: sc,
                                 display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
-                                <span style={{ fontSize:10, fontWeight:800, color: isActive ? "#fff" : C.pur }}>{idx+1}</span>
-                                {hasCues && <div style={{ position:"absolute", top:-2, right:-2, width:5, height:5, borderRadius:"50%", background:C.acc }} />}
+                                <span style={{ fontSize:10, fontWeight:800, color:"#fff" }}>{idx+1}</span>
+                                {hasCues && <div style={{ position:"absolute", top:-2, right:-2, width:5, height:5, borderRadius:"50%", background:"#fff", border:`1px solid ${sc}` }} />}
                               </div>
                               <span style={{ flex:1, fontSize:12, fontWeight: isActive ? 700 : 500,
                                 color: isActive ? C.pur : C.txt,
@@ -3104,14 +3113,16 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                               노트 없음
                             </div>
                           );
-                          return notes.map(cue => (
+                          return notes.map(cue => {
+                            const sc = songColor(cue._songIdx);
+                            return (
                             <div key={cue.id} style={{
-                              background: C.card, border:`1px solid ${C.bdr}`,
+                              background:"#fffde7", border:`1px solid #ffe082`,
                               borderRadius:7, padding:"5px 8px",
                             }}>
                               <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:2 }}>
-                                <span style={{ fontSize:8, fontWeight:800, color:C.pur,
-                                  background:`${C.pur}18`, borderRadius:3, padding:"1px 4px", flexShrink:0 }}>
+                                <span style={{ fontSize:8, fontWeight:800, color:"#fff",
+                                  background:sc, borderRadius:3, padding:"1px 4px", flexShrink:0 }}>
                                   {cue._songIdx + 1}
                                 </span>
                                 <span style={{ fontSize:8, color:C.dim, flexShrink:0 }}>
@@ -3124,9 +3135,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                   display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
                                 }}>×</button>
                               </div>
-                              <div style={{ fontSize:11, color:C.txt, lineHeight:1.4, wordBreak:"break-all" }}>{cue.text}</div>
+                              <div style={{ fontSize:11, color:"#5d4037", lineHeight:1.4, wordBreak:"break-all" }}>{cue.text}</div>
                             </div>
-                          ));
+                          );});
                         })()}
                       </div>
                     </div>
