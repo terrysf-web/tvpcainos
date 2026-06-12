@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.482";
+const APP_VERSION = "3.483";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -10594,8 +10594,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         }}>{metroMsg}</div>
       )}
 
-      {/* 패닉 버튼 — 예배 중 항상 표시 (라이브러리 제외, 멤버 전용) */}
-      {!isLibraryMode && !leader && !!selectedSvcId && (
+      {/* 패닉 버튼 — 라이브러리 제외, 멤버 전용 */}
+      {!isLibraryMode && !leader && (
         <div style={{ position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 58px)", right:4, zIndex:9990 }}>
           {/* 옵션 목록 */}
           {showPanicMenu && (
