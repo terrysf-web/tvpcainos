@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.484";
+const APP_VERSION = "3.485";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -13379,11 +13379,9 @@ export default function App() {
   const [sharedGeminiKey, setSharedGeminiKey] = useState("");
   const [bgmChannel,      setBgmChannel]      = useState("09");
   const [autoPhaseGlobal, setAutoPhaseGlobal] = useState(null); // { phase, svcId }
-  const [pianoOverlayDismissed, setPianoOverlayDismissed] = useState(
-    () => localStorage.getItem("tvpc_pianoOverlay_dismissed") === "piano_on"
-  );
-  const pianoOverlayPhaseRef = useRef(
-    localStorage.getItem("tvpc_pianoOverlay_dismissed") || null
+  const [pianoOverlayDismissed, setPianoOverlayDismissed] = useState(false);
+  const pianoOverlayDismissedTsRef = useRef(
+    parseInt(localStorage.getItem("tvpc_pianoOverlay_dismissed_ts") || "0")
   );
   const autoLiveTriggeredRef = useRef(null);
   const [sheetLinkEnabled,      setSheetLinkEnabled]      = useState(false);
@@ -13446,11 +13444,14 @@ export default function App() {
     return onSnapshot(doc(db, "liveStatus", "automation"), snap => {
       const data = snap.exists() ? snap.data() : null;
       setAutoPhaseGlobal(data);
-      // phase가 바뀌면 dismiss 초기화 (새로고침 시 같은 phase면 스킵)
-      if (data?.phase !== pianoOverlayPhaseRef.current) {
-        pianoOverlayPhaseRef.current = data?.phase || null;
-        localStorage.removeItem("tvpc_pianoOverlay_dismissed");
-        setPianoOverlayDismissed(false);
+      if (data?.phase === "piano_on") {
+        // updatedAt 기반 비교 — 버튼을 다시 누를 때마다 새 timestamp로 오버레이 재표시
+        const ts = data.updatedAt?.toMillis?.() ?? 0;
+        if (ts > pianoOverlayDismissedTsRef.current) {
+          setPianoOverlayDismissed(false);
+        } else {
+          setPianoOverlayDismissed(true);
+        }
       }
     }, () => {});
   }, []);
@@ -14108,8 +14109,10 @@ export default function App() {
 
       {autoPhaseGlobal?.phase === "piano_on" && !pianoOverlayDismissed && (
         <PianoOnOverlay onDismiss={() => {
+          const ts = autoPhaseGlobal?.updatedAt?.toMillis?.() ?? Date.now();
+          pianoOverlayDismissedTsRef.current = ts;
+          localStorage.setItem("tvpc_pianoOverlay_dismissed_ts", String(ts));
           setPianoOverlayDismissed(true);
-          localStorage.setItem("tvpc_pianoOverlay_dismissed", "piano_on");
         }} />
       )}
 
