@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.510";
+const APP_VERSION = "3.511";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -3158,63 +3158,63 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
                 </div>
 
-                {/* ── 오른쪽: 현재 악보 1장 ── */}
-                <div style={{ flexShrink:0, display:"flex", flexDirection:"column", width:"calc((100dvh - 162px) * 0.707)", minWidth:320 }}>
+                {/* ── 오른쪽: 악보 썸네일 + 이동 ── */}
+                <div style={{ flexShrink:0, width:100, display:"flex", flexDirection:"column", gap:4, alignItems:"stretch" }}>
                   {dispSong ? (
                     <>
-                      {/* 번호 + 제목 */}
-                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5, flexShrink:0 }}>
-                        <div style={{ width:20, height:20, borderRadius:6,
-                          background: sheetLinkEnabled ? C.pur : `${C.pur}18`,
-                          display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                          <span style={{ fontSize:11, fontWeight:800, color: sheetLinkEnabled ? "#fff" : C.dim }}>{dispIdx + 1}</span>
-                        </div>
-                        <span style={{ fontSize:13, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.txt,
-                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
-                          {dispSong.title}
-                        </span>
-                        <span style={{ fontSize:11, color:C.dim, flexShrink:0 }}>{dispIdx + 1} / {svcSongs.length}</span>
-                      </div>
-                      {/* 악보 — 높이 100% 채우기 */}
-                      <div style={{ flex:"1 1 0", height:0, minHeight:0,
-                          borderRadius:12, overflow:"hidden",
-                          background:C.card,
-                          border: sheetLinkEnabled ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
-                          boxShadow: sheetLinkEnabled ? `0 0 0 4px ${C.pur}28` : "none",
-                          position:"relative",
-                          display:"flex", alignItems:"center", justifyContent:"center",
-                        }}>
+                      {/* 썸네일 */}
+                      <div style={{
+                        borderRadius:8, overflow:"hidden", background:C.card,
+                        border: sheetLinkEnabled ? `2px solid ${C.pur}` : `1px solid ${C.bdr}`,
+                        boxShadow: sheetLinkEnabled ? `0 0 0 3px ${C.pur}28` : "none",
+                        aspectRatio:"0.707", position:"relative",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                      }}>
                         {dispSong.imageUrl ? (
                           <img src={dispSong.imageUrl} alt=""
-                            style={{ height:"100%", width:"auto", maxWidth:"100%", display:"block" }} />
+                            style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
                         ) : dispSong.pdfUrl ? (
-                          <PdfThumb key={`${dispSong.id}_p${dispSong.pdfPage||1}`} pdfUrl={dispSong.pdfUrl} scale={0.8} fitHeight page={dispSong.pdfPage || 1} />
+                          <PdfThumb key={`${dispSong.id}_p${dispSong.pdfPage||1}`} pdfUrl={dispSong.pdfUrl} scale={0.3} fitHeight page={dispSong.pdfPage || 1} />
                         ) : (
-                          <span style={{ fontSize:60, opacity:0.15 }}>🎵</span>
+                          <span style={{ fontSize:28, opacity:0.2 }}>🎵</span>
                         )}
-                        {/* 뱃지 */}
-                        {(dispSong.key || dispSong.bpm) && (
-                          <div style={{ position:"absolute", bottom:8, left:8, display:"flex", gap:4, flexWrap:"wrap" }}>
-                            {dispSong.key && (
-                              <span style={{ background:`${keyColor(dispSong.key)}ee`, color:"#fff",
-                                borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>{dispSong.key}</span>
-                            )}
-                            {dispSong.bpm && (
-                              <span style={{ background:"rgba(0,0,0,0.6)", color:"#fff",
-                                borderRadius:6, padding:"2px 7px", fontSize:10 }}>♩{dispSong.bpm}</span>
-                            )}
+                        {/* 곡 번호 뱃지 */}
+                        <div style={{ position:"absolute", top:4, left:4,
+                          background: sheetLinkEnabled ? C.pur : "rgba(0,0,0,0.45)",
+                          borderRadius:4, padding:"1px 5px" }}>
+                          <span style={{ fontSize:9, fontWeight:800, color:"#fff" }}>{dispIdx+1}/{svcSongs.length}</span>
+                        </div>
+                        {dispSong.key && (
+                          <div style={{ position:"absolute", bottom:4, left:4,
+                            background:`${keyColor(dispSong.key)}dd`, borderRadius:4, padding:"1px 5px" }}>
+                            <span style={{ fontSize:9, fontWeight:800, color:"#fff" }}>{dispSong.key}</span>
                           </div>
                         )}
                       </div>
-                    </>
-                  ) : (
-                    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", color:C.dim }}>
-                      <div style={{ textAlign:"center" }}>
-                        <div style={{ fontSize:40, marginBottom:8, opacity:0.3 }}>🎵</div>
-                        <div style={{ fontSize:13 }}>아직 곡이 없습니다</div>
+                      {/* 제목 */}
+                      <div style={{ fontSize:10, fontWeight:700, color:C.txt,
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textAlign:"center" }}>
+                        {dispSong.title}
                       </div>
-                    </div>
-                  )}
+                      {/* 이전 / 다음 */}
+                      <div style={{ display:"flex", gap:4 }}>
+                        <button onClick={() => advanceSong(-1)} disabled={dispIdx <= 0}
+                          style={{ flex:1, padding:"6px 0", borderRadius:7, cursor: dispIdx <= 0 ? "default" : "pointer",
+                            background: dispIdx <= 0 ? C.card : C.pur,
+                            border: `1px solid ${dispIdx <= 0 ? C.bdr : C.pur}`,
+                            color: dispIdx <= 0 ? C.dim : "#fff",
+                            fontFamily:"inherit", fontSize:14, fontWeight:800,
+                            opacity: dispIdx <= 0 ? 0.4 : 1 }}>‹</button>
+                        <button onClick={() => advanceSong(1)} disabled={dispIdx >= svcSongs.length-1}
+                          style={{ flex:1, padding:"6px 0", borderRadius:7, cursor: dispIdx >= svcSongs.length-1 ? "default" : "pointer",
+                            background: dispIdx >= svcSongs.length-1 ? C.card : C.pur,
+                            border: `1px solid ${dispIdx >= svcSongs.length-1 ? C.bdr : C.pur}`,
+                            color: dispIdx >= svcSongs.length-1 ? C.dim : "#fff",
+                            fontFamily:"inherit", fontSize:14, fontWeight:800,
+                            opacity: dispIdx >= svcSongs.length-1 ? 0.4 : 1 }}>›</button>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               </div>
               </>
