@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.528";
+const APP_VERSION = "3.529";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13413,14 +13413,14 @@ function HomeSplashScreen() {
         background:"linear-gradient(to bottom, rgba(0,0,0,0.30) 0%, transparent 100%)",
         pointerEvents:"none", zIndex:1,
       }} />
-      {/* YouTube channel link — below "team" text in the background image */}
+      {/* YouTube channel link — below "team" text, shifted right to avoid overlap */}
       <a
-        href="https://www.youtube.com/@tri-valley/streams"
+        href="https://m.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ"
         target="_blank"
         rel="noopener noreferrer"
         style={{
           position:"fixed",
-          top:"68%", left:"50%", transform:"translateX(-50%)",
+          top:"68%", left:"57%", transform:"translateX(-50%)",
           display:"flex", alignItems:"center", gap:6,
           background:"rgba(255,255,255,0.75)",
           color:"#111", textDecoration:"none",
