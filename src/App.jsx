@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.495";
+const APP_VERSION = "3.496";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -13367,6 +13367,26 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   HOME SPLASH SCREEN
+══════════════════════════════════════════════════════════════════ */
+function HomeSplashScreen({ nav, user }) {
+  // FOH 사용자는 예배 대시보드로 자동 이동
+  useEffect(() => {
+    if (isFoh(user)) nav("services");
+  }, [user, nav]);
+
+  return (
+    <div style={{
+      position:"fixed", inset:0,
+      backgroundImage:"url('/home-bg.webp')",
+      backgroundSize:"cover",
+      backgroundPosition:"center center",
+      backgroundRepeat:"no-repeat",
+    }} />
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
    BOTTOM NAV
 ══════════════════════════════════════════════════════════════════ */
 function BottomNav({ view, nav, unread, user, anyLiveActive }) {
@@ -13379,15 +13399,21 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
     { id:"notifications", icon:"bell",       label:"알림"   },
     { id:"profile",       icon:"user",       label:"프로필" },
   ];
+  const isHome = view === "home";
+  const navPur = isHome ? "#2d2460" : C.pur;
   return (
     <div style={{
       position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)",
       width:"100%", maxWidth:640,
-      background:C.surf, borderTop:`1px solid ${C.bdr}`,
+      background: isHome ? "rgba(255,255,255,0.78)" : C.surf,
+      backdropFilter: isHome ? "blur(20px)" : "none",
+      WebkitBackdropFilter: isHome ? "blur(20px)" : "none",
+      borderTop: isHome ? "1px solid rgba(45,36,96,0.12)" : `1px solid ${C.bdr}`,
       display:"flex", alignItems:"center",
       padding:"4px 0",
       paddingBottom:"calc(4px + env(safe-area-inset-bottom))",
       zIndex:500,
+      transition:"background 0.3s",
     }}>
       {tabs.map(t => {
         const active = view === t.id;
@@ -13398,17 +13424,17 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
             <div style={{ position:"relative" }}>
               <div style={{
                 width:44, height:44, borderRadius:12,
-                background: active ? C.pur : `${C.pur}18`,
+                background: active ? navPur : `${navPur}18`,
                 display:"flex", alignItems:"center", justifyContent:"center",
                 transition:"background .15s",
               }}>
-                <Icon n={t.icon} size={22} color={active ? "#fff" : `${C.pur}88`} />
+                <Icon n={t.icon} size={22} color={active ? "#fff" : `${navPur}88`} />
               </div>
               {t.id === "notifications" && unread > 0 && (
                 <span style={{
                   position:"absolute", top:-4, right:-6,
                   minWidth:16, height:16, padding:"0 4px",
-                  background:C.red, borderRadius:8, border:`2px solid ${C.surf}`,
+                  background:C.red, borderRadius:8, border:`2px solid ${isHome ? "rgba(255,255,255,0.78)" : C.surf}`,
                   fontSize:10, fontWeight:700, color:"#fff",
                   display:"flex", alignItems:"center", justifyContent:"center",
                   lineHeight:1, boxSizing:"border-box",
@@ -13418,7 +13444,7 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
               )}
             </div>
             <span style={{ fontSize:10, fontWeight: active ? 700 : 400,
-              color: active ? C.pur : C.dim, letterSpacing:"0.01em" }}>
+              color: active ? navPur : (isHome ? "rgba(45,36,96,0.45)" : C.dim), letterSpacing:"0.01em" }}>
               {t.label}
             </span>
           </button>
@@ -14172,8 +14198,8 @@ export default function App() {
 
   return (
     <div style={{ width:"100%", height:"100%", background:C.bg }}>
-      {view === "home"          && <HomeScreen           {...shared} />}
-      {view === "services"      && <ServicesScreen      {...shared} />}
+      {view === "home"          && <HomeSplashScreen nav={nav} user={user} />}
+      {view === "services"      && (isFoh(user) ? <HomeScreen {...shared} /> : <ServicesScreen {...shared} />)}
       {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
       {view === "library"       && <SongLibraryScreen   {...shared} />}
       {view === "pdfViewer"     && (
