@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.498";
+const APP_VERSION = "3.499";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -13389,8 +13389,6 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
     { id:"home",          icon:"home",       label:"홈"     },
     { id:"services",      icon:"calendar",   label:"예배"   },
     { id:"library",       icon:"music",      label:"악보"   },
-    ...(user?.role === "admin" || (isBroadcast(user?.role) && anyLiveActive)
-      ? [{ id:"live", icon:"antenna", label:"LIVE" }] : []),
     { id:"notifications", icon:"bell",       label:"알림"   },
     { id:"profile",       icon:"user",       label:"프로필" },
   ];
