@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.530";
+const APP_VERSION = "3.531";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13412,8 +13412,8 @@ function HomeSplashScreen() {
       <div style={{
         position:"fixed", inset:"-20px",
         backgroundImage:"url('/home-bg.webp')",
-        backgroundSize:"cover",
-        backgroundPosition: portrait ? "68% center" : "center center",
+        backgroundSize: portrait ? "170% auto" : "cover",
+        backgroundPosition: portrait ? "55% 38%" : "center center",
         backgroundRepeat:"no-repeat",
       }} />
       {/* Dark gradient so status bar text is readable on the light background */}
