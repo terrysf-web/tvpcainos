@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.502";
+const APP_VERSION = "3.503";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -13419,11 +13419,12 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
               <div style={{
                 width:44, height:44, borderRadius:12,
                 background: active ? navPur : (isHome ? "transparent" : `${navPur}18`),
-                border: isHome ? `1.5px solid ${active ? navPur : "rgba(45,36,96,0.35)"}` : "none",
+                border: isHome ? `2px solid ${active ? navPur : "rgba(45,36,96,0.65)"}` : "none",
+                boxShadow: isHome && !active ? "0 1px 6px rgba(0,0,0,0.18)" : "none",
                 display:"flex", alignItems:"center", justifyContent:"center",
                 transition:"background .15s",
               }}>
-                <Icon n={t.icon} size={22} color={active ? "#fff" : `${navPur}88`} />
+                <Icon n={t.icon} size={22} color={active ? "#fff" : (isHome ? "#2d2460" : `${navPur}88`)} />
               </div>
               {t.id === "notifications" && unread > 0 && (
                 <span style={{
@@ -13438,8 +13439,10 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
                 </span>
               )}
             </div>
-            <span style={{ fontSize: isHome ? 11 : 10, fontWeight: active ? 700 : 500,
-              color: active ? navPur : (isHome ? "rgba(45,36,96,0.55)" : C.dim), letterSpacing:"0.01em" }}>
+            <span style={{ fontSize: isHome ? 11 : 10, fontWeight: active ? 700 : 600,
+              color: active ? navPur : (isHome ? "#2d2460" : C.dim),
+              textShadow: isHome ? "0 1px 3px rgba(255,255,255,0.6)" : "none",
+              letterSpacing:"0.01em" }}>
               {t.label}
             </span>
           </button>
