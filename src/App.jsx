@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.496";
+const APP_VERSION = "3.497";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -13369,12 +13369,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
 /* ══════════════════════════════════════════════════════════════════
    HOME SPLASH SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function HomeSplashScreen({ nav, user }) {
-  // FOH 사용자는 예배 대시보드로 자동 이동
-  useEffect(() => {
-    if (isFoh(user)) nav("services");
-  }, [user, nav]);
-
+function HomeSplashScreen() {
   return (
     <div style={{
       position:"fixed", inset:0,
@@ -14198,7 +14193,7 @@ export default function App() {
 
   return (
     <div style={{ width:"100%", height:"100%", background:C.bg }}>
-      {view === "home"          && <HomeSplashScreen nav={nav} user={user} />}
+      {view === "home"          && <HomeSplashScreen />}
       {view === "services"      && (isFoh(user) ? <HomeScreen {...shared} /> : <ServicesScreen {...shared} />)}
       {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
       {view === "library"       && <SongLibraryScreen   {...shared} />}
