@@ -3,6 +3,7 @@ name: Firebase 자동 배포
 on:
   push:
     branches:
+      - main
       - claude/church-worship-sheet-music-dMndd
   workflow_dispatch:
 
