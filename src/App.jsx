@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.500";
+const APP_VERSION = "3.501";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -13399,10 +13399,10 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
     <div style={{
       position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)",
       width:"100%", maxWidth:640,
-      background: isHome ? "rgba(255,255,255,0.78)" : C.surf,
-      backdropFilter: isHome ? "blur(20px)" : "none",
-      WebkitBackdropFilter: isHome ? "blur(20px)" : "none",
-      borderTop: isHome ? "1px solid rgba(45,36,96,0.12)" : `1px solid ${C.bdr}`,
+      background: isHome ? "rgba(255,255,255,0.45)" : C.surf,
+      backdropFilter: isHome ? "blur(24px)" : "none",
+      WebkitBackdropFilter: isHome ? "blur(24px)" : "none",
+      borderTop: isHome ? "1px solid rgba(45,36,96,0.18)" : `1px solid ${C.bdr}`,
       display:"flex", alignItems:"center",
       padding:"4px 0",
       paddingBottom:"calc(4px + env(safe-area-inset-bottom))",
@@ -13418,7 +13418,8 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
             <div style={{ position:"relative" }}>
               <div style={{
                 width:44, height:44, borderRadius:12,
-                background: active ? navPur : `${navPur}18`,
+                background: active ? navPur : (isHome ? "rgba(255,255,255,0.55)" : `${navPur}18`),
+                border: isHome ? `1.5px solid ${active ? "transparent" : "rgba(45,36,96,0.30)"}` : "none",
                 display:"flex", alignItems:"center", justifyContent:"center",
                 transition:"background .15s",
               }}>
@@ -13428,7 +13429,7 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
                 <span style={{
                   position:"absolute", top:-4, right:-6,
                   minWidth:16, height:16, padding:"0 4px",
-                  background:C.red, borderRadius:8, border:`2px solid ${isHome ? "rgba(255,255,255,0.78)" : C.surf}`,
+                  background:C.red, borderRadius:8, border:`2px solid ${isHome ? "rgba(255,255,255,0.45)" : C.surf}`,
                   fontSize:10, fontWeight:700, color:"#fff",
                   display:"flex", alignItems:"center", justifyContent:"center",
                   lineHeight:1, boxSizing:"border-box",
@@ -13437,8 +13438,8 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
                 </span>
               )}
             </div>
-            <span style={{ fontSize:10, fontWeight: active ? 700 : 400,
-              color: active ? navPur : (isHome ? "rgba(45,36,96,0.45)" : C.dim), letterSpacing:"0.01em" }}>
+            <span style={{ fontSize: isHome ? 11 : 10, fontWeight: active ? 700 : 500,
+              color: active ? navPur : (isHome ? "rgba(45,36,96,0.55)" : C.dim), letterSpacing:"0.01em" }}>
               {t.label}
             </span>
           </button>
