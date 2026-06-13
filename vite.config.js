@@ -10,11 +10,16 @@ export default defineConfig({
       manifest: false, // public/manifest.json 유지
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,json,woff2}"],
+        globIgnores: ["**/version.json"],
         skipWaiting: true,
         clientsClaim: true,
         // FCM 서비스 워커는 별도 등록 — 충돌 방지
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/firebase-messaging-sw\.js/],
+        navigateFallbackDenylist: [/^\/firebase-messaging-sw\.js/, /^\/version\.json/],
+        runtimeCaching: [{
+          urlPattern: /\/version\.json$/,
+          handler: "NetworkOnly",
+        }],
       },
     }),
   ],
