@@ -19,11 +19,11 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.509";
+const APP_VERSION = "3.510";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
-const CUE_SECTIONS = ["전체","Intro","Verse","Pre-Chorus","Chorus","Bridge","Outro"];
+const CUE_SECTIONS = ["전체","Intro","Verse","Chorus","Bridge","Outro"];
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
