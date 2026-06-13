@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.526";
+const APP_VERSION = "3.527";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13415,7 +13415,7 @@ function HomeSplashScreen() {
       }} />
       {/* YouTube channel link — below "team" text in the background image */}
       <a
-        href="https://youtube.com/@tri-valley?si=ScOaZP7AaBrKJGhq"
+        href="https://www.youtube.com/@tri-valley/streams"
         target="_blank"
         rel="noopener noreferrer"
         style={{
