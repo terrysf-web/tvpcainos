@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.501";
+const APP_VERSION = "3.502";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -13399,10 +13399,10 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
     <div style={{
       position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)",
       width:"100%", maxWidth:640,
-      background: isHome ? "rgba(255,255,255,0.45)" : C.surf,
-      backdropFilter: isHome ? "blur(24px)" : "none",
-      WebkitBackdropFilter: isHome ? "blur(24px)" : "none",
-      borderTop: isHome ? "1px solid rgba(45,36,96,0.18)" : `1px solid ${C.bdr}`,
+      background: isHome ? "transparent" : C.surf,
+      backdropFilter: "none",
+      WebkitBackdropFilter: "none",
+      borderTop: isHome ? "none" : `1px solid ${C.bdr}`,
       display:"flex", alignItems:"center",
       padding:"4px 0",
       paddingBottom:"calc(4px + env(safe-area-inset-bottom))",
@@ -13418,8 +13418,8 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
             <div style={{ position:"relative" }}>
               <div style={{
                 width:44, height:44, borderRadius:12,
-                background: active ? navPur : (isHome ? "rgba(255,255,255,0.55)" : `${navPur}18`),
-                border: isHome ? `1.5px solid ${active ? "transparent" : "rgba(45,36,96,0.30)"}` : "none",
+                background: active ? navPur : (isHome ? "transparent" : `${navPur}18`),
+                border: isHome ? `1.5px solid ${active ? navPur : "rgba(45,36,96,0.35)"}` : "none",
                 display:"flex", alignItems:"center", justifyContent:"center",
                 transition:"background .15s",
               }}>
