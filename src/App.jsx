@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.510";
+const APP_VERSION = "3.514";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13401,8 +13401,8 @@ function HomeSplashScreen() {
     <div style={{
       position:"fixed", inset:0,
       backgroundImage:"url('/home-bg.webp')",
-      backgroundSize:"cover",
-      backgroundPosition:"center 35%",
+      backgroundSize:"80%",
+      backgroundPosition:"center center",
       backgroundRepeat:"no-repeat",
     }} />
   );
