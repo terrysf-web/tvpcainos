@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.518";
+const APP_VERSION = "3.519";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13398,13 +13398,22 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
 ══════════════════════════════════════════════════════════════════ */
 function HomeSplashScreen() {
   return (
-    <div style={{
-      position:"fixed", inset:"-4px",
-      backgroundImage:"url('/home-bg.webp')",
-      backgroundSize:"cover",
-      backgroundPosition:"center center",
-      backgroundRepeat:"no-repeat",
-    }} />
+    <>
+      <div style={{
+        position:"fixed", inset:"-4px",
+        backgroundImage:"url('/home-bg.webp')",
+        backgroundSize:"cover",
+        backgroundPosition:"center center",
+        backgroundRepeat:"no-repeat",
+      }} />
+      {/* Dark gradient so status bar text is readable on the light background */}
+      <div style={{
+        position:"fixed", top:0, left:0, right:0,
+        height:"calc(env(safe-area-inset-top, 44px) + 12px)",
+        background:"linear-gradient(to bottom, rgba(0,0,0,0.30) 0%, transparent 100%)",
+        pointerEvents:"none", zIndex:1,
+      }} />
+    </>
   );
 }
 
