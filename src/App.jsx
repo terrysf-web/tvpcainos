@@ -19,7 +19,9 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.507";
+const APP_VERSION = "3.508";
+const localDateStr = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -1321,7 +1323,7 @@ function TimeSelector({ time, setTime, showCustom, setShowCustom }) {
 
 function CreateServiceModal({ songs, onClose, onCreate }) {
   const [title,      setTitle]      = useState("주일 2부");
-  const [date,       setDate]       = useState(() => new Date().toISOString().slice(0, 10));
+  const [date,       setDate]       = useState(() => localDateStr());
   const [time,       setTime]       = useState("11:00");  // 주일 2부 기본값
   const [showCustom, setShowCustom] = useState(false);
   const [selected,   setSelected]   = useState([]);
@@ -2384,7 +2386,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
     }, () => {});
   }, [userIsFoh]);
 
-  const today    = new Date().toISOString().slice(0, 10);
+  const today    = localDateStr();
   const upcoming = services
     .filter(s => s.date >= today)
     .slice().sort((a, b) => a.date.localeCompare(b.date));
@@ -3638,7 +3640,7 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
   const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("ko-KR",
     { month:"long", day:"numeric", weekday:"short" });
 
-  const today    = new Date().toISOString().slice(0, 10);
+  const today    = localDateStr();
   const upcoming = services.filter(s => s.date >= today);
   // 지난 예배: 최신순 정렬
   const past     = services.filter(s => s.date < today)
@@ -12002,8 +12004,8 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
   }, []);
 
   const recentServices = useMemo(() => {
-    const today = new Date().toISOString().slice(0,10);
-    const cutoff = new Date(Date.now() - 21 * 86400000).toISOString().slice(0,10);
+    const today = localDateStr();
+    const cutoff = localDateStr(new Date(Date.now() - 21 * 86400000));
     return [...services]
       .filter(s => s.date >= cutoff)
       .sort((a,b) => {
@@ -13843,7 +13845,7 @@ export default function App() {
   // ── Firestore: 큐 노트 (현재 열린 서비스 우선, 없으면 가장 가까운 서비스)
   useEffect(() => {
     if (!user?.uid) return;
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = localDateStr();
     const sorted = [...services].sort((a, b) => a.date.localeCompare(b.date));
     const nearestId = sorted.find(s => s.date >= todayStr)?.id
                    ?? sorted[sorted.length - 1]?.id;
@@ -13982,7 +13984,7 @@ export default function App() {
     if (view === "pdfViewer") return;
     const check = () => {
       const now = new Date();
-      const today = now.toISOString().slice(0, 10);
+      const today = localDateStr(now);
       const nowMin = now.getHours() * 60 + now.getMinutes();
       const upcoming = services.find(svc => {
         if (svc.date !== today || !svc.time) return false;
