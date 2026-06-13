@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.503";
+const APP_VERSION = "3.504";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -3766,7 +3766,7 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
         </div>
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:69 }}>
+      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:"calc(80px + env(safe-area-inset-bottom))" }}>
         {/* 다가오는 예배 */}
         {upcoming.length > 0 && (
           <>
@@ -5143,7 +5143,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
       {/* 리스트 + 자음 인덱스 */}
       <div style={{ flex:1, display:"flex", overflow:"hidden", position:"relative" }}>
         {/* 곡 목록 (스크롤) */}
-        <div style={{ flex:1, overflowY:"auto", padding:"12px 52px 90px 16px" }}>
+        <div style={{ flex:1, overflowY:"auto", padding:"12px 52px 0 16px", paddingBottom:"calc(90px + env(safe-area-inset-bottom))" }}>
           {filtered.length === 0 && (
             <div style={{ textAlign:"center", padding:"60px 0", color:C.dim }}>
               <div style={{ fontSize:36, marginBottom:12 }}>🎵</div>
@@ -10884,7 +10884,7 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
       </div>
 
       {/* list */}
-      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:69 }}>
+      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:"calc(80px + env(safe-area-inset-bottom))" }}>
         {/* 알림 권한 배너 */}
         {perm === "default" && (
           <div style={{ marginBottom:12, padding:"12px 14px", borderRadius:12,
@@ -11639,7 +11639,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
         borderBottom:`1px solid ${C.bdr}` }}>
         <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>내 정보</div>
       </div>
-      <div style={{ flex:1, overflowY:"auto", padding:20, paddingBottom:69 }}>
+      <div style={{ flex:1, overflowY:"auto", padding:20, paddingBottom:"calc(80px + env(safe-area-inset-bottom))" }}>
 
       {/* 내 프로필 카드 */}
       <div style={{ background:C.surf, borderRadius:16, padding:20,
@@ -13394,7 +13394,7 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
     { id:"profile",                           icon:"user",       label:"프로필" },
   ];
   const isHome = view === "home";
-  const navPur = isHome ? "#2d2460" : C.pur;
+  const navPur = "#2d2460";
   return (
     <div style={{
       position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)",
@@ -13418,19 +13418,19 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
             <div style={{ position:"relative" }}>
               <div style={{
                 width:44, height:44, borderRadius:12,
-                background: active ? navPur : (isHome ? "transparent" : `${navPur}18`),
-                border: isHome ? `2px solid ${active ? navPur : "rgba(45,36,96,0.65)"}` : "none",
-                boxShadow: isHome && !active ? "0 1px 6px rgba(0,0,0,0.18)" : "none",
+                background: active ? navPur : "transparent",
+                border: `2px solid ${active ? navPur : "rgba(45,36,96,0.55)"}`,
+                boxShadow: !active ? "0 1px 5px rgba(0,0,0,0.12)" : "none",
                 display:"flex", alignItems:"center", justifyContent:"center",
                 transition:"background .15s",
               }}>
-                <Icon n={t.icon} size={22} color={active ? "#fff" : (isHome ? "#2d2460" : `${navPur}88`)} />
+                <Icon n={t.icon} size={22} color={active ? "#fff" : navPur} />
               </div>
               {t.id === "notifications" && unread > 0 && (
                 <span style={{
                   position:"absolute", top:-4, right:-6,
                   minWidth:16, height:16, padding:"0 4px",
-                  background:C.red, borderRadius:8, border:`2px solid ${isHome ? "rgba(255,255,255,0.45)" : C.surf}`,
+                  background:C.red, borderRadius:8, border:`2px solid ${isHome ? "transparent" : C.surf}`,
                   fontSize:10, fontWeight:700, color:"#fff",
                   display:"flex", alignItems:"center", justifyContent:"center",
                   lineHeight:1, boxSizing:"border-box",
@@ -13439,9 +13439,8 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
                 </span>
               )}
             </div>
-            <span style={{ fontSize: isHome ? 11 : 10, fontWeight: active ? 700 : 600,
-              color: active ? navPur : (isHome ? "#2d2460" : C.dim),
-              textShadow: isHome ? "0 1px 3px rgba(255,255,255,0.6)" : "none",
+            <span style={{ fontSize:11, fontWeight: active ? 700 : 600,
+              color: active ? navPur : "rgba(45,36,96,0.65)",
               letterSpacing:"0.01em" }}>
               {t.label}
             </span>
