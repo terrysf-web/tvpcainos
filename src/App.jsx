@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.520";
+const APP_VERSION = "3.521";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13568,6 +13568,17 @@ export default function App() {
   useEffect(() => { viewRef.current      = view;            }, [view]);
   useEffect(() => { userPartsRef.current = getUserParts(user); }, [user]);
   useEffect(() => { userIsFohRef.current  = isFoh(user);           }, [user]);
+
+  // 서비스 워커 업데이트 감지 → 자동 새로고침
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const hadController = !!navigator.serviceWorker.controller;
+    const onControllerChange = () => {
+      if (hadController) window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+    return () => navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+  }, []);
 
   // 로그인/새로고침 직후 sheetSyncTsRef 초기화 — 이동은 하지 않음 (저장 위치 유지)
   useEffect(() => {
