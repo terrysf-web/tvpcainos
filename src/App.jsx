@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.504";
+const APP_VERSION = "3.505";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -13399,10 +13399,10 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
     <div style={{
       position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)",
       width:"100%", maxWidth:640,
-      background: isHome ? "transparent" : C.surf,
+      background: "transparent",
       backdropFilter: "none",
       WebkitBackdropFilter: "none",
-      borderTop: isHome ? "none" : `1px solid ${C.bdr}`,
+      borderTop: "none",
       display:"flex", alignItems:"center",
       padding:"4px 0",
       paddingBottom:"calc(4px + env(safe-area-inset-bottom))",
