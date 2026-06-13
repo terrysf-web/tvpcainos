@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.517";
+const APP_VERSION = "3.518";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13399,7 +13399,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
 function HomeSplashScreen() {
   return (
     <div style={{
-      position:"fixed", inset:0,
+      position:"fixed", inset:"-4px",
       backgroundImage:"url('/home-bg.webp')",
       backgroundSize:"cover",
       backgroundPosition:"center center",
