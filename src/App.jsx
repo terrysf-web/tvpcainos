@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.523";
+const APP_VERSION = "3.524";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13413,32 +13413,31 @@ function HomeSplashScreen() {
         background:"linear-gradient(to bottom, rgba(0,0,0,0.30) 0%, transparent 100%)",
         pointerEvents:"none", zIndex:1,
       }} />
-      {/* YouTube channel link */}
+      {/* YouTube channel link — below "team" text in the background image */}
       <a
         href="https://youtube.com/@tri-valley?si=eAdMP7Yqbhu8ELvW"
         target="_blank"
         rel="noopener noreferrer"
         style={{
           position:"fixed",
-          bottom:"calc(76px + env(safe-area-inset-bottom))",
-          left:"50%", transform:"translateX(-50%)",
-          display:"flex", alignItems:"center", gap:8,
-          background:"rgba(255,0,0,0.88)",
-          color:"#fff", textDecoration:"none",
-          borderRadius:28, padding:"10px 22px",
-          fontSize:14, fontWeight:700, letterSpacing:"-0.01em",
+          top:"68%", left:"50%", transform:"translateX(-50%)",
+          display:"flex", alignItems:"center", gap:6,
+          background:"rgba(255,255,255,0.75)",
+          color:"#111", textDecoration:"none",
+          borderRadius:20, padding:"6px 14px",
+          fontSize:12, fontWeight:700, letterSpacing:"0.01em",
           zIndex:10,
-          boxShadow:"0 2px 16px rgba(0,0,0,0.22)",
-          backdropFilter:"blur(6px)",
-          WebkitBackdropFilter:"blur(6px)",
+          boxShadow:"0 1px 8px rgba(0,0,0,0.12)",
+          backdropFilter:"blur(8px)",
+          WebkitBackdropFilter:"blur(8px)",
           whiteSpace:"nowrap",
         }}
       >
-        <svg width="24" height="17" viewBox="0 0 24 17" fill="none">
-          <rect width="24" height="17" rx="4.5" fill="white"/>
-          <path d="M9.5 12V5L17 8.5L9.5 12Z" fill="#FF0000"/>
+        <svg width="18" height="13" viewBox="0 0 18 13" fill="none">
+          <rect width="18" height="13" rx="3" fill="#FF0000"/>
+          <path d="M7 9.5V3.5L13 6.5L7 9.5Z" fill="white"/>
         </svg>
-        TVPC YouTube
+        TVPC
       </a>
     </>
   );
