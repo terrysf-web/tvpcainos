@@ -19,9 +19,11 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.508";
+const APP_VERSION = "3.509";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+const CUE_SECTIONS = ["전체","Intro","Verse","Pre-Chorus","Chorus","Bridge","Outro"];
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -3098,48 +3100,57 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       {/* 구분선 */}
                       <div style={{ width:1, background:C.bdr, flexShrink:0 }} />
 
-                      {/* 우: 큐 노트 (현재 곡 기준) */}
+                      {/* 우: 큐 노트 — 선택된 곡 기준, 섹션별 카드 */}
                       <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:3 }}>
                         <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3 }}>
-                          큐 노트
+                          {dispSong ? `${dispIdx+1}. ${dispSong.title} 큐노트` : "큐 노트"}
                         </div>
                         {(() => {
-                          const notes = svcSongs.flatMap((s, si) =>
-                            (songCues?.[s.id] || [])
-                              .filter(c => !c.panic)
-                              .map(c => ({ ...c, _songIdx: si, _songTitle: s.title }))
-                          ).sort((a, b) => (a._songIdx - b._songIdx) || ((a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0)));
+                          const songId = dispSong?.id;
+                          const notes = songId
+                            ? (songCues?.[songId] || []).filter(c => !c.panic)
+                                .slice().sort((a,b) => (a.createdAt?.seconds??0)-(b.createdAt?.seconds??0))
+                            : [];
                           if (notes.length === 0) return (
                             <div style={{ fontSize:10, color:C.dim, padding:"5px 8px",
                               background:C.card, borderRadius:7, border:`1px solid ${C.bdr}` }}>
-                              노트 없음
+                              {dispSong ? "큐노트 없음" : "곡을 선택하세요"}
                             </div>
                           );
-                          return notes.map(cue => {
-                            const sc = songColor(cue._songIdx);
-                            return (
-                            <div key={cue.id} style={{
-                              background:"#fffde7", border:`1px solid #ffe082`,
-                              borderRadius:7, padding:"5px 8px",
-                            }}>
-                              <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:2 }}>
-                                <span style={{ fontSize:8, fontWeight:800, color:"#fff",
-                                  background:sc, borderRadius:3, padding:"1px 4px", flexShrink:0 }}>
-                                  {cue._songIdx + 1}
-                                </span>
-                                <span style={{ fontSize:8, color:C.dim, flexShrink:0 }}>
-                                  {cue.userPart || cue.userName || ""}
-                                </span>
-                                <button onClick={() => deleteCue?.(cue.id)} style={{
-                                  marginLeft:"auto", flexShrink:0, width:14, height:14, borderRadius:"50%",
-                                  background:"transparent", border:`1px solid ${C.bdr}`,
-                                  color:C.dim, fontSize:9, cursor:"pointer", fontFamily:"inherit",
-                                  display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
-                                }}>×</button>
+                          const grouped = CUE_SECTIONS.reduce((acc, sec) => {
+                            const list = notes.filter(c => (c.section || "전체") === sec);
+                            if (list.length > 0) acc[sec] = list;
+                            return acc;
+                          }, {});
+                          const unknownSec = notes.filter(c => !CUE_SECTIONS.includes(c.section || "전체"));
+                          if (unknownSec.length > 0) grouped["기타"] = unknownSec;
+                          return Object.entries(grouped).map(([sec, list]) => (
+                            <div key={sec} style={{ background:"#fffde7", border:"1px solid #ffe082", borderRadius:8, overflow:"hidden", marginBottom:2 }}>
+                              <div style={{ background:"#ff6f0018", borderBottom:"1px solid #ffe082",
+                                padding:"3px 8px", fontSize:9, fontWeight:800,
+                                color:"#bf360c", letterSpacing:"0.06em", textTransform:"uppercase" }}>
+                                {sec}
                               </div>
-                              <div style={{ fontSize:11, fontWeight:700, color:"#5d4037", lineHeight:1.4, wordBreak:"break-all" }}>{cue.text}</div>
+                              <div style={{ display:"flex", flexDirection:"column", gap:4, padding:"5px 8px" }}>
+                                {list.map(cue => (
+                                  <div key={cue.id}>
+                                    <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:1 }}>
+                                      <span style={{ fontSize:8, color:C.dim, flexShrink:0 }}>
+                                        {cue.userPart || cue.userName || ""}
+                                      </span>
+                                      <button onClick={() => deleteCue?.(cue.id)} style={{
+                                        marginLeft:"auto", flexShrink:0, width:14, height:14, borderRadius:"50%",
+                                        background:"transparent", border:`1px solid ${C.bdr}`,
+                                        color:C.dim, fontSize:9, cursor:"pointer", fontFamily:"inherit",
+                                        display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
+                                      }}>×</button>
+                                    </div>
+                                    <div style={{ fontSize:11, fontWeight:700, color:"#5d4037", lineHeight:1.4, wordBreak:"break-all" }}>{cue.text}</div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          );});
+                          ));
                         })()}
                       </div>
                     </div>
@@ -6546,6 +6557,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [showCueInput,  setShowCueInput]  = useState(false);
   const [cueTxt,        setCueTxt]        = useState("");
   const [cueScr,        setCueScr]        = useState("");
+  const [cueSection,    setCueSection]    = useState("전체");
   const [cueEditId,     setCueEditId]     = useState(null);
   const [cueEditTxt,    setCueEditTxt]    = useState("");
   const [showPanicMenu, setShowPanicMenu] = useState(false);
@@ -10477,6 +10489,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 })}
               </div>
             )}
+            {/* 섹션 선택 */}
+            <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:8, marginTop:4 }}>
+              {CUE_SECTIONS.map(sec => (
+                <button key={sec} onClick={() => setCueSection(sec)}
+                  style={{ padding:"4px 10px", borderRadius:20, cursor:"pointer",
+                    fontFamily:"inherit", fontSize:11, fontWeight:700,
+                    background: cueSection === sec ? "#ff6f00" : C.card,
+                    color: cueSection === sec ? "#fff" : C.dim,
+                    border:`1.5px solid ${cueSection === sec ? "#ff6f00" : C.bdr}` }}>
+                  {sec}
+                </button>
+              ))}
+            </div>
             {/* 글자 표시/편집 영역 — 변환 후 직접 수정 가능 */}
             <textarea
               value={cueTxt}
@@ -10560,7 +10585,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             <Btn label="전송" variant="primary"
               onClick={() => {
                 const final = (cueTxt + (cueScr.trim() ? (cueTxt ? " " : "") + cueScr.trim() : "")).trim();
-                if (final) { sendCue?.(selectedSvcId, cueSongId, final); setCueTxt(""); setCueScr(""); setShowCueInput(false); }
+                if (final) { sendCue?.(selectedSvcId, cueSongId, final, { section: cueSection }); setCueTxt(""); setCueScr(""); setCueSection("전체"); setShowCueInput(false); }
               }}
               full disabled={!cueTxt.trim() && !cueScr.trim()} />
           </div>
@@ -14070,6 +14095,7 @@ export default function App() {
       userName: user.displayName || user.name || user.email || "팀원",
       userPart,
       text: text.trim(),
+      section: opts.section || "전체",
       createdAt: serverTimestamp(),
       acknowledgedBy: [],
       panic: opts.panic ?? false,
