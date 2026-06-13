@@ -2714,8 +2714,154 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 }}>다음 ▶</button>
               </>)}
               <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, paddingBottom:"calc(70px + env(safe-area-inset-bottom))", overflow:"hidden" }}>
-                {/* ── 왼쪽: 히어로 + 컨트롤 + 곡 목록 ── */}
-                <div style={{ flex:1, minWidth:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", msOverflowStyle:"none" }}>
+                {/* ── 좌: 악보 + 큐노트 ── */}
+                <div style={{ flex:"0 0 50%", minWidth:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none" }}>
+                  {/* 악보 크게 + 이전/다음 */}
+                  {svcSongs.length > 0 && dispSong && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                      <div style={{ borderRadius:12, overflow:"hidden", background:C.card,
+                        border: sheetLinkEnabled ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
+                        boxShadow: sheetLinkEnabled ? `0 0 0 4px ${C.pur}28` : "none",
+                        aspectRatio:"0.707", position:"relative",
+                        display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        {dispSong.imageUrl ? (
+                          <img src={dispSong.imageUrl} alt="" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
+                        ) : dispSong.pdfUrl ? (
+                          <PdfThumb key={`${dispSong.id}_p${dispSong.pdfPage||1}`} pdfUrl={dispSong.pdfUrl} scale={0.8} fitHeight page={dispSong.pdfPage||1} />
+                        ) : (
+                          <span style={{ fontSize:40, opacity:0.2 }}>🎵</span>
+                        )}
+                        <div style={{ position:"absolute", top:6, left:6, background: sheetLinkEnabled ? C.pur : "rgba(0,0,0,0.45)", borderRadius:5, padding:"2px 7px" }}>
+                          <span style={{ fontSize:10, fontWeight:800, color:"#fff" }}>{dispIdx+1} / {svcSongs.length}</span>
+                        </div>
+                        {(dispSong.key || dispSong.bpm) && (
+                          <div style={{ position:"absolute", bottom:8, left:8, display:"flex", gap:4 }}>
+                            {dispSong.key && <span style={{ background:`${keyColor(dispSong.key)}ee`, color:"#fff", borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>{dispSong.key}</span>}
+                            {dispSong.bpm && <span style={{ background:"rgba(0,0,0,0.6)", color:"#fff", borderRadius:6, padding:"2px 7px", fontSize:10 }}>♩{dispSong.bpm}</span>}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ fontSize:13, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.txt, textAlign:"center", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {dispSong.title}
+                      </div>
+                      <div style={{ display:"flex", gap:6 }}>
+                        <button onClick={() => advanceSong(-1)} disabled={dispIdx <= 0}
+                          style={{ flex:1, padding:"8px 0", borderRadius:8, cursor: dispIdx <= 0 ? "default" : "pointer",
+                            background: dispIdx <= 0 ? C.card : C.pur, border:`1px solid ${dispIdx <= 0 ? C.bdr : C.pur}`,
+                            color: dispIdx <= 0 ? C.dim : "#fff", fontFamily:"inherit", fontSize:14, fontWeight:800, opacity: dispIdx <= 0 ? 0.4 : 1 }}>‹ 이전</button>
+                        <button onClick={() => advanceSong(1)} disabled={dispIdx >= svcSongs.length-1}
+                          style={{ flex:1, padding:"8px 0", borderRadius:8, cursor: dispIdx >= svcSongs.length-1 ? "default" : "pointer",
+                            background: dispIdx >= svcSongs.length-1 ? C.card : C.pur, border:`1px solid ${dispIdx >= svcSongs.length-1 ? C.bdr : C.pur}`,
+                            color: dispIdx >= svcSongs.length-1 ? C.dim : "#fff", fontFamily:"inherit", fontSize:14, fontWeight:800, opacity: dispIdx >= svcSongs.length-1 ? 0.4 : 1 }}>다음 ›</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── 곡 순서 + 큐 노트 2열 ── */}
+                  {svcSongs.length > 0 && (
+                    <div style={{ display:"flex", gap:6 }}>
+                      {/* 좌: 곡 순서 */}
+                      <div style={{ flex:"0 0 38%", display:"flex", flexDirection:"column", gap:1 }}>
+                        <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3, paddingLeft:2 }}>
+                          곡 순서
+                        </div>
+                        {svcSongs.map((song, idx) => {
+                          const isActive = idx === dispIdx;
+                          const sc = songColor(idx);
+                          const hasCues = (songCues?.[song.id] || []).filter(c => !c.panic).length > 0;
+                          return (
+                            <div key={song.id + idx}
+                              onClick={() => selectSong(idx)}
+                              style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 8px", borderRadius:8, cursor:"pointer",
+                                background: isActive ? `${sc}18` : "transparent",
+                                border:`1px solid ${isActive ? sc+"66" : "transparent"}`,
+                              }}>
+                              <div style={{ width:22, height:22, borderRadius:6, flexShrink:0,
+                                background: sc,
+                                display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
+                                <span style={{ fontSize:10, fontWeight:800, color:"#fff" }}>{idx+1}</span>
+                                {hasCues && <div style={{ position:"absolute", top:-4, right:-4, width:9, height:9, borderRadius:"50%", background:"#ff6f00", border:"2px solid #fff" }} />}
+                              </div>
+                              <span style={{ flex:1, fontSize:12, fontWeight: isActive ? 700 : 500,
+                                color: isActive ? C.pur : C.txt,
+                                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                                {song.title}
+                              </span>
+                              {song.key && (
+                                <span style={{ flexShrink:0, fontSize:10, fontWeight:700,
+                                  background:`${keyColor(song.key)}22`, color:keyColor(song.key),
+                                  borderRadius:4, padding:"1px 5px" }}>
+                                  {song.key}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* 구분선 */}
+                      <div style={{ width:1, background:C.bdr, flexShrink:0 }} />
+
+                      {/* 우: 큐 노트 — 선택된 곡 기준, 섹션별 카드 */}
+                      <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:3 }}>
+                        <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3 }}>
+                          {dispSong ? `${dispIdx+1}. ${dispSong.title} 큐노트` : "큐 노트"}
+                        </div>
+                        {(() => {
+                          const songId = dispSong?.id;
+                          const notes = songId
+                            ? (songCues?.[songId] || []).filter(c => !c.panic)
+                                .slice().sort((a,b) => (a.createdAt?.seconds??0)-(b.createdAt?.seconds??0))
+                            : [];
+                          if (notes.length === 0) return (
+                            <div style={{ fontSize:10, color:C.dim, padding:"5px 8px",
+                              background:C.card, borderRadius:7, border:`1px solid ${C.bdr}` }}>
+                              {dispSong ? "큐노트 없음" : "곡을 선택하세요"}
+                            </div>
+                          );
+                          const grouped = CUE_SECTIONS.reduce((acc, sec) => {
+                            const list = notes.filter(c => (c.section || "전체") === sec);
+                            if (list.length > 0) acc[sec] = list;
+                            return acc;
+                          }, {});
+                          const unknownSec = notes.filter(c => !CUE_SECTIONS.includes(c.section || "전체"));
+                          if (unknownSec.length > 0) grouped["기타"] = unknownSec;
+                          return Object.entries(grouped).map(([sec, list]) => (
+                            <div key={sec} style={{ background:"#fffde7", border:"1px solid #ffe082", borderRadius:8, overflow:"hidden", marginBottom:2 }}>
+                              <div style={{ background:"#ff6f0018", borderBottom:"1px solid #ffe082",
+                                padding:"3px 8px", fontSize:9, fontWeight:800,
+                                color:"#bf360c", letterSpacing:"0.06em", textTransform:"uppercase" }}>
+                                {sec}
+                              </div>
+                              <div style={{ display:"flex", flexDirection:"column", gap:4, padding:"5px 8px" }}>
+                                {list.map(cue => (
+                                  <div key={cue.id}>
+                                    <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:1 }}>
+                                      <span style={{ fontSize:8, color:C.dim, flexShrink:0 }}>
+                                        {cue.userPart || cue.userName || ""}
+                                      </span>
+                                      <button onClick={() => deleteCue?.(cue.id)} style={{
+                                        marginLeft:"auto", flexShrink:0, width:14, height:14, borderRadius:"50%",
+                                        background:"transparent", border:`1px solid ${C.bdr}`,
+                                        color:C.dim, fontSize:9, cursor:"pointer", fontFamily:"inherit",
+                                        display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
+                                      }}>×</button>
+                                    </div>
+                                    <div style={{ fontSize:11, fontWeight:700, color:"#5d4037", lineHeight:1.4, wordBreak:"break-all" }}>{cue.text}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+
+                {/* ── 우: 믹서 + 메시지 ── */}
+                <div style={{ flex:"0 0 50%", minWidth:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none" }}>
                   {/* 히어로 카드 */}
                   {nextSvc ? (
                   <div style={{
@@ -3055,166 +3201,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     )}
                   </div>
 
-                  {/* ── 곡 순서 + 큐 노트 2열 ── */}
-                  {svcSongs.length > 0 && (
-                    <div style={{ display:"flex", gap:6 }}>
-                      {/* 좌: 곡 순서 */}
-                      <div style={{ flex:"0 0 38%", display:"flex", flexDirection:"column", gap:1 }}>
-                        <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3, paddingLeft:2 }}>
-                          곡 순서
-                        </div>
-                        {svcSongs.map((song, idx) => {
-                          const isActive = idx === dispIdx;
-                          const sc = songColor(idx);
-                          const hasCues = (songCues?.[song.id] || []).filter(c => !c.panic).length > 0;
-                          return (
-                            <div key={song.id + idx}
-                              onClick={() => selectSong(idx)}
-                              style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 8px", borderRadius:8, cursor:"pointer",
-                                background: isActive ? `${sc}18` : "transparent",
-                                border:`1px solid ${isActive ? sc+"66" : "transparent"}`,
-                              }}>
-                              <div style={{ width:22, height:22, borderRadius:6, flexShrink:0,
-                                background: sc,
-                                display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
-                                <span style={{ fontSize:10, fontWeight:800, color:"#fff" }}>{idx+1}</span>
-                                {hasCues && <div style={{ position:"absolute", top:-4, right:-4, width:9, height:9, borderRadius:"50%", background:"#ff6f00", border:"2px solid #fff" }} />}
-                              </div>
-                              <span style={{ flex:1, fontSize:12, fontWeight: isActive ? 700 : 500,
-                                color: isActive ? C.pur : C.txt,
-                                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                                {song.title}
-                              </span>
-                              {song.key && (
-                                <span style={{ flexShrink:0, fontSize:10, fontWeight:700,
-                                  background:`${keyColor(song.key)}22`, color:keyColor(song.key),
-                                  borderRadius:4, padding:"1px 5px" }}>
-                                  {song.key}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* 구분선 */}
-                      <div style={{ width:1, background:C.bdr, flexShrink:0 }} />
-
-                      {/* 우: 큐 노트 — 선택된 곡 기준, 섹션별 카드 */}
-                      <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:3 }}>
-                        <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3 }}>
-                          {dispSong ? `${dispIdx+1}. ${dispSong.title} 큐노트` : "큐 노트"}
-                        </div>
-                        {(() => {
-                          const songId = dispSong?.id;
-                          const notes = songId
-                            ? (songCues?.[songId] || []).filter(c => !c.panic)
-                                .slice().sort((a,b) => (a.createdAt?.seconds??0)-(b.createdAt?.seconds??0))
-                            : [];
-                          if (notes.length === 0) return (
-                            <div style={{ fontSize:10, color:C.dim, padding:"5px 8px",
-                              background:C.card, borderRadius:7, border:`1px solid ${C.bdr}` }}>
-                              {dispSong ? "큐노트 없음" : "곡을 선택하세요"}
-                            </div>
-                          );
-                          const grouped = CUE_SECTIONS.reduce((acc, sec) => {
-                            const list = notes.filter(c => (c.section || "전체") === sec);
-                            if (list.length > 0) acc[sec] = list;
-                            return acc;
-                          }, {});
-                          const unknownSec = notes.filter(c => !CUE_SECTIONS.includes(c.section || "전체"));
-                          if (unknownSec.length > 0) grouped["기타"] = unknownSec;
-                          return Object.entries(grouped).map(([sec, list]) => (
-                            <div key={sec} style={{ background:"#fffde7", border:"1px solid #ffe082", borderRadius:8, overflow:"hidden", marginBottom:2 }}>
-                              <div style={{ background:"#ff6f0018", borderBottom:"1px solid #ffe082",
-                                padding:"3px 8px", fontSize:9, fontWeight:800,
-                                color:"#bf360c", letterSpacing:"0.06em", textTransform:"uppercase" }}>
-                                {sec}
-                              </div>
-                              <div style={{ display:"flex", flexDirection:"column", gap:4, padding:"5px 8px" }}>
-                                {list.map(cue => (
-                                  <div key={cue.id}>
-                                    <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:1 }}>
-                                      <span style={{ fontSize:8, color:C.dim, flexShrink:0 }}>
-                                        {cue.userPart || cue.userName || ""}
-                                      </span>
-                                      <button onClick={() => deleteCue?.(cue.id)} style={{
-                                        marginLeft:"auto", flexShrink:0, width:14, height:14, borderRadius:"50%",
-                                        background:"transparent", border:`1px solid ${C.bdr}`,
-                                        color:C.dim, fontSize:9, cursor:"pointer", fontFamily:"inherit",
-                                        display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
-                                      }}>×</button>
-                                    </div>
-                                    <div style={{ fontSize:11, fontWeight:700, color:"#5d4037", lineHeight:1.4, wordBreak:"break-all" }}>{cue.text}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ));
-                        })()}
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-
-                {/* ── 오른쪽: 악보 썸네일 + 이동 ── */}
-                <div style={{ flexShrink:0, width:100, display:"flex", flexDirection:"column", gap:4, alignItems:"stretch" }}>
-                  {dispSong ? (
-                    <>
-                      {/* 썸네일 */}
-                      <div style={{
-                        borderRadius:8, overflow:"hidden", background:C.card,
-                        border: sheetLinkEnabled ? `2px solid ${C.pur}` : `1px solid ${C.bdr}`,
-                        boxShadow: sheetLinkEnabled ? `0 0 0 3px ${C.pur}28` : "none",
-                        aspectRatio:"0.707", position:"relative",
-                        display:"flex", alignItems:"center", justifyContent:"center",
-                      }}>
-                        {dispSong.imageUrl ? (
-                          <img src={dispSong.imageUrl} alt=""
-                            style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
-                        ) : dispSong.pdfUrl ? (
-                          <PdfThumb key={`${dispSong.id}_p${dispSong.pdfPage||1}`} pdfUrl={dispSong.pdfUrl} scale={0.3} fitHeight page={dispSong.pdfPage || 1} />
-                        ) : (
-                          <span style={{ fontSize:28, opacity:0.2 }}>🎵</span>
-                        )}
-                        {/* 곡 번호 뱃지 */}
-                        <div style={{ position:"absolute", top:4, left:4,
-                          background: sheetLinkEnabled ? C.pur : "rgba(0,0,0,0.45)",
-                          borderRadius:4, padding:"1px 5px" }}>
-                          <span style={{ fontSize:9, fontWeight:800, color:"#fff" }}>{dispIdx+1}/{svcSongs.length}</span>
-                        </div>
-                        {dispSong.key && (
-                          <div style={{ position:"absolute", bottom:4, left:4,
-                            background:`${keyColor(dispSong.key)}dd`, borderRadius:4, padding:"1px 5px" }}>
-                            <span style={{ fontSize:9, fontWeight:800, color:"#fff" }}>{dispSong.key}</span>
-                          </div>
-                        )}
-                      </div>
-                      {/* 제목 */}
-                      <div style={{ fontSize:10, fontWeight:700, color:C.txt,
-                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textAlign:"center" }}>
-                        {dispSong.title}
-                      </div>
-                      {/* 이전 / 다음 */}
-                      <div style={{ display:"flex", gap:4 }}>
-                        <button onClick={() => advanceSong(-1)} disabled={dispIdx <= 0}
-                          style={{ flex:1, padding:"6px 0", borderRadius:7, cursor: dispIdx <= 0 ? "default" : "pointer",
-                            background: dispIdx <= 0 ? C.card : C.pur,
-                            border: `1px solid ${dispIdx <= 0 ? C.bdr : C.pur}`,
-                            color: dispIdx <= 0 ? C.dim : "#fff",
-                            fontFamily:"inherit", fontSize:14, fontWeight:800,
-                            opacity: dispIdx <= 0 ? 0.4 : 1 }}>‹</button>
-                        <button onClick={() => advanceSong(1)} disabled={dispIdx >= svcSongs.length-1}
-                          style={{ flex:1, padding:"6px 0", borderRadius:7, cursor: dispIdx >= svcSongs.length-1 ? "default" : "pointer",
-                            background: dispIdx >= svcSongs.length-1 ? C.card : C.pur,
-                            border: `1px solid ${dispIdx >= svcSongs.length-1 ? C.bdr : C.pur}`,
-                            color: dispIdx >= svcSongs.length-1 ? C.dim : "#fff",
-                            fontFamily:"inherit", fontSize:14, fontWeight:800,
-                            opacity: dispIdx >= svcSongs.length-1 ? 0.4 : 1 }}>›</button>
-                      </div>
-                    </>
-                  ) : null}
                 </div>
               </div>
               </>
