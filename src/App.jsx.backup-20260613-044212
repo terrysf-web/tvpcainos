@@ -19,11 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.510";
-const localDateStr = (d = new Date()) =>
-  `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-
-const CUE_SECTIONS = ["전체","Intro","Verse","Chorus","Bridge","Outro"];
+const APP_VERSION = "3.495";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -1325,7 +1321,7 @@ function TimeSelector({ time, setTime, showCustom, setShowCustom }) {
 
 function CreateServiceModal({ songs, onClose, onCreate }) {
   const [title,      setTitle]      = useState("주일 2부");
-  const [date,       setDate]       = useState(() => localDateStr());
+  const [date,       setDate]       = useState(() => new Date().toISOString().slice(0, 10));
   const [time,       setTime]       = useState("11:00");  // 주일 2부 기본값
   const [showCustom, setShowCustom] = useState(false);
   const [selected,   setSelected]   = useState([]);
@@ -2388,7 +2384,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
     }, () => {});
   }, [userIsFoh]);
 
-  const today    = localDateStr();
+  const today    = new Date().toISOString().slice(0, 10);
   const upcoming = services
     .filter(s => s.date >= today)
     .slice().sort((a, b) => a.date.localeCompare(b.date));
@@ -3100,57 +3096,48 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       {/* 구분선 */}
                       <div style={{ width:1, background:C.bdr, flexShrink:0 }} />
 
-                      {/* 우: 큐 노트 — 선택된 곡 기준, 섹션별 카드 */}
+                      {/* 우: 큐 노트 (현재 곡 기준) */}
                       <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:3 }}>
                         <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3 }}>
-                          {dispSong ? `${dispIdx+1}. ${dispSong.title} 큐노트` : "큐 노트"}
+                          큐 노트
                         </div>
                         {(() => {
-                          const songId = dispSong?.id;
-                          const notes = songId
-                            ? (songCues?.[songId] || []).filter(c => !c.panic)
-                                .slice().sort((a,b) => (a.createdAt?.seconds??0)-(b.createdAt?.seconds??0))
-                            : [];
+                          const notes = svcSongs.flatMap((s, si) =>
+                            (songCues?.[s.id] || [])
+                              .filter(c => !c.panic)
+                              .map(c => ({ ...c, _songIdx: si, _songTitle: s.title }))
+                          ).sort((a, b) => (a._songIdx - b._songIdx) || ((a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0)));
                           if (notes.length === 0) return (
                             <div style={{ fontSize:10, color:C.dim, padding:"5px 8px",
                               background:C.card, borderRadius:7, border:`1px solid ${C.bdr}` }}>
-                              {dispSong ? "큐노트 없음" : "곡을 선택하세요"}
+                              노트 없음
                             </div>
                           );
-                          const grouped = CUE_SECTIONS.reduce((acc, sec) => {
-                            const list = notes.filter(c => (c.section || "전체") === sec);
-                            if (list.length > 0) acc[sec] = list;
-                            return acc;
-                          }, {});
-                          const unknownSec = notes.filter(c => !CUE_SECTIONS.includes(c.section || "전체"));
-                          if (unknownSec.length > 0) grouped["기타"] = unknownSec;
-                          return Object.entries(grouped).map(([sec, list]) => (
-                            <div key={sec} style={{ background:"#fffde7", border:"1px solid #ffe082", borderRadius:8, overflow:"hidden", marginBottom:2 }}>
-                              <div style={{ background:"#ff6f0018", borderBottom:"1px solid #ffe082",
-                                padding:"3px 8px", fontSize:9, fontWeight:800,
-                                color:"#bf360c", letterSpacing:"0.06em", textTransform:"uppercase" }}>
-                                {sec}
+                          return notes.map(cue => {
+                            const sc = songColor(cue._songIdx);
+                            return (
+                            <div key={cue.id} style={{
+                              background:"#fffde7", border:`1px solid #ffe082`,
+                              borderRadius:7, padding:"5px 8px",
+                            }}>
+                              <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:2 }}>
+                                <span style={{ fontSize:8, fontWeight:800, color:"#fff",
+                                  background:sc, borderRadius:3, padding:"1px 4px", flexShrink:0 }}>
+                                  {cue._songIdx + 1}
+                                </span>
+                                <span style={{ fontSize:8, color:C.dim, flexShrink:0 }}>
+                                  {cue.userPart || cue.userName || ""}
+                                </span>
+                                <button onClick={() => deleteCue?.(cue.id)} style={{
+                                  marginLeft:"auto", flexShrink:0, width:14, height:14, borderRadius:"50%",
+                                  background:"transparent", border:`1px solid ${C.bdr}`,
+                                  color:C.dim, fontSize:9, cursor:"pointer", fontFamily:"inherit",
+                                  display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
+                                }}>×</button>
                               </div>
-                              <div style={{ display:"flex", flexDirection:"column", gap:4, padding:"5px 8px" }}>
-                                {list.map(cue => (
-                                  <div key={cue.id}>
-                                    <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:1 }}>
-                                      <span style={{ fontSize:8, color:C.dim, flexShrink:0 }}>
-                                        {cue.userPart || cue.userName || ""}
-                                      </span>
-                                      <button onClick={() => deleteCue?.(cue.id)} style={{
-                                        marginLeft:"auto", flexShrink:0, width:14, height:14, borderRadius:"50%",
-                                        background:"transparent", border:`1px solid ${C.bdr}`,
-                                        color:C.dim, fontSize:9, cursor:"pointer", fontFamily:"inherit",
-                                        display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
-                                      }}>×</button>
-                                    </div>
-                                    <div style={{ fontSize:11, fontWeight:700, color:"#5d4037", lineHeight:1.4, wordBreak:"break-all" }}>{cue.text}</div>
-                                  </div>
-                                ))}
-                              </div>
+                              <div style={{ fontSize:11, fontWeight:700, color:"#5d4037", lineHeight:1.4, wordBreak:"break-all" }}>{cue.text}</div>
                             </div>
-                          ));
+                          );});
                         })()}
                       </div>
                     </div>
@@ -3651,7 +3638,7 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
   const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("ko-KR",
     { month:"long", day:"numeric", weekday:"short" });
 
-  const today    = localDateStr();
+  const today    = new Date().toISOString().slice(0, 10);
   const upcoming = services.filter(s => s.date >= today);
   // 지난 예배: 최신순 정렬
   const past     = services.filter(s => s.date < today)
@@ -3779,7 +3766,7 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
         </div>
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:"calc(80px + env(safe-area-inset-bottom))" }}>
+      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:69 }}>
         {/* 다가오는 예배 */}
         {upcoming.length > 0 && (
           <>
@@ -5156,7 +5143,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
       {/* 리스트 + 자음 인덱스 */}
       <div style={{ flex:1, display:"flex", overflow:"hidden", position:"relative" }}>
         {/* 곡 목록 (스크롤) */}
-        <div style={{ flex:1, overflowY:"auto", padding:"12px 52px 0 16px", paddingBottom:"calc(90px + env(safe-area-inset-bottom))" }}>
+        <div style={{ flex:1, overflowY:"auto", padding:"12px 52px 90px 16px" }}>
           {filtered.length === 0 && (
             <div style={{ textAlign:"center", padding:"60px 0", color:C.dim }}>
               <div style={{ fontSize:36, marginBottom:12 }}>🎵</div>
@@ -6557,7 +6544,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [showCueInput,  setShowCueInput]  = useState(false);
   const [cueTxt,        setCueTxt]        = useState("");
   const [cueScr,        setCueScr]        = useState("");
-  const [cueSection,    setCueSection]    = useState("전체");
   const [cueEditId,     setCueEditId]     = useState(null);
   const [cueEditTxt,    setCueEditTxt]    = useState("");
   const [showPanicMenu, setShowPanicMenu] = useState(false);
@@ -10489,19 +10475,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 })}
               </div>
             )}
-            {/* 섹션 선택 */}
-            <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:8, marginTop:4 }}>
-              {CUE_SECTIONS.map(sec => (
-                <button key={sec} onClick={() => setCueSection(sec)}
-                  style={{ padding:"4px 10px", borderRadius:20, cursor:"pointer",
-                    fontFamily:"inherit", fontSize:11, fontWeight:700,
-                    background: cueSection === sec ? "#ff6f00" : C.card,
-                    color: cueSection === sec ? "#fff" : C.dim,
-                    border:`1.5px solid ${cueSection === sec ? "#ff6f00" : C.bdr}` }}>
-                  {sec}
-                </button>
-              ))}
-            </div>
             {/* 글자 표시/편집 영역 — 변환 후 직접 수정 가능 */}
             <textarea
               value={cueTxt}
@@ -10585,7 +10558,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             <Btn label="전송" variant="primary"
               onClick={() => {
                 const final = (cueTxt + (cueScr.trim() ? (cueTxt ? " " : "") + cueScr.trim() : "")).trim();
-                if (final) { sendCue?.(selectedSvcId, cueSongId, final, { section: cueSection }); setCueTxt(""); setCueScr(""); setCueSection("전체"); setShowCueInput(false); }
+                if (final) { sendCue?.(selectedSvcId, cueSongId, final); setCueTxt(""); setCueScr(""); setShowCueInput(false); }
               }}
               full disabled={!cueTxt.trim() && !cueScr.trim()} />
           </div>
@@ -10911,7 +10884,7 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
       </div>
 
       {/* list */}
-      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:"calc(80px + env(safe-area-inset-bottom))" }}>
+      <div style={{ flex:1, overflowY:"auto", padding:16, paddingBottom:69 }}>
         {/* 알림 권한 배너 */}
         {perm === "default" && (
           <div style={{ marginBottom:12, padding:"12px 14px", borderRadius:12,
@@ -11666,7 +11639,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
         borderBottom:`1px solid ${C.bdr}` }}>
         <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>내 정보</div>
       </div>
-      <div style={{ flex:1, overflowY:"auto", padding:20, paddingBottom:"calc(80px + env(safe-area-inset-bottom))" }}>
+      <div style={{ flex:1, overflowY:"auto", padding:20, paddingBottom:69 }}>
 
       {/* 내 프로필 카드 */}
       <div style={{ background:C.surf, borderRadius:16, padding:20,
@@ -12029,8 +12002,8 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
   }, []);
 
   const recentServices = useMemo(() => {
-    const today = localDateStr();
-    const cutoff = localDateStr(new Date(Date.now() - 21 * 86400000));
+    const today = new Date().toISOString().slice(0,10);
+    const cutoff = new Date(Date.now() - 21 * 86400000).toISOString().slice(0,10);
     return [...services]
       .filter(s => s.date >= cutoff)
       .sort((a,b) => {
@@ -13394,47 +13367,27 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   HOME SPLASH SCREEN
-══════════════════════════════════════════════════════════════════ */
-function HomeSplashScreen() {
-  return (
-    <div style={{
-      position:"fixed", inset:0,
-      backgroundImage:"url('/home-bg.webp')",
-      backgroundSize:"cover",
-      backgroundPosition:"center 35%",
-      backgroundRepeat:"no-repeat",
-    }} />
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════
    BOTTOM NAV
 ══════════════════════════════════════════════════════════════════ */
 function BottomNav({ view, nav, unread, user, anyLiveActive }) {
-  const isFohUser = getUserParts(user).some(p => p?.toLowerCase() === "foh");
   const tabs = [
-    { id:"home",                              icon:"home",       label:"홈"     },
-    { id: isFohUser ? "foh" : "services",    icon:"calendar",   label:"예배"   },
-    { id:"library",                           icon:"music",      label:"악보"   },
-    { id:"notifications",                     icon:"bell",       label:"알림"   },
-    { id:"profile",                           icon:"user",       label:"프로필" },
+    { id:"home",          icon:"home",       label:"홈"     },
+    { id:"services",      icon:"calendar",   label:"예배"   },
+    { id:"library",       icon:"music",      label:"악보"   },
+    ...(user?.role === "admin" || (isBroadcast(user?.role) && anyLiveActive)
+      ? [{ id:"live", icon:"antenna", label:"LIVE" }] : []),
+    { id:"notifications", icon:"bell",       label:"알림"   },
+    { id:"profile",       icon:"user",       label:"프로필" },
   ];
-  const isHome = view === "home";
-  const navPur = "#2d2460";
   return (
     <div style={{
       position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)",
       width:"100%", maxWidth:640,
-      background: "transparent",
-      backdropFilter: "none",
-      WebkitBackdropFilter: "none",
-      borderTop: "none",
+      background:C.surf, borderTop:`1px solid ${C.bdr}`,
       display:"flex", alignItems:"center",
       padding:"4px 0",
       paddingBottom:"calc(4px + env(safe-area-inset-bottom))",
       zIndex:500,
-      transition:"background 0.3s",
     }}>
       {tabs.map(t => {
         const active = view === t.id;
@@ -13445,19 +13398,17 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
             <div style={{ position:"relative" }}>
               <div style={{
                 width:44, height:44, borderRadius:12,
-                background: active ? navPur : "transparent",
-                border: `2px solid ${active ? navPur : "rgba(45,36,96,0.55)"}`,
-                boxShadow: !active ? "0 1px 5px rgba(0,0,0,0.12)" : "none",
+                background: active ? C.pur : `${C.pur}18`,
                 display:"flex", alignItems:"center", justifyContent:"center",
                 transition:"background .15s",
               }}>
-                <Icon n={t.icon} size={22} color={active ? "#fff" : navPur} />
+                <Icon n={t.icon} size={22} color={active ? "#fff" : `${C.pur}88`} />
               </div>
               {t.id === "notifications" && unread > 0 && (
                 <span style={{
                   position:"absolute", top:-4, right:-6,
                   minWidth:16, height:16, padding:"0 4px",
-                  background:C.red, borderRadius:8, border:`2px solid ${isHome ? "transparent" : C.surf}`,
+                  background:C.red, borderRadius:8, border:`2px solid ${C.surf}`,
                   fontSize:10, fontWeight:700, color:"#fff",
                   display:"flex", alignItems:"center", justifyContent:"center",
                   lineHeight:1, boxSizing:"border-box",
@@ -13466,9 +13417,8 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
                 </span>
               )}
             </div>
-            <span style={{ fontSize:11, fontWeight: active ? 700 : 600,
-              color: active ? navPur : "rgba(45,36,96,0.65)",
-              letterSpacing:"0.01em" }}>
+            <span style={{ fontSize:10, fontWeight: active ? 700 : 400,
+              color: active ? C.pur : C.dim, letterSpacing:"0.01em" }}>
               {t.label}
             </span>
           </button>
@@ -13870,7 +13820,7 @@ export default function App() {
   // ── Firestore: 큐 노트 (현재 열린 서비스 우선, 없으면 가장 가까운 서비스)
   useEffect(() => {
     if (!user?.uid) return;
-    const todayStr = localDateStr();
+    const todayStr = new Date().toISOString().slice(0, 10);
     const sorted = [...services].sort((a, b) => a.date.localeCompare(b.date));
     const nearestId = sorted.find(s => s.date >= todayStr)?.id
                    ?? sorted[sorted.length - 1]?.id;
@@ -14009,7 +13959,7 @@ export default function App() {
     if (view === "pdfViewer") return;
     const check = () => {
       const now = new Date();
-      const today = localDateStr(now);
+      const today = now.toISOString().slice(0, 10);
       const nowMin = now.getHours() * 60 + now.getMinutes();
       const upcoming = services.find(svc => {
         if (svc.date !== today || !svc.time) return false;
@@ -14095,7 +14045,6 @@ export default function App() {
       userName: user.displayName || user.name || user.email || "팀원",
       userPart,
       text: text.trim(),
-      section: opts.section || "전체",
       createdAt: serverTimestamp(),
       acknowledgedBy: [],
       panic: opts.panic ?? false,
@@ -14223,9 +14172,8 @@ export default function App() {
 
   return (
     <div style={{ width:"100%", height:"100%", background:C.bg }}>
-      {view === "home"          && <HomeSplashScreen />}
+      {view === "home"          && <HomeScreen           {...shared} />}
       {view === "services"      && <ServicesScreen      {...shared} />}
-      {view === "foh"           && <HomeScreen           {...shared} />}
       {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
       {view === "library"       && <SongLibraryScreen   {...shared} />}
       {view === "pdfViewer"     && (

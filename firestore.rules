@@ -17,6 +17,14 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
+    function isFoh() {
+      let ud = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isAuthed() && (
+        ud.role in ["foh", "FOH", "admin"] ||
+        ud.get("parts", []).hasAny(["FOH", "foh"])
+      );
+    }
+
     match /songs/{id} {
       allow read: if isAuthed();
       allow create, update, delete: if isLeader();
@@ -80,7 +88,11 @@ service cloud.firestore {
       allow read, write: if isAuthed();
     }
 
-    // 앱 설정 (공유 Gemini 키 등) — 읽기 인증된 모두, 쓰기 어드민만
+    // 앱 설정 — 읽기 인증된 모두, fohMessages는 FOH/어드민 쓰기, 나머지 어드민만
+    match /settings/fohMessages {
+      allow read: if isAuthed();
+      allow write: if isFoh();
+    }
     match /settings/{docId} {
       allow read: if isAuthed();
       allow write: if isAdmin();
@@ -109,10 +121,10 @@ service cloud.firestore {
       allow write: if isLeader();
     }
 
-    // LIVE 전체 상태 (방송팀 탭 표시 여부) — 읽기 인증된 모두, 쓰기 리더/어드민
+    // LIVE 전체 상태 (방송팀 탭 표시 여부) — 읽기 인증된 모두, 쓰기 리더/FOH/어드민
     match /liveStatus/{docId} {
       allow read: if isAuthed();
-      allow write: if isLeader();
+      allow write: if isLeader() || isFoh();
     }
 
     // LIVE 팀 CUE — 인증된 모두 읽기/쓰기 (팀원이 자기 상태 업데이트)
@@ -141,6 +153,12 @@ service cloud.firestore {
     // 큐 노트 — 인증된 모든 팀원 읽기/쓰기
     match /cueNotes/{id} {
       allow read, write: if isAuthed();
+    }
+
+    // FOH → 멤버 개별 메시지 (doc ID = 수신자 uid)
+    match /fohMessages/{uid} {
+      allow read: if isAuthed() && request.auth.uid == uid;
+      allow write: if isLeader() || isFoh();
     }
   }
 }
