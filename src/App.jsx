@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.506";
+const APP_VERSION = "3.507";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -13375,7 +13375,7 @@ function HomeSplashScreen() {
       position:"fixed", inset:0,
       backgroundImage:"url('/home-bg.webp')",
       backgroundSize:"cover",
-      backgroundPosition:"center 65%",
+      backgroundPosition:"center 35%",
       backgroundRepeat:"no-repeat",
     }} />
   );
