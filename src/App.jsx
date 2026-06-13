@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.499";
+const APP_VERSION = "3.500";
 
 const PARTS = [
   { id:"전체",      emoji:"🎵", label:"전체" },
@@ -13385,12 +13385,13 @@ function HomeSplashScreen() {
    BOTTOM NAV
 ══════════════════════════════════════════════════════════════════ */
 function BottomNav({ view, nav, unread, user, anyLiveActive }) {
+  const isFohUser = getUserParts(user).some(p => p?.toLowerCase() === "foh");
   const tabs = [
-    { id:"home",          icon:"home",       label:"홈"     },
-    { id:"services",      icon:"calendar",   label:"예배"   },
-    { id:"library",       icon:"music",      label:"악보"   },
-    { id:"notifications", icon:"bell",       label:"알림"   },
-    { id:"profile",       icon:"user",       label:"프로필" },
+    { id:"home",                              icon:"home",       label:"홈"     },
+    { id: isFohUser ? "foh" : "services",    icon:"calendar",   label:"예배"   },
+    { id:"library",                           icon:"music",      label:"악보"   },
+    { id:"notifications",                     icon:"bell",       label:"알림"   },
+    { id:"profile",                           icon:"user",       label:"프로필" },
   ];
   const isHome = view === "home";
   const navPur = isHome ? "#2d2460" : C.pur;
@@ -14192,7 +14193,8 @@ export default function App() {
   return (
     <div style={{ width:"100%", height:"100%", background:C.bg }}>
       {view === "home"          && <HomeSplashScreen />}
-      {view === "services"      && (getUserParts(user).some(p => p?.toLowerCase() === "foh") ? <HomeScreen {...shared} /> : <ServicesScreen {...shared} />)}
+      {view === "services"      && <ServicesScreen      {...shared} />}
+      {view === "foh"           && <HomeScreen           {...shared} />}
       {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
       {view === "library"       && <SongLibraryScreen   {...shared} />}
       {view === "pdfViewer"     && (
