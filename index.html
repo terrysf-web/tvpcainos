@@ -23,37 +23,7 @@
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      (function() {
-        // 1) Reload when a new SW takes control — hadController check prevents
-        //    firing on first install (which also triggers controllerchange)
-        if ('serviceWorker' in navigator) {
-          var hadController = !!navigator.serviceWorker.controller;
-          navigator.serviceWorker.addEventListener('controllerchange', function() {
-            if (hadController) window.location.reload();
-          });
-        }
-        // 2) Poll /version.json every 5 minutes; reload if version changed.
-        //    Update sessionStorage BEFORE reload to prevent infinite reload loop.
-        function checkVersion() {
-          fetch('/version.json?_=' + Date.now(), { cache: 'no-store' })
-            .then(function(r) { return r.json(); })
-            .then(function(d) {
-              if (!d.version) return;
-              var stored = sessionStorage.getItem('tvpc_ver');
-              if (stored && stored !== d.version) {
-                sessionStorage.setItem('tvpc_ver', d.version);
-                window.location.reload();
-              } else {
-                sessionStorage.setItem('tvpc_ver', d.version);
-              }
-            }).catch(function() {});
-        }
-        setTimeout(checkVersion, 5000);
-        setInterval(checkVersion, 5 * 60 * 1000);
-      })();
-    </script>
-    <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" crossorigin="anonymous" async></script>
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" crossorigin="anonymous" async></script>
     <script type="module" src="./src/main.jsx"></script>
   </body>
 </html>
