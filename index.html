@@ -24,23 +24,27 @@
   <body>
     <div id="root"></div>
     <script>
-      // Auto-update: SW controllerchange + version polling (works independently of React version)
       (function() {
-        // 1) Reload when a new service worker takes control
+        // 1) Reload when a new SW takes control — hadController check prevents
+        //    firing on first install (which also triggers controllerchange)
         if ('serviceWorker' in navigator) {
+          var hadController = !!navigator.serviceWorker.controller;
           navigator.serviceWorker.addEventListener('controllerchange', function() {
-            window.location.reload();
+            if (hadController) window.location.reload();
           });
         }
-        // 2) Poll /version.json every 5 minutes; reload if version changed
+        // 2) Poll /version.json every 5 minutes; reload if version changed.
+        //    Update sessionStorage BEFORE reload to prevent infinite reload loop.
         function checkVersion() {
           fetch('/version.json?_=' + Date.now(), { cache: 'no-store' })
             .then(function(r) { return r.json(); })
             .then(function(d) {
+              if (!d.version) return;
               var stored = sessionStorage.getItem('tvpc_ver');
-              if (stored && d.version && stored !== d.version) {
+              if (stored && stored !== d.version) {
+                sessionStorage.setItem('tvpc_ver', d.version);
                 window.location.reload();
-              } else if (d.version) {
+              } else {
                 sessionStorage.setItem('tvpc_ver', d.version);
               }
             }).catch(function() {});
