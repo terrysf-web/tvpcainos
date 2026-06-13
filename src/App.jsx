@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.529";
+const APP_VERSION = "3.530";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13397,13 +13397,23 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
    HOME SPLASH SCREEN
 ══════════════════════════════════════════════════════════════════ */
 function HomeSplashScreen() {
+  const [portrait, setPortrait] = useState(
+    () => window.matchMedia("(orientation: portrait)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(orientation: portrait)");
+    const handler = e => setPortrait(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   return (
     <>
       <div style={{
         position:"fixed", inset:"-20px",
         backgroundImage:"url('/home-bg.webp')",
         backgroundSize:"cover",
-        backgroundPosition:"center center",
+        backgroundPosition: portrait ? "68% center" : "center center",
         backgroundRepeat:"no-repeat",
       }} />
       {/* Dark gradient so status bar text is readable on the light background */}
@@ -13413,14 +13423,16 @@ function HomeSplashScreen() {
         background:"linear-gradient(to bottom, rgba(0,0,0,0.30) 0%, transparent 100%)",
         pointerEvents:"none", zIndex:1,
       }} />
-      {/* YouTube channel link — below "team" text, shifted right to avoid overlap */}
+      {/* YouTube channel link */}
       <a
         href="https://m.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ"
         target="_blank"
         rel="noopener noreferrer"
         style={{
           position:"fixed",
-          top:"68%", left:"57%", transform:"translateX(-50%)",
+          top: portrait ? "74%" : "68%",
+          left: portrait ? "50%" : "57%",
+          transform:"translateX(-50%)",
           display:"flex", alignItems:"center", gap:6,
           background:"rgba(255,255,255,0.75)",
           color:"#111", textDecoration:"none",
