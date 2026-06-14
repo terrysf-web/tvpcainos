@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.557";
+const APP_VERSION = "3.558";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13877,12 +13877,15 @@ export default function App() {
   useEffect(() => { userPartsRef.current = getUserParts(user); }, [user]);
   useEffect(() => { userIsFohRef.current  = isFoh(user);           }, [user]);
 
-  // 서비스 워커 업데이트 감지 → 자동 새로고침
+  // 서비스 워커 업데이트 감지 → 1회만 새로고침 (무한 루프 방지)
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     const hadController = !!navigator.serviceWorker.controller;
     const onControllerChange = () => {
-      if (hadController) window.location.reload();
+      if (hadController && !sessionStorage.getItem("sw_reloaded")) {
+        sessionStorage.setItem("sw_reloaded", "1");
+        window.location.reload();
+      }
     };
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
     return () => navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
