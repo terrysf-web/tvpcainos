@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.577";
+const APP_VERSION = "3.578";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -7302,7 +7302,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           const last = newMsgs[newMsgs.length - 1];
           clearTimeout(chatToastKbTimer.current);
           setChatToastKb({ name: last.name?.split(" ")[0] || "FOH", text: last.text });
-          chatToastKbTimer.current = setTimeout(() => setChatToastKb(null), 5000);
+          chatToastKbTimer.current = setTimeout(() => setChatToastKb(null), 8000);
         }
       }
       chatMsgsPrevRef.current = msgs;
@@ -10509,20 +10509,21 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       {chatToastKb && !isLibraryMode && (
         <div onClick={() => { setShowChat(true); setChatToastKb(null); clearTimeout(chatToastKbTimer.current); }}
           style={{
-            position:"fixed", top:16, left:"50%", transform:"translateX(-50%)",
-            zIndex:9500, display:"flex", alignItems:"center", gap:10,
+            position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)",
+            zIndex:9500, display:"flex", alignItems:"center", gap:14,
             background:"#1d4ed8", color:"#fff",
-            borderRadius:14, padding:"10px 16px",
-            boxShadow:"0 4px 20px rgba(0,0,0,0.35)",
-            cursor:"pointer", maxWidth:320, width:"calc(100% - 32px)",
+            borderRadius:18, padding:"18px 24px",
+            boxShadow:"0 8px 32px rgba(0,0,0,0.45)",
+            cursor:"pointer", maxWidth:420, width:"calc(100% - 32px)",
+            animation:"fohMsgIn 0.3s ease",
           }}>
-          <span style={{ fontSize:18 }}>💬</span>
+          <span style={{ fontSize:32, flexShrink:0 }}>💬</span>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:10, fontWeight:700, opacity:0.8, marginBottom:2 }}>{chatToastKb.name}</div>
-            <div style={{ fontSize:13, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{chatToastKb.text}</div>
+            <div style={{ fontSize:13, fontWeight:700, opacity:0.85, marginBottom:4 }}>{chatToastKb.name}</div>
+            <div style={{ fontSize:20, fontWeight:800, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{chatToastKb.text}</div>
           </div>
           <button onClick={e => { e.stopPropagation(); setChatToastKb(null); clearTimeout(chatToastKbTimer.current); }}
-            style={{ background:"none", border:"none", color:"rgba(255,255,255,0.7)", fontSize:16, cursor:"pointer", padding:"0 2px" }}>✕</button>
+            style={{ background:"none", border:"none", color:"rgba(255,255,255,0.7)", fontSize:22, cursor:"pointer", padding:"0 4px", flexShrink:0 }}>✕</button>
         </div>
       )}
 
