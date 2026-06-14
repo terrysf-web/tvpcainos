@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.564";
+const APP_VERSION = "3.565";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -2346,6 +2346,11 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [fohPinnedUids,setFohPinnedUids]= useState([]);
   const [fohMsgEdit,   setFohMsgEdit]   = useState(false);
   const [fohMsgInput,  setFohMsgInput]  = useState("");
+  const [teamChatMsgs, setTeamChatMsgs] = useState([]);
+  const [showTeamChat, setShowTeamChat] = useState(false);
+  const [teamChatInput,setTeamChatInput]= useState("");
+  const [chatLastSeen, setChatLastSeen] = useState(0); // timestamp ms
+  const teamChatEndRef = useRef(null);
   const autoNavDone  = useRef(false);
   const phaseFiredRef = useRef({});
   const svcSongsRef  = useRef([]);
@@ -2430,6 +2435,25 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
     setWorshipEnded(false);
     setAutoPhase("idle");
   }, [nextSvc?.id]);
+
+  // 팀 채팅 구독 (liveChat) — 예배 ID 기준
+  useEffect(() => {
+    if (!nextSvc?.id) return;
+    const q = query(
+      collection(db, "liveChat", nextSvc.id, "messages"),
+      orderBy("createdAt"), limit(60)
+    );
+    return onSnapshot(q, snap => {
+      setTeamChatMsgs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+  }, [nextSvc?.id]);
+
+  useEffect(() => {
+    if (showTeamChat) {
+      setChatLastSeen(Date.now());
+      setTimeout(() => teamChatEndRef.current?.scrollIntoView({ behavior:"smooth" }), 60);
+    }
+  }, [showTeamChat, teamChatMsgs.length]);
 
   // T-0 도달 시 첫 번째 악보로 자동이동 — tick 내부에서 직접 호출
 
@@ -3156,6 +3180,80 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     </div>
                   )}
 
+                  {/* ── 팀 채팅 (멤버 → FOH) ── */}
+                  {nextSvc?.id && (() => {
+                    const unread = teamChatMsgs.filter(m => m.uid !== user.uid &&
+                      m.createdAt?.toMillis?.() > chatLastSeen).length;
+                    const sendTeamChat = async () => {
+                      if (!teamChatInput.trim()) return;
+                      await addDoc(collection(db, "liveChat", nextSvc.id, "messages"), {
+                        text: teamChatInput.trim(), uid: user.uid,
+                        name: user.name || user.email, role: user.role,
+                        type: "chat", createdAt: serverTimestamp(),
+                      });
+                      setTeamChatInput("");
+                    };
+                    return (
+                      <div style={{ borderRadius:12, background:C.surf, border:`1px solid ${C.bdr}`,
+                        flexShrink:0, overflow:"hidden" }}>
+                        <button onClick={() => setShowTeamChat(p => !p)} style={{
+                          width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+                          padding:"7px 10px", background:"none", border:"none", cursor:"pointer", fontFamily:"inherit",
+                        }}>
+                          <span style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase" }}>
+                            💬 팀 채팅
+                          </span>
+                          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                            {unread > 0 && (
+                              <span style={{ background:C.red, color:"#fff", borderRadius:8,
+                                fontSize:9, fontWeight:700, padding:"1px 6px" }}>{unread}</span>
+                            )}
+                            <span style={{ fontSize:10, color:C.dim }}>{showTeamChat ? "▲" : "▼"}</span>
+                          </div>
+                        </button>
+                        {showTeamChat && (
+                          <>
+                            <div style={{ maxHeight:180, overflowY:"auto", padding:"4px 10px 6px",
+                              display:"flex", flexDirection:"column", gap:5,
+                              borderTop:`1px solid ${C.bdr}` }}>
+                              {teamChatMsgs.length === 0
+                                ? <div style={{ fontSize:11, color:C.dim, textAlign:"center", padding:"10px 0" }}>메시지 없음</div>
+                                : teamChatMsgs.map(m => (
+                                  <div key={m.id} style={{ display:"flex", flexDirection:"column",
+                                    alignItems: m.uid === user.uid ? "flex-end" : "flex-start" }}>
+                                    <div style={{ fontSize:9, color:C.dim, marginBottom:2 }}>
+                                      {m.name?.split(" ")[0]}
+                                    </div>
+                                    <div style={{
+                                      maxWidth:"82%", padding:"4px 9px", borderRadius:9, fontSize:11, lineHeight:1.4,
+                                      background: m.uid === user.uid ? C.acc : C.card,
+                                      color: m.uid === user.uid ? "#fff" : C.txt,
+                                      border: m.uid === user.uid ? "none" : `1px solid ${C.bdr}`,
+                                    }}>{m.text}</div>
+                                  </div>
+                                ))
+                              }
+                              <div ref={teamChatEndRef} />
+                            </div>
+                            <div style={{ display:"flex", gap:6, padding:"6px 8px",
+                              borderTop:`1px solid ${C.bdr}` }}>
+                              <input value={teamChatInput} onChange={e => setTeamChatInput(e.target.value)}
+                                onKeyDown={e => e.key === "Enter" && sendTeamChat()}
+                                placeholder="답장..."
+                                style={{ flex:1, padding:"5px 9px", borderRadius:8,
+                                  border:`1px solid ${C.bdr}`, fontSize:12, outline:"none",
+                                  fontFamily:"inherit", color:C.txt, background:C.bg }} />
+                              <button onClick={sendTeamChat} style={{
+                                padding:"0 10px", borderRadius:8, border:"none",
+                                background:C.acc, color:"#fff", fontSize:12,
+                                fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                              }}>전송</button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* ── 오른쪽: 현재 악보 1장 ── */}
@@ -6551,6 +6649,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [fitActive,     setFitActive]     = useState(false);
   const [dual,          setDual]          = useState(false);
   const [media,         setMedia]         = useState(false);
+  const [showChat,      setShowChat]      = useState(false);
+  const [chatInput,     setChatInput]     = useState("");
+  const [chatMsgs,      setChatMsgs]      = useState([]);
+  const chatEndRef = useRef(null);
   const [showNotePanel, setShowNotePanel] = useState(false);
   const [noteInput,     setNoteInput]     = useState(false);
   const [noteShared,    setNoteShared]    = useState(false); // 팀 메모 여부
@@ -7055,6 +7157,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // 코드 이동 모드: 전조 끄거나 곡/페이지 이동 시 자동 리셋
   useEffect(() => { if (!transposeMode) setChordMoveMode(false); }, [transposeMode]);
   useEffect(() => { setChordMoveMode(false); }, [selectedSongId, pageNum, dualIdx]);
+
+  // 팀 채팅 구독
+  useEffect(() => {
+    if (!selectedSvcId) return;
+    const q = query(collection(db, "liveChat", selectedSvcId, "messages"), orderBy("createdAt"), limit(50));
+    return onSnapshot(q, snap => setChatMsgs(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+  }, [selectedSvcId]);
+  useEffect(() => {
+    if (showChat) setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior:"smooth" }), 60);
+  }, [chatMsgs.length, showChat]);
 
   const saveDrawing = useCallback(async (songId, page, strokes) => {
     if (!user?.uid || !songId) return;
@@ -8898,6 +9010,22 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   {tbBtn("메모", showNotePanel, () => setShowNotePanel(p => !p), C.acc)}
                   {/* Q (큐노트) */}
                   {!isLibraryMode && tbBtn("Q", showCueInput, () => setShowCueInput(p => !p), "#ff6f00")}
+                  {/* 팀 채팅 */}
+                  {!isLibraryMode && (() => {
+                    const unread = chatMsgs.filter(m => m.uid !== user?.uid).length;
+                    return (
+                      <div style={{ position:"relative", flexShrink:0 }}>
+                        {tbBtn("💬", showChat, () => setShowChat(p => !p), C.acc)}
+                        {!showChat && unread > 0 && (
+                          <span style={{ position:"absolute", top:-4, right:-4,
+                            minWidth:14, height:14, borderRadius:7, background:C.red,
+                            fontSize:9, fontWeight:700, color:"#fff",
+                            display:"flex", alignItems:"center", justifyContent:"center", padding:"0 3px",
+                            pointerEvents:"none" }}>{unread > 9 ? "9+" : unread}</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {/* 다운로드 */}
                   {canDownload && tbBtn("⬇", false, downloadAnnotatedScore, C.acc)}
                   {/* 리더: 멤버 다운로드 허용 */}
@@ -10222,6 +10350,69 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 삭제
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 팀 채팅 패널 */}
+      {showChat && !isLibraryMode && selectedSvcId && (
+        <div style={{
+          position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 68px)", right:12,
+          width:260, maxHeight:340, zIndex:3100,
+          background:C.surf, border:`1px solid ${C.bdr}`,
+          borderRadius:14, display:"flex", flexDirection:"column",
+          boxShadow:"0 4px 24px rgba(0,0,0,0.18)", overflow:"hidden",
+        }}>
+          <div style={{ padding:"8px 12px", borderBottom:`1px solid ${C.bdr}`,
+            display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+            <span style={{ fontSize:12, fontWeight:800, color:C.txt }}>💬 팀 채팅</span>
+            <button onClick={() => setShowChat(false)} style={{
+              background:"none", border:"none", cursor:"pointer", color:C.dim, fontSize:16, lineHeight:1 }}>✕</button>
+          </div>
+          <div style={{ flex:1, overflowY:"auto", padding:"8px 10px", display:"flex", flexDirection:"column", gap:6 }}>
+            {chatMsgs.length === 0
+              ? <div style={{ fontSize:11, color:C.dim, textAlign:"center", padding:"14px 0" }}>메시지 없음</div>
+              : chatMsgs.map(m => (
+                <div key={m.id} style={{ display:"flex", flexDirection:"column",
+                  alignItems: m.uid === user?.uid ? "flex-end" : "flex-start" }}>
+                  <div style={{ fontSize:9, color:C.dim, marginBottom:1 }}>{m.name?.split(" ")[0]}</div>
+                  <div style={{
+                    maxWidth:"82%", padding:"5px 9px", borderRadius:10, fontSize:12, lineHeight:1.4,
+                    background: m.uid === user?.uid ? C.acc : C.card,
+                    color: m.uid === user?.uid ? "#fff" : C.txt,
+                    border: m.uid === user?.uid ? "none" : `1px solid ${C.bdr}`,
+                  }}>{m.text}</div>
+                </div>
+              ))
+            }
+            <div ref={chatEndRef} />
+          </div>
+          <div style={{ display:"flex", gap:6, padding:"6px 8px", borderTop:`1px solid ${C.bdr}`, flexShrink:0 }}>
+            <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+              onKeyDown={async e => {
+                if (e.key !== "Enter" || !chatInput.trim()) return;
+                await addDoc(collection(db, "liveChat", selectedSvcId, "messages"), {
+                  text: chatInput.trim(), uid: user.uid,
+                  name: user.name || user.email, role: user.role,
+                  type:"chat", createdAt: serverTimestamp(),
+                });
+                setChatInput("");
+              }}
+              placeholder="메시지 입력..."
+              style={{ flex:1, padding:"6px 9px", borderRadius:8,
+                border:`1px solid ${C.bdr}`, fontSize:12, outline:"none",
+                fontFamily:"inherit", color:C.txt, background:C.bg }} />
+            <button onClick={async () => {
+              if (!chatInput.trim()) return;
+              await addDoc(collection(db, "liveChat", selectedSvcId, "messages"), {
+                text: chatInput.trim(), uid: user.uid,
+                name: user.name || user.email, role: user.role,
+                type:"chat", createdAt: serverTimestamp(),
+              });
+              setChatInput("");
+            }} style={{ padding:"0 10px", borderRadius:8, border:"none",
+              background:C.acc, color:"#fff", fontSize:12, fontWeight:700,
+              cursor:"pointer", fontFamily:"inherit" }}>전송</button>
           </div>
         </div>
       )}
