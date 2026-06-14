@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.579";
+const APP_VERSION = "3.580";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -2464,7 +2464,6 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
           const last = newMsgs[newMsgs.length - 1];
           clearTimeout(chatToastTimer.current);
           setChatToast({ name: last.name?.split(" ")[0] || "팀원", text: last.text });
-          chatToastTimer.current = setTimeout(() => setChatToast(null), 5000);
         }
       }
       teamChatMsgsRef.current = msgs;
