@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.531";
+const APP_VERSION = "3.534";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13397,13 +13397,23 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
    HOME SPLASH SCREEN
 ══════════════════════════════════════════════════════════════════ */
 function HomeSplashScreen() {
+  const [portrait, setPortrait] = useState(
+    () => window.matchMedia("(orientation: portrait)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(orientation: portrait)");
+    const handler = e => setPortrait(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   return (
     <>
       <div style={{
         position:"fixed", inset:"-20px",
-        backgroundImage:"url('/home-bg.webp')",
+        backgroundImage: portrait ? "url('/home-bg-portrait.webp')" : "url('/home-bg.webp')",
         backgroundSize:"cover",
-        backgroundPosition:"55% center",
+        backgroundPosition:"center center",
         backgroundRepeat:"no-repeat",
       }} />
       {/* Dark gradient so status bar text is readable on the light background */}
