@@ -13397,30 +13397,22 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
    HOME SPLASH SCREEN
 ══════════════════════════════════════════════════════════════════ */
 function HomeSplashScreen() {
-  const [portrait, setPortrait] = useState(
-    () => window.matchMedia("(orientation: portrait)").matches
-  );
-  useEffect(() => {
-    const mq = window.matchMedia("(orientation: portrait)");
-    const handler = e => setPortrait(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-
   return (
     <>
+      {/* CSS contain: always shows the full image, background color fills remainder */}
       <div style={{
         position:"fixed", inset:"-20px",
         backgroundImage:"url('/home-bg.webp')",
-        backgroundSize: portrait ? "170% auto" : "cover",
-        backgroundPosition: portrait ? "55% 38%" : "center center",
+        backgroundSize:"contain",
+        backgroundPosition:"center center",
         backgroundRepeat:"no-repeat",
+        backgroundColor:"#f2f0ec",
       }} />
       {/* Dark gradient so status bar text is readable on the light background */}
       <div style={{
         position:"fixed", top:0, left:0, right:0,
         height:"calc(env(safe-area-inset-top, 44px) + 12px)",
-        background:"linear-gradient(to bottom, rgba(0,0,0,0.30) 0%, transparent 100%)",
+        background:"linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 100%)",
         pointerEvents:"none", zIndex:1,
       }} />
       {/* YouTube channel link */}
@@ -13430,9 +13422,8 @@ function HomeSplashScreen() {
         rel="noopener noreferrer"
         style={{
           position:"fixed",
-          top: portrait ? "74%" : "68%",
-          left: portrait ? "50%" : "57%",
-          transform:"translateX(-50%)",
+          bottom:"calc(76px + env(safe-area-inset-bottom))",
+          left:"50%", transform:"translateX(-50%)",
           display:"flex", alignItems:"center", gap:6,
           background:"rgba(255,255,255,0.75)",
           color:"#111", textDecoration:"none",
