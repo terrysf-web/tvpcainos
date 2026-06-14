@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.576";
+const APP_VERSION = "3.577";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -3224,58 +3224,74 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     </div>
                   )}
 
-                  {/* ── 팀 채팅 (멤버 → FOH) ── */}
+                  {/* ── 팀 채팅 (멤버 ↔ FOH) ── */}
                   {nextSvc?.id && (() => {
                     const unread = teamChatMsgs.filter(m => m.uid !== user.uid &&
                       m.createdAt?.toMillis?.() > chatLastSeen).length;
-                    const sendTeamChat = async () => {
-                      if (!teamChatInput.trim()) return;
+                    const sendTeamChat = async (txt) => {
+                      const t = (txt ?? teamChatInput).trim();
+                      if (!t) return;
                       await addDoc(collection(db, "liveChat", nextSvc.id, "messages"), {
-                        text: teamChatInput.trim(), uid: user.uid,
+                        text: t, uid: user.uid,
                         name: user.name || user.email, role: user.role,
                         type: "chat", createdAt: serverTimestamp(),
                       });
-                      setTeamChatInput("");
+                      if (!txt) setTeamChatInput("");
                     };
+                    // 최근 4개 — 왼쪽(최신) → 오른쪽(오래된) 순서로 표시
+                    const recent = teamChatMsgs.slice(-4);
                     return (
                       <div style={{ borderRadius:12, background:C.surf, border:`1px solid ${C.bdr}`,
                         flexShrink:0, overflow:"hidden" }}>
-                        <button onClick={() => setShowTeamChat(p => !p)} style={{
-                          width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
-                          padding:"7px 10px", background:"none", border:"none", cursor:"pointer", fontFamily:"inherit",
-                        }}>
-                          <span style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase" }}>
-                            💬 팀 채팅
-                          </span>
-                          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        {/* ─ 항상 보이는 티커 행 ─ */}
+                        <div style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 10px",
+                          cursor:"pointer", minHeight:36 }}
+                          onClick={() => { setShowTeamChat(p => !p); setTeamChatEditMode(false); }}>
+                          <span style={{ fontSize:11, flexShrink:0 }}>💬</span>
+                          {/* 메시지 티커: 최신이 왼쪽, 오래될수록 오른쪽으로 밀려 사라짐 */}
+                          <div style={{ flex:1, display:"flex", alignItems:"center", gap:8,
+                            overflow:"hidden", minWidth:0 }}>
+                            {recent.length === 0
+                              ? <span style={{ fontSize:10, color:C.dim }}>메시지 없음</span>
+                              : [...recent].reverse().map((m, i) => {
+                                  const isLatest = i === 0;
+                                  const opacity = [1, 0.55, 0.3, 0.15][i] ?? 0.1;
+                                  return (
+                                    <span key={m.id} style={{
+                                      fontSize: isLatest ? 11 : 10,
+                                      fontWeight: isLatest ? 700 : 400,
+                                      color: isLatest ? C.acc : C.dim,
+                                      opacity,
+                                      flexShrink: isLatest ? 0 : 1,
+                                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                                      transition:"all 0.4s ease",
+                                      ...(isLatest ? { animation:"fohMsgIn 0.35s ease" } : {}),
+                                    }}>
+                                      {m.name?.split(" ")[0]}: {m.text}
+                                    </span>
+                                  );
+                                })
+                            }
+                          </div>
+                          <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
                             {unread > 0 && (
                               <span style={{ background:C.red, color:"#fff", borderRadius:8,
                                 fontSize:9, fontWeight:700, padding:"1px 6px" }}>{unread}</span>
                             )}
                             <span style={{ fontSize:10, color:C.dim }}>{showTeamChat ? "▲" : "▼"}</span>
                           </div>
-                        </button>
+                        </div>
+                        {/* ─ 펼쳐지면: 빠른메시지 + 입력 ─ */}
                         {showTeamChat && (
-                          <>
-                            {/* 헤더 탭: 채팅 / 편집 */}
-                            <div style={{ display:"flex", borderTop:`1px solid ${C.bdr}` }}>
-                              <button onClick={() => setTeamChatEditMode(false)} style={{
-                                flex:1, padding:"5px 0", fontSize:10, fontWeight:700,
-                                background: !teamChatEditMode ? `${C.acc}18` : "none",
-                                color: !teamChatEditMode ? C.acc : C.dim,
-                                border:"none", borderBottom: !teamChatEditMode ? `2px solid ${C.acc}` : "2px solid transparent",
-                                cursor:"pointer", fontFamily:"inherit",
-                              }}>채팅</button>
-                              <button onClick={() => setTeamChatEditMode(true)} style={{
-                                flex:1, padding:"5px 0", fontSize:10, fontWeight:700,
-                                background: teamChatEditMode ? `${C.acc}18` : "none",
-                                color: teamChatEditMode ? C.acc : C.dim,
-                                border:"none", borderBottom: teamChatEditMode ? `2px solid ${C.acc}` : "2px solid transparent",
-                                cursor:"pointer", fontFamily:"inherit",
-                              }}>빠른메시지 편집</button>
-                            </div>
+                          <div style={{ borderTop:`1px solid ${C.bdr}` }}>
                             {teamChatEditMode ? (
                               <div style={{ padding:"8px 10px", display:"flex", flexDirection:"column", gap:6 }}>
+                                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                                  <span style={{ fontSize:10, fontWeight:700, color:C.dim }}>빠른 메시지 편집</span>
+                                  <button onClick={() => setTeamChatEditMode(false)} style={{
+                                    fontSize:10, color:C.acc, fontWeight:700, background:"none",
+                                    border:"none", cursor:"pointer", fontFamily:"inherit" }}>완료</button>
+                                </div>
                                 {teamChatPresets.map((p, i) => (
                                   <div key={i} style={{ display:"flex", alignItems:"center", gap:6 }}>
                                     <span style={{ flex:1, fontSize:12, color:C.txt }}>{p}</span>
@@ -3308,55 +3324,33 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                               </div>
                             ) : (
                               <>
-                                {/* 빠른 메시지 */}
+                                {/* 빠른 메시지 버튼들 */}
                                 {teamChatPresets.length > 0 && (
-                                  <div style={{ padding:"5px 8px", display:"flex", flexWrap:"wrap", gap:4, borderBottom:`1px solid ${C.bdr}` }}>
+                                  <div style={{ padding:"5px 8px", display:"flex", flexWrap:"wrap", gap:4 }}>
                                     {teamChatPresets.map((p, i) => (
-                                      <button key={i} onClick={async () => {
-                                        await addDoc(collection(db, "liveChat", nextSvc.id, "messages"), {
-                                          text: p, uid: user.uid,
-                                          name: user.name || user.email, role: user.role,
-                                          type: "chat", createdAt: serverTimestamp(),
-                                        });
-                                      }} style={{
+                                      <button key={i} onClick={() => sendTeamChat(p)} style={{
                                         padding:"5px 10px", borderRadius:14, fontSize:11, fontWeight:700,
                                         border:`1.5px solid ${C.acc}55`, background:`${C.acc}12`,
                                         color:C.acc, cursor:"pointer", fontFamily:"inherit",
                                         touchAction:"manipulation",
                                       }}>{p}</button>
                                     ))}
+                                    <button onClick={() => setTeamChatEditMode(true)} style={{
+                                      padding:"5px 8px", borderRadius:14, fontSize:10,
+                                      border:`1px solid ${C.bdr}`, background:"none",
+                                      color:C.dim, cursor:"pointer", fontFamily:"inherit",
+                                    }}>✏️</button>
                                   </div>
                                 )}
-                                <div style={{ maxHeight:160, overflowY:"auto", padding:"4px 10px 6px",
-                                  display:"flex", flexDirection:"column", gap:5 }}>
-                                  {teamChatMsgs.length === 0
-                                    ? <div style={{ fontSize:11, color:C.dim, textAlign:"center", padding:"10px 0" }}>메시지 없음</div>
-                                    : teamChatMsgs.map(m => (
-                                      <div key={m.id} style={{ display:"flex", flexDirection:"column",
-                                        alignItems: m.uid === user.uid ? "flex-end" : "flex-start" }}>
-                                        <div style={{ fontSize:9, color:C.dim, marginBottom:2 }}>
-                                          {m.name?.split(" ")[0]}
-                                        </div>
-                                        <div style={{
-                                          maxWidth:"82%", padding:"4px 9px", borderRadius:9, fontSize:11, lineHeight:1.4,
-                                          background: m.uid === user.uid ? C.acc : C.card,
-                                          color: m.uid === user.uid ? "#fff" : C.txt,
-                                          border: m.uid === user.uid ? "none" : `1px solid ${C.bdr}`,
-                                        }}>{m.text}</div>
-                                      </div>
-                                    ))
-                                  }
-                                  <div ref={teamChatEndRef} />
-                                </div>
                                 <div style={{ display:"flex", gap:6, padding:"6px 8px",
                                   borderTop:`1px solid ${C.bdr}` }}>
                                   <input value={teamChatInput} onChange={e => setTeamChatInput(e.target.value)}
                                     onKeyDown={e => e.key === "Enter" && sendTeamChat()}
-                                    placeholder="답장..."
+                                    placeholder="메시지 입력..."
                                     style={{ flex:1, padding:"5px 9px", borderRadius:8,
                                       border:`1px solid ${C.bdr}`, fontSize:12, outline:"none",
                                       fontFamily:"inherit", color:C.txt, background:C.bg }} />
-                                  <button onClick={sendTeamChat} style={{
+                                  <button onClick={() => sendTeamChat()} style={{
                                     padding:"0 10px", borderRadius:8, border:"none",
                                     background:C.acc, color:"#fff", fontSize:12,
                                     fontWeight:700, cursor:"pointer", fontFamily:"inherit",
@@ -3364,7 +3358,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                 </div>
                               </>
                             )}
-                          </>
+                          </div>
                         )}
                       </div>
                     );
@@ -14817,6 +14811,7 @@ export default function App() {
       .rec-pulse { animation: rec-pulse 1s ease-in-out infinite; }
       @keyframes rec-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
       @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+      @keyframes fohMsgIn { from { opacity:0; transform:translateX(-14px); } to { opacity:1; transform:translateX(0); } }
     `;
     document.head.appendChild(el);
     return () => { try { document.head.removeChild(el); } catch(_) {} };
