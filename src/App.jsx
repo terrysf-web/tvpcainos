@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.534";
+const APP_VERSION = "3.535";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13423,14 +13423,14 @@ function HomeSplashScreen() {
         background:"linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 100%)",
         pointerEvents:"none", zIndex:1,
       }} />
-      {/* YouTube channel link */}
+      {/* YouTube — fixed above 악보 tab (3rd of 5, center) */}
       <a
         href="https://m.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ"
         target="_blank"
         rel="noopener noreferrer"
         style={{
           position:"fixed",
-          bottom:"calc(76px + env(safe-area-inset-bottom))",
+          bottom:"calc(58px + env(safe-area-inset-bottom))",
           left:"50%", transform:"translateX(-50%)",
           display:"flex", alignItems:"center", gap:6,
           background:"rgba(255,255,255,0.75)",
