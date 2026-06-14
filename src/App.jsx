@@ -19,7 +19,219 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.581";
+const APP_VERSION = "3.582";
+
+/* ── PP7 Binary Generator ────────────────────────────────────────────────────
+ * Patches the lyric RTF blocks in the template file with new lyrics text.
+ * Template: /templates/pp7-lyric-template.pro (12 slides, field-13 at root)
+ * ─────────────────────────────────────────────────────────────────────────── */
+function _pp7ReadVarint(buf, pos) {
+  let result = 0, shift = 0;
+  while (pos < buf.length) {
+    const b = buf[pos++];
+    result |= (b & 0x7F) << shift;
+    shift += 7;
+    if (!(b & 0x80)) break;
+  }
+  return { value: result, end: pos };
+}
+function _pp7WriteVarint(val) {
+  const bytes = [];
+  while (true) {
+    const b = val & 0x7F; val >>>= 7;
+    bytes.push(val ? b | 0x80 : b);
+    if (!val) break;
+  }
+  return bytes;
+}
+
+// Recursively find the lyric RTF block (fcharset129 + HelveticaNeue) within a
+// protobuf message, collecting ancestor {lenPos, lenVal} pairs along the way.
+function _pp7FindLyricRTF(buf, start, end, ancestors) {
+  let pos = start;
+  while (pos < end) {
+    try {
+      const tagR = _pp7ReadVarint(buf, pos);
+      const wt = tagR.value & 7;
+      pos = tagR.end;
+      if ((tagR.value >> 3) === 0) { pos++; continue; }
+      if (wt === 0) { pos = _pp7ReadVarint(buf, pos).end; }
+      else if (wt === 1) { pos += 8; }
+      else if (wt === 2) {
+        const lenR = _pp7ReadVarint(buf, pos);
+        const lenPos = pos, length = lenR.value, contentPos = lenR.end;
+        pos = contentPos + length;
+        if (pos > buf.length) break;
+        // Detect lyric RTF: starts with {\rtf1 and has both fcharset129 and HelveticaNeue
+        if (buf[contentPos] === 0x7B && buf[contentPos+1] === 0x5C &&
+            buf[contentPos+2] === 0x72 && buf[contentPos+3] === 0x74) {
+          const preview = new TextDecoder('latin-1').decode(buf.slice(contentPos, Math.min(contentPos+220, pos)));
+          if (preview.includes('fcharset129') && preview.includes('HelveticaNeue')) {
+            return { contentPos, contentLen: length,
+                     ancestors: [...ancestors, { lenPos, lenVal: length }] };
+          }
+        } else {
+          // Recurse
+          const r = _pp7FindLyricRTF(buf, contentPos, pos,
+                                     [...ancestors, { lenPos, lenVal: length }]);
+          if (r) return r;
+        }
+      } else if (wt === 5) { pos += 4; }
+      else break;
+    } catch { break; }
+  }
+  return null;
+}
+
+// Build a Unicode→EUC-KR byte-pair lookup table using TextDecoder
+let _eucKRMap = null;
+function _getEUCKRMap() {
+  if (_eucKRMap) return _eucKRMap;
+  _eucKRMap = {};
+  try {
+    const dec = new TextDecoder('euc-kr', { fatal: false });
+    for (let b1 = 0xA1; b1 <= 0xFE; b1++) {
+      for (let b2 = 0xA1; b2 <= 0xFE; b2++) {
+        const ch = dec.decode(new Uint8Array([b1, b2]));
+        if (ch && ch !== '�' && ch.length === 1) _eucKRMap[ch] = [b1, b2];
+      }
+    }
+  } catch {}
+  return _eucKRMap;
+}
+
+// Encode a single text line to RTF-safe ASCII (EUC-KR hex escapes for Korean)
+function _pp7EncodeRTFLine(text, eucMap) {
+  let out = '';
+  for (const ch of text) {
+    const code = ch.codePointAt(0);
+    if (code < 128) {
+      out += (ch === '{' || ch === '}' || ch === '\\') ? '\\' + ch : ch;
+    } else if (eucMap[ch]) {
+      const [b1, b2] = eucMap[ch];
+      out += `\\'${b1.toString(16).padStart(2,'0')}\\'${b2.toString(16).padStart(2,'0')}`;
+    } else {
+      out += `\\uc0\\u${code} `;
+    }
+  }
+  return out;
+}
+
+// Generate the full RTF string for one lyric stanza
+function _pp7GenerateLyricRTF(lyricsText) {
+  const eucMap = _getEUCKRMap();
+  const HDR =
+    '{\\rtf1\\ansi\\ansicpg1252\\cocoartf2822\n' +
+    '\\cocoatextscaling0\\cocoaplatform0' +
+    '{\\fonttbl\\f0\\fnil\\fcharset129 AppleSDGothicNeo-Bold;' +
+    '\\f1\\fnil\\fcharset0 HelveticaNeue-Bold;}\n' +
+    '{\\colortbl;\\red255\\green255\\blue255;\\red255\\green255\\blue255;}\n' +
+    '{\\*\\expandedcolortbl;;\\cssrgb\\c100000\\c100000\\c100000;}\n' +
+    '\\deftab1680\n' +
+    '\\pard\\pardeftab1680\\slleading200\\pardirnatural\\qc\\partightenfactor0\n\n';
+  if (!lyricsText || !lyricsText.trim()) return HDR + '}';
+  const lines = lyricsText.trim().split('\n').map(l => l.trim()).filter(Boolean);
+  let rtf = HDR;
+  lines.forEach((line, i) => {
+    const enc = _pp7EncodeRTFLine(line, eucMap);
+    rtf += i === 0 ? `\\f0\\b\\fs140 \\cf2 \\up0 ${enc}\n` : `\\f1  \n\\f0 ${enc}\n`;
+  });
+  return rtf + '}';
+}
+
+// Main: fetch template, patch 12 lyric slides with stanzas, update title
+async function _generatePP7Binary(title, lyricsText) {
+  const resp = await fetch('/templates/pp7-lyric-template.pro');
+  if (!resp.ok) throw new Error('PP7 템플릿 로드 실패');
+  let buf = new Uint8Array(await resp.arrayBuffer());
+
+  const stanzas = lyricsText.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
+
+  // Find all 12 slides (field-13) at root level
+  const slides = [];
+  let pos = 0;
+  while (pos < buf.length) {
+    try {
+      const tagR = _pp7ReadVarint(buf, pos);
+      const fn = tagR.value >> 3, wt = tagR.value & 7;
+      if (fn === 0) { pos++; continue; }
+      pos = tagR.end;
+      if (wt === 0) { pos = _pp7ReadVarint(buf, pos).end; }
+      else if (wt === 1) { pos += 8; }
+      else if (wt === 2) {
+        const lenR = _pp7ReadVarint(buf, pos);
+        if (fn === 13) slides.push({ lenPos: pos, lenVal: lenR.value, cs: lenR.end });
+        pos = lenR.end + lenR.value;
+      } else if (wt === 5) { pos += 4; } else break;
+    } catch { pos++; }
+  }
+
+  // Collect patches for each slide (process in reverse to preserve offsets)
+  const patches = [];
+  for (let i = 0; i < slides.length; i++) {
+    const s = slides[i];
+    const rtfInfo = _pp7FindLyricRTF(buf, s.cs, s.cs + s.lenVal,
+                                      [{ lenPos: s.lenPos, lenVal: s.lenVal }]);
+    if (!rtfInfo) continue;
+    const newRTF = _pp7GenerateLyricRTF(i < stanzas.length ? stanzas[i] : '');
+    const newBytes = new TextEncoder().encode(newRTF);
+    patches.push({ contentPos: rtfInfo.contentPos, contentLen: rtfInfo.contentLen,
+                   newBytes, ancestors: rtfInfo.ancestors });
+  }
+
+  // Apply patches from end to start
+  patches.sort((a, b) => b.contentPos - a.contentPos);
+  for (const patch of patches) {
+    const delta = patch.newBytes.length - patch.contentLen;
+    const newBuf = new Uint8Array(buf.length + delta);
+    newBuf.set(buf.slice(0, patch.contentPos));
+    newBuf.set(patch.newBytes, patch.contentPos);
+    newBuf.set(buf.slice(patch.contentPos + patch.contentLen),
+               patch.contentPos + patch.newBytes.length);
+    // Update all ancestor length varints (all are before contentPos, so positions unchanged)
+    for (const anc of patch.ancestors) {
+      const nv = _pp7WriteVarint(anc.lenVal + delta);
+      for (let k = 0; k < nv.length; k++) newBuf[anc.lenPos + k] = nv[k];
+    }
+    buf = newBuf;
+  }
+
+  // Update title (field 3 at root, tag=0x1a at some early offset)
+  // Scan root-level fields to find field 3
+  pos = 0;
+  while (pos < buf.length) {
+    try {
+      const tagR = _pp7ReadVarint(buf, pos);
+      const fn = tagR.value >> 3, wt = tagR.value & 7;
+      if (fn === 0) { pos++; continue; }
+      if (wt === 2) {
+        const lenR = _pp7ReadVarint(buf, pos + (tagR.end - pos));
+        if (fn === 3) {
+          // Found title field
+          const lenPos = tagR.end;
+          const oldLen = lenR.value;
+          const contentPos = lenR.end;
+          const newTitleBytes = new TextEncoder().encode(title);
+          const delta = newTitleBytes.length - oldLen;
+          const newBuf = new Uint8Array(buf.length + delta);
+          newBuf.set(buf.slice(0, contentPos));
+          newBuf.set(newTitleBytes, contentPos);
+          newBuf.set(buf.slice(contentPos + oldLen), contentPos + newTitleBytes.length);
+          const nv = _pp7WriteVarint(newTitleBytes.length);
+          for (let k = 0; k < nv.length; k++) newBuf[lenPos + k] = nv[k];
+          buf = newBuf;
+          break;
+        }
+        pos = lenR.end + lenR.value;
+      } else if (wt === 0) { pos = _pp7ReadVarint(buf, tagR.end).end; }
+      else if (wt === 1) { pos = tagR.end + 8; }
+      else if (wt === 5) { pos = tagR.end + 4; }
+      else break;
+    } catch { pos++; }
+  }
+
+  return buf;
+}
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -4418,16 +4630,25 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     setSvcLyricsModal(null);
   };
 
-  const downloadSvcProFile = () => {
+  const downloadSvcProFile = async () => {
     const title = svcLyricsModal.song.title;
-    const body = `Title: ${title}.pro\n\n${svcLyricsModal.text.trim()}`;
-    const blob = new Blob([body], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${title.replace(/[\\\/:*?"<>|]/g, "_")}.pro`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const text  = svcLyricsModal.text;
+    const stanzaCount = text.split(/\n{2,}/).filter(s => s.trim()).length;
+    if (stanzaCount > 12) {
+      if (!window.confirm(`가사가 ${stanzaCount}단락입니다. 템플릿은 12슬라이드까지 지원하므로 처음 12단락만 사용됩니다. 계속할까요?`)) return;
+    }
+    try {
+      const binary = await _generatePP7Binary(title, text);
+      const blob = new Blob([binary], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${title.replace(/[\\\/:*?"<>|]/g, "_")}.pro`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch(e) {
+      alert("PP7 파일 생성 실패: " + e.message);
+    }
   };
 
   const sendNotif = async () => {
@@ -5299,16 +5520,25 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
     setLyricsModal(null);
   };
 
-  const downloadProFile = () => {
+  const downloadProFile = async () => {
     const title = lyricsModal.song.title;
-    const body = `Title: ${title}.pro\n\n${lyricsModal.text.trim()}`;
-    const blob = new Blob([body], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${title.replace(/[\\\/:*?"<>|]/g, "_")}.pro`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const text  = lyricsModal.text;
+    const stanzaCount = text.split(/\n{2,}/).filter(s => s.trim()).length;
+    if (stanzaCount > 12) {
+      if (!window.confirm(`가사가 ${stanzaCount}단락입니다. 템플릿은 12슬라이드까지 지원하므로 처음 12단락만 사용됩니다. 계속할까요?`)) return;
+    }
+    try {
+      const binary = await _generatePP7Binary(title, text);
+      const blob = new Blob([binary], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${title.replace(/[\\\/:*?"<>|]/g, "_")}.pro`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch(e) {
+      alert("PP7 파일 생성 실패: " + e.message);
+    }
   };
 
   const saveEdit = async () => {
