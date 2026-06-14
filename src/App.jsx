@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.578";
+const APP_VERSION = "3.579";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -11100,10 +11100,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
       {/* 패닉 버튼 — 라이브러리 제외, FOH/어드민 제외 */}
       {!isLibraryMode && !isFoh(user) && (
-        <div style={{ position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 58px)", right:4, zIndex:9990 }}>
+        <div style={{ position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 58px)", left:8, zIndex:9990 }}>
           {/* 옵션 목록 */}
           {showPanicMenu && (
-            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8, marginBottom:10 }}>
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", gap:8, marginBottom:10 }}>
               {[
                 { emoji:"🔊", label:"볼륨↑" },
                 { emoji:"🔉", label:"볼륨↓" },
