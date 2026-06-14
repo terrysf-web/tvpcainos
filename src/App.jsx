@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.539";
+const APP_VERSION = "3.540";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13394,18 +13394,257 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   HOME SPLASH SCREEN — SCHEDULE HELPERS
+══════════════════════════════════════════════════════════════════ */
+function fmtSchedDate(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  const days = ["일","월","화","수","목","금","토"];
+  const m = d.getMonth() + 1;
+  const dd = d.getDate();
+  return `${m}/${dd} (${days[d.getDay()]})`;
+}
+
+function ScheduleCard({ title, icon, events, side, ldr, onAdd }) {
+  return (
+    <div style={{
+      position:"fixed",
+      [side]: 16,
+      top:"50%", transform:"translateY(-60%)",
+      width:148,
+      maxHeight:"calc(100dvh - 180px)",
+      overflowY:"auto",
+      background:"rgba(255,255,255,0.52)",
+      backdropFilter:"blur(14px)",
+      WebkitBackdropFilter:"blur(14px)",
+      border:"1px solid rgba(255,255,255,0.78)",
+      borderRadius:18, padding:"12px 14px",
+      zIndex:4,
+      boxShadow:"0 4px 20px rgba(0,0,0,0.07)",
+    }}>
+      {/* header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
+        <div style={{ fontSize:9, fontWeight:800, letterSpacing:"0.1em",
+          textTransform:"uppercase", color:"rgba(45,36,96,0.45)",
+          display:"flex", alignItems:"center", gap:4 }}>
+          <span>{icon}</span>{title}
+        </div>
+        {ldr && (
+          <button onClick={onAdd} style={{
+            background:"none", border:"none", cursor:"pointer", padding:"0 2px",
+            color:"rgba(45,36,96,0.45)", fontSize:18, lineHeight:1, fontWeight:300,
+          }}>+</button>
+        )}
+      </div>
+      {/* events */}
+      {events.length === 0 ? (
+        <div style={{ fontSize:10, color:"rgba(45,36,96,0.3)", textAlign:"center", padding:"6px 0" }}>
+          {ldr ? "+ 버튼으로 추가" : "예정 없음"}
+        </div>
+      ) : events.map((e, i) => (
+        <div key={e.id}>
+          {i > 0 && <div style={{ height:1, background:"rgba(45,36,96,0.07)", margin:"7px 0" }} />}
+          <div style={{ fontSize:8, color:"rgba(45,36,96,0.38)", fontWeight:700,
+            letterSpacing:"0.04em", marginBottom:2 }}>
+            {fmtSchedDate(e.date)}
+          </div>
+          <div style={{ fontSize:12, fontWeight:700, color:"#2d2460", lineHeight:1.3 }}>
+            {e.title}
+          </div>
+          {e.time && (
+            <div style={{ fontSize:9, color:"rgba(45,36,96,0.48)", marginTop:1 }}>{e.time}</div>
+          )}
+          {e.type === "rehearsal" && (
+            <span style={{ display:"inline-block", background:"rgba(232,169,62,0.18)",
+              color:"#a07020", borderRadius:4, padding:"1px 6px",
+              fontSize:8, fontWeight:700, marginTop:3 }}>연습</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ScheduleEditModal({ group, schedules, onClose }) {
+  const [title, setTitle]     = useState("");
+  const [date, setDate]       = useState(localDateStr());
+  const [time, setTime]       = useState("");
+  const [type, setType]       = useState("rehearsal");
+  const [grp, setGrp]         = useState(group);
+  const [saving, setSaving]   = useState(false);
+
+  const upcoming = schedules
+    .filter(s => s.group === grp || s.group === "all" || grp === "all")
+    .sort((a,b) => a.date.localeCompare(b.date));
+
+  const save = async () => {
+    if (!title.trim() || !date) return;
+    setSaving(true);
+    try {
+      await addDoc(collection(db, "rehearsalSchedule"), {
+        title: title.trim(), date, time, group: grp, type,
+        createdAt: serverTimestamp(),
+      });
+      setTitle(""); setTime("");
+    } finally { setSaving(false); }
+  };
+
+  const del = async (id) => {
+    await deleteDoc(doc(db, "rehearsalSchedule", id));
+  };
+
+  const grpLabel = { vocal:"보컬", band:"밴드", all:"전체" };
+
+  return (
+    <div style={{
+      position:"fixed", inset:0, zIndex:9000,
+      background:"rgba(0,0,0,0.45)",
+      display:"flex", alignItems:"flex-end", justifyContent:"center",
+    }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        width:"100%", maxWidth:420,
+        background:"#fff", borderRadius:"20px 20px 0 0",
+        padding:"20px 20px calc(20px + env(safe-area-inset-bottom))",
+        maxHeight:"80dvh", display:"flex", flexDirection:"column",
+      }}>
+        {/* 헤더 */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+          <div style={{ fontSize:16, fontWeight:800, color:"#2d2460" }}>연습 스케줄 관리</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer",
+            fontSize:20, color:"rgba(45,36,96,0.4)", padding:4 }}>✕</button>
+        </div>
+
+        {/* 그룹 탭 */}
+        <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+          {["vocal","band","all"].map(g => (
+            <button key={g} onClick={() => setGrp(g)} style={{
+              flex:1, padding:"7px 0", borderRadius:10, border:"1.5px solid",
+              borderColor: grp === g ? "#2d2460" : "rgba(45,36,96,0.15)",
+              background: grp === g ? "#2d2460" : "transparent",
+              color: grp === g ? "#fff" : "rgba(45,36,96,0.55)",
+              fontWeight:700, fontSize:12, cursor:"pointer",
+            }}>{grpLabel[g]}</button>
+          ))}
+        </div>
+
+        {/* 이벤트 목록 */}
+        <div style={{ flex:1, overflowY:"auto", marginBottom:16 }}>
+          {upcoming.length === 0 ? (
+            <div style={{ textAlign:"center", padding:"20px 0", color:"rgba(45,36,96,0.3)", fontSize:13 }}>
+              예정된 일정이 없습니다
+            </div>
+          ) : upcoming.map(e => (
+            <div key={e.id} style={{
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              padding:"10px 0", borderBottom:"1px solid rgba(45,36,96,0.06)",
+            }}>
+              <div>
+                <div style={{ fontSize:10, color:"rgba(45,36,96,0.4)", fontWeight:700, marginBottom:2 }}>
+                  {fmtSchedDate(e.date)}{e.time ? " · " + e.time : ""}
+                  {" "}
+                  <span style={{ background: e.type==="rehearsal"?"rgba(232,169,62,0.18)":"rgba(45,36,96,0.07)",
+                    color: e.type==="rehearsal"?"#a07020":"rgba(45,36,96,0.5)",
+                    borderRadius:4, padding:"1px 5px", fontSize:8, fontWeight:700 }}>
+                    {e.type==="rehearsal"?"연습":"예배"}
+                  </span>
+                  {" "}
+                  <span style={{ fontSize:8, color:"rgba(45,36,96,0.3)" }}>
+                    [{grpLabel[e.group]||e.group}]
+                  </span>
+                </div>
+                <div style={{ fontSize:13, fontWeight:700, color:"#2d2460" }}>{e.title}</div>
+              </div>
+              <button onClick={() => del(e.id)} style={{
+                background:"none", border:"none", cursor:"pointer",
+                color:"rgba(200,80,80,0.55)", fontSize:18, padding:"4px 8px",
+              }}>🗑</button>
+            </div>
+          ))}
+        </div>
+
+        {/* 추가 폼 */}
+        <div style={{ borderTop:"1px solid rgba(45,36,96,0.1)", paddingTop:14, display:"flex", flexDirection:"column", gap:10 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:"rgba(45,36,96,0.4)",
+            letterSpacing:"0.06em", textTransform:"uppercase" }}>새 일정 추가</div>
+
+          <input value={title} onChange={e=>setTitle(e.target.value)}
+            placeholder="제목 (예: 보컬 리허설, 밴드 연습)"
+            style={{ width:"100%", padding:"10px 12px", borderRadius:10,
+              border:"1.5px solid rgba(45,36,96,0.18)", fontSize:14,
+              color:"#2d2460", outline:"none", fontFamily:"inherit", boxSizing:"border-box" }} />
+
+          <div style={{ display:"flex", gap:8 }}>
+            <input type="date" value={date} onChange={e=>setDate(e.target.value)}
+              style={{ flex:1, padding:"9px 10px", borderRadius:10,
+                border:"1.5px solid rgba(45,36,96,0.18)", fontSize:13,
+                color:"#2d2460", outline:"none", fontFamily:"inherit" }} />
+            <input type="time" value={time} onChange={e=>setTime(e.target.value)}
+              style={{ width:100, padding:"9px 10px", borderRadius:10,
+                border:"1.5px solid rgba(45,36,96,0.18)", fontSize:13,
+                color:"#2d2460", outline:"none", fontFamily:"inherit" }} />
+          </div>
+
+          <div style={{ display:"flex", gap:8 }}>
+            {[["rehearsal","연습"],["worship","예배"]].map(([v,l]) => (
+              <button key={v} onClick={() => setType(v)} style={{
+                flex:1, padding:"8px 0", borderRadius:10, border:"1.5px solid",
+                borderColor: type===v ? "#e8a93e" : "rgba(45,36,96,0.15)",
+                background: type===v ? "rgba(232,169,62,0.12)" : "transparent",
+                color: type===v ? "#a07020" : "rgba(45,36,96,0.5)",
+                fontWeight:700, fontSize:12, cursor:"pointer",
+              }}>{l}</button>
+            ))}
+          </div>
+
+          <button onClick={save} disabled={saving || !title.trim()} style={{
+            width:"100%", padding:"13px 0", borderRadius:12, border:"none",
+            background: title.trim() ? "#2d2460" : "rgba(45,36,96,0.15)",
+            color: title.trim() ? "#fff" : "rgba(45,36,96,0.35)",
+            fontWeight:800, fontSize:14, cursor: title.trim() ? "pointer" : "default",
+            fontFamily:"inherit",
+          }}>
+            {saving ? "저장 중..." : "추가"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
    HOME SPLASH SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function HomeSplashScreen() {
+function HomeSplashScreen({ user }) {
   const [portrait, setPortrait] = useState(
     () => window.matchMedia("(orientation: portrait)").matches
   );
+  const [screenW, setScreenW] = useState(() => window.innerWidth);
+  const [schedules, setSchedules] = useState([]);
+  const [schedModal, setSchedModal] = useState(null); // null | "vocal" | "band"
+
   useEffect(() => {
     const mq = window.matchMedia("(orientation: portrait)");
-    const handler = e => setPortrait(e.matches);
+    const handler = e => { setPortrait(e.matches); setScreenW(window.innerWidth); };
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
+
+  useEffect(() => {
+    const today = localDateStr();
+    const q = query(
+      collection(db, "rehearsalSchedule"),
+      where("date", ">=", today),
+      orderBy("date"),
+      limit(30)
+    );
+    return onSnapshot(q, snap => {
+      setSchedules(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+  }, []);
+
+  const showCards = !portrait || screenW >= 500;
+  const ldr = user && isLeader(user.role);
+  const vocalEvents = schedules.filter(s => s.group === "vocal" || s.group === "all").slice(0, 4);
+  const bandEvents  = schedules.filter(s => s.group === "band"  || s.group === "all").slice(0, 4);
 
   return (
     <>
@@ -13423,6 +13662,27 @@ function HomeSplashScreen() {
         background:"linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 100%)",
         pointerEvents:"none", zIndex:1,
       }} />
+
+      {/* Schedule cards — landscape or wide portrait only */}
+      {showCards && (
+        <>
+          <ScheduleCard
+            title="보컬" icon="🎤"
+            events={vocalEvents}
+            side="left"
+            ldr={ldr}
+            onAdd={() => setSchedModal("vocal")}
+          />
+          <ScheduleCard
+            title="밴드" icon="🎸"
+            events={bandEvents}
+            side="right"
+            ldr={ldr}
+            onAdd={() => setSchedModal("band")}
+          />
+        </>
+      )}
+
       {/* YouTube — centered above 악보 tab (3rd of 5 flex tabs; version btn ~60px shifts center by -30px) */}
       <a
         href="https://m.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ"
@@ -13448,6 +13708,15 @@ function HomeSplashScreen() {
         </svg>
         TVPC
       </a>
+
+      {/* Schedule edit modal */}
+      {schedModal && (
+        <ScheduleEditModal
+          group={schedModal}
+          schedules={schedules}
+          onClose={() => setSchedModal(null)}
+        />
+      )}
     </>
   );
 }
@@ -14278,7 +14547,7 @@ export default function App() {
 
   return (
     <div style={{ width:"100%", height:"100%", background:C.bg }}>
-      {view === "home"          && <HomeSplashScreen />}
+      {view === "home"          && <HomeSplashScreen user={user} />}
       {view === "services"      && <ServicesScreen      {...shared} />}
       {view === "foh"           && <HomeScreen           {...shared} />}
       {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}

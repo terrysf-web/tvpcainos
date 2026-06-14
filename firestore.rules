@@ -160,5 +160,11 @@ service cloud.firestore {
       allow read: if isAuthed() && request.auth.uid == uid;
       allow write: if isLeader() || isFoh();
     }
+
+    // 연습 스케줄 — 인증된 모두 읽기, 리더/어드민만 쓰기
+    match /rehearsalSchedule/{id} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isLeader();
+    }
   }
 }
