@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.572";
+const APP_VERSION = "3.573";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -2349,6 +2349,13 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [teamChatMsgs, setTeamChatMsgs] = useState([]);
   const [showTeamChat, setShowTeamChat] = useState(false);
   const [teamChatInput,setTeamChatInput]= useState("");
+  const [teamChatEditMode, setTeamChatEditMode] = useState(false);
+  const [teamChatPresetInput, setTeamChatPresetInput] = useState("");
+  const [teamChatPresets, setTeamChatPresets] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tvpc_foh_chat_presets") || "null") || ["준비됐어요","잠깐요","확인했습니다","볼륨 체크","다음 곡 준비"]; }
+    catch { return ["준비됐어요","잠깐요","확인했습니다","볼륨 체크","다음 곡 준비"]; }
+  });
+  const saveFohPresets = (list) => { setTeamChatPresets(list); localStorage.setItem("tvpc_foh_chat_presets", JSON.stringify(list)); };
   const [chatLastSeen, setChatLastSeen] = useState(0); // timestamp ms
   const teamChatEndRef = useRef(null);
   const autoNavDone  = useRef(false);
@@ -3213,42 +3220,113 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         </button>
                         {showTeamChat && (
                           <>
-                            <div style={{ maxHeight:180, overflowY:"auto", padding:"4px 10px 6px",
-                              display:"flex", flexDirection:"column", gap:5,
-                              borderTop:`1px solid ${C.bdr}` }}>
-                              {teamChatMsgs.length === 0
-                                ? <div style={{ fontSize:11, color:C.dim, textAlign:"center", padding:"10px 0" }}>메시지 없음</div>
-                                : teamChatMsgs.map(m => (
-                                  <div key={m.id} style={{ display:"flex", flexDirection:"column",
-                                    alignItems: m.uid === user.uid ? "flex-end" : "flex-start" }}>
-                                    <div style={{ fontSize:9, color:C.dim, marginBottom:2 }}>
-                                      {m.name?.split(" ")[0]}
-                                    </div>
-                                    <div style={{
-                                      maxWidth:"82%", padding:"4px 9px", borderRadius:9, fontSize:11, lineHeight:1.4,
-                                      background: m.uid === user.uid ? C.acc : C.card,
-                                      color: m.uid === user.uid ? "#fff" : C.txt,
-                                      border: m.uid === user.uid ? "none" : `1px solid ${C.bdr}`,
-                                    }}>{m.text}</div>
+                            {/* 헤더 탭: 채팅 / 편집 */}
+                            <div style={{ display:"flex", borderTop:`1px solid ${C.bdr}` }}>
+                              <button onClick={() => setTeamChatEditMode(false)} style={{
+                                flex:1, padding:"5px 0", fontSize:10, fontWeight:700,
+                                background: !teamChatEditMode ? `${C.acc}18` : "none",
+                                color: !teamChatEditMode ? C.acc : C.dim,
+                                border:"none", borderBottom: !teamChatEditMode ? `2px solid ${C.acc}` : "2px solid transparent",
+                                cursor:"pointer", fontFamily:"inherit",
+                              }}>채팅</button>
+                              <button onClick={() => setTeamChatEditMode(true)} style={{
+                                flex:1, padding:"5px 0", fontSize:10, fontWeight:700,
+                                background: teamChatEditMode ? `${C.acc}18` : "none",
+                                color: teamChatEditMode ? C.acc : C.dim,
+                                border:"none", borderBottom: teamChatEditMode ? `2px solid ${C.acc}` : "2px solid transparent",
+                                cursor:"pointer", fontFamily:"inherit",
+                              }}>빠른메시지 편집</button>
+                            </div>
+                            {teamChatEditMode ? (
+                              <div style={{ padding:"8px 10px", display:"flex", flexDirection:"column", gap:6 }}>
+                                {teamChatPresets.map((p, i) => (
+                                  <div key={i} style={{ display:"flex", alignItems:"center", gap:6 }}>
+                                    <span style={{ flex:1, fontSize:12, color:C.txt }}>{p}</span>
+                                    <button onClick={() => saveFohPresets(teamChatPresets.filter((_,j) => j !== i))} style={{
+                                      background:"none", border:"none", cursor:"pointer",
+                                      color:"rgba(200,80,80,0.7)", fontSize:16, lineHeight:1, padding:"2px 4px",
+                                    }}>×</button>
                                   </div>
-                                ))
-                              }
-                              <div ref={teamChatEndRef} />
-                            </div>
-                            <div style={{ display:"flex", gap:6, padding:"6px 8px",
-                              borderTop:`1px solid ${C.bdr}` }}>
-                              <input value={teamChatInput} onChange={e => setTeamChatInput(e.target.value)}
-                                onKeyDown={e => e.key === "Enter" && sendTeamChat()}
-                                placeholder="답장..."
-                                style={{ flex:1, padding:"5px 9px", borderRadius:8,
-                                  border:`1px solid ${C.bdr}`, fontSize:12, outline:"none",
-                                  fontFamily:"inherit", color:C.txt, background:C.bg }} />
-                              <button onClick={sendTeamChat} style={{
-                                padding:"0 10px", borderRadius:8, border:"none",
-                                background:C.acc, color:"#fff", fontSize:12,
-                                fontWeight:700, cursor:"pointer", fontFamily:"inherit",
-                              }}>전송</button>
-                            </div>
+                                ))}
+                                <div style={{ display:"flex", gap:6, marginTop:2 }}>
+                                  <input value={teamChatPresetInput} onChange={e => setTeamChatPresetInput(e.target.value)}
+                                    onKeyDown={e => {
+                                      if (e.key === "Enter" && teamChatPresetInput.trim()) {
+                                        saveFohPresets([...teamChatPresets, teamChatPresetInput.trim()]);
+                                        setTeamChatPresetInput("");
+                                      }
+                                    }}
+                                    placeholder="새 메시지 추가..."
+                                    style={{ flex:1, padding:"5px 8px", borderRadius:7,
+                                      border:`1px solid ${C.bdr}`, fontSize:11, outline:"none",
+                                      fontFamily:"inherit", color:C.txt, background:C.bg }} />
+                                  <button onClick={() => {
+                                    if (!teamChatPresetInput.trim()) return;
+                                    saveFohPresets([...teamChatPresets, teamChatPresetInput.trim()]);
+                                    setTeamChatPresetInput("");
+                                  }} style={{ padding:"0 9px", borderRadius:7, border:"none",
+                                    background:C.acc, color:"#fff", fontSize:12, fontWeight:700,
+                                    cursor:"pointer", fontFamily:"inherit" }}>+</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                {/* 빠른 메시지 */}
+                                {teamChatPresets.length > 0 && (
+                                  <div style={{ padding:"5px 8px", display:"flex", flexWrap:"wrap", gap:4, borderBottom:`1px solid ${C.bdr}` }}>
+                                    {teamChatPresets.map((p, i) => (
+                                      <button key={i} onClick={async () => {
+                                        await addDoc(collection(db, "liveChat", nextSvc.id, "messages"), {
+                                          text: p, uid: user.uid,
+                                          name: user.name || user.email, role: user.role,
+                                          type: "chat", createdAt: serverTimestamp(),
+                                        });
+                                      }} style={{
+                                        padding:"5px 10px", borderRadius:14, fontSize:11, fontWeight:700,
+                                        border:`1.5px solid ${C.acc}55`, background:`${C.acc}12`,
+                                        color:C.acc, cursor:"pointer", fontFamily:"inherit",
+                                        touchAction:"manipulation",
+                                      }}>{p}</button>
+                                    ))}
+                                  </div>
+                                )}
+                                <div style={{ maxHeight:160, overflowY:"auto", padding:"4px 10px 6px",
+                                  display:"flex", flexDirection:"column", gap:5 }}>
+                                  {teamChatMsgs.length === 0
+                                    ? <div style={{ fontSize:11, color:C.dim, textAlign:"center", padding:"10px 0" }}>메시지 없음</div>
+                                    : teamChatMsgs.map(m => (
+                                      <div key={m.id} style={{ display:"flex", flexDirection:"column",
+                                        alignItems: m.uid === user.uid ? "flex-end" : "flex-start" }}>
+                                        <div style={{ fontSize:9, color:C.dim, marginBottom:2 }}>
+                                          {m.name?.split(" ")[0]}
+                                        </div>
+                                        <div style={{
+                                          maxWidth:"82%", padding:"4px 9px", borderRadius:9, fontSize:11, lineHeight:1.4,
+                                          background: m.uid === user.uid ? C.acc : C.card,
+                                          color: m.uid === user.uid ? "#fff" : C.txt,
+                                          border: m.uid === user.uid ? "none" : `1px solid ${C.bdr}`,
+                                        }}>{m.text}</div>
+                                      </div>
+                                    ))
+                                  }
+                                  <div ref={teamChatEndRef} />
+                                </div>
+                                <div style={{ display:"flex", gap:6, padding:"6px 8px",
+                                  borderTop:`1px solid ${C.bdr}` }}>
+                                  <input value={teamChatInput} onChange={e => setTeamChatInput(e.target.value)}
+                                    onKeyDown={e => e.key === "Enter" && sendTeamChat()}
+                                    placeholder="답장..."
+                                    style={{ flex:1, padding:"5px 9px", borderRadius:8,
+                                      border:`1px solid ${C.bdr}`, fontSize:12, outline:"none",
+                                      fontFamily:"inherit", color:C.txt, background:C.bg }} />
+                                  <button onClick={sendTeamChat} style={{
+                                    padding:"0 10px", borderRadius:8, border:"none",
+                                    background:C.acc, color:"#fff", fontSize:12,
+                                    fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                                  }}>전송</button>
+                                </div>
+                              </>
+                            )}
                           </>
                         )}
                       </div>

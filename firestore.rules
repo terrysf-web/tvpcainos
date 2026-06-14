@@ -135,6 +135,9 @@ service cloud.firestore {
     // LIVE 팀 채팅 — 인증된 모두 읽기/쓰기
     match /liveChat/{svcId} {
       allow read: if isAuthed();
+      match /messages/{messageId} {
+        allow read, write: if isAuthed();
+      }
     }
 
     // X32 믹서 상태 — Admin SDK가 쓰고, 인증된 모두 읽기
