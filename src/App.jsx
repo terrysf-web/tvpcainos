@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.567";
+const APP_VERSION = "3.570";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -14877,6 +14877,19 @@ export default function App() {
 
   const unread = notifs.filter(n => !n.read).length;
 
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      fetch(`/version.json?t=${Date.now()}`)
+        .then(r => r.json())
+        .then(data => { if (data.version && data.version !== APP_VERSION) setUpdateAvailable(true); })
+        .catch(() => {});
+    };
+    check();
+    const tid = setInterval(check, 60 * 1000);
+    return () => clearInterval(tid);
+  }, []);
+
   const shared = {
     user, songs, services, servicesLoaded, notifs, annotations, teamAnnotations, userMap, songDrawings,
     addSong, createService, updateService,
@@ -14890,6 +14903,24 @@ export default function App() {
 
   return (
     <div style={{ width:"100%", height:"100%", background:C.bg }}>
+      {updateAvailable && (
+        <div style={{
+          position:"fixed", top:0, left:0, right:0, zIndex:9999,
+          background:"#1d4ed8", color:"#fff",
+          display:"flex", alignItems:"center", justifyContent:"center", gap:12,
+          padding:"10px 16px", fontSize:14, fontWeight:600,
+        }}>
+          <span>새 버전이 있습니다</span>
+          <button
+            onClick={() => window.location.reload(true)}
+            style={{
+              background:"#fff", color:"#1d4ed8",
+              border:"none", borderRadius:8, padding:"5px 14px",
+              fontWeight:700, fontSize:13, cursor:"pointer",
+            }}
+          >업데이트</button>
+        </div>
+      )}
       {view === "home"          && <HomeSplashScreen user={user} />}
       {view === "services"      && <ServicesScreen      {...shared} />}
       {view === "foh"           && <HomeScreen           {...shared} />}
