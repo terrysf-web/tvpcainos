@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.535";
+const APP_VERSION = "3.536";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13423,24 +13423,22 @@ function HomeSplashScreen() {
         background:"linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 100%)",
         pointerEvents:"none", zIndex:1,
       }} />
-      {/* YouTube — fixed above 악보 tab (3rd of 5, center) */}
+      {/* YouTube — centered above 악보 tab (3rd/5 = 50%), with space */}
       <a
         href="https://m.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ"
         target="_blank"
         rel="noopener noreferrer"
         style={{
           position:"fixed",
-          bottom:"calc(58px + env(safe-area-inset-bottom))",
+          bottom:"calc(72px + env(safe-area-inset-bottom))",
           left:"50%", transform:"translateX(-50%)",
           display:"flex", alignItems:"center", gap:6,
-          background:"rgba(255,255,255,0.75)",
-          color:"#111", textDecoration:"none",
-          borderRadius:20, padding:"6px 14px",
+          background:"transparent",
+          border:"1.5px solid rgba(80,80,110,0.35)",
+          color:"#333", textDecoration:"none",
+          borderRadius:20, padding:"5px 13px",
           fontSize:12, fontWeight:700, letterSpacing:"0.01em",
           zIndex:10,
-          boxShadow:"0 1px 8px rgba(0,0,0,0.12)",
-          backdropFilter:"blur(8px)",
-          WebkitBackdropFilter:"blur(8px)",
           whiteSpace:"nowrap",
         }}
       >
