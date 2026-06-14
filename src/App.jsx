@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.565";
+const APP_VERSION = "3.566";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -6652,7 +6652,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [showChat,      setShowChat]      = useState(false);
   const [chatInput,     setChatInput]     = useState("");
   const [chatMsgs,      setChatMsgs]      = useState([]);
+  const [chatEditMode,  setChatEditMode]  = useState(false);
+  const [chatPresets,   setChatPresets]   = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tvpc_chat_presets") || "null") || ["볼륨 올려주세요","볼륨 낮춰주세요","준비됐습니다","잠깐요","확인했습니다"]; }
+    catch { return ["볼륨 올려주세요","볼륨 낮춰주세요","준비됐습니다","잠깐요","확인했습니다"]; }
+  });
+  const [presetInput,   setPresetInput]   = useState("");
   const chatEndRef = useRef(null);
+  const savePresets = (list) => { setChatPresets(list); try { localStorage.setItem("tvpc_chat_presets", JSON.stringify(list)); } catch {} };
   const [showNotePanel, setShowNotePanel] = useState(false);
   const [noteInput,     setNoteInput]     = useState(false);
   const [noteShared,    setNoteShared]    = useState(false); // 팀 메모 여부
@@ -10355,67 +10362,116 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       )}
 
       {/* 팀 채팅 패널 */}
-      {showChat && !isLibraryMode && selectedSvcId && (
-        <div style={{
-          position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 68px)", right:12,
-          width:260, maxHeight:340, zIndex:3100,
-          background:C.surf, border:`1px solid ${C.bdr}`,
-          borderRadius:14, display:"flex", flexDirection:"column",
-          boxShadow:"0 4px 24px rgba(0,0,0,0.18)", overflow:"hidden",
-        }}>
-          <div style={{ padding:"8px 12px", borderBottom:`1px solid ${C.bdr}`,
-            display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
-            <span style={{ fontSize:12, fontWeight:800, color:C.txt }}>💬 팀 채팅</span>
-            <button onClick={() => setShowChat(false)} style={{
-              background:"none", border:"none", cursor:"pointer", color:C.dim, fontSize:16, lineHeight:1 }}>✕</button>
-          </div>
-          <div style={{ flex:1, overflowY:"auto", padding:"8px 10px", display:"flex", flexDirection:"column", gap:6 }}>
-            {chatMsgs.length === 0
-              ? <div style={{ fontSize:11, color:C.dim, textAlign:"center", padding:"14px 0" }}>메시지 없음</div>
-              : chatMsgs.map(m => (
-                <div key={m.id} style={{ display:"flex", flexDirection:"column",
-                  alignItems: m.uid === user?.uid ? "flex-end" : "flex-start" }}>
-                  <div style={{ fontSize:9, color:C.dim, marginBottom:1 }}>{m.name?.split(" ")[0]}</div>
-                  <div style={{
-                    maxWidth:"82%", padding:"5px 9px", borderRadius:10, fontSize:12, lineHeight:1.4,
-                    background: m.uid === user?.uid ? C.acc : C.card,
-                    color: m.uid === user?.uid ? "#fff" : C.txt,
-                    border: m.uid === user?.uid ? "none" : `1px solid ${C.bdr}`,
-                  }}>{m.text}</div>
+      {showChat && !isLibraryMode && selectedSvcId && (() => {
+        const sendMsg = async (text) => {
+          if (!text?.trim()) return;
+          await addDoc(collection(db, "liveChat", selectedSvcId, "messages"), {
+            text: text.trim(), uid: user.uid,
+            name: user.name || user.email, role: user.role,
+            type:"chat", createdAt: serverTimestamp(),
+          });
+          setChatInput("");
+        };
+        return (
+          <div style={{
+            position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 68px)", right:12,
+            width:270, maxHeight:420, zIndex:3100,
+            background:C.surf, border:`1px solid ${C.bdr}`,
+            borderRadius:14, display:"flex", flexDirection:"column",
+            boxShadow:"0 4px 24px rgba(0,0,0,0.18)", overflow:"hidden",
+          }}>
+            {/* 헤더 */}
+            <div style={{ padding:"8px 12px", borderBottom:`1px solid ${C.bdr}`,
+              display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+              <span style={{ fontSize:12, fontWeight:800, color:C.txt }}>💬 팀 채팅</span>
+              <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                <button onClick={() => { setChatEditMode(p => !p); setPresetInput(""); }} style={{
+                  fontSize:10, fontWeight:700, fontFamily:"inherit", cursor:"pointer",
+                  padding:"2px 7px", borderRadius:6, border:`1px solid ${chatEditMode ? C.acc+"66" : C.bdr}`,
+                  background: chatEditMode ? `${C.acc}18` : "transparent",
+                  color: chatEditMode ? C.acc : C.dim,
+                }}>{chatEditMode ? "완료" : "편집"}</button>
+                <button onClick={() => { setShowChat(false); setChatEditMode(false); }} style={{
+                  background:"none", border:"none", cursor:"pointer", color:C.dim, fontSize:16, lineHeight:1 }}>✕</button>
+              </div>
+            </div>
+
+            {chatEditMode ? (
+              /* ── 편집 모드 ── */
+              <div style={{ flex:1, overflowY:"auto", padding:"10px 12px", display:"flex", flexDirection:"column", gap:8 }}>
+                <div style={{ fontSize:10, fontWeight:700, color:C.dim, letterSpacing:"0.05em" }}>빠른 메시지 편집</div>
+                {chatPresets.map((p, i) => (
+                  <div key={i} style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <span style={{ flex:1, fontSize:13, color:C.txt }}>{p}</span>
+                    <button onClick={() => savePresets(chatPresets.filter((_,j) => j !== i))} style={{
+                      background:"none", border:"none", cursor:"pointer",
+                      color:"rgba(200,80,80,0.6)", fontSize:16, lineHeight:1, padding:"2px 4px",
+                    }}>×</button>
+                  </div>
+                ))}
+                <div style={{ display:"flex", gap:6, marginTop:4 }}>
+                  <input value={presetInput} onChange={e => setPresetInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && presetInput.trim()) {
+                        savePresets([...chatPresets, presetInput.trim()]);
+                        setPresetInput("");
+                      }
+                    }}
+                    placeholder="새 메시지 추가..."
+                    style={{ flex:1, padding:"6px 9px", borderRadius:8,
+                      border:`1px solid ${C.bdr}`, fontSize:12, outline:"none",
+                      fontFamily:"inherit", color:C.txt, background:C.bg }} />
+                  <button onClick={() => {
+                    if (!presetInput.trim()) return;
+                    savePresets([...chatPresets, presetInput.trim()]);
+                    setPresetInput("");
+                  }} style={{ padding:"0 10px", borderRadius:8, border:"none",
+                    background:C.acc, color:"#fff", fontSize:12, fontWeight:700,
+                    cursor:"pointer", fontFamily:"inherit" }}>+</button>
                 </div>
-              ))
-            }
-            <div ref={chatEndRef} />
+              </div>
+            ) : (
+              <>
+                {/* 메시지 내역 */}
+                <div style={{ flex:1, overflowY:"auto", padding:"8px 10px", display:"flex", flexDirection:"column", gap:6 }}>
+                  {chatMsgs.length === 0
+                    ? <div style={{ fontSize:11, color:C.dim, textAlign:"center", padding:"14px 0" }}>메시지 없음</div>
+                    : chatMsgs.map(m => (
+                      <div key={m.id} style={{ display:"flex", flexDirection:"column",
+                        alignItems: m.uid === user?.uid ? "flex-end" : "flex-start" }}>
+                        <div style={{ fontSize:9, color:C.dim, marginBottom:1 }}>{m.name?.split(" ")[0]}</div>
+                        <div style={{
+                          maxWidth:"82%", padding:"5px 9px", borderRadius:10, fontSize:12, lineHeight:1.4,
+                          background: m.uid === user?.uid ? C.acc : C.card,
+                          color: m.uid === user?.uid ? "#fff" : C.txt,
+                          border: m.uid === user?.uid ? "none" : `1px solid ${C.bdr}`,
+                        }}>{m.text}</div>
+                      </div>
+                    ))
+                  }
+                  <div ref={chatEndRef} />
+                </div>
+
+                {/* 빠른 메시지 버튼 */}
+                {chatPresets.length > 0 && (
+                  <div style={{ padding:"6px 8px", borderTop:`1px solid ${C.bdr}`,
+                    display:"flex", flexWrap:"wrap", gap:5, flexShrink:0 }}>
+                    {chatPresets.map((p, i) => (
+                      <button key={i} onClick={() => sendMsg(p)} style={{
+                        padding:"5px 10px", borderRadius:16,
+                        border:`1px solid ${C.bdr}`, background:C.card,
+                        fontSize:11, fontWeight:600, color:C.txt,
+                        cursor:"pointer", fontFamily:"inherit",
+                        transition:"all .1s",
+                      }}>{p}</button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
-          <div style={{ display:"flex", gap:6, padding:"6px 8px", borderTop:`1px solid ${C.bdr}`, flexShrink:0 }}>
-            <input value={chatInput} onChange={e => setChatInput(e.target.value)}
-              onKeyDown={async e => {
-                if (e.key !== "Enter" || !chatInput.trim()) return;
-                await addDoc(collection(db, "liveChat", selectedSvcId, "messages"), {
-                  text: chatInput.trim(), uid: user.uid,
-                  name: user.name || user.email, role: user.role,
-                  type:"chat", createdAt: serverTimestamp(),
-                });
-                setChatInput("");
-              }}
-              placeholder="메시지 입력..."
-              style={{ flex:1, padding:"6px 9px", borderRadius:8,
-                border:`1px solid ${C.bdr}`, fontSize:12, outline:"none",
-                fontFamily:"inherit", color:C.txt, background:C.bg }} />
-            <button onClick={async () => {
-              if (!chatInput.trim()) return;
-              await addDoc(collection(db, "liveChat", selectedSvcId, "messages"), {
-                text: chatInput.trim(), uid: user.uid,
-                name: user.name || user.email, role: user.role,
-                type:"chat", createdAt: serverTimestamp(),
-              });
-              setChatInput("");
-            }} style={{ padding:"0 10px", borderRadius:8, border:"none",
-              background:C.acc, color:"#fff", fontSize:12, fontWeight:700,
-              cursor:"pointer", fontFamily:"inherit" }}>전송</button>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 메모 패널 */}
       {showNotePanel && (
