@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.575";
+const APP_VERSION = "3.576";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -15057,32 +15057,33 @@ export default function App() {
 
   return (
     <div style={{ width:"100%", height:"100%", background:C.bg }}>
-      {updateAvailable && (
-        <div style={{
-          position:"fixed", top:0, left:0, right:0, zIndex:9999,
-          background:"#1d4ed8", color:"#fff",
-          display:"flex", alignItems:"center", justifyContent:"center", gap:12,
-          padding:"10px 16px", fontSize:14, fontWeight:600,
-        }}>
-          <span>새 버전이 있습니다</span>
-          <button
-            onClick={() => {
-              if ("serviceWorker" in navigator) {
-                navigator.serviceWorker.getRegistrations()
-                  .then(regs => { regs.forEach(r => r.unregister()); })
-                  .finally(() => window.location.reload());
-              } else {
-                window.location.reload();
-              }
-            }}
-            style={{
+      {updateAvailable && (() => {
+        const doUpdate = () => {
+          if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.getRegistrations()
+              .then(regs => { regs.forEach(r => r.unregister()); })
+              .finally(() => window.location.reload());
+          } else {
+            window.location.reload();
+          }
+        };
+        return (
+          <div onClick={doUpdate} style={{
+            position:"fixed", top:0, left:0, right:0, zIndex:9999,
+            background:"#1d4ed8", color:"#fff",
+            display:"flex", alignItems:"center", justifyContent:"center", gap:14,
+            padding:"14px 20px", cursor:"pointer",
+            touchAction:"manipulation", WebkitTapHighlightColor:"transparent",
+          }}>
+            <span style={{ fontSize:14, fontWeight:600 }}>🆕 새 버전이 있습니다</span>
+            <span style={{
               background:"#fff", color:"#1d4ed8",
-              border:"none", borderRadius:8, padding:"5px 14px",
-              fontWeight:700, fontSize:13, cursor:"pointer",
-            }}
-          >업데이트</button>
-        </div>
-      )}
+              borderRadius:10, padding:"8px 20px",
+              fontWeight:800, fontSize:14,
+            }}>업데이트</span>
+          </div>
+        );
+      })()}
       {view === "home"          && <HomeSplashScreen user={user} />}
       {view === "services"      && <ServicesScreen      {...shared} />}
       {view === "foh"           && <HomeScreen           {...shared} />}
