@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.542";
+const APP_VERSION = "3.543";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13470,20 +13470,20 @@ function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait }) {
       ) : visible.map((e, i) => (
         <div key={e.id}>
           {i > 0 && <div style={{ height:1, background:"rgba(45,36,96,0.07)", margin:"6px 0" }} />}
-          <div style={{ fontSize:10, color:"rgba(45,36,96,0.45)", fontWeight:700,
+          <div style={{ fontSize:12, color:"rgba(45,36,96,0.45)", fontWeight:700,
             letterSpacing:"0.02em", marginBottom:2 }}>
             {fmtSchedDate(e.date)}
           </div>
-          <div style={{ fontSize:portrait ? 12 : 13, fontWeight:700, color:"#2d2460", lineHeight:1.3 }}>
+          <div style={{ fontSize:portrait ? 14 : 15, fontWeight:700, color:"#2d2460", lineHeight:1.3 }}>
             {e.title}
           </div>
           {e.time && (
-            <div style={{ fontSize:11, color:"rgba(45,36,96,0.55)", marginTop:1 }}>{fmtSchedTime(e.time)}</div>
+            <div style={{ fontSize:13, color:"rgba(45,36,96,0.55)", marginTop:2 }}>{fmtSchedTime(e.time)}</div>
           )}
           {e.type === "rehearsal" && (
             <span style={{ display:"inline-block", background:"rgba(232,169,62,0.18)",
-              color:"#a07020", borderRadius:4, padding:"1px 6px",
-              fontSize:8, fontWeight:700, marginTop:3 }}>연습</span>
+              color:"#a07020", borderRadius:4, padding:"2px 7px",
+              fontSize:10, fontWeight:700, marginTop:4 }}>연습</span>
           )}
         </div>
       ))}
