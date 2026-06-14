@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.561";
+const APP_VERSION = "3.562";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13650,7 +13650,8 @@ function HomeSplashScreen({ user }) {
   const vocalEvents = schedules.filter(s => s.group === "vocal" || s.group === "all").slice(0, 4);
   const bandEvents  = schedules.filter(s => s.group === "band"  || s.group === "all").slice(0, 4);
 
-  const isPC = !portrait && screenW >= 1200;
+  // (hover:hover) and (pointer:fine) = mouse/trackpad → real PC, not iPad/tablet
+  const isPC = !portrait && screenW >= 1200 && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   return (
     <>
       <div style={{
