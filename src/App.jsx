@@ -7093,14 +7093,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // load strokes — dual left
   useEffect(() => {
     if (!dual) return;
-    loadDrawing(dualLeftSongId, 1, strokes1Ref, drawCanvas1Ref);
+    loadDrawing(dualLeftSongId, svcSongs[dualIdx]?.pdfPage || 1, strokes1Ref, drawCanvas1Ref);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dualLeftSongId, user?.uid, dual]);
 
   // load strokes — dual right
   useEffect(() => {
     if (!dual) return;
-    loadDrawing(dualRightSongId, 1, strokes2Ref, drawCanvas2Ref);
+    loadDrawing(dualRightSongId, svcSongs[dualIdx + 1]?.pdfPage || 1, strokes2Ref, drawCanvas2Ref);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dualRightSongId, user?.uid, dual]);
 
@@ -7115,7 +7115,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // load team strokes — dual left (realtime)
   useEffect(() => {
     if (!dual) return;
-    const unsub = loadTeamDrawing(dualLeftSongId, 1, teamStrokes1Ref, teamDrawCanvas1Ref, isDrawing1Ref);
+    const unsub = loadTeamDrawing(dualLeftSongId, svcSongs[dualIdx]?.pdfPage || 1, teamStrokes1Ref, teamDrawCanvas1Ref, isDrawing1Ref);
     return unsub;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dualLeftSongId, dual]);
@@ -7123,7 +7123,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // load team strokes — dual right (realtime)
   useEffect(() => {
     if (!dual) return;
-    const unsub = loadTeamDrawing(dualRightSongId, 1, teamStrokes2Ref, teamDrawCanvas2Ref, isDrawing2Ref);
+    const unsub = loadTeamDrawing(dualRightSongId, svcSongs[dualIdx + 1]?.pdfPage || 1, teamStrokes2Ref, teamDrawCanvas2Ref, isDrawing2Ref);
     return unsub;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dualRightSongId, dual]);
@@ -8095,7 +8095,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (!sel) return selectedSongId;
     return sel.canvasNum === 1 ? (dual ? dualLeftSongId : selectedSongId) : dualRightSongId;
   };
-  const selPage = (sel) => sel?.canvasNum === 1 ? (dual ? 1 : pageNum) : 1;
+  const selPage = (sel) => sel?.canvasNum === 1
+    ? (dual ? (svcSongs[dualIdx]?.pdfPage || 1) : pageNum)
+    : (svcSongs[dualIdx + 1]?.pdfPage || 1);
 
   const deleteSelAnnot = async () => {
     const sel = selAnnotRef.current;
@@ -8157,7 +8159,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const songId = isC1
       ? (dual ? dualLeftSongId : selectedSongId)
       : (dual ? dualRightSongId : selectedSongId);
-    const page = isC1 ? (dual ? 1 : pageNum) : (dual ? 2 : pageNum);
+    const page = isC1
+      ? (dual ? (svcSongs[dualIdx]?.pdfPage || 1) : pageNum)
+      : (dual ? (svcSongs[dualIdx + 1]?.pdfPage || 1) : pageNum);
     const textStroke = {
       tool: "text", text: textInput.value.trim(),
       color: activeColor, size: ({ 1: 8, 2: 15, 4: 28 })[drawWidth] || 15,
@@ -8350,7 +8354,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         const sRef1u = selAnnotRef.current.isTeam ? teamStrokes1Ref : strokes1Ref;
         const dc1u = selAnnotRef.current.isTeam ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current;
         const songId = dual ? dualLeftSongId : selectedSongId;
-        await (selAnnotRef.current.isTeam ? saveTeamDrawing : saveDrawing)(songId, dual ? 1 : pageNum, sRef1u.current);
+        await (selAnnotRef.current.isTeam ? saveTeamDrawing : saveDrawing)(songId, dual ? (svcSongs[dualIdx]?.pdfPage || 1) : pageNum, sRef1u.current);
         if (dc1u) drawStrokes(dc1u, sRef1u.current, null, selAnnotRef.current.idx);
       }
       return;
@@ -8370,7 +8374,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       sRef1.current = next;
       drawStrokes(canvas, next);
       const songId = dual ? dualLeftSongId : selectedSongId;
-      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(songId, dual ? 1 : pageNum, next);
+      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(songId, dual ? (svcSongs[dualIdx]?.pdfPage || 1) : pageNum, next);
       return;
     }
     if (drawTool === "shape") {
@@ -8387,7 +8391,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const next = [...sRef1.current, committedShape1];
       sRef1.current = next;
       const songId = dual ? dualLeftSongId : selectedSongId;
-      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(songId, dual ? 1 : pageNum, next);
+      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(songId, dual ? (svcSongs[dualIdx]?.pdfPage || 1) : pageNum, next);
       const canvas = teamDrawMode ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current;
       if (canvas) drawStrokes(canvas, next);
       return;
@@ -8402,7 +8406,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const next = [...sRef1.current, committed1];
       sRef1.current = next;
       const songId = dual ? dualLeftSongId : selectedSongId;
-      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(songId, dual ? 1 : pageNum, next);
+      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(songId, dual ? (svcSongs[dualIdx]?.pdfPage || 1) : pageNum, next);
     }
     { const canvas = teamDrawMode ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current;
       if (canvas) drawStrokes(canvas, sRef1.current); }
@@ -8529,7 +8533,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         selDragRef.current = null;
         const sRef2u = selAnnotRef.current.isTeam ? teamStrokes2Ref : strokes2Ref;
         const dc2u = selAnnotRef.current.isTeam ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
-        await (selAnnotRef.current.isTeam ? saveTeamDrawing : saveDrawing)(dualRightSongId, 1, sRef2u.current);
+        await (selAnnotRef.current.isTeam ? saveTeamDrawing : saveDrawing)(dualRightSongId, svcSongs[dualIdx + 1]?.pdfPage || 1, sRef2u.current);
         if (dc2u) drawStrokes(dc2u, sRef2u.current, null, selAnnotRef.current.idx);
       }
       return;
@@ -8548,7 +8552,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const next = [...sRef2.current, stamp];
       sRef2.current = next;
       drawStrokes(canvas, next);
-      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(dualRightSongId, 1, next);
+      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(dualRightSongId, svcSongs[dualIdx + 1]?.pdfPage || 1, next);
       return;
     }
     if (drawTool === "shape") {
@@ -8564,7 +8568,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const committedShape2 = teamDrawMode ? { ...shape, team: true } : shape;
       const next = [...sRef2.current, committedShape2];
       sRef2.current = next;
-      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(dualRightSongId, 1, next);
+      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(dualRightSongId, svcSongs[dualIdx + 1]?.pdfPage || 1, next);
       const canvas = teamDrawMode ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
       if (canvas) drawStrokes(canvas, next);
       return;
@@ -8578,7 +8582,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const committed2 = teamDrawMode ? { ...stroke, team: true } : stroke;
       const next = [...sRef2.current, committed2];
       sRef2.current = next;
-      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(dualRightSongId, 1, next);
+      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(dualRightSongId, svcSongs[dualIdx + 1]?.pdfPage || 1, next);
     }
     { const canvas = teamDrawMode ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
       if (canvas) drawStrokes(canvas, sRef2.current); }
@@ -8639,9 +8643,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const pRef  = isTeam ? (side === 2 ? preClearTeamRef2 : preClearTeamRef1)
                           : (side === 2 ? preClearRef2     : preClearRef1);
     const songId = side === 2 ? dualRightSongId : (dual ? dualLeftSongId : selectedSongId);
+    const clearPage = side === 2
+      ? (svcSongs[dualIdx + 1]?.pdfPage || 1)
+      : (dual ? (svcSongs[dualIdx]?.pdfPage || 1) : pageNum);
     pRef.current = sRef.current;
     sRef.current = [];
-    await (isTeam ? saveTeamDrawing : saveDrawing)(songId, dual ? 1 : pageNum, []);
+    await (isTeam ? saveTeamDrawing : saveDrawing)(songId, clearPage, []);
     if (dcRef.current) dcRef.current.getContext("2d").clearRect(0, 0, dcRef.current.width, dcRef.current.height);
   };
 
