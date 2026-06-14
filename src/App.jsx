@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.551";
+const APP_VERSION = "3.552";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -10649,7 +10649,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         return (
           <div style={{
             position:"fixed",
-            bottom:`calc(env(safe-area-inset-bottom, 0px) + 56px)`,
+            bottom:`calc(env(safe-area-inset-bottom, 0px) + 2px)`,
             left:12,
             width:272,
             zIndex:3000,
