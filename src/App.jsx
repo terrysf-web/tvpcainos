@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.545";
+const APP_VERSION = "3.546";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -6582,6 +6582,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const recChunksRef = useRef([]);
   const recSecondsRef = useRef(0);
 
+  // ── 예배 녹음 미니 플레이어
+  const [showWorshipPlayer, setShowWorshipPlayer] = useState(false);
+  const [worshipPlayerRecs, setWorshipPlayerRecs] = useState([]); // { part, driveId }[]
+  const [worshipPlayerPart, setWorshipPlayerPart] = useState(null); // 선택된 파트
+  const [worshipPlayerLoading, setWorshipPlayerLoading] = useState(false);
+
   // ── Drawing / handwriting
   const [drawMode,  setDrawMode]  = useState(false);
   const [drawColor, setDrawColor] = useState("#e8383b");
@@ -7020,6 +7026,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (!selectedSongId) return;
     getRecsFromDB(selectedSongId).then(recs => setRecCount(recs.length)).catch(() => {});
   }, [selectedSongId]);
+
+  // 예배 녹음 로드 (svc + song 있을 때)
+  useEffect(() => {
+    if (!selectedSongId || !svc) { setWorshipPlayerRecs([]); return; }
+    const docId = `${selectedSongId}_${svc.id}`;
+    setWorshipPlayerLoading(true);
+    loadWorshipRecording(docId)
+      .then(d => {
+        if (!d?.parts) { setWorshipPlayerRecs([]); return; }
+        const list = Object.entries(d.parts)
+          .filter(([, driveId]) => !!driveId)
+          .map(([part, driveId]) => ({ part, driveId }))
+          .sort((a, b) => PARTS.findIndex(p => p.id === a.part) - PARTS.findIndex(p => p.id === b.part));
+        setWorshipPlayerRecs(list);
+        if (list.length > 0 && !worshipPlayerPart) setWorshipPlayerPart(list[0].part);
+      })
+      .catch(() => setWorshipPlayerRecs([]))
+      .finally(() => setWorshipPlayerLoading(false));
+  }, [selectedSongId, svc?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 악기 피커 외부 탭 시 닫기
   useEffect(() => {
@@ -8884,6 +8909,27 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       <Icon n="play" size={tbIconSz} color={C.dim} />
                     </button>
                   )}
+                  {/* 예배 연습 녹음 재생 (svc 컨텍스트이고 녹음 있을 때) */}
+                  {!isLibraryMode && svc && worshipPlayerRecs.length > 0 && !recording && (
+                    <button
+                      onClick={() => setShowWorshipPlayer(p => !p)}
+                      title="예배 연습 녹음 재생"
+                      style={{
+                        position:"relative",
+                        background: showWorshipPlayer ? `${C.grn}22` : "transparent",
+                        border:`1px solid ${showWorshipPlayer ? C.grn : C.bdr}`,
+                        borderRadius:8, padding: narrow ? 6 : 7, cursor:"pointer",
+                        display:"flex", alignItems:"center", gap:3,
+                      }}>
+                      <span style={{ fontSize: tbIconSz, lineHeight:1 }}>🎵</span>
+                      <span style={{
+                        position:"absolute", top:2, right:2,
+                        background:C.grn, color:"#fff", borderRadius:"50%",
+                        fontSize:8, fontWeight:800, width:13, height:13,
+                        display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
+                      }}>{worshipPlayerRecs.length}</span>
+                    </button>
+                  )}
                   {sep}
                   {/* FIT */}
                   <button onClick={autoFit} title="여백 자동 제거 후 악보 꽉 채우기 (토글)"
@@ -10602,6 +10648,87 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           onClose={() => setShowRecModal(false)}
         />
       )}
+
+      {/* ── 예배 연습 녹음 미니 플레이어 ── */}
+      {showWorshipPlayer && worshipPlayerRecs.length > 0 && (() => {
+        const activeDriveId = worshipPlayerRecs.find(r => r.part === worshipPlayerPart)?.driveId
+          || worshipPlayerRecs[0]?.driveId;
+        const myParts = getUserParts(user);
+        // 일반 팀원: "전체" 믹스 파트 + 자기 파트만 / 리더: 전체
+        const visibleRecs = isLeader(user?.role)
+          ? worshipPlayerRecs
+          : worshipPlayerRecs.filter(r =>
+              r.part === "밴드" || r.part === "전체" || myParts.some(p => p === r.part)
+            );
+        return (
+          <div style={{
+            position:"fixed", bottom:0, left:0, right:0,
+            zIndex:3000,
+            background: C.surf,
+            borderTop:`1px solid ${C.bdr}`,
+            boxShadow:"0 -4px 24px rgba(0,0,0,0.15)",
+            display:"flex", flexDirection:"column",
+          }}>
+            {/* 헤더 */}
+            <div style={{
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              padding:"10px 16px 8px",
+              borderBottom:`1px solid ${C.bdr}`,
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:15 }}>🎵</span>
+                <div>
+                  <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>예배 연습 녹음</div>
+                  <div style={{ fontSize:10, color:C.dim }}>{song?.title}</div>
+                </div>
+              </div>
+              <button onClick={() => setShowWorshipPlayer(false)} style={{
+                background:"none", border:"none", cursor:"pointer",
+                color:C.dim, fontSize:20, padding:"0 4px",
+              }}>✕</button>
+            </div>
+            {/* 파트 탭 */}
+            <div style={{
+              display:"flex", gap:6, padding:"8px 12px",
+              overflowX:"auto", flexShrink:0,
+              borderBottom:`1px solid ${C.bdr}`,
+            }}>
+              {(visibleRecs.length > 0 ? visibleRecs : worshipPlayerRecs).map(r => {
+                const partInfo = PARTS.find(p => p.id === r.part) || { emoji:"🎵", label: r.part };
+                const active = worshipPlayerPart === r.part;
+                return (
+                  <button key={r.part} onClick={() => setWorshipPlayerPart(r.part)} style={{
+                    display:"flex", alignItems:"center", gap:4,
+                    padding:"5px 12px", borderRadius:20, border:"1.5px solid",
+                    borderColor: active ? C.grn : C.bdr,
+                    background: active ? `${C.grn}18` : C.card,
+                    color: active ? C.grn : C.dim,
+                    fontWeight: active ? 800 : 600, fontSize:12,
+                    cursor:"pointer", whiteSpace:"nowrap", flexShrink:0,
+                  }}>
+                    <span>{partInfo.emoji}</span>
+                    <span>{partInfo.label || r.part}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {/* Google Drive 플레이어 */}
+            {activeDriveId ? (
+              <iframe
+                key={activeDriveId}
+                src={`https://drive.google.com/file/d/${activeDriveId}/preview`}
+                style={{ width:"100%", height:220, border:"none", flexShrink:0 }}
+                allow="autoplay"
+                title="worship-recording"
+              />
+            ) : (
+              <div style={{ padding:24, textAlign:"center", color:C.dim, fontSize:13 }}>
+                재생할 녹음이 없습니다
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* 메트로놈 패널 */}
       {showMetroPanel && (() => {
