@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.559";
+const APP_VERSION = "3.560";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13650,15 +13650,14 @@ function HomeSplashScreen({ user }) {
   const vocalEvents = schedules.filter(s => s.group === "vocal" || s.group === "all").slice(0, 4);
   const bandEvents  = schedules.filter(s => s.group === "band"  || s.group === "all").slice(0, 4);
 
-  // PC (wide landscape) : image scaled to screen height to avoid massive zoom
+  // PC (wide landscape): landscape bg image at auto 100% — no zoom
+  // iPad landscape: same image with cover (fits well at ~1024px)
   const isPC = !portrait && screenW >= 1200;
   return (
     <>
       <div style={{
         position:"fixed", inset: isPC ? 0 : "-20px",
-        backgroundImage: portrait ? "url('/home-bg-portrait.webp')"
-          : isPC     ? "url('/home-bg-portrait.webp')"
-          :              "url('/home-bg.webp')",
+        backgroundImage: portrait ? "url('/home-bg-portrait.webp')" : "url('/home-bg.webp')",
         backgroundSize: isPC ? "auto 100%" : "cover",
         backgroundPosition:"center center",
         backgroundRepeat:"no-repeat",
