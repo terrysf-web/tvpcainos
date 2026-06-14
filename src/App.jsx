@@ -7029,7 +7029,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         if (snap.exists()) {
           strokesRef2.current = snap.data().strokes || [];
           const dc2 = dcRef.current;
-          if (dc2 && dc2.width > 0) drawStrokes(dc2, strokesRef2.current);
+          if (dc2 && dc2.width > 0) {
+            drawStrokes(dc2, strokesRef2.current);
+          } else if (dc2) {
+            const tid = setInterval(() => {
+              if (dc2.width > 0) {
+                clearInterval(tid);
+                dc2.getContext("2d").clearRect(0, 0, dc2.width, dc2.height);
+                drawStrokes(dc2, strokesRef2.current);
+              }
+            }, 50);
+            setTimeout(() => clearInterval(tid), 3000);
+          }
         }
       }).catch(() => {});
   };
