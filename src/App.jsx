@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.574";
+const APP_VERSION = "3.575";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -6767,6 +6767,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [showChat,      setShowChat]      = useState(false);
   const [chatInput,     setChatInput]     = useState("");
   const [chatMsgs,      setChatMsgs]      = useState([]);
+  const [chatToastKb,   setChatToastKb]   = useState(null); // { name, text }
+  const chatToastKbTimer = useRef(null);
+  const chatMsgsPrevRef  = useRef([]);
   const [chatEditMode,  setChatEditMode]  = useState(false);
   const [chatPresets,   setChatPresets]   = useState(() => {
     try { return JSON.parse(localStorage.getItem("tvpc_chat_presets") || "null") || ["볼륨 올려주세요","볼륨 낮춰주세요","준비됐습니다","잠깐요","확인했습니다"]; }
@@ -7295,7 +7298,21 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   useEffect(() => {
     if (!selectedSvcId) return;
     const q = query(collection(db, "liveChat", selectedSvcId, "messages"), orderBy("createdAt"), limit(50));
-    return onSnapshot(q, snap => setChatMsgs(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    return onSnapshot(q, snap => {
+      const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setChatMsgs(msgs);
+      if (chatMsgsPrevRef.current.length > 0) {
+        const prevIds = new Set(chatMsgsPrevRef.current.map(m => m.id));
+        const newMsgs = msgs.filter(m => !prevIds.has(m.id) && m.uid !== user?.uid);
+        if (newMsgs.length > 0) {
+          const last = newMsgs[newMsgs.length - 1];
+          clearTimeout(chatToastKbTimer.current);
+          setChatToastKb({ name: last.name?.split(" ")[0] || "FOH", text: last.text });
+          chatToastKbTimer.current = setTimeout(() => setChatToastKb(null), 5000);
+        }
+      }
+      chatMsgsPrevRef.current = msgs;
+    });
   }, [selectedSvcId]);
   useEffect(() => {
     if (showChat) setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior:"smooth" }), 60);
@@ -10491,6 +10508,27 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* FOH → 키보드 수신 토스트 */}
+      {chatToastKb && !isLibraryMode && (
+        <div onClick={() => { setShowChat(true); setChatToastKb(null); clearTimeout(chatToastKbTimer.current); }}
+          style={{
+            position:"fixed", top:16, left:"50%", transform:"translateX(-50%)",
+            zIndex:9500, display:"flex", alignItems:"center", gap:10,
+            background:"#1d4ed8", color:"#fff",
+            borderRadius:14, padding:"10px 16px",
+            boxShadow:"0 4px 20px rgba(0,0,0,0.35)",
+            cursor:"pointer", maxWidth:320, width:"calc(100% - 32px)",
+          }}>
+          <span style={{ fontSize:18 }}>💬</span>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:10, fontWeight:700, opacity:0.8, marginBottom:2 }}>{chatToastKb.name}</div>
+            <div style={{ fontSize:13, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{chatToastKb.text}</div>
+          </div>
+          <button onClick={e => { e.stopPropagation(); setChatToastKb(null); clearTimeout(chatToastKbTimer.current); }}
+            style={{ background:"none", border:"none", color:"rgba(255,255,255,0.7)", fontSize:16, cursor:"pointer", padding:"0 2px" }}>✕</button>
         </div>
       )}
 
