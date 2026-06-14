@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.541";
+const APP_VERSION = "3.542";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13404,6 +13404,15 @@ function fmtSchedDate(dateStr) {
   return `${m}/${dd} (${days[d.getDay()]})`;
 }
 
+function fmtSchedTime(timeStr) {
+  if (!timeStr) return "";
+  const [h, m] = timeStr.split(":").map(Number);
+  const period = h < 12 ? "오전" : "오후";
+  const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  const min = String(m).padStart(2, "0");
+  return `${period} ${hour}:${min}`;
+}
+
 // portrait=true → top strip side-by-side, portrait=false → left/right center
 function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait }) {
   const posStyle = portrait
@@ -13469,7 +13478,7 @@ function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait }) {
             {e.title}
           </div>
           {e.time && (
-            <div style={{ fontSize:11, color:"rgba(45,36,96,0.55)", marginTop:1 }}>{e.time}</div>
+            <div style={{ fontSize:11, color:"rgba(45,36,96,0.55)", marginTop:1 }}>{fmtSchedTime(e.time)}</div>
           )}
           {e.type === "rehearsal" && (
             <span style={{ display:"inline-block", background:"rgba(232,169,62,0.18)",
@@ -13557,7 +13566,7 @@ function ScheduleEditModal({ group, schedules, onClose }) {
             }}>
               <div>
                 <div style={{ fontSize:10, color:"rgba(45,36,96,0.4)", fontWeight:700, marginBottom:2 }}>
-                  {fmtSchedDate(e.date)}{e.time ? " · " + e.time : ""}
+                  {fmtSchedDate(e.date)}{e.time ? " · " + fmtSchedTime(e.time) : ""}
                   {" "}
                   <span style={{ background: e.type==="rehearsal"?"rgba(232,169,62,0.18)":"rgba(45,36,96,0.07)",
                     color: e.type==="rehearsal"?"#a07020":"rgba(45,36,96,0.5)",
@@ -13596,7 +13605,8 @@ function ScheduleEditModal({ group, schedules, onClose }) {
                 border:"1.5px solid rgba(45,36,96,0.18)", fontSize:13,
                 color:"#2d2460", outline:"none", fontFamily:"inherit" }} />
             <input type="time" value={time} onChange={e=>setTime(e.target.value)}
-              style={{ width:100, padding:"9px 10px", borderRadius:10,
+              step="900"
+              style={{ width:110, padding:"9px 10px", borderRadius:10,
                 border:"1.5px solid rgba(45,36,96,0.18)", fontSize:13,
                 color:"#2d2460", outline:"none", fontFamily:"inherit" }} />
           </div>
