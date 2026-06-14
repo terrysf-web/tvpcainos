@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.571";
+const APP_VERSION = "3.572";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -14803,6 +14803,20 @@ export default function App() {
     );
   };
 
+  // ── 버전 업데이트 체크
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      fetch(`/version.json?t=${Date.now()}`)
+        .then(r => r.json())
+        .then(data => { if (data.version && data.version !== APP_VERSION) setUpdateAvailable(true); })
+        .catch(() => {});
+    };
+    check();
+    const tid = setInterval(check, 60 * 1000);
+    return () => clearInterval(tid);
+  }, []);
+
   // ── KakaoTalk 인앱 브라우저 감지 → 외부 브라우저 유도
   const ua = navigator.userAgent || "";
   const isKakao   = /KAKAOTALK/i.test(ua);
@@ -14876,19 +14890,6 @@ export default function App() {
   navRef.current = nav; // 매 렌더마다 갱신 — 구독 클로저에서 최신 nav 호출
 
   const unread = notifs.filter(n => !n.read).length;
-
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  useEffect(() => {
-    const check = () => {
-      fetch(`/version.json?t=${Date.now()}`)
-        .then(r => r.json())
-        .then(data => { if (data.version && data.version !== APP_VERSION) setUpdateAvailable(true); })
-        .catch(() => {});
-    };
-    check();
-    const tid = setInterval(check, 60 * 1000);
-    return () => clearInterval(tid);
-  }, []);
 
   const shared = {
     user, songs, services, servicesLoaded, notifs, annotations, teamAnnotations, userMap, songDrawings,
