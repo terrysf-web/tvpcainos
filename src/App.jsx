@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.547";
+const APP_VERSION = "3.548";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -9181,6 +9181,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             }}>
               <Icon n="play" size={18} color={C.dim} />
               <span style={{ fontSize:10, fontWeight:700, color:C.dim, fontFamily:"inherit" }}>재생</span>
+            </button>
+          )}
+          {/* 예배 연습 녹음 재생 */}
+          {!isLibraryMode && svc && worshipPlayerRecs.length > 0 && !recording && (
+            <button onClick={() => { setShowWorshipPlayer(p => !p); setShowMobileMore(false); }} style={{
+              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+              padding:"8px 12px", borderRadius:10, cursor:"pointer",
+              background: showWorshipPlayer ? `${C.grn}22` : C.card,
+              border:`1px solid ${showWorshipPlayer ? C.grn : C.bdr}`,
+              flex:"1 1 60px", minWidth:60, position:"relative",
+            }}>
+              <span style={{ fontSize:18, lineHeight:1 }}>🎧</span>
+              <span style={{ fontSize:10, fontWeight:700, color:showWorshipPlayer ? C.grn : C.dim, fontFamily:"inherit" }}>녹음듣기</span>
+              <span style={{
+                position:"absolute", top:5, right:10,
+                background:C.grn, color:"#fff", borderRadius:"50%",
+                fontSize:8, fontWeight:800, width:13, height:13,
+                display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
+              }}>{worshipPlayerRecs.length}</span>
             </button>
           )}
           {/* FIT */}
