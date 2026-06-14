@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.540";
+const APP_VERSION = "3.541";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13404,25 +13404,43 @@ function fmtSchedDate(dateStr) {
   return `${m}/${dd} (${days[d.getDay()]})`;
 }
 
-function ScheduleCard({ title, icon, events, side, ldr, onAdd }) {
+// portrait=true → top strip side-by-side, portrait=false → left/right center
+function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait }) {
+  const posStyle = portrait
+    ? {
+        // 세로 모드: 상단 좌우 나란히
+        [side]: 12,
+        top: "calc(env(safe-area-inset-top, 44px) + 10px)",
+        width: "calc(50% - 18px)",
+        maxHeight: 150,
+      }
+    : {
+        // 가로/태블릿: 좌우 세로 중앙
+        [side]: 16,
+        top: "50%",
+        transform: "translateY(-60%)",
+        width: 148,
+        maxHeight: "calc(100dvh - 180px)",
+      };
+
+  // portrait 에서는 이벤트 최대 2개만
+  const visible = portrait ? events.slice(0, 2) : events;
+
   return (
     <div style={{
       position:"fixed",
-      [side]: 16,
-      top:"50%", transform:"translateY(-60%)",
-      width:148,
-      maxHeight:"calc(100dvh - 180px)",
+      ...posStyle,
       overflowY:"auto",
       background:"rgba(255,255,255,0.52)",
       backdropFilter:"blur(14px)",
       WebkitBackdropFilter:"blur(14px)",
       border:"1px solid rgba(255,255,255,0.78)",
-      borderRadius:18, padding:"12px 14px",
+      borderRadius:16, padding:"10px 12px",
       zIndex:4,
       boxShadow:"0 4px 20px rgba(0,0,0,0.07)",
     }}>
       {/* header */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:9 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
         <div style={{ fontSize:9, fontWeight:800, letterSpacing:"0.1em",
           textTransform:"uppercase", color:"rgba(45,36,96,0.45)",
           display:"flex", alignItems:"center", gap:4 }}>
@@ -13436,22 +13454,22 @@ function ScheduleCard({ title, icon, events, side, ldr, onAdd }) {
         )}
       </div>
       {/* events */}
-      {events.length === 0 ? (
-        <div style={{ fontSize:10, color:"rgba(45,36,96,0.3)", textAlign:"center", padding:"6px 0" }}>
-          {ldr ? "+ 버튼으로 추가" : "예정 없음"}
+      {visible.length === 0 ? (
+        <div style={{ fontSize:10, color:"rgba(45,36,96,0.3)", textAlign:"center", padding:"4px 0" }}>
+          {ldr ? "+ 추가" : "예정 없음"}
         </div>
-      ) : events.map((e, i) => (
+      ) : visible.map((e, i) => (
         <div key={e.id}>
-          {i > 0 && <div style={{ height:1, background:"rgba(45,36,96,0.07)", margin:"7px 0" }} />}
-          <div style={{ fontSize:8, color:"rgba(45,36,96,0.38)", fontWeight:700,
-            letterSpacing:"0.04em", marginBottom:2 }}>
+          {i > 0 && <div style={{ height:1, background:"rgba(45,36,96,0.07)", margin:"6px 0" }} />}
+          <div style={{ fontSize:10, color:"rgba(45,36,96,0.45)", fontWeight:700,
+            letterSpacing:"0.02em", marginBottom:2 }}>
             {fmtSchedDate(e.date)}
           </div>
-          <div style={{ fontSize:12, fontWeight:700, color:"#2d2460", lineHeight:1.3 }}>
+          <div style={{ fontSize:portrait ? 12 : 13, fontWeight:700, color:"#2d2460", lineHeight:1.3 }}>
             {e.title}
           </div>
           {e.time && (
-            <div style={{ fontSize:9, color:"rgba(45,36,96,0.48)", marginTop:1 }}>{e.time}</div>
+            <div style={{ fontSize:11, color:"rgba(45,36,96,0.55)", marginTop:1 }}>{e.time}</div>
           )}
           {e.type === "rehearsal" && (
             <span style={{ display:"inline-block", background:"rgba(232,169,62,0.18)",
@@ -13663,25 +13681,23 @@ function HomeSplashScreen({ user }) {
         pointerEvents:"none", zIndex:1,
       }} />
 
-      {/* Schedule cards — landscape or wide portrait only */}
-      {showCards && (
-        <>
-          <ScheduleCard
-            title="보컬" icon="🎤"
-            events={vocalEvents}
-            side="left"
-            ldr={ldr}
-            onAdd={() => setSchedModal("vocal")}
-          />
-          <ScheduleCard
-            title="밴드" icon="🎸"
-            events={bandEvents}
-            side="right"
-            ldr={ldr}
-            onAdd={() => setSchedModal("band")}
-          />
-        </>
-      )}
+      {/* Schedule cards — always shown; portrait=top strip, landscape=left/right center */}
+      <ScheduleCard
+        title="보컬" icon="🎤"
+        events={vocalEvents}
+        side="left"
+        ldr={ldr}
+        portrait={portrait}
+        onAdd={() => setSchedModal("vocal")}
+      />
+      <ScheduleCard
+        title="밴드" icon="🎸"
+        events={bandEvents}
+        side="right"
+        ldr={ldr}
+        portrait={portrait}
+        onAdd={() => setSchedModal("band")}
+      />
 
       {/* YouTube — centered above 악보 tab (3rd of 5 flex tabs; version btn ~60px shifts center by -30px) */}
       <a
