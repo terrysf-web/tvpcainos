@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.563";
+const APP_VERSION = "3.564";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13444,9 +13444,16 @@ function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait, screenW
       ) : visible.map((e, i) => (
         <div key={e.id}>
           {i > 0 && <div style={{ height:1, background:"rgba(45,36,96,0.07)", margin:"7px 0" }} />}
-          <div style={{ fontSize:dateSz, color:"rgba(45,36,96,0.5)", fontWeight:700,
-            letterSpacing:"0.02em", marginBottom:2 }}>
-            {fmtSchedDate(e.date)}
+          <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:4 }}>
+            <div style={{ fontSize:dateSz, color:"rgba(45,36,96,0.5)", fontWeight:700,
+              letterSpacing:"0.02em", marginBottom:2 }}>
+              {fmtSchedDate(e.date)}
+            </div>
+            {e.type === "service" && (
+              <span style={{ fontSize:9, fontWeight:700, color:"rgba(16,185,129,0.8)",
+                background:"rgba(16,185,129,0.12)", borderRadius:4, padding:"1px 5px",
+                flexShrink:0, lineHeight:1.6 }}>자동</span>
+            )}
           </div>
           <div style={{ fontSize:contentSz, fontWeight:700, color:"#2d2460", lineHeight:1.3 }}>
             {e.title}
@@ -13460,8 +13467,8 @@ function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait, screenW
               fontSize:10, fontWeight:700, marginTop:4 }}>연습</span>
           )}
           {e.type === "service" && (
-            <span style={{ display:"inline-block", background:"rgba(45,36,96,0.13)",
-              color:"#2d2460", borderRadius:4, padding:"2px 7px",
+            <span style={{ display:"inline-block", background:"rgba(16,185,129,0.15)",
+              color:"#059669", borderRadius:4, padding:"2px 7px",
               fontSize:10, fontWeight:700, marginTop:4 }}>예배</span>
           )}
         </div>
@@ -13583,11 +13590,19 @@ function ScheduleEditModal({ group, schedules, onClose }) {
               style={{ flex:1, padding:"9px 10px", borderRadius:10,
                 border:"1.5px solid rgba(45,36,96,0.18)", fontSize:13,
                 color:"#2d2460", outline:"none", fontFamily:"inherit" }} />
-            <input type="time" value={time} onChange={e=>setTime(e.target.value)}
-              step="900"
-              style={{ width:110, padding:"9px 10px", borderRadius:10,
+            <select value={time} onChange={e=>setTime(e.target.value)}
+              style={{ width:120, padding:"9px 10px", borderRadius:10,
                 border:"1.5px solid rgba(45,36,96,0.18)", fontSize:13,
-                color:"#2d2460", outline:"none", fontFamily:"inherit" }} />
+                color: time ? "#2d2460" : "rgba(45,36,96,0.4)",
+                outline:"none", fontFamily:"inherit", background:"#fff" }}>
+              <option value="">시간 선택</option>
+              {Array.from({length: 18*4}, (_, i) => {
+                const mins = 5*60 + i*15;
+                const h = Math.floor(mins/60), m = mins%60;
+                const t = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+                return <option key={t} value={t}>{fmtSchedTime(t)}</option>;
+              })}
+            </select>
           </div>
 
           <div style={{ display:"flex", gap:8 }}>
