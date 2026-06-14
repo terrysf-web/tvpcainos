@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.570";
+const APP_VERSION = "3.571";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -14912,7 +14912,15 @@ export default function App() {
         }}>
           <span>새 버전이 있습니다</span>
           <button
-            onClick={() => window.location.reload(true)}
+            onClick={() => {
+              if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.getRegistrations()
+                  .then(regs => { regs.forEach(r => r.unregister()); })
+                  .finally(() => window.location.reload());
+              } else {
+                window.location.reload();
+              }
+            }}
             style={{
               background:"#fff", color:"#1d4ed8",
               border:"none", borderRadius:8, padding:"5px 14px",
