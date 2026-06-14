@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.562";
+const APP_VERSION = "3.563";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13459,6 +13459,11 @@ function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait, screenW
               color:"#a07020", borderRadius:4, padding:"2px 7px",
               fontSize:10, fontWeight:700, marginTop:4 }}>연습</span>
           )}
+          {e.type === "service" && (
+            <span style={{ display:"inline-block", background:"rgba(45,36,96,0.13)",
+              color:"#2d2460", borderRadius:4, padding:"2px 7px",
+              fontSize:10, fontWeight:700, marginTop:4 }}>예배</span>
+          )}
         </div>
       ))}
     </div>
@@ -13621,6 +13626,8 @@ function HomeSplashScreen({ user }) {
   );
   const [screenW, setScreenW] = useState(() => window.innerWidth);
   const [schedules, setSchedules] = useState([]);
+  const [svcList, setSvcList] = useState([]);
+  const [now, setNow] = useState(() => new Date());
   const [schedModal, setSchedModal] = useState(null); // null | "vocal" | "band"
 
   useEffect(() => {
@@ -13630,6 +13637,12 @@ function HomeSplashScreen({ user }) {
     const onResize = () => { setScreenW(window.innerWidth); setPortrait(window.matchMedia("(orientation: portrait)").matches); };
     window.addEventListener("resize", onResize);
     return () => { mq.removeEventListener("change", handler); window.removeEventListener("resize", onResize); };
+  }, []);
+
+  // 1분마다 현재 시각 갱신 → 지난 스케줄 자동 제거
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
@@ -13645,10 +13658,48 @@ function HomeSplashScreen({ user }) {
     });
   }, []);
 
-  const showCards = !portrait || screenW >= 500;
+  useEffect(() => {
+    const today = localDateStr();
+    const q = query(
+      collection(db, "services"),
+      where("date", ">=", today),
+      orderBy("date"),
+      limit(20)
+    );
+    return onSnapshot(q, snap => {
+      setSvcList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+  }, []);
+
   const ldr = user && isLeader(user.role);
-  const vocalEvents = schedules.filter(s => s.group === "vocal" || s.group === "all").slice(0, 4);
-  const bandEvents  = schedules.filter(s => s.group === "band"  || s.group === "all").slice(0, 4);
+
+  // 서비스 → 스케줄 형식으로 변환, 지난 것 제외
+  const svcEvents = svcList
+    .filter(s => {
+      const dt = new Date(`${s.date}T${s.time ? s.time : "23:59"}:00`);
+      return dt > now;
+    })
+    .map(s => ({ id:"svc_"+s.id, title: s.title || "주일 예배", date: s.date, time: s.time || "", type:"service", group:"all" }));
+
+  // 수동 스케줄 중 지난 것 제외 (당일 시간도 체크)
+  const todayStr = localDateStr(now);
+  const upcomingRehearsals = schedules.filter(s => {
+    if (s.date > todayStr) return true;
+    if (s.date === todayStr) {
+      if (!s.time) return true;
+      const [h, m] = s.time.split(":").map(Number);
+      const dt = new Date(now); dt.setHours(h, m, 0, 0);
+      return dt > now;
+    }
+    return false;
+  });
+
+  // 합치고 날짜+시간순 정렬
+  const allEvents = [...svcEvents, ...upcomingRehearsals]
+    .sort((a, b) => (a.date + (a.time||"")).localeCompare(b.date + (b.time||"")));
+
+  const vocalEvents = allEvents.filter(s => s.group === "vocal" || s.group === "all").slice(0, 2);
+  const bandEvents  = allEvents.filter(s => s.group === "band"  || s.group === "all").slice(0, 2);
 
   // (hover:hover) and (pointer:fine) = mouse/trackpad → real PC, not iPad/tablet
   const isPC = !portrait && screenW >= 1200 && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
