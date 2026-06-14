@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.580";
+const APP_VERSION = "3.581";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -12392,6 +12392,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
   });
   const [ppConnected,    setPpConnected]    = useState(false);
   const [ppChecking,     setPpChecking]     = useState(false);
+  const [bridgeOnline,   setBridgeOnline]   = useState(false);
   const [ppPresentation, setPpPresentation] = useState(null);
   const [isDesktop,      setIsDesktop]      = useState(() => window.innerWidth >= 900);
   const [ytLive,         setYtLive]         = useState(null);
@@ -12440,6 +12441,14 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
       setCues(snap.exists() ? (snap.data().teams || {}) : {})
     );
   }, [selSvcId]);
+
+  useEffect(() => {
+    return onSnapshot(doc(db, "liveStatus", "bridge"), snap => {
+      if (!snap.exists()) { setBridgeOnline(false); return; }
+      const ts = snap.data()?.updatedAt?.toMillis?.();
+      setBridgeOnline(!!ts && Date.now() - ts < 75_000);
+    });
+  }, []);
 
   useEffect(() => {
     if (!selSvcId) return;
@@ -12763,11 +12772,19 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
             </div>
           )}
           <div style={{ flex:1 }} />
-          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <div style={{ width:8, height:8, borderRadius:"50%", background: ppConnected ? C.grn : C.bdr }} />
-            <span style={{ fontSize:12, color: ppConnected ? C.grn : C.dim, fontWeight:600 }}>
-              ProPresenter {ppConnected ? "연결됨" : "연결 안됨"}
-            </span>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <div style={{ width:8, height:8, borderRadius:"50%", background: ppConnected ? C.grn : C.bdr }} />
+              <span style={{ fontSize:12, color: ppConnected ? C.grn : C.dim, fontWeight:600 }}>
+                PP {ppConnected ? "연결됨" : "연결 안됨"}
+              </span>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <div style={{ width:8, height:8, borderRadius:"50%", background: bridgeOnline ? C.grn : C.bdr }} />
+              <span style={{ fontSize:12, color: bridgeOnline ? C.grn : C.dim, fontWeight:600 }}>
+                Bridge {bridgeOnline ? "실행 중" : "꺼짐"}
+              </span>
+            </div>
           </div>
           <div style={{ width:1, height:20, background:C.bdr }} />
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -13294,6 +13311,10 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
             <div style={{ display:"flex", alignItems:"center", gap:4 }}>
               <div style={{ width:8, height:8, borderRadius:"50%", background: ppConnected ? C.grn : C.bdr }} />
               <span style={{ fontSize:10, color: ppConnected ? C.grn : C.dim }}>PP</span>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+              <div style={{ width:8, height:8, borderRadius:"50%", background: bridgeOnline ? C.grn : C.bdr }} />
+              <span style={{ fontSize:10, color: bridgeOnline ? C.grn : C.dim }}>Bridge</span>
             </div>
           </div>
         </div>
