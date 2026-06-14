@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.546";
+const APP_VERSION = "3.547";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -8921,7 +8921,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         borderRadius:8, padding: narrow ? 6 : 7, cursor:"pointer",
                         display:"flex", alignItems:"center", gap:3,
                       }}>
-                      <span style={{ fontSize: tbIconSz, lineHeight:1 }}>🎵</span>
+                      <span style={{ fontSize: tbIconSz, lineHeight:1 }}>🎧</span>
                       <span style={{
                         position:"absolute", top:2, right:2,
                         background:C.grn, color:"#fff", borderRadius:"50%",
@@ -10676,7 +10676,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               borderBottom:`1px solid ${C.bdr}`,
             }}>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ fontSize:15 }}>🎵</span>
+                <span style={{ fontSize:15 }}>🎧</span>
                 <div>
                   <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>예배 연습 녹음</div>
                   <div style={{ fontSize:10, color:C.dim }}>{song?.title}</div>
