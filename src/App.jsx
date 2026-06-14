@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.573";
+const APP_VERSION = "3.574";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -2349,6 +2349,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [teamChatMsgs, setTeamChatMsgs] = useState([]);
   const [showTeamChat, setShowTeamChat] = useState(false);
   const [teamChatInput,setTeamChatInput]= useState("");
+  const [chatToast,    setChatToast]    = useState(null); // { name, text }
+  const chatToastTimer = useRef(null);
   const [teamChatEditMode, setTeamChatEditMode] = useState(false);
   const [teamChatPresetInput, setTeamChatPresetInput] = useState("");
   const [teamChatPresets, setTeamChatPresets] = useState(() => {
@@ -2444,6 +2446,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   }, [nextSvc?.id]);
 
   // 팀 채팅 구독 (liveChat) — 예배 ID 기준
+  const teamChatMsgsRef = useRef([]);
   useEffect(() => {
     if (!nextSvc?.id) return;
     const q = query(
@@ -2451,7 +2454,20 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       orderBy("createdAt"), limit(60)
     );
     return onSnapshot(q, snap => {
-      setTeamChatMsgs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setTeamChatMsgs(msgs);
+      // 새 메시지 토스트 — 내가 보낸 것 제외, 초기 로드(prev 없을 때) 제외
+      if (teamChatMsgsRef.current.length > 0) {
+        const prevIds = new Set(teamChatMsgsRef.current.map(m => m.id));
+        const newMsgs = msgs.filter(m => !prevIds.has(m.id) && m.uid !== user?.uid);
+        if (newMsgs.length > 0) {
+          const last = newMsgs[newMsgs.length - 1];
+          clearTimeout(chatToastTimer.current);
+          setChatToast({ name: last.name?.split(" ")[0] || "팀원", text: last.text });
+          chatToastTimer.current = setTimeout(() => setChatToast(null), 5000);
+        }
+      }
+      teamChatMsgsRef.current = msgs;
     });
   }, [nextSvc?.id]);
 
@@ -2713,6 +2729,27 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
             return (
               <>
+              {/* ── 팀 채팅 토스트 알림 ── */}
+              {chatToast && (
+                <div onClick={() => { setShowTeamChat(true); setChatToast(null); clearTimeout(chatToastTimer.current); }}
+                  style={{
+                    position:"fixed", top:16, left:"50%", transform:"translateX(-50%)",
+                    zIndex:9000, display:"flex", alignItems:"center", gap:10,
+                    background:"#1d4ed8", color:"#fff",
+                    borderRadius:14, padding:"10px 16px",
+                    boxShadow:"0 4px 20px rgba(0,0,0,0.3)",
+                    cursor:"pointer", maxWidth:320, width:"calc(100% - 32px)",
+                    animation:"slideDown 0.25s ease",
+                  }}>
+                  <span style={{ fontSize:18 }}>💬</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:10, fontWeight:700, opacity:0.8, marginBottom:2 }}>{chatToast.name}</div>
+                    <div style={{ fontSize:13, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{chatToast.text}</div>
+                  </div>
+                  <button onClick={e => { e.stopPropagation(); setChatToast(null); clearTimeout(chatToastTimer.current); }}
+                    style={{ background:"none", border:"none", color:"rgba(255,255,255,0.7)", fontSize:16, cursor:"pointer", padding:"0 2px" }}>✕</button>
+                </div>
+              )}
               {/* ── 싱크 ON 플로팅 이전/다음 버튼 ── */}
               {sheetLinkEnabled && svcSongs.length > 0 && (<>
                 {/* ◀ 이전 — nav bar 왼쪽 빈 공간 */}
