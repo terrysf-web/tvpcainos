@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.543";
+const APP_VERSION = "3.544";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13440,10 +13440,10 @@ function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait }) {
       position:"fixed",
       ...posStyle,
       overflowY:"auto",
-      background:"rgba(255,255,255,0.52)",
-      backdropFilter:"blur(14px)",
-      WebkitBackdropFilter:"blur(14px)",
-      border:"1px solid rgba(255,255,255,0.78)",
+      background:"rgba(255,255,255,0.28)",
+      backdropFilter:"blur(12px)",
+      WebkitBackdropFilter:"blur(12px)",
+      border:"1px solid rgba(255,255,255,0.50)",
       borderRadius:16, padding:"10px 12px",
       zIndex:4,
       boxShadow:"0 4px 20px rgba(0,0,0,0.07)",
