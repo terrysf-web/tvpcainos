@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.549";
+const APP_VERSION = "3.550";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -10642,43 +10642,50 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         />
       )}
 
-      {/* ── 예배 연습 녹음 미니 플레이어 ── */}
+      {/* ── 예배 연습 녹음 미니 플레이어 (좌하단 플로팅 위젯) ── */}
       {showWorshipPlayer && svcPracticeUrl && (() => {
         const fileId = svcPracticeUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1] || null;
         const embedSrc = fileId ? `https://drive.google.com/file/d/${fileId}/preview` : null;
         return (
           <div style={{
-            position:"fixed", bottom:0, left:0, right:0,
+            position:"fixed",
+            bottom:`calc(env(safe-area-inset-bottom, 0px) + 72px)`,
+            left:12,
+            width:272,
             zIndex:3000,
             background:C.surf,
-            borderTop:`1px solid ${C.bdr}`,
-            boxShadow:"0 -4px 24px rgba(0,0,0,0.15)",
+            border:`1px solid ${C.bdr}`,
+            borderRadius:14,
+            boxShadow:"0 4px 20px rgba(0,0,0,0.25)",
+            overflow:"hidden",
           }}>
             {/* 헤더 */}
             <div style={{
               display:"flex", alignItems:"center", justifyContent:"space-between",
-              padding:"10px 16px 8px", borderBottom:`1px solid ${C.bdr}`,
+              padding:"6px 10px 5px",
+              background:C.surf,
+              borderBottom:`1px solid ${C.bdr}`,
             }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ fontSize:15 }}>🎧</span>
-                <div>
-                  <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>예배 연습 녹음</div>
-                  <div style={{ fontSize:10, color:C.dim }}>{svc?.title}</div>
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <span style={{ fontSize:13 }}>🎧</span>
+                <div style={{ fontSize:11, fontWeight:800, color:C.txt, lineHeight:1.2 }}>
+                  예배 연습 녹음
+                  <div style={{ fontSize:9, color:C.dim, fontWeight:400 }}>{svc?.title}</div>
                 </div>
               </div>
               <button onClick={() => setShowWorshipPlayer(false)} style={{
                 background:"none", border:"none", cursor:"pointer",
-                color:C.dim, fontSize:20, padding:"0 4px",
+                color:C.dim, fontSize:16, padding:"0 2px", lineHeight:1,
               }}>✕</button>
             </div>
-            {/* Google Drive 플레이어 */}
+            {/* Google Drive 오디오 플레이어 */}
             {embedSrc
-              ? <iframe key={embedSrc} src={embedSrc} width="100%" height="200"
+              ? <iframe key={embedSrc} src={embedSrc} width="272" height="80"
                   allow="autoplay" style={{ display:"block", border:"none" }}
                   title="예배 연습 녹음" />
-              : <div style={{ padding:"16px", textAlign:"center" }}>
+              : <div style={{ padding:"10px", textAlign:"center" }}>
                   <a href={svcPracticeUrl} target="_blank" rel="noopener noreferrer"
-                    style={{ color:C.grn, fontWeight:700, fontSize:14 }}>
+                    style={{ color:C.grn, fontWeight:700, fontSize:13 }}>
                     🔗 녹음 파일 열기
                   </a>
                 </div>
