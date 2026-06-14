@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.553";
+const APP_VERSION = "3.554";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -13378,25 +13378,32 @@ function fmtSchedTime(timeStr) {
 }
 
 // portrait=true → top strip side-by-side, portrait=false → left/right center
-function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait }) {
+function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait, screenW }) {
+  const isPC  = screenW >= 1100;
+  const isMid = screenW >= 700 && screenW < 1100;
+
   const posStyle = portrait
     ? {
-        // 세로 모드: 상단 좌우 나란히
         [side]: 12,
         top: "calc(env(safe-area-inset-top, 44px) + 10px)",
         width: "calc(50% - 18px)",
       }
     : {
-        // 가로/태블릿: 좌우 세로 중앙
-        [side]: 16,
+        [side]: isPC ? 36 : isMid ? 22 : 14,
         top: "50%",
-        transform: "translateY(-60%)",
-        width: 148,
-        maxHeight: "calc(100dvh - 180px)",
+        transform: "translateY(-55%)",
+        width: isPC ? 220 : isMid ? 190 : 156,
+        maxHeight: "calc(100dvh - 160px)",
       };
 
-  // portrait 에서는 이벤트 최대 2개만
   const visible = portrait ? events.slice(0, 2) : events;
+
+  // 타이틀 크기: PC는 임팩트 있게, 세로모드는 컴팩트
+  const titleIconSz = portrait ? 14 : isPC ? 22 : 18;
+  const titleTxtSz  = portrait ? 12 : isPC ? 18 : 15;
+  const dateSz      = portrait ? 11 : isPC ? 13 : 12;
+  const contentSz   = portrait ? 14 : isPC ? 16 : 15;
+  const timeSz      = portrait ? 12 : isPC ? 14 : 13;
 
   return (
     <div style={{
@@ -13407,41 +13414,45 @@ function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait }) {
       backdropFilter:"blur(12px)",
       WebkitBackdropFilter:"blur(12px)",
       border:"1px solid rgba(255,255,255,0.50)",
-      borderRadius:16, padding:"10px 12px",
+      borderRadius:16,
+      padding: portrait ? "10px 12px" : isPC ? "14px 16px" : "11px 13px",
       zIndex:4,
       boxShadow:"0 4px 20px rgba(0,0,0,0.07)",
     }}>
-      {/* header */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-        <div style={{ fontSize:9, fontWeight:800, letterSpacing:"0.1em",
-          textTransform:"uppercase", color:"rgba(45,36,96,0.45)",
-          display:"flex", alignItems:"center", gap:4 }}>
-          <span>{icon}</span>{title}
+      {/* header — 타이틀 임팩트 강화 */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+        marginBottom: portrait ? 8 : 10 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{ fontSize:titleIconSz, lineHeight:1 }}>{icon}</span>
+          <span style={{ fontSize:titleTxtSz, fontWeight:900, color:"#2d2460",
+            letterSpacing:"-0.01em", lineHeight:1 }}>{title}</span>
         </div>
         {ldr && (
           <button onClick={onAdd} style={{
             background:"none", border:"none", cursor:"pointer", padding:"0 2px",
-            color:"rgba(45,36,96,0.45)", fontSize:18, lineHeight:1, fontWeight:300,
+            color:"rgba(45,36,96,0.45)", fontSize:20, lineHeight:1, fontWeight:300,
           }}>+</button>
         )}
       </div>
+      {/* 구분선 */}
+      <div style={{ height:1, background:"rgba(45,36,96,0.1)", marginBottom: portrait ? 8 : 10 }} />
       {/* events */}
       {visible.length === 0 ? (
-        <div style={{ fontSize:10, color:"rgba(45,36,96,0.3)", textAlign:"center", padding:"4px 0" }}>
+        <div style={{ fontSize:11, color:"rgba(45,36,96,0.3)", textAlign:"center", padding:"4px 0" }}>
           {ldr ? "+ 추가" : "예정 없음"}
         </div>
       ) : visible.map((e, i) => (
         <div key={e.id}>
-          {i > 0 && <div style={{ height:1, background:"rgba(45,36,96,0.07)", margin:"6px 0" }} />}
-          <div style={{ fontSize:12, color:"rgba(45,36,96,0.45)", fontWeight:700,
+          {i > 0 && <div style={{ height:1, background:"rgba(45,36,96,0.07)", margin:"7px 0" }} />}
+          <div style={{ fontSize:dateSz, color:"rgba(45,36,96,0.5)", fontWeight:700,
             letterSpacing:"0.02em", marginBottom:2 }}>
             {fmtSchedDate(e.date)}
           </div>
-          <div style={{ fontSize:portrait ? 14 : 15, fontWeight:700, color:"#2d2460", lineHeight:1.3 }}>
+          <div style={{ fontSize:contentSz, fontWeight:700, color:"#2d2460", lineHeight:1.3 }}>
             {e.title}
           </div>
           {e.time && (
-            <div style={{ fontSize:13, color:"rgba(45,36,96,0.55)", marginTop:2 }}>{fmtSchedTime(e.time)}</div>
+            <div style={{ fontSize:timeSz, color:"rgba(45,36,96,0.55)", marginTop:2 }}>{fmtSchedTime(e.time)}</div>
           )}
           {e.type === "rehearsal" && (
             <span style={{ display:"inline-block", background:"rgba(232,169,62,0.18)",
@@ -13616,7 +13627,9 @@ function HomeSplashScreen({ user }) {
     const mq = window.matchMedia("(orientation: portrait)");
     const handler = e => { setPortrait(e.matches); setScreenW(window.innerWidth); };
     mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    const onResize = () => { setScreenW(window.innerWidth); setPortrait(window.matchMedia("(orientation: portrait)").matches); };
+    window.addEventListener("resize", onResize);
+    return () => { mq.removeEventListener("change", handler); window.removeEventListener("resize", onResize); };
   }, []);
 
   useEffect(() => {
@@ -13661,6 +13674,7 @@ function HomeSplashScreen({ user }) {
         side="left"
         ldr={ldr}
         portrait={portrait}
+        screenW={screenW}
         onAdd={() => setSchedModal("vocal")}
       />
       <ScheduleCard
@@ -13669,6 +13683,7 @@ function HomeSplashScreen({ user }) {
         side="right"
         ldr={ldr}
         portrait={portrait}
+        screenW={screenW}
         onAdd={() => setSchedModal("band")}
       />
 
