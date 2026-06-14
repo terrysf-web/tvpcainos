@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.566";
+const APP_VERSION = "3.567";
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -10457,12 +10457,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   <div style={{ padding:"6px 8px", borderTop:`1px solid ${C.bdr}`,
                     display:"flex", flexWrap:"wrap", gap:5, flexShrink:0 }}>
                     {chatPresets.map((p, i) => (
-                      <button key={i} onClick={() => sendMsg(p)} style={{
-                        padding:"5px 10px", borderRadius:16,
-                        border:`1px solid ${C.bdr}`, background:C.card,
-                        fontSize:11, fontWeight:600, color:C.txt,
+                      <button type="button" key={i} onPointerDown={e => { e.stopPropagation(); sendMsg(p); }} style={{
+                        padding:"8px 12px", borderRadius:16, minHeight:36,
+                        border:`1.5px solid ${C.acc}55`, background:`${C.acc}12`,
+                        fontSize:12, fontWeight:700, color:C.acc,
                         cursor:"pointer", fontFamily:"inherit",
-                        transition:"all .1s",
+                        touchAction:"manipulation", WebkitTapHighlightColor:"transparent",
+                        userSelect:"none", WebkitUserSelect:"none",
                       }}>{p}</button>
                     ))}
                   </div>
