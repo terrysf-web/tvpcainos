@@ -13399,14 +13399,12 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
 function HomeSplashScreen() {
   return (
     <>
-      {/* CSS contain: always shows the full image, background color fills remainder */}
       <div style={{
         position:"fixed", inset:"-20px",
         backgroundImage:"url('/home-bg.webp')",
-        backgroundSize:"contain",
-        backgroundPosition:"center center",
+        backgroundSize:"cover",
+        backgroundPosition:"55% center",
         backgroundRepeat:"no-repeat",
-        backgroundColor:"#f2f0ec",
       }} />
       {/* Dark gradient so status bar text is readable on the light background */}
       <div style={{
