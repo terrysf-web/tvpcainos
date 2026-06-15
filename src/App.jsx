@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.594";
+const APP_VERSION = "3.595";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -9978,10 +9978,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           ))}
                         </svg>
                       ) : st.sym === "notehead" ? (
-                        <svg width="10" height="8" viewBox="0 0 13 10" style={{ display:"block" }}>
-                          <ellipse cx="6.5" cy="5.5" rx="5.5" ry="3.8"
+                        <svg width="6" height="5" viewBox="0 0 10 7" style={{ display:"block" }}>
+                          <ellipse cx="5" cy="3.5" rx="4.2" ry="2.8"
                             fill={stampSymbol === "notehead" ? C.acc : C.txt}
-                            transform="rotate(-28 6.5 5.5)" />
+                            transform="rotate(-28 5 3.5)" />
                         </svg>
                       ) : (
                         <span style={{
