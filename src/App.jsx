@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.588";
+const APP_VERSION = "3.589";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10603,30 +10603,22 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               const hasRange = !!(ytRange.start || ytRange.end);
               return (
                 <div style={{ flexShrink:0 }}>
-                  <iframe
-                    key={src}
-                    src={src}
-                    style={{ width:"100%", aspectRatio:"16/9", border:"none", display:"block" }}
-                    allow="autoplay; encrypted-media; picture-in-picture"
-                    allowFullScreen
-                    title="YouTube"
-                  />
-                  {/* 구간 설정 */}
-                  <div style={{ padding:"6px 10px 8px", borderBottom:`1px solid ${C.bdr}` }}>
+                  {/* 구간 설정 — 영상 위 */}
+                  <div style={{ padding:"6px 10px 7px", borderBottom:`1px solid ${C.bdr}` }}>
                     <div style={{ fontSize:10, color:C.dim, marginBottom:4, fontWeight:600 }}>재생 구간 (MM:SS)</div>
-                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:5 }}>
                       <input value={ytRange.start} onChange={e => setYtRange(r => ({ ...r, start: e.target.value }))}
-                        placeholder="시작 0:00" maxLength={7}
-                        style={{ flex:1, fontSize:12, padding:"4px 7px", borderRadius:6, border:`1px solid ${C.bdr}`,
+                        placeholder="시작" maxLength={7}
+                        style={{ flex:1, fontSize:12, padding:"4px 6px", borderRadius:6, border:`1px solid ${C.bdr}`,
                           background:C.card, color:C.txt, fontFamily:"monospace", textAlign:"center" }} />
-                      <span style={{ fontSize:11, color:C.dim }}>~</span>
+                      <span style={{ fontSize:11, color:C.dim, flexShrink:0 }}>~</span>
                       <input value={ytRange.end} onChange={e => setYtRange(r => ({ ...r, end: e.target.value }))}
-                        placeholder="종료 0:00" maxLength={7}
-                        style={{ flex:1, fontSize:12, padding:"4px 7px", borderRadius:6, border:`1px solid ${C.bdr}`,
+                        placeholder="종료" maxLength={7}
+                        style={{ flex:1, fontSize:12, padding:"4px 6px", borderRadius:6, border:`1px solid ${C.bdr}`,
                           background:C.card, color:C.txt, fontFamily:"monospace", textAlign:"center" }} />
                       <button onClick={() => {
                         if (selectedSongId) localStorage.setItem(`tvpc_ytr_${selectedSongId}`, JSON.stringify(ytRange));
-                      }} style={{ fontSize:11, padding:"4px 8px", borderRadius:6, cursor:"pointer",
+                      }} style={{ fontSize:11, padding:"4px 8px", borderRadius:6, cursor:"pointer", flexShrink:0,
                         background:`${C.grn}22`, border:`1px solid ${C.grn}55`, color:C.grn, fontWeight:700, fontFamily:"inherit" }}>
                         저장
                       </button>
@@ -10635,13 +10627,21 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           const reset = { start:"", end:"" };
                           setYtRange(reset);
                           if (selectedSongId) localStorage.removeItem(`tvpc_ytr_${selectedSongId}`);
-                        }} style={{ fontSize:11, padding:"4px 8px", borderRadius:6, cursor:"pointer",
+                        }} style={{ fontSize:11, padding:"4px 8px", borderRadius:6, cursor:"pointer", flexShrink:0,
                           background:`${C.red}22`, border:`1px solid ${C.red}55`, color:C.red, fontWeight:700, fontFamily:"inherit" }}>
-                          초기화
+                        초기화
                         </button>
                       )}
                     </div>
                   </div>
+                  <iframe
+                    key={src}
+                    src={src}
+                    style={{ width:"100%", aspectRatio:"16/9", border:"none", display:"block" }}
+                    allow="autoplay; encrypted-media; picture-in-picture"
+                    allowFullScreen
+                    title="YouTube"
+                  />
                 </div>
               );
             })()}
