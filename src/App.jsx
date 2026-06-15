@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.596";
+const APP_VERSION = "3.597";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -985,7 +985,7 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
         ctx.translate(px, py);
         ctx.rotate(-28 * Math.PI / 180);
         ctx.beginPath();
-        ctx.ellipse(0, 0, sz * 0.28, sz * 0.20, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, sz * 0.17, sz * 0.12, 0, 0, Math.PI * 2);
         ctx.fillStyle = s.color || "#1c1c1e";
         ctx.fill();
         ctx.restore();
@@ -8656,7 +8656,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         ctx.translate(LW / 2, LH / 2);
         ctx.rotate(-28 * Math.PI / 180);
         ctx.beginPath();
-        ctx.ellipse(0, 0, sz * 0.28, sz * 0.20, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, sz * 0.17, sz * 0.12, 0, 0, Math.PI * 2);
         ctx.fillStyle = color || "#1c1c1e";
         ctx.fill();
         ctx.restore();
