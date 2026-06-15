@@ -75,6 +75,49 @@ function Markdown({ text }) {
   );
 }
 
+function MiniGuitarDiagram({ frets, color = "#6b5de7" }) {
+  if (!frets || frets.length !== 6) return null;
+  const active = frets.filter(f => f > 0);
+  const minF = active.length ? Math.min(...active) : 1;
+  const base = Math.max(1, minF);
+  const showNut = base <= 2;
+  const W = 72, H = 76, pL = 12, pR = 5, pT = 17, pB = 6;
+  const rows = 4, fH = (H - pT - pB) / rows, sW = (W - pL - pR) / 5;
+  const sx = i => pL + i * sW;
+  const fy = f => pT + (f - base) * fH + fH / 2;
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+      {Array.from({length: rows + 1}, (_, i) => (
+        <line key={i} x1={pL} y1={pT + i * fH} x2={W - pR} y2={pT + i * fH}
+          stroke={i === 0 && showNut ? "#1c1c1e" : "#ccc"}
+          strokeWidth={i === 0 && showNut ? 3 : 1} />
+      ))}
+      {Array.from({length: 6}, (_, i) => (
+        <line key={i} x1={sx(i)} y1={pT} x2={sx(i)} y2={H - pB}
+          stroke="#ccc" strokeWidth={i === 0 ? 2 : 1} />
+      ))}
+      {!showNut && (
+        <text x={pL - 2} y={pT + fH / 2 + 4} textAnchor="end"
+          fontSize={8} fill="#8e8e93">{base}</text>
+      )}
+      {frets.map((f, i) => {
+        if (f === -1) return (
+          <text key={i} x={sx(5 - i)} y={pT - 5} textAnchor="middle"
+            fontSize={8} fill="#8e8e93">✕</text>
+        );
+        if (f === 0) return (
+          <circle key={i} cx={sx(5 - i)} cy={pT - 5} r={3}
+            fill="none" stroke="#8e8e93" strokeWidth={1.2} />
+        );
+        return (
+          <circle key={i} cx={sx(5 - i)} cy={fy(f)} r={5}
+            fill={color} />
+        );
+      })}
+    </svg>
+  );
+}
+
 export default function AIPanel({ song, user, pdfCanvasRef }) {
   const [ytInput,   setYtInput]   = useState("");
   const [editYt,    setEditYt]    = useState(false);
@@ -86,6 +129,12 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
   const [savedMeta,  setSavedMeta]  = useState(null);
 
   const isLeader = user?.role === "leader" || user?.role === "admin";
+  const myParts = user?.parts || (user?.part ? [user.part] : []);
+  const isElecGuitar = myParts.includes("일렉기타");
+
+  const [voicings, setVoicings] = useState(null);
+  const [voicingLoading, setVoicingLoading] = useState(false);
+  const [voicingErr, setVoicingErr] = useState("");
 
   const [ytId, setYtId] = useState(song?.youtubeId || null);
   const [ytMeta, setYtMeta] = useState(null);
@@ -140,6 +189,50 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
     } catch (e) {
       setYtErr("삭제 실패: " + e.message);
     }
+  };
+
+  const generateVoicings = async () => {
+    const key = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!key) { setVoicingErr("API 키 없음"); return; }
+    setVoicingLoading(true); setVoicingErr(""); setVoicings(null);
+    const uniqueChords = song?.chordTimeline?.length
+      ? [...new Set(song.chordTimeline.map(e => e.chord))]
+      : [];
+    const chordStr = uniqueChords.length ? uniqueChords.join(", ") : "곡 키에서 자주 쓰이는 코드들";
+    const prompt = `예배 찬양곡 일렉 기타 보이싱을 추천해주세요.
+
+곡 정보: ${song.title} / Key: ${song.key || "?"} / BPM: ${song.bpm || "?"}
+코드: ${chordStr}
+
+각 코드마다 예배 일렉 기타에 맞는 보이싱을 JSON 배열로만 반환. 설명 없이 배열만.
+형식: [{"chord":"G","shape":"오픈","frets":[3,2,0,0,0,3],"tip":"깨끗한 사운드"},...]
+
+frets: 6현(저음 E)→1현(고음 E) 순서, -1=뮤트, 0=개방현
+예배 장르에 맞게 클린하고 깔끔한 보이싱 위주로 추천.`;
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
+        { method:"POST", headers:{"content-type":"application/json"},
+          body: JSON.stringify({ contents:[{ parts:[{ text: prompt }] }] }) }
+      );
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const cleaned = text.replace(/```[\w]*\n?/g,"").replace(/```/g,"").trim();
+      const m = cleaned.match(/\[[\s\S]*\]/);
+      if (m) {
+        try {
+          const fixed = m[0].replace(/,\s*([\]}])/g,"$1");
+          const parsed = JSON.parse(fixed);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setVoicings(parsed);
+            return;
+          }
+        } catch(_) {}
+      }
+      setVoicingErr("파싱 실패. 다시 시도해주세요.");
+    } catch(e) { setVoicingErr(e.message); }
+    finally { setVoicingLoading(false); }
   };
 
   const analyze = async (attempt = 0) => {
@@ -459,11 +552,53 @@ BPM: ${song.bpm || "미상"}
         </div>
       </div>
 
-      {/* ── 스크롤 가능: AI 분석 결과만 */}
-      <div style={{ flex:1, overflowY:"auto", padding: analysis ? "0 12px 20px" : 0 }}>
+      {/* ── 스크롤 가능: AI 분석 결과 + 일렉기타 보이싱 */}
+      <div style={{ flex:1, overflowY:"auto", padding:"0 12px 20px" }}>
         {analysis && (
-          <div style={{ background:C.card, borderRadius:10, padding:"12px 14px", border:`1px solid ${C.bdr}` }}>
+          <div style={{ background:C.card, borderRadius:10, padding:"12px 14px",
+            border:`1px solid ${C.bdr}`, marginBottom: isElecGuitar ? 12 : 0 }}>
             <Markdown text={analysis} />
+          </div>
+        )}
+
+        {/* 일렉기타 보이싱 — 일렉기타 파트만 표시 */}
+        {isElecGuitar && (
+          <div style={{ background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}`,
+            padding:"12px 12px" }}>
+            <div style={{ fontSize:10, fontWeight:800, color:"#6b5de7", letterSpacing:"0.05em",
+              textTransform:"uppercase", marginBottom:8 }}>⚡ 일렉 기타 보이싱</div>
+            <button onClick={generateVoicings} disabled={voicingLoading}
+              style={{ width:"100%", padding:"8px 0", borderRadius:9, border:"none",
+                cursor: voicingLoading ? "not-allowed" : "pointer",
+                background: voicingLoading ? "#8e8e93" : "#6b5de7",
+                color:"#fff", fontSize:12, fontWeight:800, fontFamily:"inherit" }}>
+              {voicingLoading ? "분석 중…" : "🎸 보이싱 추천 받기"}
+            </button>
+            {voicingErr && (
+              <div style={{ fontSize:11, color:C.red, marginTop:6 }}>{voicingErr}</div>
+            )}
+            {voicings && (
+              <div style={{ marginTop:10, display:"flex", flexDirection:"column", gap:10 }}>
+                {voicings.map((v, i) => (
+                  <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:10,
+                    background:C.card, borderRadius:10, padding:"8px 10px",
+                    border:`1px solid ${C.bdr}` }}>
+                    <MiniGuitarDiagram frets={v.frets} color="#6b5de7" />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:15, fontWeight:900, color:"#6b5de7",
+                        letterSpacing:"-0.5px" }}>{v.chord}</div>
+                      {v.shape && (
+                        <div style={{ fontSize:10, fontWeight:700, color:C.dim,
+                          marginBottom:2 }}>{v.shape}</div>
+                      )}
+                      {v.tip && (
+                        <div style={{ fontSize:11, color:C.txt, lineHeight:1.5 }}>{v.tip}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
