@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.601";
+const APP_VERSION = "3.602";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1208,7 +1208,7 @@ function mmssToSec(mmss) {
 function getYoutubeEmbed(url) {
   const id = getYoutubeId(url);
   if (!id) return null;
-  const p = new URLSearchParams({ rel: '0', playsinline: '1' });
+  const p = new URLSearchParams({ rel: '0' });
   const t = url.match(/[?&]t=(\d+)/);
   if (t) p.set('start', t[1]);
   const end = url.match(/[?&]end=(\d+)/);
