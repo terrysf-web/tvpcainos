@@ -15469,6 +15469,7 @@ export default function App() {
   };
 
   // ── 버전 업데이트 체크 (Firestore 기반 — 어드민 파이널 승인 시만 사용자 알림)
+  const isAdmin = user?.role === "admin";
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [adminNewBuild,   setAdminNewBuild]   = useState(false);
   const [releasingBuild,  setReleasingBuild]  = useState(false);
