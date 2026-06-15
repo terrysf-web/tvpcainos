@@ -275,28 +275,28 @@ BPM: ${song.bpm || "미상"}
                   <>
                     <div style={{ marginBottom:6 }}>
                       <div style={{ fontSize:10, color:C.dim, fontWeight:600, marginBottom:4 }}>재생 구간 (MM:SS)</div>
-                      <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:4 }}>
                         <input value={ytRange.start} onChange={e => setYtRange(r => ({ ...r, start: e.target.value }))}
                           placeholder="시작" maxLength={7}
-                          style={{ flex:1, fontSize:12, padding:"4px 6px", borderRadius:6,
+                          style={{ width:52, fontSize:12, padding:"5px 4px", borderRadius:6,
                             border:`1px solid ${C.bdr}`, background:C.card, color:C.txt,
                             fontFamily:"monospace", textAlign:"center", outline:"none" }} />
                         <span style={{ fontSize:11, color:C.dim, flexShrink:0 }}>~</span>
                         <input value={ytRange.end} onChange={e => setYtRange(r => ({ ...r, end: e.target.value }))}
                           placeholder="종료" maxLength={7}
-                          style={{ flex:1, fontSize:12, padding:"4px 6px", borderRadius:6,
+                          style={{ width:52, fontSize:12, padding:"5px 4px", borderRadius:6,
                             border:`1px solid ${C.bdr}`, background:C.card, color:C.txt,
                             fontFamily:"monospace", textAlign:"center", outline:"none" }} />
                         <button onClick={() => {
                           if (song?.id) localStorage.setItem(`tvpc_ytr_${song.id}`, JSON.stringify(ytRange));
-                        }} style={{ fontSize:11, padding:"4px 8px", borderRadius:6, cursor:"pointer", flexShrink:0,
+                        }} style={{ flex:1, fontSize:12, padding:"5px 0", borderRadius:6, cursor:"pointer",
                           background:`${C.grn}22`, border:`1px solid ${C.grn}55`, color:C.grn,
                           fontWeight:700, fontFamily:"inherit" }}>저장</button>
                         {hasRange && (
                           <button onClick={() => {
                             setYtRange({ start:"", end:"" });
                             if (song?.id) localStorage.removeItem(`tvpc_ytr_${song.id}`);
-                          }} style={{ fontSize:11, padding:"4px 8px", borderRadius:6, cursor:"pointer", flexShrink:0,
+                          }} style={{ flex:1, fontSize:12, padding:"5px 0", borderRadius:6, cursor:"pointer",
                             background:`${C.red}22`, border:`1px solid ${C.red}55`, color:C.red,
                             fontWeight:700, fontFamily:"inherit" }}>초기화</button>
                         )}
