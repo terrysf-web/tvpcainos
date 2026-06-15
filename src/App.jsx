@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.604";
+const APP_VERSION = "3.605";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1456,7 +1456,7 @@ function ChordSyncPanel({ song, user, ytIframeRef }) {
           <button type="button" onClick={() => setTab("play")} style={{
             flex:1, padding:"5px 0", borderRadius:8, border:`1.5px solid ${C2.pur}`,
             background:`${C2.pur}18`, color:C2.pur, fontSize:11, fontWeight:800, cursor:"pointer",
-          }}>▶ 재생</button>
+          }}>재생 모드</button>
           <button type="button" onClick={() => setTab("setup")} style={{
             flex:1, padding:"5px 0", borderRadius:8, border:`1px solid ${C2.bdr}`,
             background:"transparent", color:C2.dim, fontSize:11, fontWeight:700, cursor:"pointer",
@@ -1582,7 +1582,7 @@ function ChordSyncPanel({ song, user, ytIframeRef }) {
         <button type="button" onClick={() => setTab("play")} style={{
           flex:1, padding:"5px 0", borderRadius:8, border:`1px solid ${C2.bdr}`,
           background:"transparent", color:C2.dim, fontSize:11, fontWeight:700, cursor:"pointer",
-        }}>▶ 재생</button>
+        }}>재생 모드</button>
         <button type="button" onClick={() => setTab("setup")} style={{
           flex:1, padding:"5px 0", borderRadius:8, border:`1.5px solid ${C2.pur}`,
           background:`${C2.pur}18`, color:C2.pur, fontSize:11, fontWeight:800, cursor:"pointer",
@@ -7537,7 +7537,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [fitActive,     setFitActive]     = useState(false);
   const [dual,          setDual]          = useState(false);
   const [media,         setMedia]         = useState(false);
-  const [mediaPanelTab, setMediaPanelTab] = useState("ai"); // "ai" | "chords"
+  const [mediaPanelTab, setMediaPanelTab] = useState("chords"); // "ai" | "chords"
   const [ytRange,       setYtRange]       = useState({ start:"", end:"" }); // MM:SS
   const ytIframeRef = useRef(null);
   const [showChat,      setShowChat]      = useState(false);
@@ -11169,8 +11169,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             })()}
             {/* 미디어 패널 탭 */}
             <div style={{ display:"flex", borderBottom:`1px solid ${C.bdr}`, flexShrink:0 }}>
-              {[{id:"ai",label:"🤖 AI 분석"},{id:"chords",label:"🎵 코드 싱크"}].map(t => (
-                <button key={t.id} onClick={() => setMediaPanelTab(t.id)}
+              {[{id:"chords",label:"🎵 코드 싱크"},{id:"ai",label:"🤖 AI 분석"}].map(t => (
+                <button type="button" key={t.id} onClick={() => setMediaPanelTab(t.id)}
                   style={{ flex:1, padding:"8px 0", border:"none", background:"transparent",
                     borderBottom:`2.5px solid ${mediaPanelTab === t.id ? C.pur : "transparent"}`,
                     color: mediaPanelTab === t.id ? C.pur : C.dim,
