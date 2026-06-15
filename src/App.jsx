@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.586";
+const APP_VERSION = "3.587";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1195,6 +1195,17 @@ function getYoutubeId(url) {
   if (!url) return null;
   const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
   return m ? m[1] : null;
+}
+
+function getYoutubeEmbed(url) {
+  const id = getYoutubeId(url);
+  if (!id) return null;
+  const p = new URLSearchParams({ rel: '0' });
+  const t = url.match(/[?&]t=(\d+)/);
+  if (t) p.set('start', t[1]);
+  const end = url.match(/[?&]end=(\d+)/);
+  if (end) p.set('end', end[1]);
+  return `https://www.youtube.com/embed/${id}?${p}`;
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -10567,7 +10578,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             {getYoutubeId(song?.youtubeUrl) && (
               <div style={{ flexShrink:0 }}>
                 <iframe
-                  src={`https://www.youtube.com/embed/${getYoutubeId(song.youtubeUrl)}?rel=0`}
+                  src={getYoutubeEmbed(song.youtubeUrl)}
                   style={{ width:"100%", aspectRatio:"16/9", border:"none", display:"block" }}
                   allow="autoplay; encrypted-media; picture-in-picture"
                   allowFullScreen
