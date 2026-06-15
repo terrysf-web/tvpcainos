@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.595";
+const APP_VERSION = "3.596";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -985,7 +985,7 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
         ctx.translate(px, py);
         ctx.rotate(-28 * Math.PI / 180);
         ctx.beginPath();
-        ctx.ellipse(0, 0, sz * 0.5, sz * 0.36, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, sz * 0.28, sz * 0.20, 0, 0, Math.PI * 2);
         ctx.fillStyle = s.color || "#1c1c1e";
         ctx.fill();
         ctx.restore();
@@ -8656,7 +8656,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         ctx.translate(LW / 2, LH / 2);
         ctx.rotate(-28 * Math.PI / 180);
         ctx.beginPath();
-        ctx.ellipse(0, 0, sz * 0.5, sz * 0.36, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, sz * 0.28, sz * 0.20, 0, 0, Math.PI * 2);
         ctx.fillStyle = color || "#1c1c1e";
         ctx.fill();
         ctx.restore();
@@ -9883,10 +9883,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   }}>
                     {(drawTool === "stamp" || drawTool === "shape") ? (
                       stampSymbol === "notehead" ? (
-                        <svg width={w===1?8:w===2?11:15} height={w===1?6:w===2?8:11}
-                          viewBox="0 0 15 11" style={{ display:"block" }}>
-                          <ellipse cx="7.5" cy="5.5" rx="6.5" ry="4.5"
-                            fill={drawColor} transform="rotate(-28 7.5 5.5)" />
+                        <svg width={w===1?6:w===2?8:11} height={w===1?4:w===2?5:8}
+                          viewBox="0 0 11 8" style={{ display:"block" }}>
+                          <ellipse cx="5.5" cy="4" rx="4.5" ry="3.2"
+                            fill={drawColor} transform="rotate(-28 5.5 4)" />
                         </svg>
                       ) : (
                         <span style={{ fontSize: w === 1 ? 9 : w === 2 ? 12 : 16, color:drawColor, fontWeight:700,
@@ -9978,10 +9978,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           ))}
                         </svg>
                       ) : st.sym === "notehead" ? (
-                        <svg width="6" height="5" viewBox="0 0 10 7" style={{ display:"block" }}>
-                          <ellipse cx="5" cy="3.5" rx="4.2" ry="2.8"
+                        <svg width="9" height="7" viewBox="0 0 9 7" style={{ display:"block" }}>
+                          <ellipse cx="4.5" cy="3.5" rx="4.0" ry="2.8"
                             fill={stampSymbol === "notehead" ? C.acc : C.txt}
-                            transform="rotate(-28 5 3.5)" />
+                            transform="rotate(-28 4.5 3.5)" />
                         </svg>
                       ) : (
                         <span style={{
