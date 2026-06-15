@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.602";
+const APP_VERSION = "3.603";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1208,7 +1208,7 @@ function mmssToSec(mmss) {
 function getYoutubeEmbed(url) {
   const id = getYoutubeId(url);
   if (!id) return null;
-  const p = new URLSearchParams({ rel: '0' });
+  const p = new URLSearchParams({ rel: '0', enablejsapi: '1' });
   const t = url.match(/[?&]t=(\d+)/);
   if (t) p.set('start', t[1]);
   const end = url.match(/[?&]end=(\d+)/);
@@ -1382,7 +1382,13 @@ function autoGenerateTimeline(chords, ytStartSec, bpm, beatsPerChord) {
   return chords.map((chord, i) => ({ chord, time: ytStartSec + i * secsPerChord }));
 }
 
-function ChordSyncPanel({ song, user }) {
+function ytCmd(iframeRef, func, args) {
+  try { iframeRef?.current?.contentWindow?.postMessage(
+    JSON.stringify({ event:"command", func, args: args || [] }), "*"); }
+  catch(_) { /* ignore */ }
+}
+
+function ChordSyncPanel({ song, user, ytIframeRef }) {
   const isAdmin = user?.role === "admin";
   const [timeline, setTimeline] = useState(song?.chordTimeline || []);
   const [tab, setTab] = useState("play"); // "play" | "setup"
@@ -1465,19 +1471,22 @@ function ChordSyncPanel({ song, user }) {
       ) : (
         <>
           {/* 시작 / 리셋 */}
-          <div style={{ fontSize:10, color:C2.dim, textAlign:"center", lineHeight:1.4 }}>
-            유튜브 재생 시작과 <strong>동시에</strong> 아래 버튼을 누르세요
-          </div>
           <div style={{ display:"flex", gap:6 }}>
-            <button type="button" onClick={() => { setWallStart(Date.now()); setCurrentTime(0); setTracking(true); }}
-              style={{ flex:1, padding:"7px 0", borderRadius:9, border:"none", cursor:"pointer",
-                background:C2.pur, color:"#fff", fontSize:12, fontWeight:800 }}>
-              {tracking ? "⏱ 진행 중…" : "▶ 시작"}
+            <button type="button" onClick={() => {
+                ytCmd(ytIframeRef, "playVideo");
+                setWallStart(Date.now()); setCurrentTime(0); setTracking(true);
+              }}
+              style={{ flex:1, padding:"10px 0", borderRadius:9, border:"none", cursor:"pointer",
+                background:C2.pur, color:"#fff", fontSize:13, fontWeight:800 }}>
+              {tracking ? "⏱ 진행 중…" : "▶ 재생 + 코드 시작"}
             </button>
-            <button type="button" onClick={() => { setTracking(false); setCurrentTime(0); setWallStart(null); }}
-              style={{ padding:"7px 10px", borderRadius:9, border:`1px solid ${C2.bdr}`,
-                background:"transparent", color:C2.dim, fontSize:11, cursor:"pointer" }}>
-              ↺
+            <button type="button" onClick={() => {
+                ytCmd(ytIframeRef, "pauseVideo");
+                setTracking(false); setCurrentTime(0); setWallStart(null);
+              }}
+              style={{ padding:"10px 12px", borderRadius:9, border:`1px solid ${C2.bdr}`,
+                background:"transparent", color:C2.dim, fontSize:13, cursor:"pointer" }}>
+              ⏹
             </button>
           </div>
 
@@ -1536,7 +1545,11 @@ function ChordSyncPanel({ song, user }) {
             <div style={{ display:"flex", gap:3, overflowX:"auto", padding:"6px 8px",
               scrollbarWidth:"none" }}>
               {timeline.map((e, i) => (
-                <div key={i} onClick={() => { setCurrentTime(e.time); setWallStart(Date.now() - e.time * 1000); setTracking(true); }}
+                <div key={i} onClick={() => {
+                    ytCmd(ytIframeRef, "seekTo", [e.time, true]);
+                    ytCmd(ytIframeRef, "playVideo");
+                    setCurrentTime(e.time); setWallStart(Date.now() - e.time * 1000); setTracking(true);
+                  }}
                   style={{ flexShrink:0, minWidth:36, padding:"4px 6px", borderRadius:7, cursor:"pointer",
                     textAlign:"center",
                     background: i === curIdx ? `${C2.pur}18` : "transparent",
@@ -7521,6 +7534,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [media,         setMedia]         = useState(false);
   const [mediaPanelTab, setMediaPanelTab] = useState("ai"); // "ai" | "chords"
   const [ytRange,       setYtRange]       = useState({ start:"", end:"" }); // MM:SS
+  const ytIframeRef = useRef(null);
   const [showChat,      setShowChat]      = useState(false);
   const [chatInput,     setChatInput]     = useState("");
   const [chatMsgs,      setChatMsgs]      = useState([]);
@@ -11138,6 +11152,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   </div>
                   <iframe
                     key={src}
+                    ref={ytIframeRef}
                     src={src}
                     style={{ width:"100%", aspectRatio:"16/9", border:"none", display:"block" }}
                     allow="autoplay; encrypted-media; picture-in-picture"
@@ -11162,7 +11177,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             <div style={{ flex:1, overflow:"auto" }}>
               {mediaPanelTab === "ai"
                 ? <AIPanel song={song} user={user} pdfCanvasRef={canvas1Ref} />
-                : <ChordSyncPanel song={song} user={user} />
+                : <ChordSyncPanel song={song} user={user} ytIframeRef={ytIframeRef} />
               }
             </div>
           </div>
