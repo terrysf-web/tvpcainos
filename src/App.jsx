@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.587";
+const APP_VERSION = "3.588";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1195,6 +1195,14 @@ function getYoutubeId(url) {
   if (!url) return null;
   const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
   return m ? m[1] : null;
+}
+
+function mmssToSec(mmss) {
+  if (!mmss) return 0;
+  const parts = mmss.trim().split(":").map(Number);
+  if (parts.length === 2) return (parts[0] || 0) * 60 + (parts[1] || 0);
+  if (parts.length === 1) return parts[0] || 0;
+  return 0;
 }
 
 function getYoutubeEmbed(url) {
@@ -7010,6 +7018,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [fitActive,     setFitActive]     = useState(false);
   const [dual,          setDual]          = useState(false);
   const [media,         setMedia]         = useState(false);
+  const [ytRange,       setYtRange]       = useState({ start:"", end:"" }); // MM:SS
   const [showChat,      setShowChat]      = useState(false);
   const [chatInput,     setChatInput]     = useState("");
   const [chatMsgs,      setChatMsgs]      = useState([]);
@@ -7535,6 +7544,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (!tmKey) { setTransposeMode(false); return; }
     setTransposeMode(localStorage.getItem(tmKey) === "1");
   }, [tmKey]);
+
+  // 곡 변경 시 YouTube 구간 복원
+  useEffect(() => {
+    if (!selectedSongId) { setYtRange({ start:"", end:"" }); return; }
+    try {
+      const saved = JSON.parse(localStorage.getItem(`tvpc_ytr_${selectedSongId}`) || "null");
+      setYtRange(saved || { start:"", end:"" });
+    } catch { setYtRange({ start:"", end:"" }); }
+  }, [selectedSongId]);
 
   // 코드 이동 모드: 전조 끄거나 곡/페이지 이동 시 자동 리셋
   useEffect(() => { if (!transposeMode) setChordMoveMode(false); }, [transposeMode]);
@@ -10575,21 +10593,58 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             borderLeft:`1px solid ${C.bdr}`, background:C.surf,
             display:"flex", flexDirection:"column" }}>
             {/* YouTube 플레이어 */}
-            {getYoutubeId(song?.youtubeUrl) && (
-              <div style={{ flexShrink:0 }}>
-                <iframe
-                  src={getYoutubeEmbed(song.youtubeUrl)}
-                  style={{ width:"100%", aspectRatio:"16/9", border:"none", display:"block" }}
-                  allow="autoplay; encrypted-media; picture-in-picture"
-                  allowFullScreen
-                  title="YouTube"
-                />
-                <div style={{ fontSize:11, color:C.dim, padding:"4px 10px 6px",
-                  borderBottom:`1px solid ${C.bdr}` }}>
-                  🎵 {song.title}
+            {getYoutubeId(song?.youtubeUrl) && (() => {
+              const startSec = mmssToSec(ytRange.start);
+              const endSec   = mmssToSec(ytRange.end);
+              const baseEmbed = getYoutubeEmbed(song.youtubeUrl);
+              const src = baseEmbed
+                + (startSec ? `&start=${startSec}` : "")
+                + (endSec   ? `&end=${endSec}`     : "");
+              const hasRange = !!(ytRange.start || ytRange.end);
+              return (
+                <div style={{ flexShrink:0 }}>
+                  <iframe
+                    key={src}
+                    src={src}
+                    style={{ width:"100%", aspectRatio:"16/9", border:"none", display:"block" }}
+                    allow="autoplay; encrypted-media; picture-in-picture"
+                    allowFullScreen
+                    title="YouTube"
+                  />
+                  {/* 구간 설정 */}
+                  <div style={{ padding:"6px 10px 8px", borderBottom:`1px solid ${C.bdr}` }}>
+                    <div style={{ fontSize:10, color:C.dim, marginBottom:4, fontWeight:600 }}>재생 구간 (MM:SS)</div>
+                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      <input value={ytRange.start} onChange={e => setYtRange(r => ({ ...r, start: e.target.value }))}
+                        placeholder="시작 0:00" maxLength={7}
+                        style={{ flex:1, fontSize:12, padding:"4px 7px", borderRadius:6, border:`1px solid ${C.bdr}`,
+                          background:C.card, color:C.txt, fontFamily:"monospace", textAlign:"center" }} />
+                      <span style={{ fontSize:11, color:C.dim }}>~</span>
+                      <input value={ytRange.end} onChange={e => setYtRange(r => ({ ...r, end: e.target.value }))}
+                        placeholder="종료 0:00" maxLength={7}
+                        style={{ flex:1, fontSize:12, padding:"4px 7px", borderRadius:6, border:`1px solid ${C.bdr}`,
+                          background:C.card, color:C.txt, fontFamily:"monospace", textAlign:"center" }} />
+                      <button onClick={() => {
+                        if (selectedSongId) localStorage.setItem(`tvpc_ytr_${selectedSongId}`, JSON.stringify(ytRange));
+                      }} style={{ fontSize:11, padding:"4px 8px", borderRadius:6, cursor:"pointer",
+                        background:`${C.grn}22`, border:`1px solid ${C.grn}55`, color:C.grn, fontWeight:700, fontFamily:"inherit" }}>
+                        저장
+                      </button>
+                      {hasRange && (
+                        <button onClick={() => {
+                          const reset = { start:"", end:"" };
+                          setYtRange(reset);
+                          if (selectedSongId) localStorage.removeItem(`tvpc_ytr_${selectedSongId}`);
+                        }} style={{ fontSize:11, padding:"4px 8px", borderRadius:6, cursor:"pointer",
+                          background:`${C.red}22`, border:`1px solid ${C.red}55`, color:C.red, fontWeight:700, fontFamily:"inherit" }}>
+                          초기화
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
             <div style={{ flex:1, overflow:"auto" }}>
               <AIPanel song={song} user={user} pdfCanvasRef={canvas1Ref} />
             </div>
