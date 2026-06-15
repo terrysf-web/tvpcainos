@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.598";
+const APP_VERSION = "3.599";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1359,42 +1359,42 @@ function PianoChord({ chord, color = "#6b5de7" }) {
 
 function ChordSyncPanel({ song, user }) {
   const isAdmin = user?.role === "admin";
-  const [timeline, setTimeline] = React.useState(song?.chordTimeline || []);
-  const [tab, setTab] = React.useState("play"); // "play" | "setup"
-  const [chordInput, setChordInput] = React.useState(
+  const [timeline, setTimeline] = useState(song?.chordTimeline || []);
+  const [tab, setTab] = useState("play"); // "play" | "setup"
+  const [chordInput, setChordInput] = useState(
     (song?.chordTimeline || []).map(e => e.chord).join(", ")
   );
-  const [tapIdx, setTapIdx] = React.useState(0);
-  const [tapResults, setTapResults] = React.useState([]);
-  const [wallStart, setWallStart] = React.useState(null);
-  const [currentTime, setCurrentTime] = React.useState(0);
-  const [tracking, setTracking] = React.useState(false);
+  const [tapIdx, setTapIdx] = useState(0);
+  const [tapResults, setTapResults] = useState([]);
+  const [wallStart, setWallStart] = useState(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [tracking, setTracking] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setTimeline(song?.chordTimeline || []);
     setChordInput((song?.chordTimeline || []).map(e => e.chord).join(", "));
     setCurrentTime(0); setTracking(false); setWallStart(null);
   }, [song?.id]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!tracking || wallStart == null) return;
     const iv = setInterval(() =>
       setCurrentTime((Date.now() - wallStart) / 1000), 200);
     return () => clearInterval(iv);
   }, [tracking, wallStart]);
 
-  const chordNow = React.useMemo(() => {
+  const chordNow = useMemo(() => {
     let c = null;
     for (const e of timeline) { if (e.time <= currentTime) c = e.chord; else break; }
     return c;
   }, [timeline, currentTime]);
 
-  const nextChord = React.useMemo(() => {
+  const nextChord = useMemo(() => {
     for (const e of timeline) { if (e.time > currentTime) return e.chord; }
     return null;
   }, [timeline, currentTime]);
 
-  const curIdx = React.useMemo(() => {
+  const curIdx = useMemo(() => {
     let idx = -1;
     for (let i = 0; i < timeline.length; i++) {
       if (timeline[i].time <= currentTime) idx = i; else break;
