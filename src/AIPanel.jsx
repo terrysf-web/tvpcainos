@@ -16,6 +16,13 @@ const keyColor = (k) => KEY_CLR[k ? k[0].toUpperCase() : "C"] || C.acc;
 
 const MODEL = "gemini-2.5-flash";
 
+function mmssToSec(mmss) {
+  if (!mmss) return 0;
+  const parts = mmss.trim().split(":").map(Number);
+  if (parts.length === 2) return (parts[0] || 0) * 60 + (parts[1] || 0);
+  return parts[0] || 0;
+}
+
 function parseYtId(url) {
   const s = (url || "").trim();
   const m =
@@ -82,6 +89,7 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
 
   const [ytId, setYtId] = useState(song?.youtubeId || null);
   const [ytMeta, setYtMeta] = useState(null);
+  const [ytRange, setYtRange] = useState({ start:"", end:"" });
 
   useEffect(() => {
     if (!ytId) { setYtMeta(null); return; }
@@ -90,6 +98,14 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
       .then(d => setYtMeta({ title: d.title, author: d.author_name }))
       .catch(() => setYtMeta(null));
   }, [ytId]);
+
+  useEffect(() => {
+    if (!song?.id) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(`tvpc_ytr_${song.id}`) || "null");
+      setYtRange(saved || { start:"", end:"" });
+    } catch { setYtRange({ start:"", end:"" }); }
+  }, [song?.id]);
 
   useEffect(() => {
     if (!song?.id) return;
@@ -247,15 +263,58 @@ BPM: ${song.bpm || "미상"}
 
           {ytId && !editYt ? (
             <div>
-              <div style={{ position:"relative", paddingBottom:"56.25%",
-                height:0, borderRadius:8, overflow:"hidden", border:`1px solid ${C.bdr}` }}>
-                <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${ytId}`}
-                  style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", border:"none" }}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
+              {/* 구간 설정 */}
+              {(() => {
+                const startSec = mmssToSec(ytRange.start);
+                const endSec   = mmssToSec(ytRange.end);
+                const hasRange = !!(ytRange.start || ytRange.end);
+                const src = `https://www.youtube-nocookie.com/embed/${ytId}?rel=0`
+                  + (startSec ? `&start=${startSec}` : "")
+                  + (endSec   ? `&end=${endSec}`     : "");
+                return (
+                  <>
+                    <div style={{ marginBottom:6 }}>
+                      <div style={{ fontSize:10, color:C.dim, fontWeight:600, marginBottom:4 }}>재생 구간 (MM:SS)</div>
+                      <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                        <input value={ytRange.start} onChange={e => setYtRange(r => ({ ...r, start: e.target.value }))}
+                          placeholder="시작" maxLength={7}
+                          style={{ flex:1, fontSize:12, padding:"4px 6px", borderRadius:6,
+                            border:`1px solid ${C.bdr}`, background:C.card, color:C.txt,
+                            fontFamily:"monospace", textAlign:"center", outline:"none" }} />
+                        <span style={{ fontSize:11, color:C.dim, flexShrink:0 }}>~</span>
+                        <input value={ytRange.end} onChange={e => setYtRange(r => ({ ...r, end: e.target.value }))}
+                          placeholder="종료" maxLength={7}
+                          style={{ flex:1, fontSize:12, padding:"4px 6px", borderRadius:6,
+                            border:`1px solid ${C.bdr}`, background:C.card, color:C.txt,
+                            fontFamily:"monospace", textAlign:"center", outline:"none" }} />
+                        <button onClick={() => {
+                          if (song?.id) localStorage.setItem(`tvpc_ytr_${song.id}`, JSON.stringify(ytRange));
+                        }} style={{ fontSize:11, padding:"4px 8px", borderRadius:6, cursor:"pointer", flexShrink:0,
+                          background:`${C.grn}22`, border:`1px solid ${C.grn}55`, color:C.grn,
+                          fontWeight:700, fontFamily:"inherit" }}>저장</button>
+                        {hasRange && (
+                          <button onClick={() => {
+                            setYtRange({ start:"", end:"" });
+                            if (song?.id) localStorage.removeItem(`tvpc_ytr_${song.id}`);
+                          }} style={{ fontSize:11, padding:"4px 8px", borderRadius:6, cursor:"pointer", flexShrink:0,
+                            background:`${C.red}22`, border:`1px solid ${C.red}55`, color:C.red,
+                            fontWeight:700, fontFamily:"inherit" }}>초기화</button>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ position:"relative", paddingBottom:"56.25%",
+                      height:0, borderRadius:8, overflow:"hidden", border:`1px solid ${C.bdr}` }}>
+                      <iframe
+                        key={src}
+                        src={src}
+                        style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", border:"none" }}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  </>
+                );
+              })()}
               <div style={{
                 display:"flex", alignItems:"center", gap:9, marginTop:8,
                 padding:"8px 10px", background:C.card, borderRadius:9, border:`1px solid ${C.bdr}`,
