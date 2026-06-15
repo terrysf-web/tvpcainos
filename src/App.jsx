@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.585";
+const APP_VERSION = "3.586";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -783,11 +783,15 @@ const SEMITONES   = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const FLAT_SHARP  = {Db:'C#',Eb:'D#',Gb:'F#',Ab:'G#',Bb:'A#'};
 const DISPLAY_SHARP = {C:'C','C#':'C#',D:'D','D#':'D#',E:'E',F:'F','F#':'F#',G:'G','G#':'G#',A:'A','A#':'A#',B:'B'};
 const DISPLAY_FLAT  = {C:'C','C#':'Db',D:'D','D#':'Eb',E:'E',F:'F','F#':'Gb',G:'G','G#':'Ab',A:'A','A#':'Bb',B:'B'};
-// F major/minor and keys with 'b' in name use flat notation
-function useFlats(key) {
+// Circle of fifths: flat keys by semitone index (F=5, Bb=10, Eb=3, Ab=8, Db=1, Gb=6)
+const FLAT_RESULT_IDX = new Set([1, 3, 5, 6, 8, 10]);
+function useFlats(key, steps = 0) {
   if (!key) return false;
   const root = key.replace(/m$/, '').trim();
-  return root === 'F' || root.includes('b');
+  const n = FLAT_SHARP[root] || root;
+  const i = SEMITONES.indexOf(n);
+  if (i === -1) return false;
+  return FLAT_RESULT_IDX.has(((i + steps) % 12 + 12) % 12);
 }
 
 function transposeNote(note, steps) {
@@ -822,7 +826,7 @@ function keyName(key, steps) {
   if (!key) return '?';
   const n = FLAT_SHARP[key] || key;
   const transposed = SEMITONES[((SEMITONES.indexOf(n) + steps) % 12 + 12) % 12];
-  const displayMap = useFlats(key) ? DISPLAY_FLAT : DISPLAY_SHARP;
+  const displayMap = useFlats(key, steps) ? DISPLAY_FLAT : DISPLAY_SHARP;
   return displayMap[transposed] || transposed;
 }
 
@@ -10351,7 +10355,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                               }}
                                 onPointerDown={canMove ? e => handleChordPointerDown(e, 1, i) : undefined}
                                 onTouchStart={canMove ? e => e.stopPropagation() : undefined}>
-                                {transposeChord(item.chord, transposeSteps, useFlats(song.key))}
+                                {transposeChord(item.chord, transposeSteps, useFlats(song.key, transposeSteps))}
                               </span>
                               );
                             })}
@@ -10423,7 +10427,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 }}
                                   onPointerDown={canMove ? e => handleChordPointerDown(e, 2, i) : undefined}
                                   onTouchStart={canMove ? e => e.stopPropagation() : undefined}>
-                                  {transposeChord(item.chord, transposeSteps2, useFlats(song.key))}
+                                  {transposeChord(item.chord, transposeSteps2, useFlats(song.key, transposeSteps2))}
                                 </span>
                                 );
                               })}
@@ -10511,7 +10515,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 onPointerDown={canMove ? e => handleChordPointerDown(e, 1, i) : undefined}
                                 onTouchStart={canMove ? e => e.stopPropagation() : undefined}
                               >
-                                {transposeChord(item.chord, transposeSteps, useFlats(song.key))}
+                                {transposeChord(item.chord, transposeSteps, useFlats(song.key, transposeSteps))}
                               </span>
                               );
                             })}
