@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.597";
+const APP_VERSION = "3.598";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1214,6 +1214,426 @@ function getYoutubeEmbed(url) {
   const end = url.match(/[?&]end=(\d+)/);
   if (end) p.set('end', end[1]);
   return `https://www.youtube.com/embed/${id}?${p}`;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   CHORD SYNC — 데이터 & 컴포넌트
+══════════════════════════════════════════════════════════════════ */
+const GUITAR_CHORDS = {
+  "C":     [-1, 3, 2, 0, 1, 0],
+  "D":     [-1,-1, 0, 2, 3, 2],
+  "E":     [ 0, 2, 2, 1, 0, 0],
+  "F":     [ 1, 3, 3, 2, 1, 1],
+  "G":     [ 3, 2, 0, 0, 0, 3],
+  "A":     [-1, 0, 2, 2, 2, 0],
+  "B":     [-1, 2, 4, 4, 4, 2],
+  "Am":    [-1, 0, 2, 2, 1, 0],
+  "Bm":    [-1, 2, 4, 4, 3, 2],
+  "Cm":    [-1, 3, 5, 5, 4, 3],
+  "Dm":    [-1,-1, 0, 2, 3, 1],
+  "Em":    [ 0, 2, 2, 0, 0, 0],
+  "Fm":    [ 1, 3, 3, 1, 1, 1],
+  "Gm":    [ 3, 5, 5, 3, 3, 3],
+  "F#m":   [ 2, 4, 4, 2, 2, 2],
+  "G#m":   [ 4, 6, 6, 5, 4, 4],
+  "C#m":   [-1, 4, 6, 6, 5, 4],
+  "Bb":    [ 1, 1, 3, 3, 3, 1],
+  "Eb":    [ 3, 3, 5, 5, 4, 3],
+  "A7":    [-1, 0, 2, 0, 2, 0],
+  "D7":    [-1,-1, 0, 2, 1, 2],
+  "E7":    [ 0, 2, 0, 1, 0, 0],
+  "G7":    [ 3, 2, 0, 0, 0, 1],
+  "B7":    [-1, 2, 1, 2, 0, 2],
+  "Dsus4": [-1,-1, 0, 2, 3, 3],
+  "Dsus2": [-1,-1, 0, 2, 3, 0],
+  "Asus4": [-1, 0, 2, 2, 3, 0],
+  "Asus2": [-1, 0, 2, 2, 0, 0],
+  "Esus4": [ 0, 2, 2, 2, 0, 0],
+  "Cadd9": [-1, 3, 2, 0, 3, 3],
+  "Gadd9": [ 3, 2, 0, 2, 3, 3],
+};
+
+const NOTE_TO_IDX = {
+  "C":0,"C#":1,"Db":1,"D":2,"D#":3,"Eb":3,"E":4,"F":5,
+  "F#":6,"Gb":6,"G":7,"G#":8,"Ab":8,"A":9,"A#":10,"Bb":10,"B":11,
+};
+
+const CHORD_NOTES = {
+  "C":["C","E","G"],"Cm":["C","Eb","G"],
+  "D":["D","F#","A"],"Dm":["D","F","A"],
+  "E":["E","G#","B"],"Em":["E","G","B"],
+  "F":["F","A","C"],"Fm":["F","Ab","C"],
+  "G":["G","B","D"],"Gm":["G","Bb","D"],
+  "A":["A","C#","E"],"Am":["A","C","E"],
+  "B":["B","D#","F#"],"Bm":["B","D","F#"],
+  "F#m":["F#","A","C#"],"G#m":["G#","B","D#"],"C#m":["C#","E","G#"],
+  "Bb":["Bb","D","F"],"Eb":["Eb","G","Bb"],
+  "A7":["A","C#","E","G"],"D7":["D","F#","A","C"],
+  "E7":["E","G#","B","D"],"G7":["G","B","D","F"],"B7":["B","D#","F#","A"],
+  "Dsus4":["D","G","A"],"Dsus2":["D","E","A"],
+  "Asus4":["A","D","E"],"Asus2":["A","B","E"],"Esus4":["E","A","B"],
+  "Cadd9":["C","D","E","G"],"Gadd9":["G","A","B","D"],
+};
+
+function GuitarDiagram({ chord, color = "#6b5de7" }) {
+  const frets = GUITAR_CHORDS[chord];
+  if (!frets) return (
+    <div style={{ fontSize:11, color:"#8e8e93", textAlign:"center", padding:"8px 0" }}>
+      {chord} — 다이어그램 없음
+    </div>
+  );
+  const active = frets.filter(f => f > 0);
+  const minF = active.length ? Math.min(...active) : 1;
+  const base = Math.max(1, minF);
+  const showNut = base <= 2;
+  const W = 84, H = 88;
+  const pL = 14, pR = 6, pT = 20, pB = 8;
+  const rows = 4;
+  const fH = (H - pT - pB) / rows;
+  const sW = (W - pL - pR) / 5;
+  const sx = i => pL + i * sW;
+  const fy = f => pT + (f - base) * fH + fH / 2;
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+      {Array.from({length: rows + 1}, (_, i) => (
+        <line key={i} x1={pL} y1={pT + i * fH} x2={W - pR} y2={pT + i * fH}
+          stroke={i === 0 && showNut ? "#1c1c1e" : "#ccc"}
+          strokeWidth={i === 0 && showNut ? 3.5 : 1} />
+      ))}
+      {Array.from({length: 6}, (_, i) => (
+        <line key={i} x1={sx(i)} y1={pT} x2={sx(i)} y2={H - pB}
+          stroke="#c0c0c0" strokeWidth={1} />
+      ))}
+      {base > 2 && (
+        <text x={pL - 3} y={pT + fH / 2} textAnchor="end"
+          dominantBaseline="middle" fontSize={8} fill="#8e8e93" fontWeight="700">{base}</text>
+      )}
+      {frets.map((f, i) => {
+        const x = sx(i);
+        if (f === -1) return <text key={i} x={x} y={pT - 7} textAnchor="middle"
+          fontSize={10} fill="#ff3b30" fontWeight="800">×</text>;
+        if (f === 0) return <circle key={i} cx={x} cy={pT - 7} r={4}
+          fill="none" stroke="#1c1c1e" strokeWidth={1.5} />;
+        return <circle key={i} cx={x} cy={fy(f)} r={6.5} fill={color} />;
+      })}
+    </svg>
+  );
+}
+
+function PianoChord({ chord, color = "#6b5de7" }) {
+  const notes = CHORD_NOTES[chord] || [];
+  const litSet = new Set(notes.map(n => NOTE_TO_IDX[n]).filter(x => x != null));
+  const rootIdx = notes.length ? NOTE_TO_IDX[notes[0]] : -1;
+  const WHITE_IDX = [0, 2, 4, 5, 7, 9, 11]; // C D E F G A B
+  const BLACK_KEYS = [
+    {idx:1, after:0}, {idx:3, after:1},
+    {idx:6, after:3}, {idx:8, after:4}, {idx:10, after:5},
+  ];
+  const wW = 19, wH = 50, gap = 1.5, bW = 12, bH = 30;
+  const unitW = wW + gap;
+  const totalW = WHITE_IDX.length * unitW - gap;
+  const isLit = idx => litSet.has(idx);
+  const isRoot = idx => idx === rootIdx;
+  return (
+    <svg width={totalW} height={wH + 10} viewBox={`0 0 ${totalW} ${wH + 10}`}>
+      {WHITE_IDX.map((noteIdx, i) => {
+        const x = i * unitW;
+        const lit = isLit(noteIdx); const root = isRoot(noteIdx);
+        return (
+          <rect key={i} x={x} y={8} width={wW} height={wH} rx={3}
+            fill={root ? color : lit ? `${color}44` : "#fff"}
+            stroke={lit ? color : "#ddd"} strokeWidth={1} />
+        );
+      })}
+      {BLACK_KEYS.map(({ idx, after }) => {
+        const x = after * unitW + wW - bW / 2;
+        const lit = isLit(idx); const root = isRoot(idx);
+        return (
+          <rect key={idx} x={x} y={8} width={bW} height={bH} rx={2}
+            fill={root ? color : lit ? `${color}cc` : "#1c1c1e"} />
+        );
+      })}
+    </svg>
+  );
+}
+
+function ChordSyncPanel({ song, user }) {
+  const isAdmin = user?.role === "admin";
+  const [timeline, setTimeline] = React.useState(song?.chordTimeline || []);
+  const [tab, setTab] = React.useState("play"); // "play" | "setup"
+  const [chordInput, setChordInput] = React.useState(
+    (song?.chordTimeline || []).map(e => e.chord).join(", ")
+  );
+  const [tapIdx, setTapIdx] = React.useState(0);
+  const [tapResults, setTapResults] = React.useState([]);
+  const [wallStart, setWallStart] = React.useState(null);
+  const [currentTime, setCurrentTime] = React.useState(0);
+  const [tracking, setTracking] = React.useState(false);
+
+  React.useEffect(() => {
+    setTimeline(song?.chordTimeline || []);
+    setChordInput((song?.chordTimeline || []).map(e => e.chord).join(", "));
+    setCurrentTime(0); setTracking(false); setWallStart(null);
+  }, [song?.id]);
+
+  React.useEffect(() => {
+    if (!tracking || wallStart == null) return;
+    const iv = setInterval(() =>
+      setCurrentTime((Date.now() - wallStart) / 1000), 200);
+    return () => clearInterval(iv);
+  }, [tracking, wallStart]);
+
+  const chordNow = React.useMemo(() => {
+    let c = null;
+    for (const e of timeline) { if (e.time <= currentTime) c = e.chord; else break; }
+    return c;
+  }, [timeline, currentTime]);
+
+  const nextChord = React.useMemo(() => {
+    for (const e of timeline) { if (e.time > currentTime) return e.chord; }
+    return null;
+  }, [timeline, currentTime]);
+
+  const curIdx = React.useMemo(() => {
+    let idx = -1;
+    for (let i = 0; i < timeline.length; i++) {
+      if (timeline[i].time <= currentTime) idx = i; else break;
+    }
+    return idx;
+  }, [timeline, currentTime]);
+
+  const saveTimeline = async (tl) => {
+    try { await updateDoc(doc(db, "songs", song.id), { chordTimeline: tl }); }
+    catch(e) { console.warn("chordTimeline 저장 실패", e); }
+    setTimeline(tl);
+  };
+
+  const setupChords = chordInput.split(",").map(s => s.trim()).filter(Boolean);
+
+  const C2 = {
+    pur:"#6b5de7", txt:"#1c1c1e", dim:"#8e8e93", bdr:"#e5e5ea",
+    surf:"#fff", card:"#f8f8fb", red:"#ff3b30", grn:"#34c759",
+  };
+
+  // ── 재생 모드 ──
+  if (tab === "play") return (
+    <div style={{ display:"flex", flexDirection:"column", gap:8, padding:"8px 10px" }}>
+      {/* 탭 전환 (admin only) */}
+      {isAdmin && (
+        <div style={{ display:"flex", gap:6 }}>
+          <button onClick={() => setTab("play")} style={{
+            flex:1, padding:"5px 0", borderRadius:8, border:`1.5px solid ${C2.pur}`,
+            background:`${C2.pur}18`, color:C2.pur, fontSize:11, fontWeight:800, cursor:"pointer",
+          }}>▶ 재생</button>
+          <button onClick={() => setTab("setup")} style={{
+            flex:1, padding:"5px 0", borderRadius:8, border:`1px solid ${C2.bdr}`,
+            background:"transparent", color:C2.dim, fontSize:11, fontWeight:700, cursor:"pointer",
+          }}>⚙ 세팅</button>
+        </div>
+      )}
+
+      {timeline.length === 0 ? (
+        <div style={{ textAlign:"center", padding:"20px 0", color:C2.dim, fontSize:12 }}>
+          {isAdmin ? "⚙ 세팅 탭에서 코드를 등록하세요" : "코드 데이터가 없습니다"}
+        </div>
+      ) : (
+        <>
+          {/* 시작 / 리셋 */}
+          <div style={{ display:"flex", gap:6 }}>
+            <button onClick={() => { setWallStart(Date.now()); setCurrentTime(0); setTracking(true); }}
+              style={{ flex:1, padding:"7px 0", borderRadius:9, border:"none", cursor:"pointer",
+                background:C2.pur, color:"#fff", fontSize:12, fontWeight:800 }}>
+              ▶ 시작 (유튜브와 동시에)
+            </button>
+            <button onClick={() => { setTracking(false); setCurrentTime(0); setWallStart(null); }}
+              style={{ padding:"7px 10px", borderRadius:9, border:`1px solid ${C2.bdr}`,
+                background:"transparent", color:C2.dim, fontSize:11, cursor:"pointer" }}>
+              ↺
+            </button>
+          </div>
+
+          {/* 현재 코드 */}
+          <div style={{ background:chordNow ? C2.pur : C2.card,
+            borderRadius:14, padding:"12px 14px",
+            display:"flex", alignItems:"center", justifyContent:"space-between",
+            border:`1.5px solid ${chordNow ? C2.pur : C2.bdr}` }}>
+            <div>
+              <div style={{ fontSize:9, fontWeight:800, color:chordNow ? "rgba(255,255,255,0.7)" : C2.dim,
+                letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:2 }}>
+                {tracking ? "지금 코드" : "준비"}
+              </div>
+              <div style={{ fontSize:52, fontWeight:900, lineHeight:1, letterSpacing:"-2px",
+                color:chordNow ? "#fff" : C2.dim }}>{chordNow || "—"}</div>
+            </div>
+            {nextChord && (
+              <div style={{ background:"rgba(255,255,255,0.18)", borderRadius:10,
+                padding:"6px 12px", textAlign:"center" }}>
+                <div style={{ fontSize:9, color:"rgba(255,255,255,0.65)", fontWeight:700,
+                  textTransform:"uppercase", marginBottom:1 }}>다음</div>
+                <div style={{ fontSize:24, fontWeight:900, color:"#fff" }}>{nextChord}</div>
+              </div>
+            )}
+          </div>
+
+          {/* 기타 + 피아노 */}
+          {chordNow && (
+            <div style={{ display:"flex", gap:8 }}>
+              <div style={{ flex:1, background:C2.surf, borderRadius:12, border:`1px solid ${C2.bdr}`,
+                padding:"8px 10px", display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                <div style={{ fontSize:9, fontWeight:800, color:C2.dim, letterSpacing:"0.05em",
+                  textTransform:"uppercase" }}>🎸 기타</div>
+                <GuitarDiagram chord={chordNow} color={C2.pur} />
+                <div style={{ fontSize:10, fontWeight:800, color:C2.pur }}>{chordNow}</div>
+              </div>
+              <div style={{ flex:1, background:C2.surf, borderRadius:12, border:`1px solid ${C2.bdr}`,
+                padding:"8px 10px", display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                <div style={{ fontSize:9, fontWeight:800, color:C2.dim, letterSpacing:"0.05em",
+                  textTransform:"uppercase" }}>🎹 피아노</div>
+                <div style={{ marginTop:4 }}><PianoChord chord={chordNow} color={C2.pur} /></div>
+                <div style={{ fontSize:9, fontWeight:700, color:C2.pur }}>
+                  {(CHORD_NOTES[chordNow] || []).join(" · ")}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 타임라인 */}
+          <div style={{ background:C2.surf, borderRadius:12, border:`1px solid ${C2.bdr}`,
+            overflow:"hidden" }}>
+            <div style={{ fontSize:9, fontWeight:800, color:C2.dim, letterSpacing:"0.05em",
+              textTransform:"uppercase", padding:"6px 10px", borderBottom:`1px solid ${C2.bdr}` }}>
+              전체 진행
+            </div>
+            <div style={{ display:"flex", gap:3, overflowX:"auto", padding:"6px 8px",
+              scrollbarWidth:"none" }}>
+              {timeline.map((e, i) => (
+                <div key={i} onClick={() => { setCurrentTime(e.time); setWallStart(Date.now() - e.time * 1000); setTracking(true); }}
+                  style={{ flexShrink:0, minWidth:36, padding:"4px 6px", borderRadius:7, cursor:"pointer",
+                    textAlign:"center",
+                    background: i === curIdx ? `${C2.pur}18` : "transparent",
+                    border:`1.5px solid ${i === curIdx ? C2.pur : "transparent"}` }}>
+                  <div style={{ fontSize:13, fontWeight:800,
+                    color: i < curIdx ? C2.dim : i === curIdx ? C2.pur : C2.txt }}>{e.chord}</div>
+                  <div style={{ fontSize:7, color:C2.dim, marginTop:1 }}>
+                    {Math.floor(e.time/60)}:{String(Math.floor(e.time%60)).padStart(2,"0")}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  // ── 세팅 모드 (admin only) ──
+  const setupStep = tapIdx < setupChords.length ? tapIdx : -1;
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:8, padding:"8px 10px" }}>
+      <div style={{ display:"flex", gap:6 }}>
+        <button onClick={() => setTab("play")} style={{
+          flex:1, padding:"5px 0", borderRadius:8, border:`1px solid ${C2.bdr}`,
+          background:"transparent", color:C2.dim, fontSize:11, fontWeight:700, cursor:"pointer",
+        }}>▶ 재생</button>
+        <button onClick={() => setTab("setup")} style={{
+          flex:1, padding:"5px 0", borderRadius:8, border:`1.5px solid ${C2.pur}`,
+          background:`${C2.pur}18`, color:C2.pur, fontSize:11, fontWeight:800, cursor:"pointer",
+        }}>⚙ 세팅</button>
+      </div>
+
+      {/* 코드 입력 */}
+      <div style={{ background:C2.surf, borderRadius:12, border:`1px solid ${C2.bdr}`, padding:"10px 12px" }}>
+        <div style={{ fontSize:10, fontWeight:800, color:C2.dim, marginBottom:6,
+          letterSpacing:"0.05em", textTransform:"uppercase" }}>코드 순서 입력</div>
+        <textarea value={chordInput} onChange={e => setChordInput(e.target.value)}
+          rows={3} placeholder="A, E, F#m, D, A, E, F#m, D, ..."
+          style={{ width:"100%", fontSize:12, padding:"6px 8px", borderRadius:8,
+            border:`1px solid ${C2.bdr}`, background:C2.card, color:C2.txt,
+            fontFamily:"monospace", resize:"none", outline:"none" }} />
+        <div style={{ fontSize:10, color:C2.dim, marginTop:4 }}>
+          {setupChords.length > 0 ? `${setupChords.length}개 코드` : "쉼표(,)로 구분"}
+        </div>
+      </div>
+
+      {/* 탭 세팅 안내 */}
+      {setupChords.length > 0 && (
+        <>
+          <div style={{ background:`${C2.pur}10`, borderRadius:12, border:`1px solid ${C2.pur}33`,
+            padding:"10px 12px", fontSize:11, color:C2.txt, lineHeight:1.6 }}>
+            <b style={{ color:C2.pur }}>방법:</b> 유튜브 재생 시작 → 아래 버튼 탭 →<br/>
+            코드 바뀔 때마다 탭 → 자동 저장
+          </div>
+
+          {/* 현재 탭할 코드 */}
+          {setupStep >= 0 ? (
+            <div style={{ background:C2.surf, borderRadius:12, border:`1.5px solid ${C2.pur}`,
+              padding:"10px 12px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <div>
+                <div style={{ fontSize:9, color:C2.dim, fontWeight:700, marginBottom:2 }}>
+                  {tapIdx + 1} / {setupChords.length}
+                </div>
+                <div style={{ fontSize:32, fontWeight:900, color:C2.pur, lineHeight:1 }}>
+                  {setupChords[tapIdx]}
+                </div>
+              </div>
+              {tapIdx > 0 && (
+                <div style={{ textAlign:"right" }}>
+                  <div style={{ fontSize:9, color:C2.dim }}>직전</div>
+                  <div style={{ fontSize:14, fontWeight:800, color:C2.txt }}>
+                    {tapResults[tapIdx - 1]?.chord}
+                    <span style={{ fontSize:10, color:C2.dim }}> @{Math.floor(tapResults[tapIdx-1]?.time||0)}s</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ background:C2.grn + "22", borderRadius:12, border:`1px solid ${C2.grn}`,
+              padding:"10px 12px", textAlign:"center", fontSize:12, fontWeight:700, color:C2.grn }}>
+              ✓ 모든 코드 완료! 저장 버튼을 누르세요
+            </div>
+          )}
+
+          {/* 탭 버튼 */}
+          {setupStep >= 0 ? (
+            <button
+              onClick={() => {
+                const t = wallStart == null ? 0 : (Date.now() - wallStart) / 1000;
+                if (tapIdx === 0) setWallStart(Date.now());
+                const newResults = [...tapResults, { chord: setupChords[tapIdx], time: t }];
+                setTapResults(newResults);
+                setTapIdx(tapIdx + 1);
+              }}
+              style={{ padding:"16px 0", borderRadius:14, border:"none", cursor:"pointer",
+                background:C2.pur, color:"#fff", fontSize:15, fontWeight:800,
+                letterSpacing:"0.02em" }}>
+              {tapIdx === 0
+                ? `▶ 시작 — ${setupChords[0]}`
+                : `탭 → ${setupChords[tapIdx]}`}
+            </button>
+          ) : (
+            <button
+              onClick={async () => {
+                await saveTimeline(tapResults);
+                setTab("play"); setTapIdx(0); setTapResults([]); setWallStart(null);
+              }}
+              style={{ padding:"14px 0", borderRadius:14, border:"none", cursor:"pointer",
+                background:C2.grn, color:"#fff", fontSize:14, fontWeight:800 }}>
+              💾 저장하기
+            </button>
+          )}
+
+          {/* 리셋 */}
+          {tapIdx > 0 && setupStep >= 0 && (
+            <button onClick={() => { setTapIdx(0); setTapResults([]); setWallStart(null); }}
+              style={{ padding:"8px 0", borderRadius:10, border:`1px solid ${C2.bdr}`,
+                background:"transparent", color:C2.dim, fontSize:11, cursor:"pointer" }}>
+              처음부터 다시
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -7062,6 +7482,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [fitActive,     setFitActive]     = useState(false);
   const [dual,          setDual]          = useState(false);
   const [media,         setMedia]         = useState(false);
+  const [mediaPanelTab, setMediaPanelTab] = useState("ai"); // "ai" | "chords"
   const [ytRange,       setYtRange]       = useState({ start:"", end:"" }); // MM:SS
   const [showChat,      setShowChat]      = useState(false);
   const [chatInput,     setChatInput]     = useState("");
@@ -10689,8 +11110,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 </div>
               );
             })()}
+            {/* 미디어 패널 탭 */}
+            <div style={{ display:"flex", borderBottom:`1px solid ${C.bdr}`, flexShrink:0 }}>
+              {[{id:"ai",label:"🤖 AI 분석"},{id:"chords",label:"🎵 코드 싱크"}].map(t => (
+                <button key={t.id} onClick={() => setMediaPanelTab(t.id)}
+                  style={{ flex:1, padding:"8px 0", border:"none", background:"transparent",
+                    borderBottom:`2.5px solid ${mediaPanelTab === t.id ? C.pur : "transparent"}`,
+                    color: mediaPanelTab === t.id ? C.pur : C.dim,
+                    fontSize:11, fontWeight:800, cursor:"pointer", letterSpacing:"0.02em" }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
             <div style={{ flex:1, overflow:"auto" }}>
-              <AIPanel song={song} user={user} pdfCanvasRef={canvas1Ref} />
+              {mediaPanelTab === "ai"
+                ? <AIPanel song={song} user={user} pdfCanvasRef={canvas1Ref} />
+                : <ChordSyncPanel song={song} user={user} />
+              }
             </div>
           </div>
         )}
