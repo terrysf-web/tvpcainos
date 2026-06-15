@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.605";
+const APP_VERSION = "3.606";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1471,7 +1471,7 @@ function ChordSyncPanel({ song, user, ytIframeRef }) {
       ) : (
         <>
           {/* 시작 / 리셋 */}
-          {!tracking && (
+          {!tracking && song?.youtubeUrl && (
             <div style={{ background:`${C2.pur}10`, border:`1px solid ${C2.pur}33`,
               borderRadius:9, padding:"7px 10px", fontSize:11, color:C2.txt, lineHeight:1.6 }}>
               <b style={{ color:C2.pur }}>① 위 유튜브 영상</b>을 직접 탭해서 재생<br/>
