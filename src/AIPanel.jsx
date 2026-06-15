@@ -75,7 +75,7 @@ function Markdown({ text }) {
   );
 }
 
-export default function AIPanel({ song, user, pdfCanvasRef }) {
+export default function AIPanel({ song, user, pdfCanvasRef, hideYoutube = false }) {
   const [ytInput,   setYtInput]   = useState("");
   const [editYt,    setEditYt]    = useState(false);
   const [ytErr,     setYtErr]     = useState("");
@@ -254,8 +254,8 @@ BPM: ${song.bpm || "미상"}
 
       {/* ── 고정: YouTube + 구분선 + AI 컨트롤 */}
       <div style={{ flexShrink:0 }}>
-        {/* YouTube section */}
-        <div style={{ padding:"12px 12px 0" }}>
+        {/* YouTube section — hidden when parent panel already shows the player */}
+        {!hideYoutube && <div style={{ padding:"12px 12px 0" }}>
           <div style={{ fontSize:10, color:C.dim, fontWeight:700,
             letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:8 }}>
             유튜브 레퍼런스
@@ -389,7 +389,7 @@ BPM: ${song.bpm || "미상"}
               )}
             </div>
           )}
-        </div>
+        </div>}
 
         {/* 구분선 */}
         <div style={{ height:1, background:C.bdr, margin:"12px 12px" }} />
