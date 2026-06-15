@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.607";
+const APP_VERSION = "3.608";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1397,10 +1397,14 @@ function ChordSyncPanel({ song, user, ytIframeRef }) {
   const [wallStart, setWallStart] = useState(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [tracking, setTracking] = useState(false);
+  const [aiChords, setAiChords] = useState(null);
+  const [aiGenLoading, setAiGenLoading] = useState(false);
+  const [aiGenErr, setAiGenErr] = useState("");
 
   useEffect(() => {
     setTimeline(song?.chordTimeline || []);
     setCurrentTime(0); setTracking(false); setWallStart(null);
+    setAiChords(null); setAiGenErr("");
   }, [song?.id]);
 
   useEffect(() => {
@@ -1431,10 +1435,45 @@ function ChordSyncPanel({ song, user, ytIframeRef }) {
 
   // 세팅 모드용 — hooks이므로 early return 전에 선언
   const detectedChordsForSetup = useMemo(() => getDetectedChords(song), [song?.id]);
+  const chordsForSetup = aiChords || detectedChordsForSetup;
   const previewTimeline = useMemo(() =>
-    autoGenerateTimeline(detectedChordsForSetup, mmssToSecCS(ytStart), song?.bpm, beatsPerChord),
-    [detectedChordsForSetup, ytStart, song?.bpm, beatsPerChord]
+    autoGenerateTimeline(chordsForSetup, mmssToSecCS(ytStart), song?.bpm, beatsPerChord),
+    [chordsForSetup, ytStart, song?.bpm, beatsPerChord]
   );
+
+  const generateChordsWithAI = async () => {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) { setAiGenErr("API 키 없음"); return; }
+    setAiGenLoading(true); setAiGenErr(""); setAiChords(null);
+    const prompt = `찬양곡의 코드 진행을 JSON 배열로만 반환해주세요. 설명 없이 배열만.
+
+제목: ${song.title}
+아티스트: ${song.artist || ""}
+Key: ${song.key || ""}
+BPM: ${song.bpm || 80}
+박자: ${song.timeSig || "4/4"}
+
+인트로부터 엔딩까지 코드가 바뀔 때마다 순서대로 전부 포함 (반복도 그대로).
+예: ["G","Am","C","D","G","Am","F","C"]`;
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        { method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ contents:[{ parts:[{ text: prompt }] }] }) }
+      );
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const cleaned = text.replace(/```[\w]*\n?/g,"").replace(/```/g,"").trim();
+      const m = cleaned.match(/\[[\s\S]*\]/);
+      if (m) {
+        const parsed = JSON.parse(m[0]);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setAiChords(parsed.map(c => String(c).trim()));
+        } else { setAiGenErr("코드를 찾지 못했습니다"); }
+      } else { setAiGenErr("응답 파싱 실패"); }
+    } catch(e) { setAiGenErr(e.message); }
+    finally { setAiGenLoading(false); }
+  };
 
   const saveTimeline = async (tl) => {
     try { await updateDoc(doc(db, "songs", song.id), { chordTimeline: tl }); }
@@ -1574,8 +1613,6 @@ function ChordSyncPanel({ song, user, ytIframeRef }) {
   );
 
   // ── 세팅 모드 (admin only) ──
-  const detectedChords = detectedChordsForSetup;
-
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:8, padding:"8px 10px" }}>
       <div style={{ display:"flex", gap:6 }}>
@@ -1589,29 +1626,61 @@ function ChordSyncPanel({ song, user, ytIframeRef }) {
         }}>⚙ 세팅</button>
       </div>
 
-      {detectedChords.length === 0 ? (
-        <div style={{ background:C2.card, borderRadius:12, border:`1px solid ${C2.bdr}`,
-          padding:"16px 12px", textAlign:"center" }}>
-          <div style={{ fontSize:13, fontWeight:700, color:C2.txt, marginBottom:4 }}>
-            코드가 감지되지 않았습니다
-          </div>
-          <div style={{ fontSize:11, color:C2.dim, lineHeight:1.6 }}>
-            먼저 <b>AI 분석</b> 탭에서<br/>악보 코드 감지를 실행해주세요
-          </div>
+      {/* AI 코드 자동 생성 */}
+      <div style={{ background:C2.surf, borderRadius:12, border:`1px solid ${C2.bdr}`, padding:"10px 12px" }}>
+        <div style={{ fontSize:10, fontWeight:800, color:C2.dim, letterSpacing:"0.05em",
+          textTransform:"uppercase", marginBottom:8 }}>🤖 AI 코드 자동 생성</div>
+        <div style={{ fontSize:11, color:C2.dim, marginBottom:8, lineHeight:1.5 }}>
+          악보 없이도 곡 정보로 AI가 코드를 생성합니다
         </div>
+        <button type="button" onClick={generateChordsWithAI} disabled={aiGenLoading}
+          style={{ width:"100%", padding:"8px 0", borderRadius:9, border:"none", cursor:"pointer",
+            background: aiGenLoading ? C2.dim : "#34c759", color:"#fff", fontSize:12, fontWeight:800 }}>
+          {aiGenLoading ? "생성 중…" : "✨ AI로 코드 생성"}
+        </button>
+        {aiGenErr && <div style={{ fontSize:11, color:C2.red, marginTop:6 }}>{aiGenErr}</div>}
+        {aiChords && (
+          <div style={{ marginTop:8 }}>
+            <div style={{ fontSize:10, color:C2.grn, fontWeight:700, marginBottom:4 }}>
+              ✓ AI 생성 완료 ({aiChords.length}개)
+              <button type="button" onClick={() => setAiChords(null)}
+                style={{ marginLeft:8, fontSize:10, color:C2.dim, background:"none",
+                  border:"none", cursor:"pointer", padding:0 }}>✕ 초기화</button>
+            </div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:3 }}>
+              {aiChords.map((c,i) => (
+                <span key={i} style={{ fontSize:10, fontWeight:800, color:C2.grn,
+                  background:`${C2.grn}15`, borderRadius:5, padding:"2px 6px",
+                  border:`1px solid ${C2.grn}44` }}>{c}</span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 악보 감지 코드 (있을 때만) */}
+      {chordsForSetup.length === 0 ? (
+        !aiChords && (
+          <div style={{ background:C2.card, borderRadius:12, border:`1px solid ${C2.bdr}`,
+            padding:"12px", textAlign:"center", fontSize:11, color:C2.dim }}>
+            악보 감지 코드 없음 — AI 자동 생성을 사용하거나<br/>AI 분석 탭에서 악보를 분석해주세요
+          </div>
+        )
       ) : (
         <>
-          {/* 감지된 코드 */}
+          {/* 코드 출처 표시 */}
           <div style={{ background:C2.surf, borderRadius:12, border:`1px solid ${C2.bdr}`, padding:"10px 12px" }}>
             <div style={{ fontSize:10, fontWeight:800, color:C2.dim, letterSpacing:"0.05em",
               textTransform:"uppercase", marginBottom:6 }}>
-              악보에서 감지된 코드 ({detectedChords.length}개)
+              {aiChords ? "🤖 AI 생성 코드" : "📄 악보 감지 코드"} ({chordsForSetup.length}개)
             </div>
             <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
-              {detectedChords.map((c, i) => (
-                <span key={i} style={{ fontSize:11, fontWeight:800, color:C2.pur,
-                  background:`${C2.pur}12`, borderRadius:5, padding:"2px 7px",
-                  border:`1px solid ${C2.pur}33` }}>{c}</span>
+              {chordsForSetup.map((c, i) => (
+                <span key={i} style={{ fontSize:11, fontWeight:800,
+                  color: aiChords ? C2.grn : C2.pur,
+                  background: aiChords ? `${C2.grn}12` : `${C2.pur}12`,
+                  borderRadius:5, padding:"2px 7px",
+                  border:`1px solid ${aiChords ? C2.grn : C2.pur}33` }}>{c}</span>
               ))}
             </div>
           </div>
