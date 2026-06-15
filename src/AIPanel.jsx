@@ -130,7 +130,8 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
 
   const isLeader = user?.role === "leader" || user?.role === "admin";
   const myParts = user?.parts || (user?.part ? [user.part] : []);
-  const isElecGuitar = myParts.includes("일렉기타");
+  const isAdmin = user?.role === "admin";
+  const isElecGuitar = isAdmin || myParts.includes("일렉기타");
 
   const [voicings, setVoicings] = useState(null);
   const [voicingLoading, setVoicingLoading] = useState(false);
