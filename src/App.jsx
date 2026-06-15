@@ -15468,19 +15468,35 @@ export default function App() {
     );
   };
 
-  // ── 버전 업데이트 체크
+  // ── 버전 업데이트 체크 (Firestore 기반 — 어드민 파이널 승인 시만 사용자 알림)
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [adminNewBuild,   setAdminNewBuild]   = useState(false);
+  const [releasingBuild,  setReleasingBuild]  = useState(false);
   useEffect(() => {
-    const check = () => {
-      fetch(`/version.json?t=${Date.now()}`)
-        .then(r => r.json())
-        .then(data => { if (data.version && data.version !== APP_VERSION) setUpdateAvailable(true); })
-        .catch(() => {});
-    };
-    check();
-    const tid = setInterval(check, 60 * 1000);
-    return () => clearInterval(tid);
+    // 일반 사용자: Firestore appConfig/release 버전이 바뀌면 알림
+    const unsub = onSnapshot(doc(db, "appConfig", "release"), (snap) => {
+      const v = snap.data()?.version;
+      if (v && v !== APP_VERSION) setUpdateAvailable(true);
+    }, () => {});
+    return () => unsub();
   }, []);
+  useEffect(() => {
+    // 어드민 전용: admin-version.json 빌드 버전 체크
+    if (!isAdmin) return;
+    fetch(`/admin-version.json?t=${Date.now()}`)
+      .then(r => r.json())
+      .then(d => { if (d.build && d.build !== APP_VERSION) setAdminNewBuild(true); })
+      .catch(() => {});
+  }, [isAdmin]);
+  const releaseBuild = async () => {
+    setReleasingBuild(true);
+    try {
+      await setDoc(doc(db, "appConfig", "release"), { version: APP_VERSION, releasedAt: serverTimestamp() });
+      setAdminNewBuild(false);
+      alert(`v${APP_VERSION} 정식 배포 완료! 사용자들에게 업데이트 알림이 갑니다.`);
+    } catch(e) { alert("배포 실패: " + e.message); }
+    finally { setReleasingBuild(false); }
+  };
 
   // ── KakaoTalk 인앱 브라우저 감지 → 외부 브라우저 유도
   const ua = navigator.userAgent || "";
@@ -15569,6 +15585,7 @@ export default function App() {
 
   return (
     <div style={{ width:"100%", height:"100%", background:C.bg }}>
+      {/* 일반 사용자 업데이트 배너 */}
       {updateAvailable && (() => {
         const doUpdate = async () => {
           if ("serviceWorker" in navigator) {
@@ -15590,14 +15607,32 @@ export default function App() {
             touchAction:"manipulation", WebkitTapHighlightColor:"transparent",
           }}>
             <span style={{ fontSize:14, fontWeight:600 }}>🆕 새 버전이 있습니다</span>
-            <span style={{
-              background:"#fff", color:"#1d4ed8",
-              borderRadius:10, padding:"8px 20px",
-              fontWeight:800, fontSize:14,
-            }}>업데이트</span>
+            <span style={{ background:"#fff", color:"#1d4ed8",
+              borderRadius:10, padding:"8px 20px", fontWeight:800, fontSize:14 }}>업데이트</span>
           </div>
         );
       })()}
+      {/* 어드민 전용: 새 빌드 배포 배너 */}
+      {isAdmin && adminNewBuild && !updateAvailable && (
+        <div style={{
+          position:"fixed", top:0, left:0, right:0, zIndex:9999,
+          background:"#7c3aed", color:"#fff",
+          display:"flex", alignItems:"center", justifyContent:"center", gap:12,
+          padding:"10px 16px",
+        }}>
+          <span style={{ fontSize:13, fontWeight:600 }}>🔧 새 빌드 v{APP_VERSION} 준비됨 (어드민만 표시)</span>
+          <button onClick={releaseBuild} disabled={releasingBuild}
+            style={{ background:"#fff", color:"#7c3aed", border:"none",
+              borderRadius:8, padding:"6px 16px", fontWeight:800, fontSize:13,
+              cursor: releasingBuild ? "not-allowed" : "pointer", fontFamily:"inherit" }}>
+            {releasingBuild ? "배포 중…" : "✓ 파이널 배포"}
+          </button>
+          <button onClick={() => setAdminNewBuild(false)}
+            style={{ background:"none", border:"1px solid rgba(255,255,255,0.5)",
+              color:"#fff", borderRadius:6, padding:"4px 10px", fontSize:12,
+              cursor:"pointer", fontFamily:"inherit" }}>나중에</button>
+        </div>
+      )}
       {view === "home"          && <HomeSplashScreen user={user} />}
       {view === "services"      && <ServicesScreen      {...shared} />}
       {view === "foh"           && <HomeScreen           {...shared} />}
