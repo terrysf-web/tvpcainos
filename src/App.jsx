@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.584";
+const APP_VERSION = "3.585";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -781,7 +781,14 @@ function Icon({ n, size = 20, color = C.txt, sw = 2 }) {
 /* ── Chord transposition utilities (module-level) */
 const SEMITONES   = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const FLAT_SHARP  = {Db:'C#',Eb:'D#',Gb:'F#',Ab:'G#',Bb:'A#'};
-const DISPLAY_KEY = {C:'C','C#':'C#',D:'D','D#':'D#',E:'E',F:'F','F#':'F#',G:'G','G#':'G#',A:'A','A#':'A#',B:'B'};
+const DISPLAY_SHARP = {C:'C','C#':'C#',D:'D','D#':'D#',E:'E',F:'F','F#':'F#',G:'G','G#':'G#',A:'A','A#':'A#',B:'B'};
+const DISPLAY_FLAT  = {C:'C','C#':'Db',D:'D','D#':'Eb',E:'E',F:'F','F#':'Gb',G:'G','G#':'Ab',A:'A','A#':'Bb',B:'B'};
+// F major/minor and keys with 'b' in name use flat notation
+function useFlats(key) {
+  if (!key) return false;
+  const root = key.replace(/m$/, '').trim();
+  return root === 'F' || root.includes('b');
+}
 
 function transposeNote(note, steps) {
   const n = FLAT_SHARP[note] || note;
@@ -790,14 +797,15 @@ function transposeNote(note, steps) {
   return SEMITONES[((i + steps) % 12 + 12) % 12];
 }
 
-function transposeChord(chord, steps) {
+function transposeChord(chord, steps, flats = false) {
   if (!chord || steps === 0) return chord;
+  const displayMap = flats ? DISPLAY_FLAT : DISPLAY_SHARP;
   // 슬래시 코드 처리 (예: E/G# → 앞뒤 각각 전조)
   if (chord.includes("/")) {
     const slash = chord.indexOf("/");
     const main = chord.slice(0, slash);
     const bass = chord.slice(slash + 1);
-    return transposeChord(main, steps) + "/" + transposeChord(bass, steps);
+    return transposeChord(main, steps, flats) + "/" + transposeChord(bass, steps, flats);
   }
   // normalize flats to sharps, find root
   const c = chord.replace(/^(Db|Eb|Gb|Ab|Bb)/, m => FLAT_SHARP[m] || m);
@@ -807,15 +815,15 @@ function transposeChord(chord, steps) {
   // if root is not a valid note (e.g. "V", "I", section markers), leave unchanged
   if (SEMITONES.indexOf(FLAT_SHARP[root] || root) === -1) return chord;
   const newRoot = transposeNote(root, steps);
-  // use flat display for common keys
-  return (DISPLAY_KEY[newRoot] || newRoot) + suffix;
+  return (displayMap[newRoot] || newRoot) + suffix;
 }
 
 function keyName(key, steps) {
   if (!key) return '?';
   const n = FLAT_SHARP[key] || key;
   const transposed = SEMITONES[((SEMITONES.indexOf(n) + steps) % 12 + 12) % 12];
-  return DISPLAY_KEY[transposed] || transposed;
+  const displayMap = useFlats(key) ? DISPLAY_FLAT : DISPLAY_SHARP;
+  return displayMap[transposed] || transposed;
 }
 
 /* ── Stamp palette definition (module-level) */
@@ -10343,7 +10351,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                               }}
                                 onPointerDown={canMove ? e => handleChordPointerDown(e, 1, i) : undefined}
                                 onTouchStart={canMove ? e => e.stopPropagation() : undefined}>
-                                {transposeChord(item.chord, transposeSteps)}
+                                {transposeChord(item.chord, transposeSteps, useFlats(song.key))}
                               </span>
                               );
                             })}
@@ -10415,7 +10423,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 }}
                                   onPointerDown={canMove ? e => handleChordPointerDown(e, 2, i) : undefined}
                                   onTouchStart={canMove ? e => e.stopPropagation() : undefined}>
-                                  {transposeChord(item.chord, transposeSteps2)}
+                                  {transposeChord(item.chord, transposeSteps2, useFlats(song.key))}
                                 </span>
                                 );
                               })}
@@ -10503,7 +10511,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 onPointerDown={canMove ? e => handleChordPointerDown(e, 1, i) : undefined}
                                 onTouchStart={canMove ? e => e.stopPropagation() : undefined}
                               >
-                                {transposeChord(item.chord, transposeSteps)}
+                                {transposeChord(item.chord, transposeSteps, useFlats(song.key))}
                               </span>
                               );
                             })}
