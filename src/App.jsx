@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.603";
+const APP_VERSION = "3.604";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1471,22 +1471,27 @@ function ChordSyncPanel({ song, user, ytIframeRef }) {
       ) : (
         <>
           {/* 시작 / 리셋 */}
+          {!tracking && (
+            <div style={{ background:`${C2.pur}10`, border:`1px solid ${C2.pur}33`,
+              borderRadius:9, padding:"7px 10px", fontSize:11, color:C2.txt, lineHeight:1.6 }}>
+              <b style={{ color:C2.pur }}>① 위 유튜브 영상</b>을 직접 탭해서 재생<br/>
+              <b style={{ color:C2.pur }}>② 아래 버튼</b>으로 코드 타이머 시작
+            </div>
+          )}
           <div style={{ display:"flex", gap:6 }}>
             <button type="button" onClick={() => {
-                ytCmd(ytIframeRef, "playVideo");
                 setWallStart(Date.now()); setCurrentTime(0); setTracking(true);
               }}
               style={{ flex:1, padding:"10px 0", borderRadius:9, border:"none", cursor:"pointer",
-                background:C2.pur, color:"#fff", fontSize:13, fontWeight:800 }}>
-              {tracking ? "⏱ 진행 중…" : "▶ 재생 + 코드 시작"}
+                background: tracking ? C2.dim : C2.pur, color:"#fff", fontSize:13, fontWeight:800 }}>
+              {tracking ? "⏱ 진행 중…" : "② 코드 시작"}
             </button>
             <button type="button" onClick={() => {
-                ytCmd(ytIframeRef, "pauseVideo");
                 setTracking(false); setCurrentTime(0); setWallStart(null);
               }}
               style={{ padding:"10px 12px", borderRadius:9, border:`1px solid ${C2.bdr}`,
                 background:"transparent", color:C2.dim, fontSize:13, cursor:"pointer" }}>
-              ⏹
+              ↺
             </button>
           </div>
 
