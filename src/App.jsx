@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.611";
+const APP_VERSION = "3.612";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1402,11 +1402,15 @@ function ChordSyncPanel({ song, user, ytIframeRef }) {
   const [aiGenErr, setAiGenErr] = useState("");
   const [saveErr, setSaveErr] = useState("");
   const [transpose, setTranspose] = useState(0);
+  const [ytDetecting, setYtDetecting] = useState(false);
+  const [ytDetectErr, setYtDetectErr] = useState("");
+  const [ytDetectedTimeline, setYtDetectedTimeline] = useState(null);
 
   useEffect(() => {
     setTimeline(song?.chordTimeline || []);
     setCurrentTime(0); setTracking(false); setWallStart(null);
     setAiChords(null); setAiGenErr(""); setSaveErr(""); setTranspose(0);
+    setYtDetectedTimeline(null); setYtDetectErr("");
   }, [song?.id]);
 
   useEffect(() => {
@@ -1446,6 +1450,46 @@ function ChordSyncPanel({ song, user, ytIframeRef }) {
     autoGenerateTimeline(transposedChords, mmssToSecCS(ytStart), song?.bpm, beatsPerChord),
     [transposedChords, ytStart, song?.bpm, beatsPerChord]
   );
+
+  const detectChordsFromYoutube = async () => {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) { setYtDetectErr("API 키 없음"); return; }
+    if (!song?.youtubeUrl) { setYtDetectErr("YouTube URL이 없습니다"); return; }
+    setYtDetecting(true); setYtDetectErr(""); setYtDetectedTimeline(null);
+    const prompt = `이 YouTube 음악 영상의 오디오를 분석해서 코드 진행을 타임라인으로 반환해주세요.
+설명 없이 JSON 배열만 반환. 형식: [{"chord":"A","time":5.2},{"chord":"Bm","time":8.0}]
+
+인트로부터 엔딩까지 코드가 바뀔 때마다 순서대로 전부 포함.
+time은 영상 시작부터의 초(seconds) 단위. 코드는 영어 코드네임으로.`;
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        { method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ contents:[{ parts:[
+            { fileData: { mimeType: "video/*", fileUri: song.youtubeUrl } },
+            { text: prompt }
+          ] }] }) }
+      );
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const cleaned = text.replace(/```[\w]*\n?/g,"").replace(/```/g,"").trim();
+      const m = cleaned.match(/\[[\s\S]*?\]/);
+      if (m) {
+        try {
+          const fixed = m[0].replace(/,\s*([\]}])/g,"$1");
+          const parsed = JSON.parse(fixed);
+          if (Array.isArray(parsed) && parsed.length > 0 &&
+              parsed[0].chord && parsed[0].time !== undefined) {
+            setYtDetectedTimeline(parsed);
+            return;
+          }
+        } catch(_) {}
+      }
+      setYtDetectErr("코드를 파싱하지 못했습니다. 다시 시도해주세요.");
+    } catch(e) { setYtDetectErr(e.message); }
+    finally { setYtDetecting(false); }
+  };
 
   const generateChordsWithAI = async () => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -1652,12 +1696,69 @@ BPM: ${song.bpm || 80}
         }}>⚙ 세팅</button>
       </div>
 
+      {/* YouTube 코드 감지 */}
+      {song?.youtubeUrl && (
+        <div style={{ background:C2.surf, borderRadius:12, border:`1.5px solid ${C2.pur}`, padding:"10px 12px" }}>
+          <div style={{ fontSize:10, fontWeight:800, color:C2.pur, letterSpacing:"0.05em",
+            textTransform:"uppercase", marginBottom:6 }}>🎵 YouTube 오디오 코드 감지</div>
+          <div style={{ fontSize:11, color:C2.dim, marginBottom:8, lineHeight:1.5 }}>
+            AI가 YouTube 음원을 직접 분석해 코드와 타임스탬프를 감지합니다
+          </div>
+          <button type="button" onClick={detectChordsFromYoutube} disabled={ytDetecting}
+            style={{ width:"100%", padding:"9px 0", borderRadius:9, border:"none", cursor:"pointer",
+              background: ytDetecting ? C2.dim : C2.pur, color:"#fff", fontSize:12, fontWeight:800 }}>
+            {ytDetecting ? "감지 중… (30~60초)" : "🎵 YouTube에서 코드 감지"}
+          </button>
+          {ytDetectErr && <div style={{ fontSize:11, color:C2.red, marginTop:6 }}>{ytDetectErr}</div>}
+          {ytDetectedTimeline && (
+            <div style={{ marginTop:8 }}>
+              <div style={{ fontSize:10, color:C2.grn, fontWeight:700, marginBottom:6 }}>
+                ✓ 감지 완료 ({ytDetectedTimeline.length}개 코드)
+                <button type="button" onClick={() => setYtDetectedTimeline(null)}
+                  style={{ marginLeft:8, fontSize:10, color:C2.dim, background:"none",
+                    border:"none", cursor:"pointer", padding:0 }}>✕ 초기화</button>
+              </div>
+              <div style={{ display:"flex", gap:3, overflowX:"auto", scrollbarWidth:"none", marginBottom:8 }}>
+                {ytDetectedTimeline.slice(0,20).map((e,i) => (
+                  <div key={i} style={{ flexShrink:0, padding:"3px 6px", borderRadius:6,
+                    textAlign:"center", background:`${C2.pur}12`, border:`1px solid ${C2.pur}33` }}>
+                    <div style={{ fontSize:12, fontWeight:800, color:C2.pur }}>
+                      {transposeChord(e.chord, transpose)}
+                    </div>
+                    <div style={{ fontSize:7, color:C2.dim }}>
+                      {Math.floor(e.time/60)}:{String(Math.floor(e.time%60)).padStart(2,"0")}
+                    </div>
+                  </div>
+                ))}
+                {ytDetectedTimeline.length > 20 && (
+                  <div style={{ flexShrink:0, display:"flex", alignItems:"center",
+                    fontSize:10, color:C2.dim, paddingLeft:4 }}>+{ytDetectedTimeline.length-20}</div>
+                )}
+              </div>
+              <button type="button" onClick={async () => {
+                  const tl = ytDetectedTimeline.map(e => ({
+                    chord: transposeChord(e.chord, transpose),
+                    time: e.time
+                  }));
+                  await saveTimeline(tl);
+                  if (!saveErr) { setYtDetectedTimeline(null); setTab("play"); }
+                }}
+                style={{ width:"100%", padding:"9px 0", borderRadius:9, border:"none",
+                  cursor:"pointer", background:C2.grn, color:"#fff", fontSize:12, fontWeight:800 }}>
+                ✓ 이 코드로 저장하고 재생 모드로
+              </button>
+              {saveErr && <div style={{ fontSize:11, color:C2.red, marginTop:4 }}>{saveErr}</div>}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* AI 코드 자동 생성 */}
       <div style={{ background:C2.surf, borderRadius:12, border:`1px solid ${C2.bdr}`, padding:"10px 12px" }}>
         <div style={{ fontSize:10, fontWeight:800, color:C2.dim, letterSpacing:"0.05em",
-          textTransform:"uppercase", marginBottom:8 }}>🤖 AI 코드 자동 생성</div>
+          textTransform:"uppercase", marginBottom:8 }}>🤖 AI 코드 자동 생성 (곡 정보 기반)</div>
         <div style={{ fontSize:11, color:C2.dim, marginBottom:8, lineHeight:1.5 }}>
-          악보 없이도 곡 정보로 AI가 코드를 생성합니다
+          곡 정보로 AI가 코드를 생성합니다 (타임스탬프 없음)
         </div>
         <button type="button" onClick={generateChordsWithAI} disabled={aiGenLoading}
           style={{ width:"100%", padding:"8px 0", borderRadius:9, border:"none", cursor:"pointer",
