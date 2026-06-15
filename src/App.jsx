@@ -15381,14 +15381,16 @@ export default function App() {
   return (
     <div style={{ width:"100%", height:"100%", background:C.bg }}>
       {updateAvailable && (() => {
-        const doUpdate = () => {
+        const doUpdate = async () => {
           if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.getRegistrations()
-              .then(regs => { regs.forEach(r => r.unregister()); })
-              .finally(() => window.location.reload());
-          } else {
-            window.location.reload();
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
           }
+          if ("caches" in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+          }
+          window.location.href = window.location.pathname + "?t=" + Date.now();
         };
         return (
           <div onClick={doUpdate} style={{
