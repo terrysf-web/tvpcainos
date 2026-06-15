@@ -194,14 +194,14 @@ function listenAutomation() {
   console.log('👂 Firestore liveStatus/automation 구독 중...');
 })();
 
-// ── Heartbeat (30초마다 liveStatus/bridge 갱신) ───────
+// ── Heartbeat (60초마다 liveStatus/bridge 갱신) ───────
 function startHeartbeat() {
   const write = () =>
     db.collection('liveStatus').doc('bridge')
       .set({ updatedAt: admin.firestore.FieldValue.serverTimestamp() })
       .catch(e => console.warn('Heartbeat 실패:', e.message));
   write();
-  setInterval(write, 30_000);
+  setInterval(write, 60_000);
 }
 
 process.on('SIGINT',  () => { console.log('\n종료'); process.exit(0); });

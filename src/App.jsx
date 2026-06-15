@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.582";
+const APP_VERSION = "3.583";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -11721,11 +11721,10 @@ function TeamManagementModal({ currentUserId, onClose }) {
       })
       .catch(e => { console.error("팀원 로드 실패:", e); setLoading(false); });
 
-    // 허용 이메일 — 실시간
-    const unsub = onSnapshot(collection(db, "allowedEmails"),
-      snap => setAllowedEmails(snap.docs.map(d => ({ email: d.id, ...d.data() }))),
-      e => console.error("allowedEmails 실패:", e)
-    );
+    // 허용 이메일 — 일회성 읽기 (변경 드문 데이터라 실시간 불필요)
+    getDocs(collection(db, "allowedEmails"))
+      .then(snap => setAllowedEmails(snap.docs.map(d => ({ email: d.id, ...d.data() }))))
+      .catch(e => console.error("allowedEmails 실패:", e));
 
     // 액세스 신청 대기 — 실시간
     const unsubReq = onSnapshot(
@@ -11734,7 +11733,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
       e => console.error("accessRequests 실패:", e)
     );
 
-    return () => { unsub(); unsubReq(); };
+    return () => { unsubReq(); };
   }, []);
 
   const approveRequest = async (req) => {
@@ -12676,7 +12675,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
     return onSnapshot(doc(db, "liveStatus", "bridge"), snap => {
       if (!snap.exists()) { setBridgeOnline(false); return; }
       const ts = snap.data()?.updatedAt?.toMillis?.();
-      setBridgeOnline(!!ts && Date.now() - ts < 75_000);
+      setBridgeOnline(!!ts && Date.now() - ts < 90_000);
     });
   }, []);
 
