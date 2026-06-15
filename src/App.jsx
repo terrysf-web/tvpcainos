@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.606";
+const APP_VERSION = "3.607";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -11179,11 +11179,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 </button>
               ))}
             </div>
-            <div style={{ flex:1, overflow:"auto" }}>
-              {mediaPanelTab === "ai"
-                ? <AIPanel song={song} user={user} pdfCanvasRef={canvas1Ref} />
-                : <ChordSyncPanel song={song} user={user} ytIframeRef={ytIframeRef} />
-              }
+            <div style={{ flex:1, overflow:"auto", position:"relative" }}>
+              <div style={{ display: mediaPanelTab === "ai" ? "block" : "none" }}>
+                <AIPanel song={song} user={user} pdfCanvasRef={canvas1Ref} />
+              </div>
+              <div style={{ display: mediaPanelTab === "chords" ? "block" : "none" }}>
+                <ChordSyncPanel song={song} user={user} ytIframeRef={ytIframeRef} />
+              </div>
             </div>
           </div>
         )}
