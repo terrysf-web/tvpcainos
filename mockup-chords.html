@@ -6,341 +6,237 @@
 <title>코드 싱크 목업</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
-  body { background: #f2f2f7; min-height: 100vh; }
+  body { background: #f2f2f7; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
   :root {
-    --bg: #f2f2f7; --surf: #ffffff; --card: #f8f8fb; --bdr: #e5e5ea;
-    --acc: #e8a93e; --pur: #6b5de7; --grn: #34c759; --txt: #1c1c1e;
-    --dim: #8e8e93; --red: #ff3b30;
+    --bg: #f2f2f7; --surf: #fff; --card: #f8f8fb; --bdr: #e5e5ea;
+    --pur: #6b5de7; --txt: #1c1c1e; --dim: #8e8e93; --red: #ff3b30;
   }
 
-  /* ── 탭 ── */
-  .tabs { display:flex; background:var(--surf); border-bottom:1px solid var(--bdr); }
-  .tab { flex:1; padding:11px 0; text-align:center; font-size:12px; font-weight:700;
-    color:var(--dim); cursor:pointer; border-bottom:2px solid transparent; }
-  .tab.on { color:var(--pur); border-bottom-color:var(--pur); }
+  /* 헤더 */
+  .hdr { background: var(--surf); border-bottom: 1px solid var(--bdr);
+    padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .hdr-title { font-size: 14px; font-weight: 800; color: var(--txt); }
+  .hdr-key { font-size: 11px; font-weight: 700; background: #6b5de718; color: var(--pur);
+    border: 1px solid #6b5de733; border-radius: 6px; padding: 2px 8px; }
 
-  /* ── 유튜브 플레이어 ── */
-  .yt-wrap { background:#000; position:relative; padding-top:56.25%; }
-  .yt-placeholder { position:absolute; inset:0; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:10px; }
-  .yt-thumb { width:100%; height:100%; object-fit:cover; opacity:0.7; }
-  .yt-play { width:56px; height:56px; background:rgba(255,0,0,0.85); border-radius:50%;
-    display:flex; align-items:center; justify-content:center; cursor:pointer; }
-  .yt-play::after { content:"▶"; color:#fff; font-size:22px; margin-left:4px; }
-  .yt-title { color:#fff; font-size:13px; font-weight:700; text-shadow:0 1px 3px rgba(0,0,0,0.8); }
-  .yt-bar { position:absolute; bottom:0; left:0; right:0; height:3px; background:rgba(255,255,255,0.3); }
-  .yt-prog { height:100%; width:38%; background:#ff3b30; }
-  .yt-time { position:absolute; bottom:8px; right:10px; color:#fff; font-size:11px; font-weight:700; }
+  /* 유튜브 미니 */
+  .yt-mini { background: #111827; display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px; flex-shrink: 0; }
+  .yt-thumb-mini { width: 64px; height: 36px; background: #1e293b; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .yt-info { flex: 1; min-width: 0; }
+  .yt-song { font-size: 12px; font-weight: 700; color: #fff; }
+  .yt-progress { height: 3px; background: rgba(255,255,255,0.2); border-radius: 2px; margin-top: 5px; }
+  .yt-fill { height: 100%; width: 38%; background: #ff3b30; border-radius: 2px; }
+  .yt-time { font-size: 10px; color: rgba(255,255,255,0.6); margin-top: 3px; }
+  .yt-ctrl { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .yt-btn { width: 32px; height: 32px; border-radius: 50%; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .yt-play-btn { background: #ff3b30; color: #fff; }
+  .yt-skip-btn { background: rgba(255,255,255,0.15); color: #fff; }
 
-  /* ── 코드 싱크 패널 ── */
-  .chord-panel { padding:12px; display:flex; flex-direction:column; gap:10px; }
+  /* 메인 */
+  .main { flex: 1; overflow-y: auto; scrollbar-width: none; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .main::-webkit-scrollbar { display: none; }
 
-  /* 현재 코드 */
-  .cur-chord-row { display:flex; gap:10px; align-items:stretch; }
-  .cur-chord-box { flex:1; background:var(--surf); border:2px solid var(--pur);
-    border-radius:14px; padding:12px; display:flex; flex-direction:column; align-items:center; gap:6px; }
-  .cur-label { font-size:10px; font-weight:800; color:var(--pur); letter-spacing:0.06em; text-transform:uppercase; }
-  .cur-name { font-size:52px; font-weight:900; color:var(--pur); line-height:1; letter-spacing:-2px; }
-  .cur-type { font-size:13px; color:var(--dim); font-weight:600; }
+  /* 현재 코드 (큰 카드) */
+  .cur-card { background: var(--pur); border-radius: 16px; padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px; }
+  .cur-left { flex: 1; }
+  .cur-label { font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.65); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 2px; }
+  .cur-name { font-size: 64px; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -3px; }
+  .cur-sub { font-size: 13px; color: rgba(255,255,255,0.75); font-weight: 600; margin-top: 2px; }
+  .cur-right { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
 
-  /* 기타 다이어그램 */
-  .diagram-box { background:var(--surf); border:1px solid var(--bdr); border-radius:14px;
-    padding:10px 12px; display:flex; flex-direction:column; align-items:center; gap:4px; flex:0 0 auto; }
-  .diag-label { font-size:10px; font-weight:800; color:var(--dim); letter-spacing:0.05em; }
-  .guitar-diag { position:relative; width:72px; height:86px; }
-  /* 줄 (세로) */
-  .g-strings { position:absolute; inset:0; display:flex; justify-content:space-between; padding:0 4px; }
-  .g-str { width:1px; background:#ccc; height:100%; }
-  /* 프렛 (가로) */
-  .g-frets { position:absolute; inset:0; display:flex; flex-direction:column; padding:0 4px; }
-  .g-fret { height:1px; background:#bbb; width:100%; }
-  .g-nut { height:3px; background:var(--txt); width:100%; }
-  /* 손가락 */
-  .g-dot { position:absolute; width:14px; height:14px; border-radius:50%;
-    background:var(--pur); transform:translate(-50%,-50%); }
-  .g-open { position:absolute; width:11px; height:11px; border-radius:50%;
-    border:2px solid var(--txt); transform:translate(-50%,-50%); }
-  .g-mute { position:absolute; font-size:10px; font-weight:800; color:var(--red);
-    transform:translate(-50%,-50%); line-height:1; }
+  /* 다음 코드 미리보기 */
+  .next-box { background: rgba(255,255,255,0.15); border-radius: 10px; padding: 8px 12px; text-align: center; }
+  .next-lbl { font-size: 9px; color: rgba(255,255,255,0.65); font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
+  .next-name { font-size: 28px; font-weight: 900; color: #fff; line-height: 1; }
+
+  /* 악기 다이어그램 가로 배치 */
+  .diag-row { display: flex; gap: 8px; }
+
+  /* 기타 */
+  .guitar-card { background: var(--surf); border: 1px solid var(--bdr); border-radius: 14px;
+    padding: 10px 12px; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .diag-title { font-size: 10px; font-weight: 800; color: var(--dim); letter-spacing: 0.05em; text-transform: uppercase; }
+  .guitar-diag { position: relative; width: 80px; height: 96px; }
+  .g-frets-wrap { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 0 5px; }
+  .g-nut { height: 4px; background: var(--txt); width: 100%; border-radius: 2px; }
+  .g-fret-area { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding-top: 2px; }
+  .g-fret { height: 1px; background: #d0d0d0; width: 100%; }
+  .g-strings-wrap { position: absolute; inset: 0; display: flex; justify-content: space-between; padding: 4px 5px 0; }
+  .g-str { width: 1px; background: #c0c0c0; height: 100%; }
+  .g-dot { position: absolute; width: 15px; height: 15px; border-radius: 50%;
+    background: var(--pur); transform: translate(-50%, -50%); }
+  .g-open { position: absolute; width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid var(--txt); transform: translate(-50%, -50%); }
+  .g-mute { position: absolute; font-size: 11px; font-weight: 800; color: var(--red);
+    transform: translate(-50%, -50%); line-height: 1; }
+  .chord-name-tag { font-size: 12px; font-weight: 800; color: var(--pur); }
 
   /* 피아노 */
-  .piano-box { background:var(--surf); border:1px solid var(--bdr); border-radius:14px;
-    padding:10px 12px; display:flex; flex-direction:column; align-items:center; gap:4px; }
-  .piano-wrap { position:relative; height:52px; }
-  .piano-keys { display:flex; gap:1px; }
-  .wkey { width:18px; height:52px; background:#fff; border:1px solid #ccc;
-    border-radius:0 0 4px 4px; position:relative; display:flex; align-items:flex-end;
-    justify-content:center; padding-bottom:3px; cursor:pointer; }
-  .wkey.lit { background:#6b5de744; border-color:var(--pur); }
-  .wkey.root { background:var(--pur); border-color:var(--pur); }
-  .wkey .kname { font-size:7px; font-weight:700; color:var(--dim); line-height:1; }
-  .wkey.lit .kname { color:var(--pur); }
-  .wkey.root .kname { color:#fff; }
-  .bkeys { position:absolute; top:0; left:0; right:0; pointer-events:none; }
-  .bkey { position:absolute; width:12px; height:32px; background:#222; border-radius:0 0 3px 3px;
-    top:0; transform:translateX(-50%); }
-  .bkey.lit { background:var(--pur); }
+  .piano-card { background: var(--surf); border: 1px solid var(--bdr); border-radius: 14px;
+    padding: 10px 12px; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .piano-notes { font-size: 11px; font-weight: 700; color: var(--pur); }
+  .piano-wrap { position: relative; }
+  .piano-keys { display: flex; gap: 1.5px; }
+  .wkey { width: 20px; height: 58px; background: #fff; border: 1px solid #ddd;
+    border-radius: 0 0 5px 5px; position: relative; display: flex; align-items: flex-end;
+    justify-content: center; padding-bottom: 3px; }
+  .wkey.lit { background: #6b5de722; border-color: var(--pur); }
+  .wkey.root { background: var(--pur); border-color: var(--pur); }
+  .wkey .kn { font-size: 7px; font-weight: 700; color: var(--dim); }
+  .wkey.lit .kn { color: var(--pur); }
+  .wkey.root .kn { color: #fff; }
+  .bkeys-abs { position: absolute; top: 0; left: 0; pointer-events: none; }
+  .bkey { position: absolute; width: 13px; height: 36px; background: #1c1c1e;
+    border-radius: 0 0 4px 4px; top: 0; }
+  .bkey.lit { background: var(--pur); }
 
-  /* 다음 코드 */
-  .next-row { display:flex; gap:6px; align-items:center; }
-  .next-label { font-size:10px; font-weight:800; color:var(--dim); letter-spacing:0.05em;
-    text-transform:uppercase; flex-shrink:0; }
-  .next-chips { display:flex; gap:5px; overflow-x:auto; scrollbar-width:none; flex:1; }
-  .next-chips::-webkit-scrollbar { display:none; }
-  .next-chip { flex-shrink:0; background:var(--card); border:1px solid var(--bdr);
-    border-radius:8px; padding:5px 10px; font-size:14px; font-weight:800; color:var(--txt); }
-  .next-chip.soon { background:#6b5de712; border-color:var(--pur); color:var(--pur); }
-
-  /* 전체 진행표 */
-  .progress-bar { height:4px; background:var(--bdr); border-radius:2px; overflow:hidden; }
-  .progress-fill { height:100%; width:38%; background:var(--pur); border-radius:2px; }
-
-  .chord-timeline { background:var(--surf); border-radius:12px; border:1px solid var(--bdr);
-    padding:10px 12px; }
-  .tl-hd { font-size:10px; font-weight:800; color:var(--dim); letter-spacing:0.05em;
-    text-transform:uppercase; margin-bottom:8px; }
-  .tl-row { display:flex; gap:0; overflow-x:auto; scrollbar-width:none; }
-  .tl-row::-webkit-scrollbar { display:none; }
-  .tl-cell { flex-shrink:0; padding:4px 8px; border-radius:6px; font-size:13px; font-weight:800;
-    color:var(--txt); border:1.5px solid transparent; text-align:center; min-width:36px; }
-  .tl-cell.active { background:#6b5de712; border-color:var(--pur); color:var(--pur); }
-  .tl-cell.past { color:var(--dim); }
-  .tl-time { font-size:8px; color:var(--dim); font-weight:600; margin-top:1px; }
-
-  /* ── 세팅 모드 탭 ── */
-  .setup-panel { padding:12px; display:flex; flex-direction:column; gap:10px; }
-  .info-card { background:var(--surf); border-radius:12px; border:1px solid var(--bdr); padding:12px; }
-  .info-hd { font-size:11px; font-weight:800; color:var(--pur); margin-bottom:6px; }
-  .info-txt { font-size:12px; color:var(--dim); line-height:1.6; }
-  .detected-chords { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
-  .det-chip { background:#6b5de712; border:1px solid var(--pur); border-radius:6px;
-    padding:3px 9px; font-size:12px; font-weight:800; color:var(--pur); }
-  .tap-btn { width:100%; padding:16px; border-radius:14px; font-size:16px; font-weight:800;
-    border:none; cursor:pointer; background:var(--pur); color:#fff; letter-spacing:0.02em; }
-  .tap-btn:active { opacity:0.8; transform:scale(0.98); }
-  .tap-hint { font-size:11px; color:var(--dim); text-align:center; }
-
-  .step-row { display:flex; align-items:flex-start; gap:10px; padding:8px 0;
-    border-bottom:1px solid var(--bdr); }
-  .step-row:last-child { border-bottom:none; }
-  .step-num { width:22px; height:22px; border-radius:50%; background:var(--pur);
-    color:#fff; font-size:11px; font-weight:800; display:flex; align-items:center;
-    justify-content:center; flex-shrink:0; }
-  .step-txt { font-size:12px; color:var(--txt); line-height:1.5; padding-top:2px; }
-  .step-txt b { color:var(--pur); }
-
-  /* hidden panel */
-  .panel { display:none; }
-  .panel.on { display:block; }
+  /* 타임라인 */
+  .timeline-card { background: var(--surf); border: 1px solid var(--bdr); border-radius: 14px; overflow: hidden; }
+  .tl-hd { font-size: 10px; font-weight: 800; color: var(--dim); letter-spacing: 0.05em;
+    text-transform: uppercase; padding: 8px 12px; border-bottom: 1px solid var(--bdr); }
+  .tl-scroll { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 8px 12px; }
+  .tl-scroll::-webkit-scrollbar { display: none; }
+  .tl-cell { flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+    padding: 5px 8px; border-radius: 8px; border: 1.5px solid transparent; min-width: 38px; cursor: pointer; }
+  .tl-cell.past { color: var(--dim); }
+  .tl-cell.past .tc { color: var(--dim); }
+  .tl-cell.active { background: #6b5de712; border-color: var(--pur); }
+  .tl-cell.active .tc { color: var(--pur); font-weight: 900; }
+  .tc { font-size: 15px; font-weight: 800; color: var(--txt); line-height: 1; }
+  .tt { font-size: 8px; color: var(--dim); font-weight: 600; margin-top: 2px; }
 </style>
 </head>
 <body>
 
-<!-- 탭 -->
-<div class="tabs">
-  <div class="tab on" onclick="showTab('play')">▶ 재생 + 코드</div>
-  <div class="tab" onclick="showTab('setup')">⚙ 코드 세팅</div>
+<!-- 헤더 -->
+<div class="hdr">
+  <div class="hdr-title">나로부터 시작되리</div>
+  <div class="hdr-key">Key A</div>
 </div>
 
-<!-- ══ 재생 탭 ══ -->
-<div id="tab-play" class="panel on">
+<!-- 유튜브 미니 플레이어 -->
+<div class="yt-mini">
+  <div class="yt-thumb-mini">🎵</div>
+  <div class="yt-info">
+    <div class="yt-song">나로부터 시작되리 — 어노인팅</div>
+    <div class="yt-progress"><div class="yt-fill"></div></div>
+    <div class="yt-time">1:24 / 3:52</div>
+  </div>
+  <div class="yt-ctrl">
+    <button class="yt-btn yt-skip-btn">⏮</button>
+    <button class="yt-btn yt-play-btn">⏸</button>
+    <button class="yt-btn yt-skip-btn">⏭</button>
+  </div>
+</div>
 
-  <!-- 유튜브 -->
-  <div class="yt-wrap">
-    <div class="yt-placeholder" style="background:linear-gradient(135deg,#1a1a2e,#16213e)">
-      <div style="font-size:40px">🎵</div>
-      <div class="yt-title">나로부터 시작되리 (Key A)</div>
-      <div class="yt-play"></div>
-      <div class="yt-time">1:24 / 3:52</div>
+<!-- 메인 콘텐츠 -->
+<div class="main">
+
+  <!-- 현재 코드 크게 -->
+  <div class="cur-card">
+    <div class="cur-left">
+      <div class="cur-label">지금 코드</div>
+      <div class="cur-name">D</div>
+      <div class="cur-sub">D · F# · A</div>
     </div>
-    <div class="yt-bar"><div class="yt-prog"></div></div>
+    <div class="cur-right">
+      <div class="next-box">
+        <div class="next-lbl">다음</div>
+        <div class="next-name">E</div>
+      </div>
+    </div>
   </div>
 
-  <div class="chord-panel">
+  <!-- 기타 + 피아노 다이어그램 -->
+  <div class="diag-row">
 
-    <!-- 진행 바 -->
-    <div class="progress-bar"><div class="progress-fill"></div></div>
-
-    <!-- 현재 코드 + 다이어그램 -->
-    <div class="cur-chord-row">
-
-      <!-- 현재 코드 이름 -->
-      <div class="cur-chord-box">
-        <div class="cur-label">현재 코드</div>
-        <div class="cur-name">D</div>
-        <div class="cur-type">Major</div>
-      </div>
-
-      <!-- 기타 다이어그램 -->
-      <div class="diagram-box">
-        <div class="diag-label">🎸 기타</div>
+    <!-- 기타 다이어그램 -->
+    <div class="guitar-card">
+      <div class="diag-title">🎸 기타</div>
+      <div class="guitar-diag">
+        <!-- 프렛 -->
+        <div class="g-frets-wrap">
+          <div class="g-nut"></div>
+          <div class="g-fret-area">
+            <div class="g-fret"></div>
+            <div class="g-fret"></div>
+            <div class="g-fret"></div>
+            <div class="g-fret"></div>
+          </div>
+        </div>
+        <!-- 줄 -->
+        <div class="g-strings-wrap">
+          <div class="g-str"></div><div class="g-str"></div>
+          <div class="g-str"></div><div class="g-str"></div>
+          <div class="g-str"></div><div class="g-str"></div>
+        </div>
         <!-- D Major: xx0232 -->
-        <div class="guitar-diag">
-          <div class="g-frets" style="gap:0">
-            <div class="g-nut"></div>
-            <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;padding-top:2px">
-              <div class="g-fret"></div>
-              <div class="g-fret"></div>
-              <div class="g-fret"></div>
-              <div class="g-fret"></div>
-            </div>
-          </div>
-          <div class="g-strings">
-            <div class="g-str"></div>
-            <div class="g-str"></div>
-            <div class="g-str"></div>
-            <div class="g-str"></div>
-            <div class="g-str"></div>
-            <div class="g-str"></div>
-          </div>
-          <!-- x x 0 2 3 2 -->
-          <div class="g-mute" style="left:4px;top:-8px">×</div>
-          <div class="g-mute" style="left:18px;top:-8px">×</div>
-          <div class="g-open" style="left:32px;top:-8px"></div>
-          <div class="g-dot" style="left:46px;top:26px"></div>
-          <div class="g-dot" style="left:60px;top:40px"></div>
-          <div class="g-dot" style="left:74px;top:26px"></div>
-        </div>
-        <div style="font-size:9px;color:var(--dim);font-weight:700">D Major</div>
+        <!-- 줄 간격: 80px / 5 = 14px, 첫 줄 left=5px -->
+        <div class="g-mute"  style="left:5px;top:-6px">×</div>
+        <div class="g-mute"  style="left:19px;top:-6px">×</div>
+        <div class="g-open"  style="left:33px;top:-6px"></div>
+        <div class="g-dot"   style="left:47px;top:27px"></div>
+        <div class="g-dot"   style="left:61px;top:43px"></div>
+        <div class="g-dot"   style="left:75px;top:27px"></div>
       </div>
-
+      <div class="chord-name-tag">D Major</div>
     </div>
 
-    <!-- 피아노 건반 -->
-    <div class="piano-box">
-      <div class="diag-label">🎹 피아노 — D · F# · A</div>
+    <!-- 피아노 다이어그램 -->
+    <div class="piano-card">
+      <div class="diag-title">🎹 피아노</div>
+      <div class="piano-notes">D · F# · A</div>
       <div class="piano-wrap">
+        <!-- 흰 건반: C D E F G A B C -->
+        <!-- 각 흰 건반 width=20, gap=1.5 → 총폭 ≈ 169px -->
         <div class="piano-keys">
-          <!-- C D E F G A B C D -->
-          <div class="wkey"><span class="kname">C</span></div>
-          <div class="wkey root"><span class="kname" style="color:#fff">D</span></div>
-          <div class="wkey"><span class="kname">E</span></div>
-          <div class="wkey"><span class="kname">F</span></div>
-          <div class="wkey lit"><span class="kname">G</span></div>
-          <div class="wkey lit"><span class="kname">A</span></div>
-          <div class="wkey"><span class="kname">B</span></div>
-          <div class="wkey"><span class="kname">C</span></div>
-          <div class="wkey root"><span class="kname" style="color:#fff">D</span></div>
+          <div class="wkey"><span class="kn">C</span></div>
+          <div class="wkey root"><span class="kn" style="color:#fff">D</span></div>
+          <div class="wkey"><span class="kn">E</span></div>
+          <div class="wkey"><span class="kn">F</span></div>
+          <div class="wkey"><span class="kn">G</span></div>
+          <div class="wkey lit"><span class="kn">A</span></div>
+          <div class="wkey"><span class="kn">B</span></div>
+          <div class="wkey"><span class="kn">C</span></div>
         </div>
-        <div class="bkeys" style="width:162px">
-          <!-- C# Eb F# Ab Bb -->
-          <div class="bkey" style="left:13px"></div>
-          <div class="bkey" style="left:31px"></div>
-          <div class="bkey lit" style="left:67px"></div><!-- F# -->
-          <div class="bkey" style="left:85px"></div>
-          <div class="bkey" style="left:103px"></div>
-          <div class="bkey" style="left:139px"></div>
+        <!-- 검은 건반 (절대 위치): C#=14, Eb=35.5, F#=78, Ab=99.5, Bb=121 -->
+        <div class="bkeys-abs" style="width:169px;height:58px;position:relative;pointer-events:none">
+          <div class="bkey" style="left:14px"></div>    <!-- C# -->
+          <div class="bkey" style="left:35.5px"></div>  <!-- Eb -->
+          <div class="bkey lit" style="left:78px"></div>  <!-- F# -->
+          <div class="bkey" style="left:99.5px"></div>  <!-- Ab -->
+          <div class="bkey" style="left:121px"></div>   <!-- Bb -->
         </div>
       </div>
     </div>
 
-    <!-- 다음 코드 -->
-    <div class="next-row">
-      <div class="next-label">다음</div>
-      <div class="next-chips">
-        <div class="next-chip soon">E</div>
-        <div class="next-chip">A</div>
-        <div class="next-chip">F#m</div>
-        <div class="next-chip">D</div>
-        <div class="next-chip">E</div>
-        <div class="next-chip">A</div>
-      </div>
-    </div>
-
-    <!-- 타임라인 -->
-    <div class="chord-timeline">
-      <div class="tl-hd">📋 전체 진행</div>
-      <div class="tl-row">
-        <div class="tl-cell past">A<div class="tl-time">0:05</div></div>
-        <div class="tl-cell past">E<div class="tl-time">0:13</div></div>
-        <div class="tl-cell past">F#m<div class="tl-time">0:21</div></div>
-        <div class="tl-cell past">D<div class="tl-time">0:29</div></div>
-        <div class="tl-cell past">A<div class="tl-time">0:37</div></div>
-        <div class="tl-cell past">E<div class="tl-time">0:45</div></div>
-        <div class="tl-cell active">D<div class="tl-time">1:22</div></div>
-        <div class="tl-cell">E<div class="tl-time">1:30</div></div>
-        <div class="tl-cell">A<div class="tl-time">1:38</div></div>
-        <div class="tl-cell">F#m<div class="tl-time">1:46</div></div>
-        <div class="tl-cell">D<div class="tl-time">1:54</div></div>
-        <div class="tl-cell">E<div class="tl-time">2:02</div></div>
-        <div class="tl-cell">A<div class="tl-time">2:10</div></div>
-      </div>
-    </div>
-
   </div>
+
+  <!-- 전체 타임라인 -->
+  <div class="timeline-card">
+    <div class="tl-hd">📋 전체 코드 진행</div>
+    <div class="tl-scroll">
+      <div class="tl-cell past"><div class="tc">A</div><div class="tt">0:05</div></div>
+      <div class="tl-cell past"><div class="tc">E</div><div class="tt">0:13</div></div>
+      <div class="tl-cell past"><div class="tc">F#m</div><div class="tt">0:21</div></div>
+      <div class="tl-cell past"><div class="tc">D</div><div class="tt">0:29</div></div>
+      <div class="tl-cell past"><div class="tc">A</div><div class="tt">0:37</div></div>
+      <div class="tl-cell past"><div class="tc">E</div><div class="tt">0:45</div></div>
+      <div class="tl-cell active"><div class="tc">D</div><div class="tt">1:22</div></div>
+      <div class="tl-cell"><div class="tc">E</div><div class="tt">1:30</div></div>
+      <div class="tl-cell"><div class="tc">A</div><div class="tt">1:38</div></div>
+      <div class="tl-cell"><div class="tc">F#m</div><div class="tt">1:46</div></div>
+      <div class="tl-cell"><div class="tc">D</div><div class="tt">1:54</div></div>
+      <div class="tl-cell"><div class="tc">E</div><div class="tt">2:02</div></div>
+      <div class="tl-cell"><div class="tc">A</div><div class="tt">2:10</div></div>
+    </div>
+  </div>
+
 </div>
 
-<!-- ══ 세팅 탭 ══ -->
-<div id="tab-setup" class="panel">
-  <div class="setup-panel">
-
-    <div class="info-card">
-      <div class="info-hd">📋 악보에서 감지된 코드</div>
-      <div class="info-txt">detect-chords가 이미 악보 이미지에서 코드를 읽어왔어요.</div>
-      <div class="detected-chords">
-        <div class="det-chip">A</div>
-        <div class="det-chip">E</div>
-        <div class="det-chip">F#m</div>
-        <div class="det-chip">D</div>
-        <div class="det-chip">A</div>
-        <div class="det-chip">E</div>
-        <div class="det-chip">D</div>
-        <div class="det-chip">E</div>
-        <div class="det-chip">A</div>
-        <div class="det-chip">Bm</div>
-        <div class="det-chip">E</div>
-        <div class="det-chip">A</div>
-      </div>
-    </div>
-
-    <div class="info-card">
-      <div class="info-hd">⏱ 타이밍 세팅 방법</div>
-      <div class="step-row">
-        <div class="step-num">1</div>
-        <div class="step-txt">유튜브 재생 시작</div>
-      </div>
-      <div class="step-row">
-        <div class="step-num">2</div>
-        <div class="step-txt"><b>코드가 바뀔 때마다</b> 아래 버튼을 탭<br>
-          자동으로 시간 기록됨</div>
-      </div>
-      <div class="step-row">
-        <div class="step-num">3</div>
-        <div class="step-txt">완료 → 다음부터 자동 싱크</div>
-      </div>
-    </div>
-
-    <!-- 현재 코드 표시 -->
-    <div style="background:var(--surf);border-radius:12px;border:2px solid var(--pur);
-      padding:14px;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:10px;font-weight:800;color:var(--dim)">다음 탭할 코드</div>
-        <div style="font-size:32px;font-weight:900;color:var(--pur);line-height:1.1">F#m</div>
-        <div style="font-size:11px;color:var(--dim)">3 / 12번째</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:10px;color:var(--dim);margin-bottom:3px">이전 기록</div>
-        <div style="font-size:12px;font-weight:700;color:var(--txt)">E → 0:13</div>
-        <div style="font-size:12px;font-weight:700;color:var(--txt)">A → 0:05</div>
-      </div>
-    </div>
-
-    <button class="tap-btn" onclick="this.style.background='#5a4dd0'">
-      🎵 탭 — F#m 시작
-    </button>
-    <div class="tap-hint">코드가 바뀌는 순간 탭하세요</div>
-
-  </div>
-</div>
-
-<script>
-function showTab(t) {
-  document.querySelectorAll('.tab').forEach((el,i) => {
-    el.classList.toggle('on', (t==='play'&&i===0)||(t==='setup'&&i===1));
-  });
-  document.getElementById('tab-play').classList.toggle('on', t==='play');
-  document.getElementById('tab-setup').classList.toggle('on', t==='setup');
-}
-</script>
 </body>
 </html>
