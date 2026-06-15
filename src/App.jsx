@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.600";
+const APP_VERSION = "3.601";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1208,7 +1208,7 @@ function mmssToSec(mmss) {
 function getYoutubeEmbed(url) {
   const id = getYoutubeId(url);
   if (!id) return null;
-  const p = new URLSearchParams({ rel: '0' });
+  const p = new URLSearchParams({ rel: '0', playsinline: '1' });
   const t = url.match(/[?&]t=(\d+)/);
   if (t) p.set('start', t[1]);
   const end = url.match(/[?&]end=(\d+)/);
@@ -1400,7 +1400,7 @@ function ChordSyncPanel({ song, user }) {
   useEffect(() => {
     if (!tracking || wallStart == null) return;
     const iv = setInterval(() =>
-      setCurrentTime((Date.now() - wallStart) / 1000), 200);
+      setCurrentTime((Date.now() - wallStart) / 1000), 500);
     return () => clearInterval(iv);
   }, [tracking, wallStart]);
 
@@ -1447,11 +1447,11 @@ function ChordSyncPanel({ song, user }) {
       {/* 탭 전환 (admin only) */}
       {isAdmin && (
         <div style={{ display:"flex", gap:6 }}>
-          <button onClick={() => setTab("play")} style={{
+          <button type="button" onClick={() => setTab("play")} style={{
             flex:1, padding:"5px 0", borderRadius:8, border:`1.5px solid ${C2.pur}`,
             background:`${C2.pur}18`, color:C2.pur, fontSize:11, fontWeight:800, cursor:"pointer",
           }}>▶ 재생</button>
-          <button onClick={() => setTab("setup")} style={{
+          <button type="button" onClick={() => setTab("setup")} style={{
             flex:1, padding:"5px 0", borderRadius:8, border:`1px solid ${C2.bdr}`,
             background:"transparent", color:C2.dim, fontSize:11, fontWeight:700, cursor:"pointer",
           }}>⚙ 세팅</button>
@@ -1465,13 +1465,16 @@ function ChordSyncPanel({ song, user }) {
       ) : (
         <>
           {/* 시작 / 리셋 */}
+          <div style={{ fontSize:10, color:C2.dim, textAlign:"center", lineHeight:1.4 }}>
+            유튜브 재생 시작과 <strong>동시에</strong> 아래 버튼을 누르세요
+          </div>
           <div style={{ display:"flex", gap:6 }}>
-            <button onClick={() => { setWallStart(Date.now()); setCurrentTime(0); setTracking(true); }}
+            <button type="button" onClick={() => { setWallStart(Date.now()); setCurrentTime(0); setTracking(true); }}
               style={{ flex:1, padding:"7px 0", borderRadius:9, border:"none", cursor:"pointer",
                 background:C2.pur, color:"#fff", fontSize:12, fontWeight:800 }}>
-              ▶ 시작 (유튜브와 동시에)
+              {tracking ? "⏱ 진행 중…" : "▶ 시작"}
             </button>
-            <button onClick={() => { setTracking(false); setCurrentTime(0); setWallStart(null); }}
+            <button type="button" onClick={() => { setTracking(false); setCurrentTime(0); setWallStart(null); }}
               style={{ padding:"7px 10px", borderRadius:9, border:`1px solid ${C2.bdr}`,
                 background:"transparent", color:C2.dim, fontSize:11, cursor:"pointer" }}>
               ↺
@@ -1558,11 +1561,11 @@ function ChordSyncPanel({ song, user }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:8, padding:"8px 10px" }}>
       <div style={{ display:"flex", gap:6 }}>
-        <button onClick={() => setTab("play")} style={{
+        <button type="button" onClick={() => setTab("play")} style={{
           flex:1, padding:"5px 0", borderRadius:8, border:`1px solid ${C2.bdr}`,
           background:"transparent", color:C2.dim, fontSize:11, fontWeight:700, cursor:"pointer",
         }}>▶ 재생</button>
-        <button onClick={() => setTab("setup")} style={{
+        <button type="button" onClick={() => setTab("setup")} style={{
           flex:1, padding:"5px 0", borderRadius:8, border:`1.5px solid ${C2.pur}`,
           background:`${C2.pur}18`, color:C2.pur, fontSize:11, fontWeight:800, cursor:"pointer",
         }}>⚙ 세팅</button>
@@ -1619,7 +1622,7 @@ function ChordSyncPanel({ song, user }) {
                 </div>
                 <div style={{ display:"flex", gap:5 }}>
                   {[2, 4, 8].map(b => (
-                    <button key={b} onClick={() => setBeatsPerChord(b)}
+                    <button type="button" key={b} onClick={() => setBeatsPerChord(b)}
                       style={{ flex:1, padding:"6px 0", borderRadius:8, cursor:"pointer",
                         border:`1.5px solid ${beatsPerChord === b ? C2.pur : C2.bdr}`,
                         background: beatsPerChord === b ? `${C2.pur}18` : "transparent",
@@ -1656,7 +1659,7 @@ function ChordSyncPanel({ song, user }) {
             </div>
           </div>
 
-          <button onClick={async () => {
+          <button type="button" onClick={async () => {
               await saveTimeline(previewTimeline);
               setTab("play");
             }}
