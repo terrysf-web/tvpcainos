@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.592";
+const APP_VERSION = "3.593";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -4101,24 +4101,51 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
     { month:"long", day:"numeric", weekday:"short" });
 
   const today    = localDateStr();
-  const upcoming = services.filter(s => s.date >= today);
-  // 지난 예배: 최신순 정렬
-  const past     = services.filter(s => s.date < today)
-    .slice().sort((a, b) => b.date.localeCompare(a.date));
+  // 예배가 시작 후 2시간 경과했는지 (오늘 날짜용)
+  const twoHoursElapsed = (svc) => {
+    if (!svc.time) return false;
+    const [hh, mm] = svc.time.split(":").map(Number);
+    const now = new Date();
+    const svcMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, 0).getTime();
+    return Date.now() - svcMs > 2 * 60 * 60 * 1000;
+  };
+  // 예배 날짜 기준 다음 토요일 (그 토요일이 되면 지난 예배로 이동)
+  const nextSaturday = (dateStr) => {
+    const d = new Date(dateStr + "T00:00:00");
+    const daysToSat = d.getDay() === 6 ? 7 : (6 - d.getDay());
+    d.setDate(d.getDate() + daysToSat);
+    return localDateStr(d);
+  };
+  // 바로 지난 예배 판단: 지났지만 다음 토요일 전까지
+  const isJustPast = (svc) => {
+    const hasPassed = svc.date < today || (svc.date === today && twoHoursElapsed(svc));
+    return hasPassed && today < nextSaturday(svc.date);
+  };
+  const upcoming  = services.filter(s => !isJustPast(s) && (s.date > today || (s.date === today && !twoHoursElapsed(s))));
+  const justPast  = services.filter(s => isJustPast(s));
+  // 지난 예배: 바로 지난 예배 제외, 최신순 정렬
+  const past     = services.filter(s => {
+    const hasPassed = s.date < today || (s.date === today && twoHoursElapsed(s));
+    return hasPassed && !isJustPast(s);
+  }).slice().sort((a, b) => b.date.localeCompare(a.date));
   const pastShown = pastExpanded ? past : past.slice(0, 3);
 
-  const SvcCard = ({ svc, past, first }) => {
+  const SvcCard = ({ svc, past, first, justPast: jp }) => {
     const svcSongs = (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean);
-    const borderStyle = past
-      ? `1px solid ${C.bdr}`
-      : first
-        ? `2px solid ${C.acc}`
-        : `1px solid ${C.bdr}`;
-    const shadowStyle = past
-      ? "0 1px 4px rgba(0,0,0,.06)"
-      : first
-        ? `0 4px 18px ${C.acc}55`
-        : "0 1px 4px rgba(0,0,0,.06)";
+    const borderStyle = jp
+      ? `1.5px solid ${C.pur}66`
+      : past
+        ? `1px solid ${C.bdr}`
+        : first
+          ? `2px solid ${C.acc}`
+          : `1px solid ${C.bdr}`;
+    const shadowStyle = jp
+      ? `0 2px 10px ${C.pur}22`
+      : past
+        ? "0 1px 4px rgba(0,0,0,.06)"
+        : first
+          ? `0 4px 18px ${C.acc}55`
+          : "0 1px 4px rgba(0,0,0,.06)";
     return (
       <div className="wFadeIn"
         onClick={() => nav("svcDetail", { svcId: svc.id })}
@@ -4132,8 +4159,8 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
         }}>
         <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:10 }}>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontWeight: first ? 800 : 700, fontSize: first ? 17 : 16 }}>{fmtDate(svc.date)}</div>
-            <div style={{ color: first ? C.acc : C.dim, fontSize:13, marginTop:3, fontWeight: first ? 600 : 400 }}>
+            <div style={{ fontWeight: first || jp ? 800 : 700, fontSize: first || jp ? 17 : 16 }}>{fmtDate(svc.date)}</div>
+            <div style={{ color: jp ? C.pur : first ? C.acc : C.dim, fontSize:13, marginTop:3, fontWeight: first || jp ? 600 : 400 }}>
               {svc.title}{svc.time ? ` · ${svc.time}` : ""}
             </div>
           </div>
@@ -4238,12 +4265,29 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
           </>
         )}
 
+        {/* 바로 지난 예배 */}
+        {justPast.length > 0 && (
+          <>
+            <div style={{
+              fontSize:11, fontWeight:700, letterSpacing:"0.06em",
+              textTransform:"uppercase", marginBottom:10,
+              marginTop: upcoming.length > 0 ? 28 : 0,
+              display:"flex", alignItems:"center", gap:5,
+              color: C.pur,
+            }}>
+              <span>⏰</span>
+              <span>바로 지난 예배</span>
+            </div>
+            {justPast.map(svc => <SvcCard key={svc.id} svc={svc} past={false} first={false} justPast={true} />)}
+          </>
+        )}
+
         {/* 지난 예배 아카이브 — 미니 리스트 */}
         {past.length > 0 && (
           <>
             <div style={{
               display:"flex", alignItems:"center", justifyContent:"space-between",
-              margin:`${upcoming.length > 0 ? "28px" : "16px"} 0 8px`,
+              margin:`${upcoming.length > 0 || justPast.length > 0 ? "28px" : "16px"} 0 8px`,
             }}>
               <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
                 textTransform:"uppercase", display:"flex", alignItems:"center", gap:6 }}>
