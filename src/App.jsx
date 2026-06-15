@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.583";
+const APP_VERSION = "3.584";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -781,7 +781,7 @@ function Icon({ n, size = 20, color = C.txt, sw = 2 }) {
 /* ── Chord transposition utilities (module-level) */
 const SEMITONES   = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const FLAT_SHARP  = {Db:'C#',Eb:'D#',Gb:'F#',Ab:'G#',Bb:'A#'};
-const DISPLAY_KEY = {C:'C','C#':'Db',D:'D','D#':'Eb',E:'E',F:'F','F#':'Gb',G:'G','G#':'Ab',A:'A','A#':'Bb',B:'B'};
+const DISPLAY_KEY = {C:'C','C#':'C#',D:'D','D#':'D#',E:'E',F:'F','F#':'F#',G:'G','G#':'G#',A:'A','A#':'A#',B:'B'};
 
 function transposeNote(note, steps) {
   const n = FLAT_SHARP[note] || note;
