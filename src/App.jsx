@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.608";
+const APP_VERSION = "3.609";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1400,11 +1400,12 @@ function ChordSyncPanel({ song, user, ytIframeRef }) {
   const [aiChords, setAiChords] = useState(null);
   const [aiGenLoading, setAiGenLoading] = useState(false);
   const [aiGenErr, setAiGenErr] = useState("");
+  const [saveErr, setSaveErr] = useState("");
 
   useEffect(() => {
     setTimeline(song?.chordTimeline || []);
     setCurrentTime(0); setTracking(false); setWallStart(null);
-    setAiChords(null); setAiGenErr("");
+    setAiChords(null); setAiGenErr(""); setSaveErr("");
   }, [song?.id]);
 
   useEffect(() => {
@@ -1464,21 +1465,41 @@ BPM: ${song.bpm || 80}
       const data = await res.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
       const cleaned = text.replace(/```[\w]*\n?/g,"").replace(/```/g,"").trim();
-      const m = cleaned.match(/\[[\s\S]*\]/);
+      const m = cleaned.match(/\[[\s\S]*?\]/);
+      let chords = null;
       if (m) {
-        const parsed = JSON.parse(m[0]);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setAiChords(parsed.map(c => String(c).trim()));
-        } else { setAiGenErr("코드를 찾지 못했습니다"); }
-      } else { setAiGenErr("응답 파싱 실패"); }
+        try {
+          const fixed = m[0].replace(/,\s*([\]}])/g,"$1");
+          const parsed = JSON.parse(fixed);
+          if (Array.isArray(parsed) && parsed.length > 0)
+            chords = parsed.map(c => String(c).trim()).filter(Boolean);
+        } catch(_) { /* fall through */ }
+      }
+      if (!chords) {
+        // 텍스트 형식: "G, Am, C/D, D7" 또는 "G Am C D" 등
+        const tokens = cleaned.split(/[\s,、，]+/)
+          .map(t => t.replace(/["""']/g,"").trim())
+          .filter(t => /^[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|7|9|11|13|maj7|m7|dim7|°|ø|\/[A-G][#b]?)?$/.test(t));
+        if (tokens.length >= 2) chords = tokens;
+      }
+      if (chords && chords.length > 0) {
+        setAiChords(chords);
+      } else {
+        setAiGenErr("코드를 찾지 못했습니다. 다시 시도해주세요.");
+      }
     } catch(e) { setAiGenErr(e.message); }
     finally { setAiGenLoading(false); }
   };
 
   const saveTimeline = async (tl) => {
-    try { await updateDoc(doc(db, "songs", song.id), { chordTimeline: tl }); }
-    catch(e) { console.warn("chordTimeline 저장 실패", e); }
-    setTimeline(tl);
+    setSaveErr("");
+    try {
+      await setDoc(doc(db, "songs", song.id), { chordTimeline: tl }, { merge: true });
+      setTimeline(tl);
+    } catch(e) {
+      setSaveErr("저장 실패: " + e.message);
+      console.warn("chordTimeline 저장 실패", e);
+    }
   };
 
   const C2 = {
@@ -1748,12 +1769,13 @@ BPM: ${song.bpm || 80}
 
           <button type="button" onClick={async () => {
               await saveTimeline(previewTimeline);
-              setTab("play");
+              if (!saveErr) setTab("play");
             }}
             style={{ padding:"13px 0", borderRadius:12, border:"none", cursor:"pointer",
               background:C2.pur, color:"#fff", fontSize:13, fontWeight:800 }}>
             ✓ 저장하고 재생 모드로
           </button>
+          {saveErr && <div style={{ fontSize:11, color:C2.red, textAlign:"center" }}>{saveErr}</div>}
         </>
       )}
     </div>
