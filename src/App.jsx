@@ -1423,6 +1423,13 @@ function ChordSyncPanel({ song, user }) {
     return idx;
   }, [timeline, currentTime]);
 
+  // 세팅 모드용 — hooks이므로 early return 전에 선언
+  const detectedChordsForSetup = useMemo(() => getDetectedChords(song), [song?.id]);
+  const previewTimeline = useMemo(() =>
+    autoGenerateTimeline(detectedChordsForSetup, mmssToSecCS(ytStart), song?.bpm, beatsPerChord),
+    [detectedChordsForSetup, ytStart, song?.bpm, beatsPerChord]
+  );
+
   const saveTimeline = async (tl) => {
     try { await updateDoc(doc(db, "songs", song.id), { chordTimeline: tl }); }
     catch(e) { console.warn("chordTimeline 저장 실패", e); }
@@ -1546,11 +1553,7 @@ function ChordSyncPanel({ song, user }) {
   );
 
   // ── 세팅 모드 (admin only) ──
-  const detectedChords = getDetectedChords(song);
-  const previewTimeline = useMemo(() =>
-    autoGenerateTimeline(detectedChords, mmssToSecCS(ytStart), song?.bpm, beatsPerChord),
-    [detectedChords.join(","), ytStart, song?.bpm, beatsPerChord]
-  );
+  const detectedChords = detectedChordsForSetup;
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:8, padding:"8px 10px" }}>
