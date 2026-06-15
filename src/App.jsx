@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.612";
+const APP_VERSION = "3.613";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1454,7 +1454,9 @@ function ChordSyncPanel({ song, user, ytIframeRef }) {
   const detectChordsFromYoutube = async () => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey) { setYtDetectErr("API 키 없음"); return; }
-    if (!song?.youtubeUrl) { setYtDetectErr("YouTube URL이 없습니다"); return; }
+    const ytId = song?.youtubeId || getYoutubeId(song?.youtubeUrl);
+    if (!ytId) { setYtDetectErr("YouTube URL이 없습니다"); return; }
+    const ytUrl = `https://www.youtube.com/watch?v=${ytId}`;
     setYtDetecting(true); setYtDetectErr(""); setYtDetectedTimeline(null);
     const prompt = `이 YouTube 음악 영상의 오디오를 분석해서 코드 진행을 타임라인으로 반환해주세요.
 설명 없이 JSON 배열만 반환. 형식: [{"chord":"A","time":5.2},{"chord":"Bm","time":8.0}]
@@ -1466,7 +1468,7 @@ time은 영상 시작부터의 초(seconds) 단위. 코드는 영어 코드네�
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
         { method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({ contents:[{ parts:[
-            { fileData: { mimeType: "video/*", fileUri: song.youtubeUrl } },
+            { fileData: { mimeType: "video/*", fileUri: ytUrl } },
             { text: prompt }
           ] }] }) }
       );
@@ -1697,7 +1699,7 @@ BPM: ${song.bpm || 80}
       </div>
 
       {/* YouTube 코드 감지 */}
-      {song?.youtubeUrl && (
+      {(song?.youtubeId || getYoutubeId(song?.youtubeUrl)) && (
         <div style={{ background:C2.surf, borderRadius:12, border:`1.5px solid ${C2.pur}`, padding:"10px 12px" }}>
           <div style={{ fontSize:10, fontWeight:800, color:C2.pur, letterSpacing:"0.05em",
             textTransform:"uppercase", marginBottom:6 }}>🎵 YouTube 오디오 코드 감지</div>
