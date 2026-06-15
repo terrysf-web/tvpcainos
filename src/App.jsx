@@ -14648,7 +14648,7 @@ export default function App() {
   const [selSvcId,      setSelSvcId]      = useState(() => localStorage.getItem("tvpc_selSvcId") || null);
   const [selSongId,     setSelSongId]     = useState(() => localStorage.getItem("tvpc_selSongId") || null);
   const [selSvcSongIdx, setSelSvcSongIdx] = useState(() => parseInt(localStorage.getItem("tvpc_selSvcSongIdx") || "-1"));
-  const [backTo,        setBackTo]        = useState("library");
+  const [backTo,        setBackTo]        = useState(() => localStorage.getItem("tvpc_backTo") || "library");
   const [pdfjsReady,    setPdfjsReady]    = useState(false);
   const [showHelp,      setShowHelp]      = useState(false);
   const [notifPopup,    setNotifPopup]    = useState(null); // {unreadCount, latest}
@@ -15359,7 +15359,7 @@ export default function App() {
     if (params.svcId       !== undefined) { setSelSvcId(params.svcId);           localStorage.setItem("tvpc_selSvcId", params.svcId ?? ""); }
     if (params.songId      !== undefined) { setSelSongId(params.songId);          localStorage.setItem("tvpc_selSongId", params.songId ?? ""); }
     if (params.svcSongIdx  !== undefined) { setSelSvcSongIdx(params.svcSongIdx);  localStorage.setItem("tvpc_selSvcSongIdx", params.svcSongIdx ?? -1); }
-    if (params.backTo      !== undefined) setBackTo(params.backTo);
+    if (params.backTo      !== undefined) { setBackTo(params.backTo); localStorage.setItem("tvpc_backTo", params.backTo); }
     setView(newView);
     localStorage.setItem("tvpc_view", newView);
   };
