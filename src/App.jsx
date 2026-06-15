@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.610";
+const APP_VERSION = "3.611";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1361,20 +1361,6 @@ function mmssToSecCS(mmss) {
   if (!mmss) return 0;
   const p = String(mmss).trim().split(":").map(Number);
   return p.length === 2 ? (p[0] || 0) * 60 + (p[1] || 0) : (p[0] || 0);
-}
-
-const _SH = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-const _FL = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
-function transposeChord(chord, st) {
-  if (!st || !chord) return chord;
-  const xNote = (n) => {
-    let i = _SH.indexOf(n); if (i < 0) i = _FL.indexOf(n);
-    return i < 0 ? n : _SH[((i + st) % 12 + 12) % 12];
-  };
-  const m = chord.match(/^([A-G][#b]?)(.*?)(?:\/([A-G][#b]?))?$/);
-  if (!m) return chord;
-  const [, root, qual, bass] = m;
-  return xNote(root) + qual + (bass ? "/" + xNote(bass) : "");
 }
 
 function getDetectedChords(song) {
@@ -7674,7 +7660,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [fitActive,     setFitActive]     = useState(false);
   const [dual,          setDual]          = useState(false);
   const [media,         setMedia]         = useState(false);
-  const [mediaPanelTab, setMediaPanelTab] = useState("chords"); // "ai" | "chords"
+  const [mediaPanelTab, setMediaPanelTab] = useState("ai"); // "ai" | "chords"
   const [ytRange,       setYtRange]       = useState({ start:"", end:"" }); // MM:SS
   const ytIframeRef = useRef(null);
   const [showChat,      setShowChat]      = useState(false);
