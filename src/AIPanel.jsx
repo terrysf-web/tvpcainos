@@ -289,17 +289,18 @@ BPM: ${song.bpm || "미상"}
                             fontFamily:"monospace", textAlign:"center", outline:"none" }} />
                         <button onClick={() => {
                           if (song?.id) localStorage.setItem(`tvpc_ytr_${song.id}`, JSON.stringify(ytRange));
-                        }} style={{ flex:1, fontSize:12, padding:"5px 0", borderRadius:6, cursor:"pointer",
+                        }} style={{ fontSize:12, padding:"5px 10px", borderRadius:6, cursor:"pointer", flexShrink:0,
                           background:`${C.grn}22`, border:`1px solid ${C.grn}55`, color:C.grn,
                           fontWeight:700, fontFamily:"inherit" }}>저장</button>
-                        {hasRange && (
-                          <button onClick={() => {
-                            setYtRange({ start:"", end:"" });
-                            if (song?.id) localStorage.removeItem(`tvpc_ytr_${song.id}`);
-                          }} style={{ flex:1, fontSize:12, padding:"5px 0", borderRadius:6, cursor:"pointer",
-                            background:`${C.red}22`, border:`1px solid ${C.red}55`, color:C.red,
-                            fontWeight:700, fontFamily:"inherit" }}>초기화</button>
-                        )}
+                        <button onClick={() => {
+                          setYtRange({ start:"", end:"" });
+                          if (song?.id) localStorage.removeItem(`tvpc_ytr_${song.id}`);
+                        }} style={{ fontSize:12, padding:"5px 10px", borderRadius:6, flexShrink:0,
+                          cursor: hasRange ? "pointer" : "default",
+                          background: hasRange ? `${C.red}22` : C.card,
+                          border:`1px solid ${hasRange ? C.red+"55" : C.bdr}`,
+                          color: hasRange ? C.red : C.dim,
+                          fontWeight:700, fontFamily:"inherit" }}>초기화</button>
                       </div>
                     </div>
                     <div style={{ position:"relative", paddingBottom:"56.25%",
