@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.615";
+const APP_VERSION = "3.614";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1388,7 +1388,7 @@ function ytCmd(iframeRef, func, args) {
   catch(_) { /* ignore */ }
 }
 
-function ChordSyncPanel({ song, user, ytIframeRef, compact = false }) {
+function ChordSyncPanel({ song, user, ytIframeRef }) {
   const isAdmin = user?.role === "admin";
   const [timeline, setTimeline] = useState(song?.chordTimeline || []);
   const [tab, setTab] = useState("play"); // "play" | "setup"
@@ -1511,54 +1511,6 @@ BPM: ${song.bpm || 80}
     pur:"#6b5de7", txt:"#1c1c1e", dim:"#8e8e93", bdr:"#e5e5ea",
     surf:"#fff", card:"#f8f8fb", red:"#ff3b30", grn:"#34c759",
   };
-
-  // ── 컴팩트 모드 (YouTube 옆 사이드박스) ──
-  if (compact && tab === "play") return (
-    <div style={{ display:"flex", flexDirection:"column", gap:5, padding:"7px 8px", height:"100%" }}>
-      <div style={{ background: chordNow ? C2.pur : C2.card,
-        borderRadius:9, padding:"7px 9px", flex:1,
-        border:`1.5px solid ${chordNow ? C2.pur : C2.bdr}`,
-        display:"flex", flexDirection:"column", justifyContent:"center" }}>
-        <div style={{ fontSize:8, fontWeight:800, letterSpacing:"0.06em", textTransform:"uppercase",
-          color: chordNow ? "rgba(255,255,255,0.7)" : C2.dim, marginBottom:1 }}>
-          {tracking ? "지금" : timeline.length > 0 ? "준비" : "코드없음"}
-        </div>
-        <div style={{ fontSize:38, fontWeight:900, lineHeight:1, letterSpacing:"-1px",
-          color: chordNow ? "#fff" : C2.dim }}>{chordNow || "—"}</div>
-        {nextChord && (
-          <div style={{ fontSize:10, fontWeight:700, marginTop:3,
-            color: chordNow ? "rgba(255,255,255,0.75)" : C2.dim }}>→ {nextChord}</div>
-        )}
-      </div>
-      {timeline.length > 0 && (
-        <div style={{ display:"flex", gap:4 }}>
-          <button type="button" onClick={() => {
-              if (tracking) { setTracking(false); setCurrentTime(0); setWallStart(null); }
-              else { setWallStart(Date.now()); setCurrentTime(0); setTracking(true); }
-            }}
-            style={{ flex:1, padding:"7px 0", borderRadius:8, border:"none", cursor:"pointer",
-              background: tracking ? C2.dim : C2.pur, color:"#fff", fontSize:12, fontWeight:800 }}>
-            {tracking ? "⏹" : "▶ 시작"}
-          </button>
-          {tracking && (
-            <button type="button" onClick={() => { setTracking(false); setCurrentTime(0); setWallStart(null); }}
-              style={{ padding:"7px 9px", borderRadius:8, border:`1px solid ${C2.bdr}`,
-                background:"transparent", color:C2.dim, fontSize:13, cursor:"pointer" }}>↺</button>
-          )}
-        </div>
-      )}
-      {isAdmin && (
-        <button type="button" onClick={() => setTab("setup")}
-          style={{ padding:"5px 0", borderRadius:7, border:`1px solid ${C2.bdr}`,
-            background:"transparent", color:C2.dim, fontSize:10, cursor:"pointer", fontWeight:700 }}>
-          ⚙ 코드 세팅
-        </button>
-      )}
-      {timeline.length === 0 && !isAdmin && (
-        <div style={{ fontSize:10, color:C2.dim, textAlign:"center" }}>코드 없음</div>
-      )}
-    </div>
-  );
 
   // ── 재생 모드 ──
   if (tab === "play") return (
@@ -11279,41 +11231,84 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           )}
         </div>
 
-        {/* 미디어 패널 (MEDIA 모드, 듀얼 아닐 때만) */}
+        {/* AI 패널 (MEDIA 모드, 듀얼 아닐 때만) */}
         {media && !dual && (
           <div style={{ width:320, flexShrink:0, overflow:"hidden",
             borderLeft:`1px solid ${C.bdr}`, background:C.surf,
             display:"flex", flexDirection:"column" }}>
-            {/* YouTube + 코드 싱크 나란히 */}
-            {(() => {
-              const ytId = getYoutubeId(song?.youtubeUrl) || song?.youtubeId;
-              if (!ytId) return null;
+            {/* YouTube 플레이어 */}
+            {getYoutubeId(song?.youtubeUrl) && (() => {
               const startSec = mmssToSec(ytRange.start);
               const endSec   = mmssToSec(ytRange.end);
-              const src = `https://www.youtube.com/embed/${ytId}?rel=0&enablejsapi=1`
+              const baseEmbed = getYoutubeEmbed(song.youtubeUrl);
+              const src = baseEmbed
                 + (startSec ? `&start=${startSec}` : "")
                 + (endSec   ? `&end=${endSec}`     : "");
+              const hasRange = !!(ytRange.start || ytRange.end);
               return (
-                <div style={{ display:"flex", flexShrink:0, borderBottom:`1px solid ${C.bdr}`,
-                  alignItems:"stretch" }}>
-                  {/* YouTube 왼쪽 */}
-                  <div style={{ flex:"0 0 57%", borderRight:`1px solid ${C.bdr}` }}>
-                    <iframe key={src} ref={ytIframeRef} src={src}
-                      style={{ width:"100%", aspectRatio:"16/9", border:"none", display:"block" }}
-                      allow="autoplay; encrypted-media; picture-in-picture"
-                      allowFullScreen title="YouTube" />
+                <div style={{ flexShrink:0 }}>
+                  {/* 구간 설정 — 영상 위 */}
+                  <div style={{ padding:"6px 10px 7px", borderBottom:`1px solid ${C.bdr}` }}>
+                    <div style={{ fontSize:10, color:C.dim, marginBottom:4, fontWeight:600 }}>재생 구간 (MM:SS)</div>
+                    <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                      <input value={ytRange.start} onChange={e => setYtRange(r => ({ ...r, start: e.target.value }))}
+                        placeholder="시작" maxLength={7}
+                        style={{ flex:1, fontSize:12, padding:"4px 6px", borderRadius:6, border:`1px solid ${C.bdr}`,
+                          background:C.card, color:C.txt, fontFamily:"monospace", textAlign:"center" }} />
+                      <span style={{ fontSize:11, color:C.dim, flexShrink:0 }}>~</span>
+                      <input value={ytRange.end} onChange={e => setYtRange(r => ({ ...r, end: e.target.value }))}
+                        placeholder="종료" maxLength={7}
+                        style={{ flex:1, fontSize:12, padding:"4px 6px", borderRadius:6, border:`1px solid ${C.bdr}`,
+                          background:C.card, color:C.txt, fontFamily:"monospace", textAlign:"center" }} />
+                      <button onClick={() => {
+                        if (selectedSongId) localStorage.setItem(`tvpc_ytr_${selectedSongId}`, JSON.stringify(ytRange));
+                      }} style={{ fontSize:11, padding:"4px 8px", borderRadius:6, cursor:"pointer", flexShrink:0,
+                        background:`${C.grn}22`, border:`1px solid ${C.grn}55`, color:C.grn, fontWeight:700, fontFamily:"inherit" }}>
+                        저장
+                      </button>
+                      {hasRange && (
+                        <button onClick={() => {
+                          const reset = { start:"", end:"" };
+                          setYtRange(reset);
+                          if (selectedSongId) localStorage.removeItem(`tvpc_ytr_${selectedSongId}`);
+                        }} style={{ fontSize:11, padding:"4px 8px", borderRadius:6, cursor:"pointer", flexShrink:0,
+                          background:`${C.red}22`, border:`1px solid ${C.red}55`, color:C.red, fontWeight:700, fontFamily:"inherit" }}>
+                        초기화
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  {/* 코드 싱크 오른쪽 */}
-                  <div style={{ flex:"1 1 0", minWidth:0, overflow:"auto" }}>
-                    <ChordSyncPanel song={song} user={user} ytIframeRef={ytIframeRef} compact />
-                  </div>
+                  <iframe
+                    key={src}
+                    ref={ytIframeRef}
+                    src={src}
+                    style={{ width:"100%", aspectRatio:"16/9", border:"none", display:"block" }}
+                    allow="autoplay; encrypted-media; picture-in-picture"
+                    allowFullScreen
+                    title="YouTube"
+                  />
                 </div>
               );
             })()}
-            {/* AI 분석 패널 */}
-            <div style={{ flex:1, overflow:"auto" }}>
-              <AIPanel song={song} user={user} pdfCanvasRef={canvas1Ref}
-                hideYoutube={!!(getYoutubeId(song?.youtubeUrl) || song?.youtubeId)} />
+            {/* 미디어 패널 탭 */}
+            <div style={{ display:"flex", borderBottom:`1px solid ${C.bdr}`, flexShrink:0 }}>
+              {[{id:"chords",label:"🎵 코드 싱크"},{id:"ai",label:"🤖 AI 분석"}].map(t => (
+                <button type="button" key={t.id} onClick={() => setMediaPanelTab(t.id)}
+                  style={{ flex:1, padding:"8px 0", border:"none", background:"transparent",
+                    borderBottom:`2.5px solid ${mediaPanelTab === t.id ? C.pur : "transparent"}`,
+                    color: mediaPanelTab === t.id ? C.pur : C.dim,
+                    fontSize:11, fontWeight:800, cursor:"pointer", letterSpacing:"0.02em" }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ flex:1, overflow:"auto", position:"relative" }}>
+              <div style={{ display: mediaPanelTab === "ai" ? "block" : "none" }}>
+                <AIPanel song={song} user={user} pdfCanvasRef={canvas1Ref} />
+              </div>
+              <div style={{ display: mediaPanelTab === "chords" ? "block" : "none" }}>
+                <ChordSyncPanel song={song} user={user} ytIframeRef={ytIframeRef} />
+              </div>
             </div>
           </div>
         )}
