@@ -137,13 +137,11 @@ export async function detectChordsViaEdge(imageData, userApiKey) {
 }
 
 export async function uploadPdf(file, songId) {
-  const path = `${songId}.pdf`;
-  const { error } = await supabase.storage
-    .from("pdfs")
-    .upload(path, file, { contentType: "application/pdf", upsert: true });
-  if (error) throw error;
-  const { data } = supabase.storage.from("pdfs").getPublicUrl(path);
-  return `${data.publicUrl}?t=${Date.now()}`;
+  const { storage } = await import("./firebase.js");
+  const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
+  const fileRef = ref(storage, `pdfs/${songId}.pdf`);
+  await uploadBytes(fileRef, file, { contentType: "application/pdf" });
+  return getDownloadURL(fileRef);
 }
 
 // 예배 서비스 설정 (practiceUrl 등) — Supabase Storage (Firestore 할당량 우회)
@@ -199,12 +197,10 @@ export async function updateWorshipRecordingPart(docId, part, driveId, title) {
 }
 
 export async function uploadImage(file, songId) {
-  const ext  = file.type.includes("png") ? "png" : "jpg";
-  const path = `img_${songId}.${ext}`;
-  const { error } = await supabase.storage
-    .from("pdfs")
-    .upload(path, file, { contentType: file.type, upsert: true });
-  if (error) throw error;
-  const { data } = supabase.storage.from("pdfs").getPublicUrl(path);
-  return `${data.publicUrl}?t=${Date.now()}`;
+  const { storage } = await import("./firebase.js");
+  const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
+  const ext = file.type.includes("png") ? "png" : "jpg";
+  const fileRef = ref(storage, `images/img_${songId}.${ext}`);
+  await uploadBytes(fileRef, file, { contentType: file.type });
+  return getDownloadURL(fileRef);
 }
