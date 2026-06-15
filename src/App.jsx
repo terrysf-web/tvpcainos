@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.609";
+const APP_VERSION = "3.610";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1363,6 +1363,20 @@ function mmssToSecCS(mmss) {
   return p.length === 2 ? (p[0] || 0) * 60 + (p[1] || 0) : (p[0] || 0);
 }
 
+const _SH = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const _FL = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
+function transposeChord(chord, st) {
+  if (!st || !chord) return chord;
+  const xNote = (n) => {
+    let i = _SH.indexOf(n); if (i < 0) i = _FL.indexOf(n);
+    return i < 0 ? n : _SH[((i + st) % 12 + 12) % 12];
+  };
+  const m = chord.match(/^([A-G][#b]?)(.*?)(?:\/([A-G][#b]?))?$/);
+  if (!m) return chord;
+  const [, root, qual, bass] = m;
+  return xNote(root) + qual + (bass ? "/" + xNote(bass) : "");
+}
+
 function getDetectedChords(song) {
   const all = [];
   for (let p = 1; p <= 20; p++) {
@@ -1401,11 +1415,12 @@ function ChordSyncPanel({ song, user, ytIframeRef }) {
   const [aiGenLoading, setAiGenLoading] = useState(false);
   const [aiGenErr, setAiGenErr] = useState("");
   const [saveErr, setSaveErr] = useState("");
+  const [transpose, setTranspose] = useState(0);
 
   useEffect(() => {
     setTimeline(song?.chordTimeline || []);
     setCurrentTime(0); setTracking(false); setWallStart(null);
-    setAiChords(null); setAiGenErr(""); setSaveErr("");
+    setAiChords(null); setAiGenErr(""); setSaveErr(""); setTranspose(0);
   }, [song?.id]);
 
   useEffect(() => {
@@ -1437,9 +1452,13 @@ function ChordSyncPanel({ song, user, ytIframeRef }) {
   // 세팅 모드용 — hooks이므로 early return 전에 선언
   const detectedChordsForSetup = useMemo(() => getDetectedChords(song), [song?.id]);
   const chordsForSetup = aiChords || detectedChordsForSetup;
+  const transposedChords = useMemo(() =>
+    chordsForSetup.map(c => transposeChord(c, transpose)),
+    [chordsForSetup, transpose]
+  );
   const previewTimeline = useMemo(() =>
-    autoGenerateTimeline(chordsForSetup, mmssToSecCS(ytStart), song?.bpm, beatsPerChord),
-    [chordsForSetup, ytStart, song?.bpm, beatsPerChord]
+    autoGenerateTimeline(transposedChords, mmssToSecCS(ytStart), song?.bpm, beatsPerChord),
+    [transposedChords, ytStart, song?.bpm, beatsPerChord]
   );
 
   const generateChordsWithAI = async () => {
@@ -1739,6 +1758,33 @@ BPM: ${song.bpm || 80}
                       {b}박 ({b === 2 ? "반마디" : b === 4 ? "1마디" : "2마디"})
                     </button>
                   ))}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize:11, fontWeight:700, color:C2.txt, marginBottom:4 }}>
+                  키 변환 <span style={{ fontWeight:600, color:C2.dim }}>
+                    (악보 {song?.key || "?"} → 실제 {transpose === 0 ? (song?.key || "?") : transposeChord(song?.key || "C", transpose)})
+                  </span>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <button type="button" onClick={() => setTranspose(t => t - 1)}
+                    style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C2.bdr}`,
+                      background:"transparent", color:C2.txt, fontSize:16, cursor:"pointer", fontWeight:800 }}>−</button>
+                  <div style={{ flex:1, textAlign:"center", fontSize:13, fontWeight:800,
+                    color: transpose !== 0 ? C2.pur : C2.dim }}>
+                    {transpose > 0 ? `+${transpose}` : transpose} 반음
+                  </div>
+                  <button type="button" onClick={() => setTranspose(t => t + 1)}
+                    style={{ width:32, height:32, borderRadius:8, border:`1px solid ${C2.bdr}`,
+                      background:"transparent", color:C2.txt, fontSize:16, cursor:"pointer", fontWeight:800 }}>+</button>
+                  {transpose !== 0 && (
+                    <button type="button" onClick={() => setTranspose(0)}
+                      style={{ fontSize:10, color:C2.dim, background:"none", border:"none",
+                        cursor:"pointer", padding:"0 4px" }}>초기화</button>
+                  )}
+                </div>
+                <div style={{ fontSize:10, color:C2.dim, marginTop:3 }}>
+                  Chord AI 키와 다를 경우 조정 (G→A: +2반음)
                 </div>
               </div>
             </div>
