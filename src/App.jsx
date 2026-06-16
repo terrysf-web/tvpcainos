@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.628";
+const APP_VERSION = "3.629";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -789,10 +789,9 @@ const FLAT_RESULT_IDX = new Set([1, 3, 5, 6, 8, 10]);
 function useFlats(key, steps = 0) {
   if (!key) return false;
   const root = key.replace(/m$/, '').trim();
-  const n = FLAT_SHARP[root] || root;
-  const i = SEMITONES.indexOf(n);
-  if (i === -1) return false;
-  return FLAT_RESULT_IDX.has(((i + steps) % 12 + 12) % 12);
+  // Use original key notation: 'b' in name (Bb,Db,Eb,Ab,Gb) or F → flat; '#' or natural → sharp
+  // steps is intentionally ignored — notation follows the original sheet key signature
+  return root === 'F' || root.includes('b');
 }
 
 function transposeNote(note, steps) {
