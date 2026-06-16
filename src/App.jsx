@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.621";
+const APP_VERSION = "3.622";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -15380,7 +15380,7 @@ export default function App() {
   };
 
   // ── 버전 업데이트 체크 (Firestore 기반 — 어드민 파이널 승인 시만 사용자 알림)
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.role === "leader";
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [adminNewBuild,   setAdminNewBuild]   = useState(false);
   const [adminBuildData,  setAdminBuildData]  = useState(null);
