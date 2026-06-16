@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.640";
+const APP_VERSION = "3.641";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -9342,25 +9342,35 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
           {/* 악보 Sync 표시 — 비라이브러리 모드에서만 */}
           {!isLibraryMode && (
-            <div style={{
-              display:"flex", alignItems:"center", gap:4, flexShrink:0,
-              padding:"4px 9px", borderRadius:8,
-              border:`1px solid ${sheetLinkEnabled ? C.grn : C.bdr}`,
-              background: sheetLinkEnabled ? `${C.grn}22` : "transparent",
-              transition:"background 0.3s, border-color 0.3s",
-            }}>
+            tbNarrow ? (
+              /* 세로모드: 점만 표시해서 공간 절약 */
               <span style={{
-                fontSize:11, fontWeight:700, letterSpacing:0.2,
-                color: sheetLinkEnabled ? C.grn : C.dim,
-                transition:"color 0.3s",
-              }}>악보 Sync</span>
-              <span style={{
-                width:7, height:7, borderRadius:"50%", flexShrink:0,
-                background: sheetLinkEnabled ? C.grn : `${C.dim}66`,
-                boxShadow: sheetLinkEnabled ? `0 0 4px ${C.grn}` : "none",
+                width:8, height:8, borderRadius:"50%", flexShrink:0,
+                background: sheetLinkEnabled ? C.grn : `${C.dim}44`,
+                boxShadow: sheetLinkEnabled ? `0 0 5px ${C.grn}` : "none",
                 transition:"background 0.3s, box-shadow 0.3s",
               }} />
-            </div>
+            ) : (
+              <div style={{
+                display:"flex", alignItems:"center", gap:4, flexShrink:0,
+                padding:"4px 9px", borderRadius:8,
+                border:`1px solid ${sheetLinkEnabled ? C.grn : C.bdr}`,
+                background: sheetLinkEnabled ? `${C.grn}22` : "transparent",
+                transition:"background 0.3s, border-color 0.3s",
+              }}>
+                <span style={{
+                  fontSize:11, fontWeight:700, letterSpacing:0.2,
+                  color: sheetLinkEnabled ? C.grn : C.dim,
+                  transition:"color 0.3s",
+                }}>악보 Sync</span>
+                <span style={{
+                  width:7, height:7, borderRadius:"50%", flexShrink:0,
+                  background: sheetLinkEnabled ? C.grn : `${C.dim}66`,
+                  boxShadow: sheetLinkEnabled ? `0 0 4px ${C.grn}` : "none",
+                  transition:"background 0.3s, box-shadow 0.3s",
+                }} />
+              </div>
+            )
           )}
 
           {/* 제목/키 — 태블릿(wide)에서만 중앙 표시 */}
