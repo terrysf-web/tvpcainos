@@ -10,247 +10,148 @@
     background: #f2f2f7; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
   .header {
-    background: #1c1c2e; color: #fff;
-    padding: 10px 16px;
-    display: flex; align-items: center; justify-content: space-between;
-    flex-shrink: 0;
+    background: #1c1c2e; color: #fff; padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
   }
   .header-title { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; }
   .header-sub { font-size: 11px; color: #8e8e93; margin-top: 1px; }
-  .header-badge {
-    background: #e8a93e; color: #111;
-    font-size: 10px; font-weight: 800;
-    padding: 3px 10px; border-radius: 20px;
-  }
+  .header-badge { background: #e8a93e; color: #111; font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 20px; }
 
-  /* ── 메인: 좌 50% / 우 50% */
   .main { display: flex; flex: 1; overflow: hidden; }
 
-  /* ══════════════════════════════
-     왼쪽 절반: 예배순서 + 큐노트
-  ══════════════════════════════ */
-  .left-panel {
-    width: 50%; border-right: 1px solid #e5e5ea;
-    display: flex; overflow: hidden; background: #fff;
-  }
+  /* 왼쪽 절반 */
+  .left-panel { width: 50%; border-right: 1px solid #e5e5ea; display: flex; overflow: hidden; background: #fff; }
 
-  /* 예배 순서 컬럼 */
-  .setlist-col {
-    width: 52%; border-right: 1px solid #f0f0f5;
-    display: flex; flex-direction: column; overflow: hidden;
-  }
-  .col-header {
-    padding: 11px 14px; border-bottom: 1px solid #f0f0f5;
-    font-size: 13px; font-weight: 800; color: #1c1c1e;
-    flex-shrink: 0; background: #fff;
-  }
+  .setlist-col { width: 52%; border-right: 1px solid #f0f0f5; display: flex; flex-direction: column; overflow: hidden; }
+  .col-header { padding: 11px 14px; border-bottom: 1px solid #f0f0f5; font-size: 13px; font-weight: 800; color: #1c1c1e; flex-shrink: 0; background: #fff; }
   .song-list { flex: 1; overflow-y: auto; padding: 8px 6px; }
 
-  .song-row {
-    display: flex; align-items: center; gap: 6px;
-    padding: 8px 8px; border-radius: 10px; margin-bottom: 4px;
-    cursor: pointer; transition: background .12s; position: relative;
-  }
+  .song-row { display: flex; align-items: center; gap: 6px; padding: 8px 8px; border-radius: 10px; margin-bottom: 4px; cursor: pointer; transition: background .12s; position: relative; }
   .song-row:hover { background: #f5f5fa; }
-  .song-row.playing {
-    background: #f0eeff;
-  }
-  .song-row.selected {
-    background: #f5f5fa;
-  }
-
-  .drag-handle {
-    color: #c8c8d0; font-size: 13px; cursor: grab; flex-shrink: 0;
-    padding: 0 2px; line-height: 1;
-  }
+  .song-row.playing { background: #f0eeff; }
+  .song-row.selected { background: #f5f5fa; }
+  .drag-handle { color: #c8c8d0; font-size: 13px; cursor: grab; flex-shrink: 0; padding: 0 2px; }
   .song-row.playing .drag-handle { visibility: hidden; }
+  .play-icon { width: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .play-triangle { width:0; height:0; border-top:7px solid transparent; border-bottom:7px solid transparent; border-left:12px solid #6b5de7; }
+  .num-badge { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; color:#fff; flex-shrink:0; }
+  .song-name { flex:1; font-size:13px; font-weight:600; color:#1c1c1e; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .status-badge { font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; flex-shrink:0; }
+  .status-playing { background:#ede9ff; color:#6b5de7; }
+  .status-wait { color:#c0c0cc; font-weight:500; font-size:11px; }
 
-  .play-icon {
-    width: 20px; display: flex; align-items: center;
-    justify-content: center; flex-shrink: 0;
-  }
-  .play-triangle {
-    width: 0; height: 0;
-    border-top: 7px solid transparent;
-    border-bottom: 7px solid transparent;
-    border-left: 12px solid #6b5de7;
-  }
+  .cue-col { flex:1; display:flex; flex-direction:column; overflow:hidden; background:#fafafa; }
+  .cue-col-header { padding:11px 14px; border-bottom:1px solid #f0f0f5; font-size:13px; font-weight:800; color:#1c1c1e; flex-shrink:0; background:#fafafa; display:flex; align-items:center; justify-content:space-between; }
+  .edit-btn { font-size:12px; font-weight:600; color:#6b5de7; background:none; border:none; cursor:pointer; font-family:inherit; }
+  .cue-list { flex:1; overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
+  .cue-section { border-radius:10px; padding:10px 12px; }
+  .cue-section-title { font-size:12px; font-weight:800; margin-bottom:5px; }
+  .cue-section-body { font-size:12px; line-height:1.7; color:#3c3c43; }
+  .cue-intro  { background:#fff;    border:1px solid #e8e8f0; }
+  .cue-intro  .cue-section-title { color:#1c1c1e; }
+  .cue-bridge { background:#fff8ec; border:1px solid #f0e4c0; }
+  .cue-bridge .cue-section-title { color:#c07800; }
+  .cue-outro  { background:#edfaf3; border:1px solid #b8e8ce; }
+  .cue-outro  .cue-section-title { color:#1a8a46; }
+  .cue-foh    { background:#fff0f0; border:1px solid #f0c0c0; }
+  .cue-foh    .cue-section-title { color:#cc2200; }
 
-  .num-badge {
-    width: 26px; height: 26px; border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 800; color: #fff; flex-shrink: 0;
-  }
+  /* 오른쪽 절반 */
+  .right-panel { width:50%; display:flex; flex-direction:column; background:#fff; overflow:hidden; }
 
-  .song-name {
-    flex: 1; font-size: 13px; font-weight: 600; color: #1c1c1e;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
+  .badge-row { display:flex; gap:8px; padding:10px 12px; background:#f8f8fb; border-bottom:1px solid #e5e5ea; flex-shrink:0; }
+  .badge-card { flex:1; border-radius:10px; padding:9px 11px; border:2px solid transparent; cursor:pointer; transition:all .15s; position:relative; min-width:0; }
+  .badge-card.red  { background:#fff1f0; border-color:#ffccc7; }
+  .badge-card.blue { background:#f0f5ff; border-color:#c0d4ff; }
+  .badge-card.red.active  { border-color:#ff3b30; }
+  .badge-card.blue.active { border-color:#007aff; }
+  .badge-card-label { font-size:11px; font-weight:800; }
+  .badge-card.red  .badge-card-label { color:#ff3b30; }
+  .badge-card.blue .badge-card-label { color:#007aff; }
+  .badge-count { position:absolute; top:7px; right:9px; min-width:20px; height:20px; border-radius:10px; padding:0 5px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900; color:#fff; }
+  .badge-card.red  .badge-count { background:#ff3b30; }
+  .badge-card.blue .badge-count { background:#007aff; }
+  .badge-preview { font-size:11px; margin-top:3px; color:#3c3c43; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:26px; }
+  .badge-time { font-size:10px; color:#8e8e93; margin-top:1px; }
 
-  .status-badge {
-    font-size: 10px; font-weight: 700; padding: 2px 7px;
-    border-radius: 6px; flex-shrink: 0;
-  }
-  .status-playing { background: #ede9ff; color: #6b5de7; }
-  .status-wait    { color: #c0c0cc; font-weight: 500; font-size: 11px; }
+  .content-area { flex:1; overflow-y:auto; padding:10px 12px; }
 
-  /* 큐노트 컬럼 */
-  .cue-col {
-    flex: 1; display: flex; flex-direction: column; overflow: hidden;
-    background: #fafafa;
-  }
-  .cue-col-header {
-    padding: 11px 14px; border-bottom: 1px solid #f0f0f5;
-    font-size: 13px; font-weight: 800; color: #1c1c1e;
-    flex-shrink: 0; background: #fafafa;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .edit-btn {
-    font-size: 12px; font-weight: 600; color: #6b5de7;
-    background: none; border: none; cursor: pointer; font-family: inherit;
-  }
-  .cue-list { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .alert-item { border-radius:10px; padding:10px 12px; margin-bottom:8px; background:#fff5f5; border:1.5px solid #ffd0cc; display:flex; align-items:flex-start; gap:10px; }
+  .alert-icon { font-size:18px; flex-shrink:0; line-height:1; margin-top:1px; }
+  .alert-body { flex:1; min-width:0; }
+  .alert-sender { font-size:11px; font-weight:800; color:#ff3b30; }
+  .alert-msg { font-size:12px; color:#1c1c1e; margin-top:2px; line-height:1.5; }
+  .alert-time { font-size:10px; color:#8e8e93; margin-top:3px; }
+  .alert-ack { flex-shrink:0; padding:5px 11px; border-radius:7px; background:#fff; border:1.5px solid #ff3b3066; color:#ff3b30; font-size:11px; font-weight:800; cursor:pointer; align-self:center; white-space:nowrap; font-family:inherit; }
+  .alert-ack.done { background:#f0fff5; border-color:#34c75966; color:#34c759; }
 
-  .cue-section {
-    border-radius: 10px; padding: 10px 12px;
-  }
-  .cue-section-title {
-    font-size: 12px; font-weight: 800; margin-bottom: 5px;
-  }
-  .cue-section-body {
-    font-size: 12px; line-height: 1.7; color: #3c3c43;
-  }
-  .cue-intro  { background: #fff;     border: 1px solid #e8e8f0; }
-  .cue-intro .cue-section-title  { color: #1c1c1e; }
-  .cue-bridge { background: #fff8ec; border: 1px solid #f0e4c0; }
-  .cue-bridge .cue-section-title { color: #c07800; }
-  .cue-outro  { background: #edfaf3; border: 1px solid #b8e8ce; }
-  .cue-outro .cue-section-title  { color: #1a8a46; }
-  .cue-foh    { background: #fff0f0; border: 1px solid #f0c0c0; }
-  .cue-foh .cue-section-title    { color: #cc2200; }
+  .chat-wrap { display:flex; flex-direction:column; gap:6px; }
+  .chat-bubble { max-width:80%; padding:8px 12px; border-radius:14px; font-size:12px; line-height:1.6; }
+  .chat-bubble.them { background:#f2f2f7; color:#1c1c1e; align-self:flex-start; border-bottom-left-radius:4px; }
+  .chat-bubble.me   { background:#007aff; color:#fff;    align-self:flex-end;   border-bottom-right-radius:4px; }
+  .chat-name { font-size:10px; color:#8e8e93; margin-bottom:3px; }
+  .chat-r { display:flex; flex-direction:column; align-items:flex-end; }
+  .chat-input-row { display:flex; gap:8px; margin-top:10px; }
+  .chat-input { flex:1; padding:8px 12px; border-radius:10px; border:1.5px solid #e5e5ea; font-size:12px; font-family:inherit; outline:none; background:#f8f8fb; }
+  .chat-send { padding:8px 14px; border-radius:10px; background:#007aff; border:none; color:#fff; font-size:12px; font-weight:800; cursor:pointer; font-family:inherit; }
 
-  /* ══════════════════════════════
-     오른쪽 절반: 알림/채팅
-  ══════════════════════════════ */
-  .right-panel {
-    width: 50%; display: flex; flex-direction: column; background: #fff; overflow: hidden;
-  }
-
-  .badge-row {
-    display: flex; gap: 8px; padding: 10px 12px;
-    background: #f8f8fb; border-bottom: 1px solid #e5e5ea;
-    flex-shrink: 0;
-  }
-  .badge-card {
-    flex: 1; border-radius: 10px; padding: 9px 11px;
-    border: 2px solid transparent; cursor: pointer;
-    transition: all .15s; position: relative; min-width: 0;
-  }
-  .badge-card.red  { background: #fff1f0; border-color: #ffccc7; }
-  .badge-card.blue { background: #f0f5ff; border-color: #c0d4ff; }
-  .badge-card.red.active  { border-color: #ff3b30; }
-  .badge-card.blue.active { border-color: #007aff; }
-  .badge-card-label { font-size: 11px; font-weight: 800; }
-  .badge-card.red  .badge-card-label { color: #ff3b30; }
-  .badge-card.blue .badge-card-label { color: #007aff; }
-  .badge-count {
-    position: absolute; top: 7px; right: 9px;
-    min-width: 20px; height: 20px; border-radius: 10px; padding: 0 5px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 900; color: #fff;
-  }
-  .badge-card.red  .badge-count { background: #ff3b30; }
-  .badge-card.blue .badge-count { background: #007aff; }
-  .badge-preview {
-    font-size: 11px; margin-top: 3px; color: #3c3c43;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    padding-right: 26px;
-  }
-  .badge-time { font-size: 10px; color: #8e8e93; margin-top: 1px; }
-
-  .content-area { flex: 1; overflow-y: auto; padding: 10px 12px; }
-
-  /* FOH 알림 */
-  .alert-item {
-    border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
-    background: #fff5f5; border: 1.5px solid #ffd0cc;
-    display: flex; align-items: flex-start; gap: 10px;
-  }
-  .alert-icon { font-size: 18px; flex-shrink: 0; line-height: 1; margin-top: 1px; }
-  .alert-body { flex: 1; min-width: 0; }
-  .alert-sender { font-size: 11px; font-weight: 800; color: #ff3b30; }
-  .alert-msg { font-size: 12px; color: #1c1c1e; margin-top: 2px; line-height: 1.5; }
-  .alert-time { font-size: 10px; color: #8e8e93; margin-top: 3px; }
-  .alert-ack {
-    flex-shrink: 0; padding: 5px 11px; border-radius: 7px;
-    background: #fff; border: 1.5px solid #ff3b3066;
-    color: #ff3b30; font-size: 11px; font-weight: 800;
-    cursor: pointer; align-self: center; white-space: nowrap; font-family: inherit;
-  }
-  .alert-ack.done { background: #f0fff5; border-color: #34c75966; color: #34c759; }
-
-  /* 팀채팅 */
-  .chat-wrap { display: flex; flex-direction: column; gap: 6px; }
-  .chat-bubble {
-    max-width: 80%; padding: 8px 12px; border-radius: 14px;
-    font-size: 12px; line-height: 1.6;
-  }
-  .chat-bubble.them { background: #f2f2f7; color: #1c1c1e; align-self: flex-start; border-bottom-left-radius: 4px; }
-  .chat-bubble.me   { background: #007aff; color: #fff;    align-self: flex-end;   border-bottom-right-radius: 4px; }
-  .chat-name { font-size: 10px; color: #8e8e93; margin-bottom: 3px; }
-  .chat-r { display: flex; flex-direction: column; align-items: flex-end; }
-  .chat-input-row { display: flex; gap: 8px; margin-top: 10px; }
-  .chat-input {
-    flex: 1; padding: 8px 12px; border-radius: 10px;
-    border: 1.5px solid #e5e5ea; font-size: 12px;
-    font-family: inherit; outline: none; background: #f8f8fb;
-  }
-  .chat-send {
-    padding: 8px 14px; border-radius: 10px; background: #007aff;
-    border: none; color: #fff; font-size: 12px; font-weight: 800;
-    cursor: pointer; font-family: inherit;
-  }
-
-  /* 팀메세지 하단 */
+  /* ── 팀 메세지 하단 바 (옵션B) */
   .bottom-bar {
-    padding: 10px 12px; border-top: 1px solid #e5e5ea;
-    background: #f8f8fb; flex-shrink: 0;
+    border-top: 1px solid #e5e5ea; background: #f8f8fb;
+    flex-shrink: 0; padding: 8px 12px 10px;
   }
-  .send-btn {
-    width: 100%; padding: 10px 0; border-radius: 10px;
-    background: linear-gradient(135deg, #e8a93e, #d4922a);
-    border: none; color: #111; font-size: 13px; font-weight: 800;
-    cursor: pointer; font-family: inherit;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
+  .bottom-label {
+    font-size: 10px; font-weight: 700; color: #8e8e93;
+    letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 7px;
   }
+  .recipient-row {
+    display: flex; gap: 6px; overflow-x: auto;
+    padding-bottom: 2px; scrollbar-width: none;
+  }
+  .recipient-row::-webkit-scrollbar { display: none; }
+  .rcpt-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 6px 10px; border-radius: 10px; border: 1.5px solid #e5e5ea;
+    background: #fff; cursor: pointer; flex-shrink: 0;
+    transition: all .15s; font-family: inherit; min-width: 52px;
+  }
+  .rcpt-btn:hover  { border-color: #e8a93e; background: #fffbf2; }
+  .rcpt-btn.active { border-color: #e8a93e; background: #fff8e8; }
+  .rcpt-icon { font-size: 18px; line-height: 1; }
+  .rcpt-name { font-size: 10px; font-weight: 700; color: #3c3c43; }
 
-  .modal-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.45); z-index: 100;
-    align-items: flex-end; justify-content: center;
+  /* 메세지 팝오버 */
+  .msg-popover {
+    display: none; position: absolute; bottom: calc(100% + 6px); left: 0; right: 0;
+    background: #fff; border-radius: 14px; padding: 12px;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.13); border: 1px solid #e5e5ea;
+    z-index: 50;
   }
-  .modal-overlay.show { display: flex; }
-  .modal-box {
-    background: #fff; border-radius: 20px 20px 0 0;
-    padding: 20px 18px; width: 100%; max-width: 520px;
+  .msg-popover.show { display: block; }
+  .popover-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
   }
-  .modal-title { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
-  .modal-box textarea {
-    width: 100%; border: 1.5px solid #e5e5ea; border-radius: 10px;
-    padding: 10px 12px; font-size: 13px; font-family: inherit;
-    resize: none; outline: none; color: #1c1c1e; background: #f8f8fb;
+  .popover-title { font-size: 12px; font-weight: 800; color: #1c1c1e; }
+  .popover-close { background: none; border: none; font-size: 16px; color: #8e8e93; cursor: pointer; padding: 0 2px; line-height: 1; }
+  .msg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .msg-chip {
+    padding: 6px 12px; border-radius: 20px; border: 1.5px solid #e8a93e55;
+    background: #fffbf2; color: #1c1c1e; font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: all .12s;
   }
-  .modal-btns { display: flex; gap: 8px; margin-top: 10px; }
-  .modal-cancel {
-    flex: 1; padding: 11px 0; border-radius: 10px;
-    background: #f2f2f7; border: none; font-size: 13px;
-    font-weight: 700; cursor: pointer; font-family: inherit; color: #8e8e93;
+  .msg-chip:hover { background: #e8a93e; color: #111; border-color: #e8a93e; }
+  .msg-chip.custom { border-style: dashed; color: #8e8e93; border-color: #c8c8d0; background: #f8f8fb; }
+  .msg-chip.custom:hover { background: #f0f0f5; color: #3c3c43; border-color: #8e8e93; }
+
+  /* 전송 토스트 */
+  .toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: #1c1c2e; color: #fff; padding: 10px 18px; border-radius: 20px;
+    font-size: 13px; font-weight: 600; opacity: 0; transition: all .3s; z-index: 200;
+    white-space: nowrap; pointer-events: none;
   }
-  .modal-send {
-    flex: 2; padding: 11px 0; border-radius: 10px;
-    background: #e8a93e; border: none; font-size: 13px;
-    font-weight: 800; cursor: pointer; font-family: inherit; color: #111;
-  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
@@ -265,67 +166,55 @@
 
 <div class="main">
 
-  <!-- ── 왼쪽 절반 -->
+  <!-- 왼쪽 절반 -->
   <div class="left-panel">
-
-    <!-- 예배 순서 -->
     <div class="setlist-col">
       <div class="col-header">예배 순서</div>
-      <div class="song-list" id="setlist">
-
-        <div class="song-row playing" onclick="selectSong(this, 0)">
+      <div class="song-list">
+        <div class="song-row playing" onclick="selectSong(this,0)">
           <div class="play-icon"><div class="play-triangle"></div></div>
           <div class="num-badge" style="background:#6b5de7">1</div>
           <div class="song-name">나로부터 시작되리</div>
           <span class="status-badge status-playing">진행중</span>
         </div>
-
-        <div class="song-row" onclick="selectSong(this, 1)">
+        <div class="song-row" onclick="selectSong(this,1)">
           <div class="drag-handle">⋮⋮</div>
           <div class="num-badge" style="background:#3b82f6">2</div>
           <div class="song-name">가까이 가겠오소서</div>
           <span class="status-badge status-wait">대기</span>
         </div>
-
-        <div class="song-row" onclick="selectSong(this, 2)">
+        <div class="song-row" onclick="selectSong(this,2)">
           <div class="drag-handle">⋮⋮</div>
           <div class="num-badge" style="background:#22c55e">3</div>
           <div class="song-name">가까이 가겠오소서 (1/3)</div>
           <span class="status-badge status-wait">대기</span>
         </div>
-
-        <div class="song-row" onclick="selectSong(this, 3)">
+        <div class="song-row" onclick="selectSong(this,3)">
           <div class="drag-handle">⋮⋮</div>
           <div class="num-badge" style="background:#f59e0b">4</div>
           <div class="song-name">가까이 가겠오소서 (2/3)</div>
           <span class="status-badge status-wait">대기</span>
         </div>
-
-        <div class="song-row" onclick="selectSong(this, 4)">
+        <div class="song-row" onclick="selectSong(this,4)">
           <div class="drag-handle">⋮⋮</div>
           <div class="num-badge" style="background:#ec4899">5</div>
           <div class="song-name">두 손 들고</div>
           <span class="status-badge status-wait">대기</span>
         </div>
-
-        <div class="song-row" onclick="selectSong(this, 5)">
+        <div class="song-row" onclick="selectSong(this,5)">
           <div class="drag-handle">⋮⋮</div>
           <div class="num-badge" style="background:#6366f1">6</div>
           <div class="song-name">주님 뜻대로 살기로 했네</div>
           <span class="status-badge status-wait">대기</span>
         </div>
-
-        <div class="song-row" onclick="selectSong(this, 6)">
+        <div class="song-row" onclick="selectSong(this,6)">
           <div class="drag-handle">⋮⋮</div>
           <div class="num-badge" style="background:#14b8a6">7</div>
           <div class="song-name">예수 우리 왕이여</div>
           <span class="status-badge status-wait">대기</span>
         </div>
-
       </div>
     </div>
-
-    <!-- 큐 노트 -->
     <div class="cue-col">
       <div class="cue-col-header">
         <span>큐 노트</span>
@@ -350,11 +239,10 @@
         </div>
       </div>
     </div>
-
   </div>
 
-  <!-- ── 오른쪽 절반 -->
-  <div class="right-panel">
+  <!-- 오른쪽 절반 -->
+  <div class="right-panel" style="position:relative;">
 
     <div class="badge-row">
       <div class="badge-card red active" onclick="showTab('foh')">
@@ -371,7 +259,6 @@
       </div>
     </div>
 
-    <!-- FOH 알림 -->
     <div class="content-area" id="content-foh">
       <div class="alert-item">
         <div class="alert-icon">🥁</div>
@@ -380,7 +267,7 @@
           <div class="alert-msg">모니터 스피커 소리가 전혀 안 들려요!</div>
           <div class="alert-time">오후 10:42</div>
         </div>
-        <button class="alert-ack" onclick="ack(this, 'foh-count')">확인</button>
+        <button class="alert-ack" onclick="ack(this,'foh-count')">확인</button>
       </div>
       <div class="alert-item">
         <div class="alert-icon">🎸</div>
@@ -389,11 +276,10 @@
           <div class="alert-msg">인이어 왼쪽 채널 죽었어요</div>
           <div class="alert-time">오후 10:39</div>
         </div>
-        <button class="alert-ack" onclick="ack(this, 'foh-count')">확인</button>
+        <button class="alert-ack" onclick="ack(this,'foh-count')">확인</button>
       </div>
     </div>
 
-    <!-- 팀채팅 -->
     <div class="content-area" id="content-chat" style="display:none">
       <div class="chat-wrap">
         <div>
@@ -414,58 +300,85 @@
       </div>
     </div>
 
-    <div class="bottom-bar">
-      <button class="send-btn" onclick="document.querySelector('.modal-overlay').classList.add('show')">
-        📢 팀 전체에 메세지 보내기
-      </button>
-    </div>
+    <!-- 팀 메세지 하단 (옵션 B) -->
+    <div class="bottom-bar" style="position:relative;">
 
+      <!-- 메세지 팝오버 -->
+      <div class="msg-popover" id="msg-popover">
+        <div class="popover-header">
+          <span class="popover-title" id="popover-title">→ 수신자에게 전송</span>
+          <button class="popover-close" onclick="closePopover()">✕</button>
+        </div>
+        <div class="msg-chips" id="msg-chips"></div>
+      </div>
+
+      <div class="bottom-label">📢 팀 메세지</div>
+      <div class="recipient-row" id="recipient-row">
+        <button class="rcpt-btn" onclick="openPopover(this,'전체','🎶',['악보 싱크 됐어요','다음 곡 준비해주세요','잠시 대기','예배 시작합니다','마이크 체크 부탁드려요'])" >
+          <span class="rcpt-icon">🎶</span>
+          <span class="rcpt-name">전체</span>
+        </button>
+        <button class="rcpt-btn" onclick="openPopover(this,'보컬','🎤',['마이크 볼륨 올려드릴게요','마이크 볼륨 낮출게요','마이크 체크 부탁드려요','소리 잘 들려요?'])">
+          <span class="rcpt-icon">🎤</span>
+          <span class="rcpt-name">보컬</span>
+        </button>
+        <button class="rcpt-btn" onclick="openPopover(this,'키보드','🎹',['키보드 볼륨 올려드릴게요','키보드 볼륨 낮출게요','인이어 체크 해주세요','EQ 조정했어요','패드 소리 더 키울게요'])">
+          <span class="rcpt-icon">🎹</span>
+          <span class="rcpt-name">키보드</span>
+        </button>
+        <button class="rcpt-btn" onclick="openPopover(this,'드럼','🥁',['드럼 모니터 체크 해주세요','킥 드럼 더 올려드릴게요','오버헤드 낮출게요','메트로놈 체크 해주세요'])">
+          <span class="rcpt-icon">🥁</span>
+          <span class="rcpt-name">드럼</span>
+        </button>
+        <button class="rcpt-btn" onclick="openPopover(this,'베이스','🎸',['베이스 볼륨 올려드릴게요','베이스 볼륨 낮출게요','인이어 체크 해주세요','DI 체크 부탁드려요'])">
+          <span class="rcpt-icon">🎸</span>
+          <span class="rcpt-name">베이스</span>
+        </button>
+        <button class="rcpt-btn" onclick="openPopover(this,'일렉기타','⚡',['기타 볼륨 올려드릴게요','기타 볼륨 낮출게요','인이어 체크 해주세요','피드백 조심해주세요'])">
+          <span class="rcpt-icon">⚡</span>
+          <span class="rcpt-name">일렉기타</span>
+        </button>
+        <button class="rcpt-btn" onclick="openPopover(this,'기타','🎵',['볼륨 올려드릴게요','볼륨 낮출게요','인이어 체크 해주세요'])">
+          <span class="rcpt-icon">🎵</span>
+          <span class="rcpt-name">기타</span>
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- 팀메세지 모달 -->
-<div class="modal-overlay" onclick="if(event.target===this)this.classList.remove('show')">
-  <div class="modal-box">
-    <div class="modal-title">📢 팀 메세지 전송</div>
-    <textarea rows="3" placeholder="팀 전체에 전달할 메세지를 입력하세요..."></textarea>
-    <div class="modal-btns">
-      <button class="modal-cancel" onclick="document.querySelector('.modal-overlay').classList.remove('show')">취소</button>
-      <button class="modal-send">전송</button>
-    </div>
-  </div>
-</div>
+<!-- 전송 토스트 -->
+<div class="toast" id="toast"></div>
 
 <script>
 const cues = [
-  [ // 1번곡
-    { type:'intro',  title:'Intro',         body:'EG line 나가지\n건반 Intro에 롤링' },
-    { type:'bridge', title:'Bridge',        body:'기타 2.5 코드로 크리스-에코 섹션\n"선하여라"' },
-    { type:'outro',  title:'Outro',         body:'Outro Intro에 성공대 해제\n마지막 코드에서 밴드 컷' },
-    { type:'foh',    title:'FOH 주의사항',   body:'3번 악보 다시 보내주세요\nProPresenter 연결 확인 필요' },
+  [
+    { type:'intro',  title:'Intro',       body:'EG line 나가지\n건반 Intro에 롤링' },
+    { type:'bridge', title:'Bridge',      body:'기타 2.5 코드로 크리스-에코 섹션\n"선하여라"' },
+    { type:'outro',  title:'Outro',       body:'Outro Intro에 성공대 해제\n마지막 코드에서 밴드 컷' },
+    { type:'foh',    title:'FOH 주의사항', body:'3번 악보 다시 보내주세요\nProPresenter 연결 확인 필요' },
   ],
-  [ // 2번곡
+  [
     { type:'intro',  title:'Intro',   body:'어쿠스틱 기타 솔로 인트로\n조용히 시작' },
     { type:'bridge', title:'Bridge',  body:'2절부터 드럼 합류\n볼륨 서서히 업' },
   ],
-  [
-    { type:'intro',  title:'Intro',   body:'키보드 패드 from 시작\n목사님 기도 후 연결' },
-    { type:'foh',    title:'FOH 주의사항', body:'이 곡은 마이크 2번 사용' },
-  ],
+  [{ type:'intro', title:'Intro', body:'키보드 패드 from 시작\n목사님 기도 후 연결' }],
   [{ type:'bridge', title:'Bridge', body:'코드 전환 주의: Am → F → C → G' }],
-  [{ type:'intro',  title:'Intro',   body:'드럼 카운트 후 풀 밴드 인트로' }],
-  [{ type:'outro',  title:'Outro',   body:'페이드 아웃으로 마무리' }],
-  [{ type:'foh',    title:'FOH 주의사항', body:'마지막 곡. 예배 마침 후 조용히 페이드.' }],
+  [{ type:'intro', title:'Intro', body:'드럼 카운트 후 풀 밴드 인트로' }],
+  [{ type:'outro', title:'Outro', body:'페이드 아웃으로 마무리' }],
+  [{ type:'foh',   title:'FOH 주의사항', body:'마지막 곡. 예배 마침 후 조용히 페이드.' }],
 ];
-
 const typeClass = { intro:'cue-intro', bridge:'cue-bridge', outro:'cue-outro', foh:'cue-foh' };
+
+let activeRcpt = null;
 
 function selectSong(el, idx) {
   document.querySelectorAll('.song-row').forEach(r => r.classList.remove('selected'));
   el.classList.add('selected');
   const sections = cues[idx] || [];
-  const container = document.getElementById('cue-content');
-  container.innerHTML = sections.map(s =>
-    `<div class="cue-section ${typeClass[s.type] || 'cue-intro'}">
+  const c = document.getElementById('cue-content');
+  c.innerHTML = sections.map(s =>
+    `<div class="cue-section ${typeClass[s.type]||'cue-intro'}">
       <div class="cue-section-title">${s.title}</div>
       <div class="cue-section-body">${s.body.replace(/\n/g,'<br>')}</div>
     </div>`
@@ -473,10 +386,50 @@ function selectSong(el, idx) {
 }
 
 function showTab(tab) {
-  document.getElementById('content-foh').style.display  = tab === 'foh'  ? 'block' : 'none';
-  document.getElementById('content-chat').style.display = tab === 'chat' ? 'block' : 'none';
+  document.getElementById('content-foh').style.display  = tab==='foh'  ? 'block' : 'none';
+  document.getElementById('content-chat').style.display = tab==='chat' ? 'block' : 'none';
   document.querySelectorAll('.badge-card').forEach(c => c.classList.remove('active'));
-  document.querySelector(tab === 'foh' ? '.badge-card.red' : '.badge-card.blue').classList.add('active');
+  document.querySelector(tab==='foh' ? '.badge-card.red' : '.badge-card.blue').classList.add('active');
+}
+
+function openPopover(btn, name, icon, messages) {
+  // 같은 버튼 다시 누르면 닫기
+  if (activeRcpt === btn) { closePopover(); return; }
+  activeRcpt = btn;
+  document.querySelectorAll('.rcpt-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  document.getElementById('popover-title').textContent = `${icon} ${name}에게 전송`;
+  const chips = document.getElementById('msg-chips');
+  chips.innerHTML = messages.map(m =>
+    `<button class="msg-chip" onclick="sendMsg('${name}','${m}')">${m}</button>`
+  ).join('') + `<button class="msg-chip custom" onclick="customMsg('${name}')">✏️ 직접입력</button>`;
+
+  document.getElementById('msg-popover').classList.add('show');
+}
+
+function closePopover() {
+  document.getElementById('msg-popover').classList.remove('show');
+  document.querySelectorAll('.rcpt-btn').forEach(b => b.classList.remove('active'));
+  activeRcpt = null;
+}
+
+function sendMsg(name, msg) {
+  closePopover();
+  showToast(`✓ ${name}에게 전송됨: "${msg}"`);
+}
+
+function customMsg(name) {
+  const msg = prompt(`${name}에게 보낼 메세지:`);
+  if (msg?.trim()) sendMsg(name, msg.trim());
+  else closePopover();
+}
+
+function showToast(text) {
+  const t = document.getElementById('toast');
+  t.textContent = text;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
 }
 
 function ack(btn, countId) {
@@ -485,9 +438,13 @@ function ack(btn, countId) {
   btn.disabled = true;
   const el = document.getElementById(countId);
   const cur = parseInt(el.textContent);
-  if (cur > 1) el.textContent = cur - 1;
+  if (cur > 1) el.textContent = cur-1;
   else el.style.display = 'none';
 }
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.bottom-bar')) closePopover();
+});
 </script>
 </body>
 </html>
