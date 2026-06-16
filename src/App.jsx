@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.617";
+const APP_VERSION = "3.618";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -3138,7 +3138,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 </div>
               )}
               {/* floating nav buttons removed — moved into sync bar */}
-              <div style={{ display:"flex", flex:"1 1 0", height:0, paddingBottom:"calc(70px + env(safe-area-inset-bottom))", overflow:"hidden" }}>
+              <div style={{ display:"flex", flex:"1 1 0", height:0, paddingBottom:"calc(70px + env(safe-area-inset-bottom))", overflow:"hidden", background:C.bg }}>
 
                 {/* ── 왼쪽 50%: 히어로 + 셋리스트/큐노트 + 싱크바 ── */}
                 <div style={{ width:"50%", display:"flex", flexDirection:"column", borderRight:`1px solid ${C.bdr}`, overflow:"hidden" }}>
@@ -3224,11 +3224,12 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   </div>
 
                   {/* ── 셋리스트 + 큐노트 2열 ── */}
-                  <div style={{ flex:"1 1 0", height:0, display:"flex", overflow:"hidden", marginTop:6 }}>
+                  <div style={{ flex:"1 1 0", height:0, display:"flex", overflow:"hidden", marginTop:6, gap:0 }}>
 
                     {/* 셋리스트 열 */}
-                    <div style={{ width:"52%", display:"flex", flexDirection:"column", overflow:"hidden" }}>
-                      <div style={{ padding:"8px 12px", borderBottom:`1px solid ${C.bdr}`, fontSize:13, fontWeight:800, color:C.txt, flexShrink:0 }}>
+                    <div style={{ width:"52%", display:"flex", flexDirection:"column", overflow:"hidden", background:C.surf }}>
+                      <div style={{ padding:"8px 12px", borderBottom:`1px solid ${C.bdr}`, fontSize:12, fontWeight:800, color:C.txt, flexShrink:0, display:"flex", alignItems:"center", gap:6 }}>
+                        <span style={{ width:3, height:14, background:C.pur, borderRadius:2, display:"inline-block", flexShrink:0 }} />
                         예배 순서
                       </div>
                       <div style={{ flex:1, overflowY:"auto", padding:"6px 6px", scrollbarWidth:"none" }}>
@@ -3276,9 +3277,12 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     <div style={{ width:1, background:C.bdr, flexShrink:0 }} />
 
                     {/* 큐노트 열 */}
-                    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:C.surf }}>
-                      <div style={{ padding:"8px 12px", borderBottom:`1px solid ${C.bdr}`, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
-                        <span style={{ fontSize:13, fontWeight:800, color:C.txt }}>큐 노트</span>
+                    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:C.bg }}>
+                      <div style={{ padding:"8px 12px", borderBottom:`1px solid ${C.bdr}`, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0, background:C.surf }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                          <span style={{ width:3, height:14, background:`#ff9500`, borderRadius:2, display:"inline-block", flexShrink:0 }} />
+                          <span style={{ fontSize:12, fontWeight:800, color:C.txt }}>큐 노트</span>
+                        </div>
                         {dispSong && <span style={{ fontSize:10, color:C.dim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"55%" }}>{dispIdx+1}. {dispSong.title}</span>}
                       </div>
                       <div style={{ flex:1, overflowY:"auto", padding:"8px 10px", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none" }}>
@@ -3424,33 +3428,41 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     const latestPanic = allCuesR.filter(c => c.panic === true).sort((a,b) => (b.createdAt?.seconds??0)-(a.createdAt?.seconds??0))[0];
                     const latestChat = [...teamChatMsgs].reverse()[0];
                     return (
-                      <div style={{ display:"flex", gap:8, padding:"10px 10px 8px", background:C.surf, borderBottom:`1px solid ${C.bdr}`, flexShrink:0 }}>
+                      <div style={{ display:"flex", gap:8, padding:"10px 10px 8px", background:C.bg, borderBottom:`1px solid ${C.bdr}`, flexShrink:0 }}>
                         <button onClick={() => setFohRightTab("alert")} style={{
-                          flex:1, borderRadius:10, padding:"9px 11px",
-                          border:`2px solid ${fohRightTab==="alert" ? C.red : "#ffd0cc"}`,
-                          background: fohRightTab==="alert" ? "#fff5f5" : "#fff9f9",
+                          flex:1, borderRadius:12, padding:"10px 12px",
+                          border:`2px solid ${fohRightTab==="alert" ? C.red : `${C.red}33`}`,
+                          background: fohRightTab==="alert" ? C.surf : `${C.red}08`,
                           cursor:"pointer", fontFamily:"inherit", textAlign:"left", position:"relative",
+                          boxShadow: fohRightTab==="alert" ? `0 2px 8px ${C.red}22` : "none",
                         }}>
-                          {panicCount > 0 && <div style={{ position:"absolute", top:7, right:9, minWidth:20, height:20, borderRadius:10, padding:"0 5px", background:C.red, color:"#fff", fontSize:11, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center" }}>{panicCount}</div>}
-                          <div style={{ fontSize:11, fontWeight:800, color:C.red }}>🔴 FOH 알림</div>
-                          {latestPanic ? <div style={{ fontSize:11, color:"#3c3c43", marginTop:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", paddingRight:panicCount>0?28:0 }}>{latestPanic.userPart||latestPanic.userName}: {latestPanic.text}</div> : <div style={{ fontSize:11, color:C.dim, marginTop:3 }}>대기 중...</div>}
+                          {panicCount > 0 && <div style={{ position:"absolute", top:8, right:10, minWidth:20, height:20, borderRadius:10, padding:"0 5px", background:C.red, color:"#fff", fontSize:11, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center" }}>{panicCount}</div>}
+                          <div style={{ fontSize:12, fontWeight:800, color:C.red, display:"flex", alignItems:"center", gap:5 }}>
+                            <span style={{ width:8, height:8, borderRadius:"50%", background:C.red, display:"inline-block", boxShadow: panicCount>0 ? `0 0 6px ${C.red}` : "none" }} />
+                            FOH 알림
+                          </div>
+                          {latestPanic ? <div style={{ fontSize:11, color:C.txt, marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", paddingRight:panicCount>0?28:0 }}>{latestPanic.userPart||latestPanic.userName}: {latestPanic.text}</div> : <div style={{ fontSize:11, color:C.dim, marginTop:4 }}>대기 중...</div>}
                         </button>
                         <button onClick={() => setFohRightTab("chat")} style={{
-                          flex:1, borderRadius:10, padding:"9px 11px",
-                          border:`2px solid ${fohRightTab==="chat" ? "#007aff" : "#c0d4ff"}`,
-                          background: fohRightTab==="chat" ? "#f0f5ff" : "#f5f8ff",
+                          flex:1, borderRadius:12, padding:"10px 12px",
+                          border:`2px solid ${fohRightTab==="chat" ? C.pur : `${C.pur}33`}`,
+                          background: fohRightTab==="chat" ? C.surf : `${C.pur}08`,
                           cursor:"pointer", fontFamily:"inherit", textAlign:"left", position:"relative",
+                          boxShadow: fohRightTab==="chat" ? `0 2px 8px ${C.pur}22` : "none",
                         }}>
-                          {unreadChat > 0 && <div style={{ position:"absolute", top:7, right:9, minWidth:20, height:20, borderRadius:10, padding:"0 5px", background:"#007aff", color:"#fff", fontSize:11, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center" }}>{unreadChat}</div>}
-                          <div style={{ fontSize:11, fontWeight:800, color:"#007aff" }}>🔵 팀채팅</div>
-                          {latestChat ? <div style={{ fontSize:11, color:"#3c3c43", marginTop:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", paddingRight:unreadChat>0?28:0 }}>{latestChat.name?.split(" ")[0]}: {latestChat.text}</div> : <div style={{ fontSize:11, color:C.dim, marginTop:3 }}>메시지 없음</div>}
+                          {unreadChat > 0 && <div style={{ position:"absolute", top:8, right:10, minWidth:20, height:20, borderRadius:10, padding:"0 5px", background:C.pur, color:"#fff", fontSize:11, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center" }}>{unreadChat}</div>}
+                          <div style={{ fontSize:12, fontWeight:800, color:C.pur, display:"flex", alignItems:"center", gap:5 }}>
+                            <span style={{ width:8, height:8, borderRadius:"50%", background:C.pur, display:"inline-block" }} />
+                            팀채팅
+                          </div>
+                          {latestChat ? <div style={{ fontSize:11, color:C.txt, marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", paddingRight:unreadChat>0?28:0 }}>{latestChat.name?.split(" ")[0]}: {latestChat.text}</div> : <div style={{ fontSize:11, color:C.dim, marginTop:4 }}>메시지 없음</div>}
                         </button>
                       </div>
                     );
                   })()}
 
                   {/* 컨텐츠 영역 */}
-                  <div style={{ flex:"1 1 0", height:0, overflowY:"auto", padding:"8px 10px", scrollbarWidth:"none" }}>
+                  <div style={{ flex:"1 1 0", height:0, overflowY:"auto", padding:"8px 10px", scrollbarWidth:"none", background:C.bg }}>
                     {fohRightTab === "alert" ? (() => {
                       const allCuesA = svcSongs.flatMap(s => songCues?.[s.id] || []);
                       const panicCues = allCuesA.filter(c => c.panic === true).sort((a,b) => (b.createdAt?.seconds??0)-(a.createdAt?.seconds??0));
@@ -3500,7 +3512,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           return (
                             <div key={m.id} style={{ display:"flex", flexDirection:"column", alignItems:isMe?"flex-end":"flex-start" }}>
                               {!isMe && <div style={{ fontSize:10, color:C.dim, marginBottom:2 }}>{m.name?.split(" ")[0]}</div>}
-                              <div style={{ maxWidth:"82%", padding:"8px 12px", borderRadius:14, fontSize:12, lineHeight:1.6, background:isMe?"#007aff":C.surf, color:isMe?"#fff":C.txt, borderBottomLeftRadius:isMe?14:4, borderBottomRightRadius:isMe?4:14 }}>{m.text}</div>
+                              <div style={{ maxWidth:"82%", padding:"8px 12px", borderRadius:14, fontSize:12, lineHeight:1.6, background:isMe?C.pur:C.surf, color:isMe?"#fff":C.txt, borderBottomLeftRadius:isMe?14:4, borderBottomRightRadius:isMe?4:14, border:`1px solid ${isMe?"transparent":C.bdr}` }}>{m.text}</div>
                             </div>
                           );
                         })}
@@ -3515,21 +3527,21 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                               }
                             }}
                             placeholder="메시지 입력..."
-                            style={{ flex:1, padding:"8px 12px", borderRadius:10, border:`1.5px solid ${C.bdr}`, fontSize:12, outline:"none", fontFamily:"inherit", color:C.txt, background:C.bg }} />
+                            style={{ flex:1, padding:"8px 12px", borderRadius:10, border:`1.5px solid ${C.bdr}`, fontSize:12, outline:"none", fontFamily:"inherit", color:C.txt, background:C.surf }} />
                           <button onClick={async () => {
                             const t = teamChatInput.trim(); if (!t||!nextSvc?.id) return;
                             setTeamChatInput("");
                             await addDoc(collection(db,"liveChat",nextSvc.id,"messages"),{text:t,uid:user.uid,name:user.name||user.email,role:user.role,type:"chat",createdAt:serverTimestamp()});
-                          }} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#007aff", color:"#fff", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>전송</button>
+                          }} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:C.pur, color:"#fff", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>전송</button>
                         </div>
                       </div>
                     )}
                   </div>
 
                   {/* ── 팀 메세지 하단 바 ── */}
-                  <div style={{ flexShrink:0, borderTop:`1px solid ${C.bdr}`, background:C.surf, padding:"8px 10px", position:"relative" }}>
+                  <div style={{ flexShrink:0, borderTop:`1px solid ${C.bdr}`, background:C.bg, padding:"8px 10px", position:"relative" }}>
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
-                      <span style={{ fontSize:10, fontWeight:700, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase" }}>📢 팀 메세지</span>
+                      <span style={{ fontSize:10, fontWeight:800, color:C.pur, letterSpacing:"0.05em" }}>📢 팀 메세지</span>
                       <button onClick={() => { setFohMsgEdit(e => !e); setFohMsgInput(""); }} style={{ fontSize:11, fontWeight:700, color:fohMsgEdit?C.pur:C.dim, background:"none", border:"none", cursor:"pointer", fontFamily:"inherit" }}>{fohMsgEdit?"완료":"편집"}</button>
                     </div>
                     {fohMsgEdit ? (
