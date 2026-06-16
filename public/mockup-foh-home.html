@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FOH 홈 목업</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f2f2f7; height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── 상단 헤더 */
+  .header {
+    background: #1c1c2e; color: #fff;
+    padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .header-title { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; }
+  .header-sub { font-size: 11px; color: #8e8e93; }
+  .header-badge {
+    background: #e8a93e; color: #111;
+    font-size: 10px; font-weight: 800;
+    padding: 3px 8px; border-radius: 20px;
+  }
+
+  /* ── 메인 레이아웃 */
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── 왼쪽: 곡순서 + 큐노트 */
+  .left-panel {
+    width: 50%; border-right: 1px solid #e5e5ea;
+    display: flex; flex-direction: column; background: #fff; overflow: hidden;
+  }
+  .panel-header {
+    padding: 10px 14px; border-bottom: 1px solid #e5e5ea;
+    background: #f8f8fb; flex-shrink: 0;
+    font-size: 11px; font-weight: 800; color: #8e8e93;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .song-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .song-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 12px; border-radius: 10px; margin-bottom: 6px;
+    border: 1.5px solid #e5e5ea; background: #fff; cursor: pointer;
+    transition: all .15s;
+  }
+  .song-item.active {
+    background: #e8a93e18; border-color: #e8a93e66;
+  }
+  .song-item.playing {
+    background: #34c75918; border-color: #34c75966;
+  }
+  .song-num {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: #f2f2f7; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; color: #8e8e93; flex-shrink: 0;
+  }
+  .song-item.playing .song-num {
+    background: #34c759; color: #fff;
+  }
+  .song-info { flex: 1; min-width: 0; }
+  .song-title { font-size: 13px; font-weight: 700; color: #1c1c1e;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .song-key {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 1px 6px; border-radius: 4px; margin-top: 2px;
+    background: #6b5de722; color: #6b5de7;
+  }
+  .cue-note {
+    font-size: 11px; color: #8e8e93; margin-top: 4px; line-height: 1.5;
+    font-style: italic;
+  }
+  .song-bpm { font-size: 10px; color: #8e8e93; flex-shrink: 0; align-self: center; }
+
+  /* ── 오른쪽 패널 */
+  .right-panel {
+    width: 50%; display: flex; flex-direction: column; background: #fff; overflow: hidden;
+  }
+
+  /* 뱃지 카드 영역 */
+  .badge-row {
+    display: flex; gap: 8px; padding: 10px 12px;
+    background: #f8f8fb; border-bottom: 1px solid #e5e5ea;
+    flex-shrink: 0;
+  }
+  .badge-card {
+    flex: 1; border-radius: 10px; padding: 10px 12px;
+    border: 2px solid transparent; cursor: pointer;
+    transition: all .15s; position: relative;
+  }
+  .badge-card.red {
+    background: #ff3b3012; border-color: #ff3b3033;
+  }
+  .badge-card.red.active, .badge-card.red:hover {
+    background: #ff3b3022; border-color: #ff3b30;
+  }
+  .badge-card.blue {
+    background: #007aff12; border-color: #007aff33;
+  }
+  .badge-card.blue.active, .badge-card.blue:hover {
+    background: #007aff22; border-color: #007aff;
+  }
+  .badge-card-label {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
+  }
+  .badge-card.red .badge-card-label { color: #ff3b30; }
+  .badge-card.blue .badge-card-label { color: #007aff; }
+  .badge-count {
+    position: absolute; top: 6px; right: 8px;
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 900; color: #fff;
+  }
+  .badge-card.red .badge-count { background: #ff3b30; }
+  .badge-card.blue .badge-count { background: #007aff; }
+  .badge-preview {
+    font-size: 11px; margin-top: 4px; color: #1c1c1e;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding-right: 24px;
+  }
+  .badge-time { font-size: 10px; color: #8e8e93; margin-top: 2px; }
+
+  /* 컨텐츠 영역 */
+  .content-area { flex: 1; overflow-y: auto; padding: 10px 12px; }
+
+  /* FOH 알림 목록 */
+  .alert-item {
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
+    background: #ff3b3008; border: 1.5px solid #ff3b3033;
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .alert-icon { font-size: 18px; flex-shrink: 0; }
+  .alert-body { flex: 1; }
+  .alert-sender { font-size: 11px; font-weight: 800; color: #ff3b30; }
+  .alert-msg { font-size: 12px; color: #1c1c1e; margin-top: 2px; line-height: 1.5; }
+  .alert-time { font-size: 10px; color: #8e8e93; margin-top: 4px; }
+  .alert-ack {
+    flex-shrink: 0; padding: 5px 10px; border-radius: 7px;
+    background: #ff3b3022; border: 1px solid #ff3b3055;
+    color: #ff3b30; font-size: 11px; font-weight: 800;
+    cursor: pointer; align-self: center; white-space: nowrap;
+  }
+  .alert-ack.done {
+    background: #34c75922; border-color: #34c75955;
+    color: #34c759;
+  }
+
+  /* 팀채팅 */
+  .chat-bubble {
+    max-width: 80%; padding: 8px 12px; border-radius: 12px;
+    font-size: 12px; line-height: 1.6; margin-bottom: 6px;
+  }
+  .chat-bubble.them {
+    background: #f2f2f7; color: #1c1c1e; align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+  .chat-bubble.me {
+    background: #007aff; color: #fff; align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+  .chat-list { display: flex; flex-direction: column; gap: 4px; }
+  .chat-name { font-size: 10px; color: #8e8e93; margin-bottom: 2px; }
+  .chat-align-right { display: flex; flex-direction: column; align-items: flex-end; }
+
+  /* 팀메세지 하단 */
+  .bottom-bar {
+    padding: 10px 12px; border-top: 1px solid #e5e5ea;
+    background: #f8f8fb; flex-shrink: 0;
+  }
+  .send-btn {
+    width: 100%; padding: 10px 0; border-radius: 10px;
+    background: linear-gradient(135deg, #e8a93e, #d4922a);
+    border: none; color: #111; font-size: 13px; font-weight: 800;
+    cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .send-modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 100;
+    align-items: flex-end; justify-content: center;
+  }
+  .send-modal-overlay.show { display: flex; }
+  .send-modal {
+    background: #fff; border-radius: 20px 20px 0 0;
+    padding: 20px; width: 100%; max-width: 480px;
+  }
+  .send-modal-title { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
+  .send-modal textarea {
+    width: 100%; border: 1.5px solid #e5e5ea; border-radius: 10px;
+    padding: 10px 12px; font-size: 13px; font-family: inherit;
+    resize: none; outline: none; color: #1c1c1e; background: #f8f8fb;
+  }
+  .send-modal-btns { display: flex; gap: 8px; margin-top: 10px; }
+  .modal-cancel {
+    flex: 1; padding: 10px 0; border-radius: 10px;
+    background: #f2f2f7; border: none; font-size: 13px;
+    font-weight: 700; cursor: pointer; font-family: inherit; color: #8e8e93;
+  }
+  .modal-send {
+    flex: 2; padding: 10px 0; border-radius: 10px;
+    background: #e8a93e; border: none; font-size: 13px;
+    font-weight: 800; cursor: pointer; font-family: inherit; color: #111;
+  }
+
+  /* 탭 전환 표시 */
+  .empty-state {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 8px; color: #8e8e93;
+  }
+  .empty-icon { font-size: 32px; }
+  .empty-text { font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="header">
+  <div>
+    <div class="header-title">⚡ FOH 콘솔</div>
+    <div class="header-sub">2026.06.16 주일 2부 예배</div>
+  </div>
+  <div class="header-badge">Live</div>
+</div>
+
+<!-- 메인 -->
+<div class="main">
+
+  <!-- ── 왼쪽: 곡순서 + 큐노트 -->
+  <div class="left-panel">
+    <div class="panel-header">곡순서 · 큐노트</div>
+    <div class="song-list">
+
+      <div class="song-item">
+        <div class="song-num">1</div>
+        <div class="song-info">
+          <div class="song-title">주님 한 분만으로</div>
+          <span class="song-key">G</span>
+          <div class="cue-note">🎙 목사님 멘트 후 시작. 인트로 길게.</div>
+        </div>
+        <div class="song-bpm">76 BPM</div>
+      </div>
+
+      <div class="song-item playing">
+        <div class="song-num">2</div>
+        <div class="song-info">
+          <div class="song-title">빛나는 왕의 왕</div>
+          <span class="song-key">A</span>
+          <div class="cue-note">🔊 드럼 빌드업 → 브릿지 전 볼륨 업</div>
+        </div>
+        <div class="song-bpm">92 BPM</div>
+      </div>
+
+      <div class="song-item active">
+        <div class="song-num">3</div>
+        <div class="song-info">
+          <div class="song-title">흰 눈보다 더 하얗게</div>
+          <span class="song-key">D</span>
+          <div class="cue-note">🎹 키보드 솔로 인트로. 조용히 시작.</div>
+        </div>
+        <div class="song-bpm">68 BPM</div>
+      </div>
+
+      <div class="song-item">
+        <div class="song-num">4</div>
+        <div class="song-info">
+          <div class="song-title">나의 모든 삶의 순간</div>
+          <span class="song-key">C</span>
+          <div class="cue-note">마지막 코러스 2회 반복. 천천히 아웃트로.</div>
+        </div>
+        <div class="song-bpm">72 BPM</div>
+      </div>
+
+      <div class="song-item">
+        <div class="song-num">5</div>
+        <div class="song-info">
+          <div class="song-title">주 이름 높이세</div>
+          <span class="song-key">E</span>
+          <div class="cue-note">기도 후 바로 연결. 기타 스트럼 시작.</div>
+        </div>
+        <div class="song-bpm">84 BPM</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── 오른쪽: 알림 + 채팅 -->
+  <div class="right-panel">
+
+    <!-- 뱃지 카드 -->
+    <div class="badge-row">
+      <div class="badge-card red active" onclick="showTab('foh')">
+        <div class="badge-count">2</div>
+        <div class="badge-card-label">🔴 FOH 알림</div>
+        <div class="badge-preview">드럼: 모니터 안들려요</div>
+        <div class="badge-time">방금 전</div>
+      </div>
+      <div class="badge-card blue" onclick="showTab('chat')">
+        <div class="badge-count">1</div>
+        <div class="badge-card-label">🔵 팀채팅</div>
+        <div class="badge-preview">키보드 EQ 좀 올려줄 수 있어요?</div>
+        <div class="badge-time">2분 전</div>
+      </div>
+    </div>
+
+    <!-- 컨텐츠 영역 -->
+    <div class="content-area" id="content-foh">
+      <!-- FOH 알림 목록 -->
+      <div class="alert-item">
+        <div class="alert-icon">🥁</div>
+        <div class="alert-body">
+          <div class="alert-sender">드럼 · 김성진</div>
+          <div class="alert-msg">모니터 스피커 소리가 전혀 안 들려요!</div>
+          <div class="alert-time">오후 10:42</div>
+        </div>
+        <button class="alert-ack" onclick="ack(this)">확인</button>
+      </div>
+      <div class="alert-item">
+        <div class="alert-icon">🎸</div>
+        <div class="alert-body">
+          <div class="alert-sender">베이스 · 이준혁</div>
+          <div class="alert-msg">인이어 왼쪽 채널 죽었어요</div>
+          <div class="alert-time">오후 10:39</div>
+        </div>
+        <button class="alert-ack" onclick="ack(this)">확인</button>
+      </div>
+    </div>
+
+    <div class="content-area chat-list" id="content-chat" style="display:none">
+      <div>
+        <div class="chat-name">키보드 · 박지수</div>
+        <div class="chat-bubble them">EQ 좀 올려줄 수 있어요? 고역이 좀 빠진 것 같아요</div>
+      </div>
+      <div class="chat-align-right">
+        <div class="chat-bubble me">확인했어요, 바로 조정할게요</div>
+      </div>
+      <div>
+        <div class="chat-name">키보드 · 박지수</div>
+        <div class="chat-bubble them">감사합니다 🙏</div>
+      </div>
+      <!-- 채팅 입력창 -->
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <input placeholder="메세지 입력..." style="flex:1; padding:8px 12px; border-radius:10px;
+          border:1.5px solid #e5e5ea; font-size:12px; font-family:inherit; outline:none; background:#f8f8fb;">
+        <button style="padding:8px 14px; border-radius:10px; background:#007aff; border:none;
+          color:#fff; font-size:12px; font-weight:800; cursor:pointer;">전송</button>
+      </div>
+    </div>
+
+    <!-- 팀메세지 보내기 -->
+    <div class="bottom-bar">
+      <button class="send-btn" onclick="document.querySelector('.send-modal-overlay').classList.add('show')">
+        📢 팀 전체에 메세지 보내기
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- 팀메세지 모달 -->
+<div class="send-modal-overlay" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="send-modal">
+    <div class="send-modal-title">📢 팀 메세지 전송</div>
+    <textarea rows="3" placeholder="팀 전체에 전달할 메세지를 입력하세요..."></textarea>
+    <div class="send-modal-btns">
+      <button class="modal-cancel" onclick="document.querySelector('.send-modal-overlay').classList.remove('show')">취소</button>
+      <button class="modal-send">전송</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function showTab(tab) {
+    document.getElementById('content-foh').style.display = tab === 'foh' ? 'block' : 'none';
+    document.getElementById('content-chat').style.display = tab === 'chat' ? 'flex' : 'none';
+    document.querySelectorAll('.badge-card').forEach(c => c.classList.remove('active'));
+    if (tab === 'foh') document.querySelectorAll('.badge-card.red')[0].classList.add('active');
+    if (tab === 'chat') document.querySelectorAll('.badge-card.blue')[0].classList.add('active');
+  }
+
+  function ack(btn) {
+    btn.textContent = '✓ 확인됨';
+    btn.classList.add('done');
+    btn.disabled = true;
+    // 뱃지 카운트 감소
+    const count = document.querySelector('.badge-card.red .badge-count');
+    const cur = parseInt(count.textContent);
+    if (cur > 1) count.textContent = cur - 1;
+    else count.style.display = 'none';
+  }
+</script>
+</body>
+</html>
