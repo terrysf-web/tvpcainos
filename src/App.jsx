@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.626";
+const APP_VERSION = "3.627";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -15000,8 +15000,9 @@ function BassFretDiagram({ chordName }) {
 ══════════════════════════════════════════════════════════════════ */
 function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, userParts, C }) {
   const [search, setSearch] = useState("");
+  const [pos, setPos] = useState({ x: 20, y: 100 });
+  const dragRef = useRef(null);
 
-  // Default tab based on user's instrument
   const defaultTab = (() => {
     if (!userParts) return "guitar";
     if (userParts.includes("베이스")) return "bass";
@@ -15019,175 +15020,196 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, userPart
   const diatonicChords = effectiveKey ? getDiatonicChords(effectiveKey) : [];
   const hasAiChords = songChords && songChords.length > 0;
 
+  const PANEL_W = 300;
   const TABS = [
     { id:"guitar",   label:"🎸 기타" },
     { id:"bass",     label:"🎵 베이스" },
     { id:"keyboard", label:"🎹 키보드" },
   ];
 
+  // ── Drag handling
+  const onDragDown = (e) => {
+    if (e.target.closest("button") || e.target.closest("input")) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { px: e.clientX, py: e.clientY, ox: pos.x, oy: pos.y };
+  };
+  const onDragMove = (e) => {
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.px;
+    const dy = e.clientY - dragRef.current.py;
+    setPos({
+      x: Math.max(0, Math.min(window.innerWidth - PANEL_W, dragRef.current.ox + dx)),
+      y: Math.max(0, Math.min(window.innerHeight - 80, dragRef.current.oy + dy)),
+    });
+  };
+  const onDragUp = () => { dragRef.current = null; };
+
   function ChordCard({ name, voicings, sub }) {
     const cardBase = {
-      background:C.bg, borderRadius:12, padding:"10px 8px",
-      display:"flex", flexDirection:"column", alignItems:"center", gap:4,
+      background:C.bg, borderRadius:10, padding:"8px 6px",
+      display:"flex", flexDirection:"column", alignItems:"center", gap:3,
     };
-
-    if (tab === "bass") {
-      return (
-        <div style={cardBase}>
-          {sub && <div style={{ fontSize:9, color:C.pur, fontWeight:700 }}>{sub}</div>}
-          <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{name}</div>
-          <BassFretDiagram chordName={name} />
-        </div>
-      );
-    }
-    if (tab === "keyboard") {
-      return (
-        <div style={{ ...cardBase, padding:"10px 6px" }}>
-          {sub && <div style={{ fontSize:9, color:C.pur, fontWeight:700 }}>{sub}</div>}
-          <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{name}</div>
-          <PianoChordDiagram chordName={name} C={C} />
-        </div>
-      );
-    }
-    // Guitar tab
+    if (tab === "bass") return (
+      <div style={cardBase}>
+        {sub && <div style={{ fontSize:8, color:C.pur, fontWeight:700 }}>{sub}</div>}
+        <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>{name}</div>
+        <BassFretDiagram chordName={name} />
+      </div>
+    );
+    if (tab === "keyboard") return (
+      <div style={{ ...cardBase, padding:"8px 4px" }}>
+        {sub && <div style={{ fontSize:8, color:C.pur, fontWeight:700 }}>{sub}</div>}
+        <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>{name}</div>
+        <PianoChordDiagram chordName={name} C={C} />
+      </div>
+    );
     return voicings ? (
       <div style={cardBase}>
-        {sub && <div style={{ fontSize:9, color:C.pur, fontWeight:700 }}>{sub}</div>}
-        <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{name}</div>
+        {sub && <div style={{ fontSize:8, color:C.pur, fontWeight:700 }}>{sub}</div>}
+        <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>{name}</div>
         <FretDiagram voicing={voicings[0]} />
-        {voicings.length > 1 && <div style={{ fontSize:9, color:C.dim }}>+{voicings.length - 1}개</div>}
+        {voicings.length > 1 && <div style={{ fontSize:8, color:C.dim }}>+{voicings.length - 1}개</div>}
       </div>
     ) : (
-      <div style={{ ...cardBase, minWidth:66, opacity:0.55 }}>
-        {sub && <div style={{ fontSize:9, color:C.pur, fontWeight:700 }}>{sub}</div>}
-        <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{name}</div>
-        <div style={{ fontSize:9, color:C.dim, marginTop:4 }}>정보없음</div>
+      <div style={{ ...cardBase, minWidth:60, opacity:0.5 }}>
+        {sub && <div style={{ fontSize:8, color:C.pur, fontWeight:700 }}>{sub}</div>}
+        <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>{name}</div>
+        <div style={{ fontSize:8, color:C.dim, marginTop:3 }}>정보없음</div>
       </div>
     );
   }
 
   return (
-    <div onClick={onClose} style={{
-      position:"fixed", inset:0, zIndex:3000,
-      background:"rgba(0,0,0,0.5)",
-      display:"flex", alignItems:"flex-end", justifyContent:"center",
+    <div style={{
+      position:"fixed",
+      left: pos.x, top: pos.y,
+      width: PANEL_W,
+      maxHeight: "70vh",
+      zIndex: 3000,
+      background: C.surf,
+      borderRadius: 16,
+      boxShadow: "0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12)",
+      display: "flex", flexDirection: "column",
+      userSelect: "none",
     }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background:C.surf, borderRadius:"20px 20px 0 0",
-        width:"100%", maxWidth:680, maxHeight:"84vh",
-        display:"flex", flexDirection:"column",
-        boxShadow:"0 -4px 32px rgba(0,0,0,0.2)",
-      }}>
-        {/* Header */}
-        <div style={{
+      {/* Drag handle / Header */}
+      <div
+        onPointerDown={onDragDown}
+        onPointerMove={onDragMove}
+        onPointerUp={onDragUp}
+        onPointerCancel={onDragUp}
+        style={{
           display:"flex", alignItems:"center", justifyContent:"space-between",
-          padding:"16px 16px 10px", flexShrink:0,
-        }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <div style={{ fontSize:15, fontWeight:800, color:C.txt }}>🎵 코드 사전</div>
-            {effectiveKey && (
-              <div style={{
-                fontSize:11, fontWeight:700, color:C.pur,
-                background:`${C.pur}15`, borderRadius:6, padding:"2px 8px",
-              }}>Key {effectiveKey}</div>
-            )}
-          </div>
-          <button onClick={onClose} style={{
-            background:"transparent", border:"none", fontSize:20,
-            color:C.dim, cursor:"pointer", lineHeight:1, padding:"0 4px",
-          }}>×</button>
-        </div>
-
-        {/* Instrument tabs */}
-        <div style={{
-          display:"flex", gap:6, padding:"0 16px 10px", flexShrink:0,
+          padding:"10px 12px 8px", flexShrink:0,
           borderBottom:`1px solid ${C.bdr}`,
-        }}>
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
-              padding:"6px 14px", borderRadius:20,
-              border:`1.5px solid ${tab === t.id ? C.pur : C.bdr}`,
-              background: tab === t.id ? C.pur : "transparent",
-              color: tab === t.id ? "#fff" : C.dim,
-              fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
-            }}>{t.label}</button>
-          ))}
-        </div>
-
-        {/* Search */}
-        <div style={{ padding:"10px 16px 8px", flexShrink:0 }}>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="코드 검색 (예: Am, G7, Cmaj7, F#m)"
-            style={{
-              width:"100%", padding:"9px 12px", borderRadius:10,
-              border:`1.5px solid ${C.bdr}`, fontSize:14,
-              fontFamily:"inherit", outline:"none", boxSizing:"border-box",
-              background:C.bg, color:C.txt,
-            }}
-          />
-        </div>
-
-        {/* Content */}
-        <div style={{ overflowY:"auto", padding:"4px 16px 28px", flex:1 }}>
-          {search.trim() ? (
-            <div>
-              <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:10 }}>
-                "{searchTrimmed}" 검색 결과
-              </div>
-              {tab === "guitar" ? (
-                searchVoicings ? (
-                  <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-                    {searchVoicings.map((v, i) => (
-                      <div key={i} style={{
-                        background:C.bg, borderRadius:12, padding:"12px 10px",
-                        display:"flex", flexDirection:"column", alignItems:"center", gap:6,
-                      }}>
-                        <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{v.label}</div>
-                        <FretDiagram voicing={v} />
-                      </div>
-                    ))}
-                  </div>
-                ) : <div style={{ fontSize:13, color:C.dim, padding:"20px 0" }}>코드 정보 없음</div>
-              ) : (
-                <ChordCard name={searchTrimmed} voicings={null} />
-              )}
-            </div>
-          ) : (
-            <>
-              {diatonicChords.length > 0 && (
-                <div style={{ marginBottom:20 }}>
-                  <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:10 }}>
-                    {effectiveKey} 장조 다이아토닉 코드
-                  </div>
-                  <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                    {diatonicChords.map(({ name, roman, voicings }, i) => (
-                      <ChordCard key={i} name={name} voicings={voicings} sub={roman} />
-                    ))}
-                  </div>
-                </div>
-              )}
-              {hasAiChords && (
-                <div>
-                  <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:10 }}>
-                    이 곡에서 감지된 코드
-                  </div>
-                  <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                    {songChords.map(({ name, voicings }, i) => (
-                      <ChordCard key={i} name={name} voicings={voicings} />
-                    ))}
-                  </div>
-                </div>
-              )}
-              {!diatonicChords.length && !hasAiChords && (
-                <div style={{ fontSize:13, color:C.dim, padding:"24px 0", textAlign:"center" }}>
-                  코드를 검색하거나, 곡에 키(Key)가 설정되어 있으면 자동으로 코드가 표시됩니다.
-                </div>
-              )}
-            </>
+          cursor:"grab", touchAction:"none",
+        }}
+      >
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{ fontSize:9, color:C.dim, letterSpacing:2 }}>⠿⠿</span>
+          <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>🎵 코드 사전</div>
+          {effectiveKey && (
+            <div style={{
+              fontSize:10, fontWeight:700, color:C.pur,
+              background:`${C.pur}15`, borderRadius:5, padding:"1px 6px",
+            }}>Key {effectiveKey}</div>
           )}
         </div>
+        <button onClick={onClose} style={{
+          background:"transparent", border:"none", fontSize:18,
+          color:C.dim, cursor:"pointer", lineHeight:1, padding:"0 2px",
+        }}>×</button>
+      </div>
+
+      {/* Tabs */}
+      <div style={{
+        display:"flex", gap:4, padding:"6px 10px", flexShrink:0,
+        borderBottom:`1px solid ${C.bdr}`,
+      }}>
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
+            flex:1, padding:"5px 4px", borderRadius:16,
+            border:`1.5px solid ${tab === t.id ? C.pur : C.bdr}`,
+            background: tab === t.id ? C.pur : "transparent",
+            color: tab === t.id ? "#fff" : C.dim,
+            fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+          }}>{t.label}</button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div style={{ padding:"7px 10px 5px", flexShrink:0 }}>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="코드 검색 (예: Am, G7, F#m)"
+          style={{
+            width:"100%", padding:"7px 10px", borderRadius:8,
+            border:`1.5px solid ${C.bdr}`, fontSize:12,
+            fontFamily:"inherit", outline:"none", boxSizing:"border-box",
+            background:C.bg, color:C.txt,
+          }}
+        />
+      </div>
+
+      {/* Content */}
+      <div style={{ overflowY:"auto", padding:"4px 10px 16px", flex:1 }}>
+        {search.trim() ? (
+          <div>
+            <div style={{ fontSize:10, color:C.dim, fontWeight:700, marginBottom:8 }}>
+              "{searchTrimmed}" 검색 결과
+            </div>
+            {tab === "guitar" ? (
+              searchVoicings ? (
+                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                  {searchVoicings.map((v, i) => (
+                    <div key={i} style={{
+                      background:C.bg, borderRadius:10, padding:"10px 8px",
+                      display:"flex", flexDirection:"column", alignItems:"center", gap:5,
+                    }}>
+                      <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>{v.label}</div>
+                      <FretDiagram voicing={v} />
+                    </div>
+                  ))}
+                </div>
+              ) : <div style={{ fontSize:12, color:C.dim, padding:"16px 0" }}>코드 정보 없음</div>
+            ) : (
+              <ChordCard name={searchTrimmed} voicings={null} />
+            )}
+          </div>
+        ) : (
+          <>
+            {diatonicChords.length > 0 && (
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:10, color:C.dim, fontWeight:700, marginBottom:7 }}>
+                  {effectiveKey} 장조 다이아토닉
+                </div>
+                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                  {diatonicChords.map(({ name, roman, voicings }, i) => (
+                    <ChordCard key={i} name={name} voicings={voicings} sub={roman} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {hasAiChords && (
+              <div>
+                <div style={{ fontSize:10, color:C.dim, fontWeight:700, marginBottom:7 }}>
+                  감지된 코드
+                </div>
+                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                  {songChords.map(({ name, voicings }, i) => (
+                    <ChordCard key={i} name={name} voicings={voicings} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {!diatonicChords.length && !hasAiChords && (
+              <div style={{ fontSize:12, color:C.dim, padding:"20px 0", textAlign:"center" }}>
+                코드를 검색하거나<br/>곡에 Key가 설정되면<br/>자동으로 표시됩니다.
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
