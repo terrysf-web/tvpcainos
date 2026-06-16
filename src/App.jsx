@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.637";
+const APP_VERSION = "3.638";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -7183,7 +7183,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [chordMoveMode,  setChordMoveMode]  = useState(false); // 리더 전용: 코드 이동 모드
   const [transposeSteps,  setTransposeSteps]  = useState(0);  // single / dual left
   const [transposeSteps2, setTransposeSteps2] = useState(0);  // dual right
-  const [capoFret,        setCapoFret]        = useState(0);  // 0=없음, 1~7 (기타/일렉기타만)
+  const [capoFret,        setCapoFret]        = useState(0);  // 0=없음, 1~7 (기타/일렉기타만) — 싱글/듀얼 왼쪽
+  const [capoFret2,       setCapoFret2]       = useState(0);  // 듀얼 오른쪽 전용
   const [showChordDict,   setShowChordDict]   = useState(false);
   const [chordData,      setChordData]      = useState([]);   // [{chord,x,y}] — single / dual left
   const [chordData2,     setChordData2]     = useState([]);   // dual right
@@ -10248,23 +10249,41 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   <span style={{ fontSize:9, color:C.dim, whiteSpace:"nowrap" }}>더블탭: 복사 · 꾹: 삭제</span>
                 )}
                 <span style={{ fontSize:10, color:C.dim, fontWeight:700 }}>오른쪽</span>
-                {song?.key && (() => {
-                  const rightSong = songs?.find(s => s.id === dualRightSongId);
-                  const rKey = rightSong?.key || song?.key;
-                  const rec = getCapoRec(rKey, transposeSteps2);
-                  if (!rec) return null;
-                  const parts = getUserParts(user);
-                  const tips = [];
-                  if ((parts.includes("기타") || leader) && rec.acoustic) tips.push(`기타 ${rec.acoustic.shape}+${rec.acoustic.capo}`);
-                  if ((parts.includes("일렉기타") || leader) && rec.electric) tips.push(`일렉 ${rec.electric.shape}+${rec.electric.capo}`);
-                  if (!tips.length) return null;
-                  return (
-                    <div style={{ display:"flex", flexDirection:"column", gap:1, flexShrink:0 }}>
-                      <span style={{ fontSize:9, fontWeight:800, color:C.acc }}>추천</span>
-                      {tips.map(t => <span key={t} style={{ fontSize:12, fontWeight:800, color:C.pur, whiteSpace:"nowrap" }}>{t}</span>)}
+                {/* 오른쪽 전용 카포 */}
+                {(getUserParts(user).includes("기타") || getUserParts(user).includes("일렉기타") || leader) && (
+                  <>
+                    <span style={{ fontSize:10, fontWeight:800, color:C.acc, flexShrink:0 }}>🎸 카포</span>
+                    <div style={{ display:"flex", gap:2, flexShrink:0 }}>
+                      {[0,1,2,3,4,5,6,7].map(f => (
+                        <button key={f} onClick={() => setCapoFret2(f)} style={{
+                          width:22, height:22, borderRadius:5,
+                          border:`1.5px solid ${capoFret2===f ? C.acc : C.bdr}`,
+                          background: capoFret2===f ? C.acc : "transparent",
+                          color: capoFret2===f ? "#fff" : C.txt,
+                          fontSize:10, fontWeight:700, cursor:"pointer",
+                          display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit",
+                        }}>{f===0 ? "X" : f}</button>
+                      ))}
                     </div>
-                  );
-                })()}
+                    {(() => {
+                      const rightSong = songs?.find(s => s.id === dualRightSongId);
+                      const rKey = rightSong?.key || song?.key;
+                      const rec = getCapoRec(rKey, transposeSteps2);
+                      if (!rec) return null;
+                      const parts = getUserParts(user);
+                      const tips = [];
+                      if ((parts.includes("기타") || leader) && rec.acoustic) tips.push(`기타 ${rec.acoustic.shape}+${rec.acoustic.capo}`);
+                      if ((parts.includes("일렉기타") || leader) && rec.electric) tips.push(`일렉 ${rec.electric.shape}+${rec.electric.capo}`);
+                      if (!tips.length) return null;
+                      return (
+                        <div style={{ display:"flex", flexDirection:"column", gap:1, flexShrink:0 }}>
+                          <span style={{ fontSize:9, fontWeight:800, color:C.acc }}>추천</span>
+                          {tips.map(t => <span key={t} style={{ fontSize:12, fontWeight:800, color:C.pur, whiteSpace:"nowrap" }}>{t}</span>)}
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
                 <button onClick={() => saveTransposeSteps2(Math.max(-6, transposeSteps2 - 1))}
                   style={{ width:26, height:26, borderRadius:6, border:`1px solid ${C.bdr}`,
                     background:"transparent", cursor:"pointer", fontWeight:700, fontSize:14, display:"flex",
@@ -10718,8 +10737,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                   position:"absolute",
                                   left:`${item.x * 100}%`, top:`${item.y * 100}%`,
                                   transform:"translate(-50%,-50%)",
-                                  background: isPendingDel ? "rgba(220,50,50,0.95)" : (transposeSteps2 - capoFret) === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
-                                  color: isPendingDel ? "#fff" : (transposeSteps2 - capoFret) === 0 ? "#fff" : "#111",
+                                  background: isPendingDel ? "rgba(220,50,50,0.95)" : (transposeSteps2 - capoFret2) === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
+                                  color: isPendingDel ? "#fff" : (transposeSteps2 - capoFret2) === 0 ? "#fff" : "#111",
                                   borderRadius:3, padding:"1px 4px",
                                   fontSize:fs, fontWeight:800, lineHeight:1.5,
                                   whiteSpace:"nowrap", fontFamily:"monospace",
@@ -10732,7 +10751,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 }}
                                   onPointerDown={canMove ? e => handleChordPointerDown(e, 2, i) : undefined}
                                   onTouchStart={canMove ? e => e.stopPropagation() : undefined}>
-                                  {transposeChord(item.chord, transposeSteps2 - capoFret, useFlats(song.key, transposeSteps2 - capoFret))}
+                                  {transposeChord(item.chord, transposeSteps2 - capoFret2, useFlats(song.key, transposeSteps2 - capoFret2))}
                                 </span>
                                 );
                               })}
