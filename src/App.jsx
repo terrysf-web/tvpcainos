@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.618";
+const APP_VERSION = "3.619";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -7161,6 +7161,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [chordMoveMode,  setChordMoveMode]  = useState(false); // 리더 전용: 코드 이동 모드
   const [transposeSteps,  setTransposeSteps]  = useState(0);  // single / dual left
   const [transposeSteps2, setTransposeSteps2] = useState(0);  // dual right
+  const [capoFret,        setCapoFret]        = useState(0);  // 0=없음, 1~7 (기타/일렉기타만)
   const [chordData,      setChordData]      = useState([]);   // [{chord,x,y}] — single / dual left
   const [chordData2,     setChordData2]     = useState([]);   // dual right
   const [chordFontScale, setChordFontScale] = useState(1.0);  // 0.4–2.0
@@ -9539,8 +9540,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   })()}
                   {/* 전조 */}
                   {tbBtn(
-                    transposeMode && transposeSteps !== 0
-                      ? `${song.key}→${keyName(song.key, transposeSteps)}` : "전조",
+                    transposeMode && (transposeSteps !== 0 || capoFret > 0)
+                      ? `${song.key}→${keyName(song.key, transposeSteps - capoFret)}${capoFret > 0 ? ` C${capoFret}` : ""}` : "전조",
                     transposeMode,
                     () => {
                       const next = !transposeMode;
@@ -10093,6 +10094,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 : chordData2.length > 0 && <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 오른쪽 {chordData2.length}개</span>
               }
               {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
+              {/* 카포 — 기타/일렉기타 파트만 표시 (듀얼) */}
+              {(getUserParts(user).includes("기타") || getUserParts(user).includes("일렉기타") || leader) && (
+                <>
+                  <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+                  <span style={{ fontSize:10, fontWeight:800, color:C.acc, flexShrink:0 }}>🎸 카포</span>
+                  <div style={{ display:"flex", gap:3, flexShrink:0 }}>
+                    {[0,1,2,3,4,5,6,7].map(f => (
+                      <button key={f} onClick={() => setCapoFret(f)} style={{
+                        width:22, height:22, borderRadius:5,
+                        border:`1.5px solid ${capoFret===f ? C.acc : C.bdr}`,
+                        background: capoFret===f ? C.acc : "transparent",
+                        color: capoFret===f ? "#fff" : C.txt,
+                        fontSize:10, fontWeight:700, cursor:"pointer",
+                        display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit",
+                      }}>{f===0 ? "X" : f}</button>
+                    ))}
+                  </div>
+                </>
+              )}
               {/* 오른쪽 전조 + 초기화 */}
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
                 {leader && (chordData.length > 0 || chordData2.length > 0) && (
@@ -10173,6 +10193,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 : chordData.length > 0 && <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ {chordData.length}개 감지됨</span>
               }
               {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
+              {/* 카포 — 기타/일렉기타 파트만 표시 */}
+              {(getUserParts(user).includes("기타") || getUserParts(user).includes("일렉기타") || leader) && (
+                <>
+                  <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+                  <span style={{ fontSize:10, fontWeight:800, color:C.acc, flexShrink:0 }}>🎸 카포</span>
+                  <div style={{ display:"flex", gap:3, flexShrink:0 }}>
+                    {[0,1,2,3,4,5,6,7].map(f => (
+                      <button key={f} onClick={() => setCapoFret(f)} style={{
+                        width:24, height:24, borderRadius:6,
+                        border:`1.5px solid ${capoFret===f ? C.acc : C.bdr}`,
+                        background: capoFret===f ? C.acc : "transparent",
+                        color: capoFret===f ? "#fff" : C.txt,
+                        fontSize:11, fontWeight:700, cursor:"pointer",
+                        display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit",
+                      }}>{f===0 ? "X" : f}</button>
+                    ))}
+                  </div>
+                </>
+              )}
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
                 {leader && chordData.length > 0 && (
                   <button onClick={() => setChordMoveMode(m => !m)}
@@ -10416,6 +10455,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         const cw = canvas1Ref.current?.offsetWidth  || 400;
                         const fs = Math.round(Math.max(8, Math.min(14, cw / 50)) * chordFontScale);
                         const canMove = leader && chordMoveMode;
+                        const effectiveSteps = transposeSteps - capoFret;
                         return (
                           <div ref={chordOverlay1Ref}
                             style={{ position:"absolute", inset:0, pointerEvents:"none" }}
@@ -10428,8 +10468,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 position:"absolute",
                                 left:`${item.x * 100}%`, top:`${item.y * 100}%`,
                                 transform:"translate(-50%,-50%)",
-                                background: isPendingDel ? "rgba(220,50,50,0.95)" : transposeSteps === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
-                                color: isPendingDel ? "#fff" : transposeSteps === 0 ? "#fff" : "#111",
+                                background: isPendingDel ? "rgba(220,50,50,0.95)" : effectiveSteps === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
+                                color: isPendingDel ? "#fff" : effectiveSteps === 0 ? "#fff" : "#111",
                                 borderRadius:3, padding:"1px 4px",
                                 fontSize:fs, fontWeight:800, lineHeight:1.5,
                                 whiteSpace:"nowrap", fontFamily:"monospace",
@@ -10442,7 +10482,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                               }}
                                 onPointerDown={canMove ? e => handleChordPointerDown(e, 1, i) : undefined}
                                 onTouchStart={canMove ? e => e.stopPropagation() : undefined}>
-                                {transposeChord(item.chord, transposeSteps, useFlats(song.key, transposeSteps))}
+                                {transposeChord(item.chord, effectiveSteps, useFlats(song.key, effectiveSteps))}
                               </span>
                               );
                             })}
@@ -10500,8 +10540,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                   position:"absolute",
                                   left:`${item.x * 100}%`, top:`${item.y * 100}%`,
                                   transform:"translate(-50%,-50%)",
-                                  background: isPendingDel ? "rgba(220,50,50,0.95)" : transposeSteps2 === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
-                                  color: isPendingDel ? "#fff" : transposeSteps2 === 0 ? "#fff" : "#111",
+                                  background: isPendingDel ? "rgba(220,50,50,0.95)" : (transposeSteps2 - capoFret) === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
+                                  color: isPendingDel ? "#fff" : (transposeSteps2 - capoFret) === 0 ? "#fff" : "#111",
                                   borderRadius:3, padding:"1px 4px",
                                   fontSize:fs, fontWeight:800, lineHeight:1.5,
                                   whiteSpace:"nowrap", fontFamily:"monospace",
@@ -10514,7 +10554,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 }}
                                   onPointerDown={canMove ? e => handleChordPointerDown(e, 2, i) : undefined}
                                   onTouchStart={canMove ? e => e.stopPropagation() : undefined}>
-                                  {transposeChord(item.chord, transposeSteps2, useFlats(song.key, transposeSteps2))}
+                                  {transposeChord(item.chord, transposeSteps2 - capoFret, useFlats(song.key, transposeSteps2 - capoFret))}
                                 </span>
                                 );
                               })}
