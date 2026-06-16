@@ -98,6 +98,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // 앱 버전 배포 — 읽기 인증된 모두, 쓰기 리더/어드민
+    match /appConfig/{docId} {
+      allow read: if isAuthed();
+      allow write: if isLeader();
+    }
+
     // AI 분석 결과 — 인증된 모든 팀원이 읽기/쓰기 가능
     match /songAnalysis/{songId} {
       allow read, write: if isAuthed();
