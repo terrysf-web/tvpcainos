@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { getVoicings } from "./chordVoicings.js";
 import { auth, db, storage, messagingPromise, firebaseConfigObj } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
@@ -19,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.622";
+const APP_VERSION = "3.623";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -7162,6 +7163,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [transposeSteps,  setTransposeSteps]  = useState(0);  // single / dual left
   const [transposeSteps2, setTransposeSteps2] = useState(0);  // dual right
   const [capoFret,        setCapoFret]        = useState(0);  // 0=없음, 1~7 (기타/일렉기타만)
+  const [showChordDict,   setShowChordDict]   = useState(false);
   const [chordData,      setChordData]      = useState([]);   // [{chord,x,y}] — single / dual left
   const [chordData2,     setChordData2]     = useState([]);   // dual right
   const [chordFontScale, setChordFontScale] = useState(1.0);  // 0.4–2.0
@@ -7172,6 +7174,24 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const longPressTimer   = useRef(null);
   const longPressOrigin  = useRef(null); // {x,y} to detect move
   const pointerDownTimeRef = useRef(0);
+
+  // 코드 사전: 현재 곡의 코드 목록 (effectiveSteps 적용)
+  const songChords = useMemo(() => {
+    const effectiveSteps = transposeSteps - capoFret;
+    const allChords = [
+      ...chordData.map(d => d.chord),
+      ...chordData2.map(d => d.chord),
+    ];
+    const seen = new Set();
+    return allChords
+      .map(c => transposeChord(c, effectiveSteps, useFlats(song?.key, effectiveSteps)))
+      .filter(name => {
+        if (!name || seen.has(name)) return false;
+        seen.add(name);
+        return true;
+      })
+      .map(name => ({ name, voicings: getVoicings(name) }));
+  }, [chordData, chordData2, transposeSteps, capoFret, song?.key]);
   const didDragRef         = useRef(false);
   const chordDragCancelledRef = useRef(false); // swipe 감지 시 chord drag 즉시 취소용
   const lastTapRef         = useRef({ side: null, idx: null, time: 0 });
@@ -10111,6 +10131,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       }}>{f===0 ? "X" : f}</button>
                     ))}
                   </div>
+                  <button onClick={() => setShowChordDict(true)} style={{
+                    display:"flex", alignItems:"center", gap:4, padding:"3px 8px",
+                    borderRadius:7, border:`1.5px solid ${C.pur}55`,
+                    background:`${C.pur}11`, color:C.pur,
+                    fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"inherit", flexShrink:0,
+                  }}>🎵 코드사전</button>
                 </>
               )}
               {/* 오른쪽 전조 + 초기화 */}
@@ -10210,6 +10236,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       }}>{f===0 ? "X" : f}</button>
                     ))}
                   </div>
+                  <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+                  <button onClick={() => setShowChordDict(true)} style={{
+                    display:"flex", alignItems:"center", gap:4, padding:"4px 10px",
+                    borderRadius:7, border:`1.5px solid ${C.pur}55`,
+                    background:`${C.pur}11`, color:C.pur,
+                    fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", flexShrink:0,
+                  }}>🎵 코드사전</button>
                 </>
               )}
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
@@ -10252,6 +10285,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             </>
           )}
         </div>
+      )}
+
+      {/* 코드 사전 모달 */}
+      {showChordDict && (
+        <ChordDictModal
+          onClose={() => setShowChordDict(false)}
+          songChords={songChords}
+          C={C}
+        />
       )}
 
       {/* 돋보기 루프 (스탬프 모드 / 애플펜슬) */}
@@ -14732,6 +14774,210 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
         </div>
         <span style={{ fontSize:9, color:C.dim, letterSpacing:"0.02em" }}>v{APP_VERSION}</span>
       </button>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FRET DIAGRAM (코드 운지 SVG)
+══════════════════════════════════════════════════════════════════ */
+function FretDiagram({ voicing }) {
+  if (!voicing) return null;
+  const { frets, barre } = voicing;
+  const strX = [14, 24, 34, 44, 54, 64];
+  // All 5 horizontal lines: nut + 4 fret wires → 4 boxes
+  const allLines = [22, 36, 50, 64, 78];
+  const nonMuted = frets.filter(f => f > 0);
+  const minFret = nonMuted.length > 0 ? Math.min(...nonMuted) : 1;
+  const maxFret = nonMuted.length > 0 ? Math.max(...nonMuted) : 1;
+  const startFret = (barre > 0) ? barre : (minFret <= 4 ? 1 : minFret);
+  const isNut = startFret === 1;
+  const C_txt = "#1c1c1e";
+  const C_dim = "#8e8e93";
+  const C_bdr = "#d1d1d6";
+
+  function dotY(fretNum) {
+    const idx = fretNum - startFret; // 0-indexed box
+    if (idx < 0 || idx >= 4) return null;
+    return (allLines[idx] + allLines[idx + 1]) / 2;
+  }
+
+  return (
+    <svg width={78} height={90} viewBox="0 0 78 90" style={{ display:"block" }}>
+      {/* X / O markers above nut */}
+      {frets.map((f, i) => {
+        if (f === -1) return (
+          <text key={i} x={strX[i]} y={14} textAnchor="middle" fontSize={10} fontWeight="700" fill={C_dim}>×</text>
+        );
+        if (f === 0) return (
+          <text key={i} x={strX[i]} y={14} textAnchor="middle" fontSize={10} fill={C_dim}>○</text>
+        );
+        return null;
+      })}
+
+      {/* Nut (thick if open, thin if barre position) */}
+      {isNut
+        ? <rect x={strX[0] - 2} y={allLines[0] - 4} width={strX[5] - strX[0] + 4} height={4} fill={C_txt} rx={1} />
+        : <line x1={strX[0]} y1={allLines[0]} x2={strX[5]} y2={allLines[0]} stroke={C_bdr} strokeWidth={1.5} />
+      }
+
+      {/* Fret wires */}
+      {allLines.slice(1).map((y, i) => (
+        <line key={i} x1={strX[0]} y1={y} x2={strX[5]} y2={y} stroke={C_bdr} strokeWidth={1} />
+      ))}
+
+      {/* String lines */}
+      {strX.map((x, i) => (
+        <line key={i} x1={x} y1={allLines[0]} x2={x} y2={allLines[4]} stroke={C_bdr} strokeWidth={1} />
+      ))}
+
+      {/* Barre bar */}
+      {barre > 0 && (() => {
+        const by = dotY(barre);
+        if (by === null) return null;
+        return <rect x={strX[0] + 1} y={by - 6} width={strX[5] - strX[0] - 2} height={12} rx={6} fill={C_txt} opacity={0.85} />;
+      })()}
+
+      {/* Finger dots */}
+      {frets.map((f, i) => {
+        if (f <= 0) return null;
+        if (barre > 0 && f === barre) return null; // covered by barre bar
+        const cy = dotY(f);
+        if (cy === null) return null;
+        return <circle key={i} cx={strX[i]} cy={cy} r={5.5} fill={C_txt} />;
+      })}
+
+      {/* Fret number (shown when not starting from fret 1) */}
+      {!isNut && (
+        <text x={strX[5] + 5} y={allLines[0] + 10} fontSize={8} fill={C_dim}>{startFret}fr</text>
+      )}
+    </svg>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   CHORD DICTIONARY MODAL
+══════════════════════════════════════════════════════════════════ */
+function ChordDictModal({ onClose, songChords, C }) {
+  const [search, setSearch] = useState("");
+
+  const searchTrimmed = search.trim().toUpperCase();
+
+  // Match searched chord
+  const searchVoicings = searchTrimmed
+    ? getVoicings(search.trim()) || getVoicings(searchTrimmed[0] + searchTrimmed.slice(1).toLowerCase())
+    : null;
+
+  // Normalize search display
+  const searchDisplay = search.trim() || "";
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position:"fixed", inset:0, zIndex:3000,
+        background:"rgba(0,0,0,0.5)",
+        display:"flex", alignItems:"flex-end", justifyContent:"center",
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background:C.surf, borderRadius:"20px 20px 0 0",
+          width:"100%", maxWidth:600, maxHeight:"80vh",
+          display:"flex", flexDirection:"column",
+          boxShadow:"0 -4px 32px rgba(0,0,0,0.2)",
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"16px 16px 10px", flexShrink:0,
+          borderBottom:`1px solid ${C.bdr}`,
+        }}>
+          <div style={{ fontSize:15, fontWeight:800, color:C.txt }}>🎵 코드 사전</div>
+          <button onClick={onClose} style={{
+            background:"transparent", border:"none", fontSize:20,
+            color:C.dim, cursor:"pointer", lineHeight:1, padding:"0 4px",
+          }}>×</button>
+        </div>
+
+        {/* Search */}
+        <div style={{ padding:"10px 16px 8px", flexShrink:0 }}>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="코드 검색 (예: Am, G7, Cmaj7)"
+            style={{
+              width:"100%", padding:"9px 12px", borderRadius:10,
+              border:`1.5px solid ${C.bdr}`, fontSize:14,
+              fontFamily:"inherit", outline:"none", boxSizing:"border-box",
+              background:C.bg, color:C.txt,
+            }}
+          />
+        </div>
+
+        {/* Content */}
+        <div style={{ overflowY:"auto", padding:"4px 16px 24px", flex:1 }}>
+          {search.trim() ? (
+            /* Search result */
+            <div>
+              <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:10 }}>
+                "{searchDisplay}" 검색 결과
+              </div>
+              {searchVoicings ? (
+                <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+                  {searchVoicings.map((v, i) => (
+                    <div key={i} style={{
+                      background:C.bg, borderRadius:12, padding:"12px 10px",
+                      display:"flex", flexDirection:"column", alignItems:"center", gap:6,
+                    }}>
+                      <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{v.label}</div>
+                      <FretDiagram voicing={v} />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize:13, color:C.dim, padding:"20px 0" }}>코드 정보 없음</div>
+              )}
+            </div>
+          ) : songChords && songChords.length > 0 ? (
+            /* Song chords */
+            <div>
+              <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:10 }}>
+                이 곡의 코드
+              </div>
+              <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+                {songChords.map(({ name, voicings }, i) => voicings ? (
+                  <div key={i} style={{
+                    background:C.bg, borderRadius:12, padding:"12px 10px",
+                    display:"flex", flexDirection:"column", alignItems:"center", gap:6,
+                  }}>
+                    <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{name}</div>
+                    <FretDiagram voicing={voicings[0]} />
+                    {voicings.length > 1 && (
+                      <div style={{ fontSize:9, color:C.dim }}>+{voicings.length - 1}가지 더</div>
+                    )}
+                  </div>
+                ) : (
+                  <div key={i} style={{
+                    background:C.bg, borderRadius:12, padding:"12px 14px",
+                    display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                    minWidth:70, opacity:0.6,
+                  }}>
+                    <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{name}</div>
+                    <div style={{ fontSize:9, color:C.dim, marginTop:4 }}>정보 없음</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize:13, color:C.dim, padding:"20px 0", textAlign:"center" }}>
+              코드를 검색하거나, 전조 모드에서 AI 코드 감지 후 코드 목록을 확인하세요.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
