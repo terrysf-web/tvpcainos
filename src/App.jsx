@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.638";
+const APP_VERSION = "3.639";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -9325,10 +9325,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               position:"relative", flexShrink:0,
               background: metroOn ? `${C.acc}22` : "transparent",
               border:`1px solid ${metroOn ? C.acc : C.bdr}`,
-              borderRadius:8, padding:"5px 7px", cursor:"pointer",
-              display:"flex", alignItems:"center", justifyContent:"center",
+              borderRadius:8, padding:"4px 7px", cursor:"pointer",
+              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:1,
             }}>
             <span style={{ fontSize:16, lineHeight:1 }}>🎵</span>
+            <span style={{ fontSize:8, fontWeight:700, color: metroOn ? C.acc : C.dim, lineHeight:1 }}>메트로놈</span>
             {metroOn && (
               <span style={{
                 position:"absolute", top:2, right:2,
@@ -9522,7 +9523,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   {/* 녹음 목록 */}
                   {recCount > 0 && !recording && sqBtn("▶", false, () => setShowRecModal(true))}
                   {/* 예배 연습 녹음 */}
-                  {!isLibraryMode && svcPracticeUrl && tbBtn("🎧", showWorshipPlayer, () => setShowWorshipPlayer(p => !p), C.grn)}
+                  {!isLibraryMode && svcPracticeUrl && tbBtn("연습", showWorshipPlayer, () => setShowWorshipPlayer(p => !p), C.grn)}
                   {tbSep}
                   {/* FIT */}
                   {tbBtn("FIT", fitActive, autoFit, C.acc)}
@@ -9532,13 +9533,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   {/* 메모 */}
                   {tbBtn("메모", showNotePanel, () => setShowNotePanel(p => !p), C.acc)}
                   {/* Q (큐노트) */}
-                  {!isLibraryMode && tbBtn("Q", showCueInput, () => setShowCueInput(p => !p), "#ff6f00")}
+                  {!isLibraryMode && tbBtn("큐노트", showCueInput, () => setShowCueInput(p => !p), "#ff6f00")}
                   {/* 팀 채팅 */}
                   {!isLibraryMode && (() => {
                     const unread = chatMsgs.filter(m => m.uid !== user?.uid).length;
                     return (
                       <div style={{ position:"relative", flexShrink:0 }}>
-                        {tbBtn("💬", showChat, () => setShowChat(p => !p), C.acc)}
+                        {tbBtn("채팅", showChat, () => setShowChat(p => !p), C.acc)}
                         {!showChat && unread > 0 && (
                           <span style={{ position:"absolute", top:-4, right:-4,
                             minWidth:14, height:14, borderRadius:7, background:C.red,
@@ -11144,11 +11145,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         };
         return (
           <div style={{
-            position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 68px)", right:12,
-            width:270, maxHeight:420, zIndex:3100,
-            background:C.surf, border:`1px solid ${C.bdr}`,
-            borderRadius:14, display:"flex", flexDirection:"column",
-            boxShadow:"0 4px 24px rgba(0,0,0,0.18)", overflow:"hidden",
+            position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 60px)", left:0, right:0,
+            maxHeight:260, zIndex:3100,
+            background:C.surf, borderTop:`1px solid ${C.bdr}`,
+            borderRadius:"16px 16px 0 0", display:"flex", flexDirection:"column",
+            boxShadow:"0 -4px 24px rgba(0,0,0,0.15)", overflow:"hidden",
           }}>
             {/* 헤더 */}
             <div style={{ padding:"8px 12px", borderBottom:`1px solid ${C.bdr}`,
