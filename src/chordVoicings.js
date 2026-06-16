@@ -141,21 +141,37 @@ const DIATONIC_MAJOR = [
   { offset:11, suffix:"dim", roman:"vii°" },
 ];
 
-// Returns 7 diatonic chords for the given key (sharp notation)
-// key: "C" | "C#" | "D" | ... | "B"
-// effectiveSteps: capo/transpose offset already factored in (usually pass 0 if key is already effective)
-export function getDiatonicChords(key, extraSteps = 0) {
+// Flat key semitone indices: F(5) Bb(10) Eb(3) Ab(8) Db(1) Gb(6) — matches App.jsx FLAT_RESULT_IDX
+const FLAT_KEY_IDX = new Set([1, 3, 5, 6, 8, 10]);
+// Sharp→Flat display map
+const SHARP_TO_FLAT_DISPLAY = { "C#":"Db", "D#":"Eb", "F#":"Gb", "G#":"Ab", "A#":"Bb" };
+
+// Get effective key name with correct #/b notation based on circle of fifths
+export function getEffectiveKey(key, steps = 0) {
+  const idx = SHARP_NOTES.indexOf(key);
+  if (idx === -1) return key;
+  const effIdx = ((idx + steps) % 12 + 12) % 12;
+  const sharp = SHARP_NOTES[effIdx];
+  return FLAT_KEY_IDX.has(effIdx) ? (SHARP_TO_FLAT_DISPLAY[sharp] || sharp) : sharp;
+}
+
+// Returns 7 diatonic chords using correct #/b notation for the key
+// key: original song key (sharp notation, e.g. "G"), steps: effectiveSteps (transposeSteps - capoFret)
+export function getDiatonicChords(key, steps = 0) {
   const rootIdx = SHARP_NOTES.indexOf(key);
   if (rootIdx === -1) return [];
-  const effIdx = ((rootIdx + extraSteps) % 12 + 12) % 12;
+  const effIdx = ((rootIdx + steps) % 12 + 12) % 12;
+  const isFlat = FLAT_KEY_IDX.has(effIdx);
   return DIATONIC_MAJOR.map(({ offset, suffix, roman }) => {
     const noteIdx = (effIdx + offset) % 12;
-    const name = SHARP_NOTES[noteIdx] + suffix;
+    const sharpRoot = SHARP_NOTES[noteIdx];
+    const root = (isFlat && SHARP_TO_FLAT_DISPLAY[sharpRoot]) ? SHARP_TO_FLAT_DISPLAY[sharpRoot] : sharpRoot;
+    const name = root + suffix;
     return { name, roman, voicings: getVoicings(name) };
   });
 }
 
-// Transpose a key name by semitone steps
+// Transpose a key name by semitone steps (returns sharp notation)
 export function transposeKey(key, steps) {
   const idx = SHARP_NOTES.indexOf(key);
   if (idx === -1) return key;

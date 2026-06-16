@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { getVoicings, getDiatonicChords, transposeKey, getChordTones } from "./chordVoicings.js";
+import { getVoicings, getDiatonicChords, getEffectiveKey, getChordTones } from "./chordVoicings.js";
 import { auth, db, storage, messagingPromise, firebaseConfigObj } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.627";
+const APP_VERSION = "3.628";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -15016,8 +15016,8 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, userPart
     ? getVoicings(searchTrimmed) || getVoicings(searchTrimmed[0].toUpperCase() + searchTrimmed.slice(1))
     : null;
 
-  const effectiveKey = songKey ? transposeKey(songKey, effectiveSteps) : null;
-  const diatonicChords = effectiveKey ? getDiatonicChords(effectiveKey) : [];
+  const effectiveKey = songKey ? getEffectiveKey(songKey, effectiveSteps) : null;
+  const diatonicChords = songKey ? getDiatonicChords(songKey, effectiveSteps) : [];
   const hasAiChords = songChords && songChords.length > 0;
 
   const PANEL_W = 300;
