@@ -2745,7 +2745,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   });
   const saveFohPresets = (list) => { setTeamChatPresets(list); localStorage.setItem("tvpc_foh_chat_presets", JSON.stringify(list)); };
   const [chatLastSeen, setChatLastSeen] = useState(0); // timestamp ms
-  const [fohRightTab,  setFohRightTab]  = useState("alert"); // "alert" | "chat"
+  const [fohRightTab,  setFohRightTab]  = useState(null); // "alert" | "chat" | null
   const [fohFollowTarget, setFohFollowTarget] = useState("키보드"); // 예배순서 자동감지 대상 악기
   const teamChatEndRef = useRef(null);
   const autoNavDone  = useRef(false);
