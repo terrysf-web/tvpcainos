@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.620";
+const APP_VERSION = "3.621";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -15386,10 +15386,14 @@ export default function App() {
   const [adminBuildData,  setAdminBuildData]  = useState(null);
   const [releasingBuild,  setReleasingBuild]  = useState(false);
   useEffect(() => {
-    // 일반 사용자: Firestore appConfig/release 버전이 바뀌면 알림
+    // 일반 사용자: Firestore appConfig/release 버전이 현재보다 신버전일 때만 알림
     const unsub = onSnapshot(doc(db, "appConfig", "release"), (snap) => {
       const v = snap.data()?.version;
-      if (v && v !== APP_VERSION) setUpdateAvailable(true);
+      if (v && v !== APP_VERSION) {
+        const fNum = parseFloat(v);
+        const cNum = parseFloat(APP_VERSION);
+        if (fNum > cNum) setUpdateAvailable(true);
+      }
     }, () => {});
     return () => unsub();
   }, []);
@@ -15534,7 +15538,7 @@ export default function App() {
         );
       })()}
       {/* 어드민 전용: 새 빌드 배포 배너 */}
-      {isAdmin && adminNewBuild && !updateAvailable && (
+      {isAdmin && adminNewBuild && (
         <div style={{
           position:"fixed", top:0, left:0, right:0, zIndex:9999,
           background:"#7c3aed", color:"#fff",
