@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.619";
+const APP_VERSION = "3.620";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10613,6 +10613,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         const cw = canvas1Ref.current?.offsetWidth  || 600;
                         const fs = Math.round(Math.max(10, Math.min(16, cw / 50)) * chordFontScale);
                         const canMove = leader && chordMoveMode;
+                        const effectiveSteps = transposeSteps - capoFret;
                         return (
                           <div ref={chordOverlay1Ref}
                             style={{ position:"absolute", inset:0, pointerEvents:"none", borderRadius:4 }}
@@ -10627,8 +10628,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 left:`${item.x * 100}%`,
                                 top:`${item.y * 100}%`,
                                 transform:"translate(-50%, -50%)",
-                                background: isPendingDel ? "rgba(220,50,50,0.95)" : transposeSteps === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
-                                color: isPendingDel ? "#fff" : transposeSteps === 0 ? "#fff" : "#111",
+                                background: isPendingDel ? "rgba(220,50,50,0.95)" : effectiveSteps === 0 ? "rgba(107,93,231,0.88)" : "rgba(255,220,20,0.95)",
+                                color: isPendingDel ? "#fff" : effectiveSteps === 0 ? "#fff" : "#111",
                                 borderRadius:3, padding:"2px 6px",
                                 fontSize:fs, fontWeight:800, lineHeight:1.5,
                                 whiteSpace:"nowrap", fontFamily:"monospace",
@@ -10642,7 +10643,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 onPointerDown={canMove ? e => handleChordPointerDown(e, 1, i) : undefined}
                                 onTouchStart={canMove ? e => e.stopPropagation() : undefined}
                               >
-                                {transposeChord(item.chord, transposeSteps, useFlats(song.key, transposeSteps))}
+                                {transposeChord(item.chord, effectiveSteps, useFlats(song.key, effectiveSteps))}
                               </span>
                               );
                             })}
