@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { getVoicings, getDiatonicChords, getEffectiveKey, getChordTones } from "./chordVoicings.js";
+import { getVoicings, getDiatonicChords, getEffectiveKey, getChordTones, CHORD_VOICINGS } from "./chordVoicings.js";
 import { auth, db, storage, messagingPromise, firebaseConfigObj } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.632";
+const APP_VERSION = "3.633";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -7170,6 +7170,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [detectErr,      setDetectErr]      = useState("");
   const [dragChord,      setDragChord]      = useState(null); // {side,idx,pointerId}
   const [deletingChord,  setDeletingChord]  = useState(null); // {side,idx} long-press pending
+  const [chordSearch,    setChordSearch]    = useState("");
   const longPressTimer   = useRef(null);
   const longPressOrigin  = useRef(null); // {x,y} to detect move
   const pointerDownTimeRef = useRef(0);
@@ -10040,17 +10041,48 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                             color: stampSymbol === name ? C.pur : C.txt }}>{name}</span>
                         </button>
                       ))}
-                      <input
-                        type="text" placeholder="직접입력"
-                        value={diatonic.some(d => d.name === stampSymbol) ? "" : stampSymbol}
-                        onChange={e => { setStampSymbol(e.target.value); setStampItalic(false); }}
-                        style={{
-                          height:28, width:64, padding:"0 6px", fontSize:11, fontWeight:700,
-                          border:`1px solid ${!diatonic.some(d => d.name === stampSymbol) && stampSymbol ? C.pur : C.bdr}`,
-                          borderRadius:6, background:"transparent", color:C.txt,
-                          fontFamily:"inherit", outline:"none",
-                        }}
-                      />
+                      <div style={{ position:"relative", flexShrink:0 }}>
+                        <input
+                          type="text" placeholder="검색…"
+                          value={chordSearch}
+                          onChange={e => setChordSearch(e.target.value)}
+                          onBlur={() => setTimeout(() => setChordSearch(""), 150)}
+                          style={{
+                            height:28, width:58, padding:"0 6px", fontSize:11, fontWeight:700,
+                            border:`1px solid ${chordSearch ? C.pur : C.bdr}`,
+                            borderRadius:6, background:"transparent", color:C.txt,
+                            fontFamily:"inherit", outline:"none",
+                          }}
+                        />
+                        {chordSearch.length > 0 && (() => {
+                          const q = chordSearch.trim();
+                          const matches = Object.keys(CHORD_VOICINGS)
+                            .filter(k => k.toLowerCase().startsWith(q.toLowerCase()))
+                            .slice(0, 12);
+                          if (!matches.length) return null;
+                          return (
+                            <div style={{
+                              position:"absolute", top:"100%", left:0, zIndex:600,
+                              background:C.surf, border:`1px solid ${C.bdr}`,
+                              borderRadius:8, boxShadow:"0 4px 16px rgba(0,0,0,0.25)",
+                              display:"flex", flexDirection:"column", minWidth:80, marginTop:2,
+                            }}>
+                              {matches.map(name => (
+                                <button key={name}
+                                  onMouseDown={() => { setStampSymbol(name); setStampItalic(false); setChordSearch(""); }}
+                                  style={{
+                                    padding:"6px 10px", border:"none", background:"transparent",
+                                    textAlign:"left", cursor:"pointer", fontSize:12, fontWeight:700,
+                                    color:C.txt, fontFamily:"inherit",
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.background=`${C.pur}22`}
+                                  onMouseLeave={e => e.currentTarget.style.background="transparent"}
+                                >{name}</button>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </>
                 );
