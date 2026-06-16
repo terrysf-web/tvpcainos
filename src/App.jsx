@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.636";
+const APP_VERSION = "3.637";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10248,6 +10248,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   <span style={{ fontSize:9, color:C.dim, whiteSpace:"nowrap" }}>더블탭: 복사 · 꾹: 삭제</span>
                 )}
                 <span style={{ fontSize:10, color:C.dim, fontWeight:700 }}>오른쪽</span>
+                {song?.key && (() => {
+                  const rightSong = songs?.find(s => s.id === dualRightSongId);
+                  const rKey = rightSong?.key || song?.key;
+                  const rec = getCapoRec(rKey, transposeSteps2);
+                  if (!rec) return null;
+                  const parts = getUserParts(user);
+                  const tips = [];
+                  if ((parts.includes("기타") || leader) && rec.acoustic) tips.push(`기타 ${rec.acoustic.shape}+${rec.acoustic.capo}`);
+                  if ((parts.includes("일렉기타") || leader) && rec.electric) tips.push(`일렉 ${rec.electric.shape}+${rec.electric.capo}`);
+                  if (!tips.length) return null;
+                  return (
+                    <div style={{ display:"flex", flexDirection:"column", gap:1, flexShrink:0 }}>
+                      <span style={{ fontSize:9, fontWeight:800, color:C.acc }}>추천</span>
+                      {tips.map(t => <span key={t} style={{ fontSize:12, fontWeight:800, color:C.pur, whiteSpace:"nowrap" }}>{t}</span>)}
+                    </div>
+                  );
+                })()}
                 <button onClick={() => saveTransposeSteps2(Math.max(-6, transposeSteps2 - 1))}
                   style={{ width:26, height:26, borderRadius:6, border:`1px solid ${C.bdr}`,
                     background:"transparent", cursor:"pointer", fontWeight:700, fontSize:14, display:"flex",
