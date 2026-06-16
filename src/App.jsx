@@ -15472,6 +15472,7 @@ export default function App() {
   const isAdmin = user?.role === "admin";
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [adminNewBuild,   setAdminNewBuild]   = useState(false);
+  const [adminBuildData,  setAdminBuildData]  = useState(null);
   const [releasingBuild,  setReleasingBuild]  = useState(false);
   useEffect(() => {
     // 일반 사용자: Firestore appConfig/release 버전이 바뀌면 알림
@@ -15482,19 +15483,27 @@ export default function App() {
     return () => unsub();
   }, []);
   useEffect(() => {
-    // 어드민 전용: admin-version.json 빌드 버전 체크
+    // 어드민 전용: buildTime vs releasedAt 비교 — 새 빌드가 마지막 배포보다 최신이면 배너 표시
     if (!isAdmin) return;
-    fetch(`/admin-version.json?t=${Date.now()}`)
-      .then(r => r.json())
-      .then(d => { if (d.build && d.build !== APP_VERSION) setAdminNewBuild(true); })
-      .catch(() => {});
+    Promise.all([
+      fetch(`/admin-version.json?t=${Date.now()}`).then(r => r.json()),
+      getDoc(doc(db, "appConfig", "release")),
+    ]).then(([adminData, snap]) => {
+      const buildTime  = adminData?.buildTime ? new Date(adminData.buildTime) : null;
+      const releasedAt = snap.data()?.releasedAt?.toDate?.() || null;
+      if (buildTime && (!releasedAt || buildTime > releasedAt)) {
+        setAdminNewBuild(true);
+        setAdminBuildData(adminData);
+      }
+    }).catch(() => {});
   }, [isAdmin]);
   const releaseBuild = async () => {
     setReleasingBuild(true);
     try {
-      await setDoc(doc(db, "appConfig", "release"), { version: APP_VERSION, releasedAt: serverTimestamp() });
+      const newVersion = adminBuildData?.build || APP_VERSION;
+      await setDoc(doc(db, "appConfig", "release"), { version: newVersion, releasedAt: serverTimestamp() });
       setAdminNewBuild(false);
-      alert(`v${APP_VERSION} 정식 배포 완료! 사용자들에게 업데이트 알림이 갑니다.`);
+      alert(`v${newVersion} 정식 배포 완료! 사용자들에게 업데이트 알림이 갑니다.`);
     } catch(e) { alert("배포 실패: " + e.message); }
     finally { setReleasingBuild(false); }
   };
@@ -15621,7 +15630,7 @@ export default function App() {
           display:"flex", alignItems:"center", justifyContent:"center", gap:12,
           padding:"10px 16px",
         }}>
-          <span style={{ fontSize:13, fontWeight:600 }}>🔧 새 빌드 v{APP_VERSION} 준비됨 (어드민만 표시)</span>
+          <span style={{ fontSize:13, fontWeight:600 }}>🔧 새 빌드 v{adminBuildData?.build || APP_VERSION} 준비됨 (어드민만 표시)</span>
           <button onClick={releaseBuild} disabled={releasingBuild}
             style={{ background:"#fff", color:"#7c3aed", border:"none",
               borderRadius:8, padding:"6px 16px", fontWeight:800, fontSize:13,
