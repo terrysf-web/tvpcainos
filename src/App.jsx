@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { getVoicings, getDiatonicChords, transposeKey } from "./chordVoicings.js";
+import { getVoicings, getDiatonicChords, transposeKey, getChordTones } from "./chordVoicings.js";
 import { auth, db, storage, messagingPromise, firebaseConfigObj } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.625";
+const APP_VERSION = "3.626";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10131,13 +10131,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       }}>{f===0 ? "X" : f}</button>
                     ))}
                   </div>
-                  <button onClick={() => setShowChordDict(true)} style={{
-                    display:"flex", alignItems:"center", gap:4, padding:"3px 8px",
-                    borderRadius:7, border:`1.5px solid ${C.pur}55`,
-                    background:`${C.pur}11`, color:C.pur,
-                    fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"inherit", flexShrink:0,
-                  }}>🎵 코드사전</button>
                 </>
+              )}
+              {/* 코드사전 (듀얼) */}
+              {(["기타","일렉기타","베이스","키보드","피아노"].some(p => getUserParts(user).includes(p)) || leader) && (
+                <button onClick={() => setShowChordDict(true)} style={{
+                  display:"flex", alignItems:"center", gap:4, padding:"3px 8px",
+                  borderRadius:7, border:`1.5px solid ${C.pur}55`,
+                  background:`${C.pur}11`, color:C.pur,
+                  fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"inherit", flexShrink:0,
+                }}>🎵 코드사전</button>
               )}
               {/* 오른쪽 전조 + 초기화 */}
               <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
@@ -10236,6 +10239,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       }}>{f===0 ? "X" : f}</button>
                     ))}
                   </div>
+                </>
+              )}
+              {/* 코드사전 — 기타/일렉기타/베이스/키보드/피아노 파트 + 리더 */}
+              {(["기타","일렉기타","베이스","키보드","피아노"].some(p => getUserParts(user).includes(p)) || leader) && (
+                <>
                   <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
                   <button onClick={() => setShowChordDict(true)} style={{
                     display:"flex", alignItems:"center", gap:4, padding:"4px 10px",
@@ -10294,6 +10302,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           songChords={songChords}
           songKey={song?.key}
           effectiveSteps={transposeSteps - capoFret}
+          userParts={getUserParts(user)}
           C={C}
         />
       )}
@@ -14858,42 +14867,198 @@ function FretDiagram({ voicing }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   PIANO CHORD DIAGRAM
+══════════════════════════════════════════════════════════════════ */
+function PianoChordDiagram({ chordName, C }) {
+  const { root, tones } = getChordTones(chordName);
+  const W = 12, WH = 52, BW = 8, BH = 32;
+  const OCT_W = 7 * W; // 84px per octave
+  const OCTAVES = 2;
+  const WHITE_NOTES = [0, 2, 4, 5, 7, 9, 11]; // C D E F G A B
+  // Black key left-edge x within one octave
+  const BLACK_KEYS = [
+    { note:1, x:8 }, { note:3, x:20 },
+    { note:6, x:44 }, { note:8, x:56 }, { note:10, x:68 },
+  ];
+  const svgW = OCTAVES * OCT_W;
+
+  return (
+    <svg width={svgW} height={WH} viewBox={`0 0 ${svgW} ${WH}`} style={{ display:"block" }}>
+      {Array.from({ length: OCTAVES }).map((_, oct) => {
+        const ox = oct * OCT_W;
+        return (
+          <g key={oct}>
+            {WHITE_NOTES.map((note, wi) => {
+              const isRoot = note === root;
+              const isTone = tones.includes(note);
+              const x = ox + wi * W;
+              return (
+                <g key={note}>
+                  <rect x={x} y={0} width={W - 1} height={WH}
+                    fill={isRoot ? C.pur : isTone ? `${C.pur}28` : "#fff"}
+                    stroke="#d1d1d6" strokeWidth={0.5} rx={1} />
+                  {isTone && (
+                    <circle cx={x + (W-1)/2} cy={WH - 9} r={4}
+                      fill={isRoot ? "#fff" : C.pur} />
+                  )}
+                </g>
+              );
+            })}
+            {BLACK_KEYS.map(({ note, x: bx }) => {
+              const isRoot = note === root;
+              const isTone = tones.includes(note);
+              const x = ox + bx;
+              return (
+                <g key={note}>
+                  <rect x={x} y={0} width={BW} height={BH}
+                    fill={isRoot ? C.pur : isTone ? `${C.pur}99` : "#222"} rx={1} />
+                  {isTone && (
+                    <circle cx={x + BW/2} cy={BH - 7} r={3.5}
+                      fill={isRoot ? "#fff" : "rgba(255,255,255,0.85)"} />
+                  )}
+                </g>
+              );
+            })}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BASS FRET DIAGRAM
+══════════════════════════════════════════════════════════════════ */
+function BassFretDiagram({ chordName }) {
+  const { root, tones } = getChordTones(chordName);
+  const fifth = tones[2] ?? -1;
+  // Bass strings low→high: E=4, A=9, D=2, G=7
+  const STRINGS = [4, 9, 2, 7];
+  const STR_LABELS = ["E","A","D","G"];
+  const strX = [14, 26, 38, 50];
+  const allLines = [22, 36, 50, 64, 78]; // nut + 4 fret wires
+  const C_txt = "#1c1c1e", C_dim = "#8e8e93", C_bdr = "#d1d1d6", C_pur = "#6b5de7";
+
+  // Collect dots: root and 5th on frets 0-4
+  const dots = [];
+  STRINGS.forEach((openNote, si) => {
+    for (let f = 0; f <= 4; f++) {
+      const note = (openNote + f) % 12;
+      const isRoot = note === root;
+      const is5th = note === fifth && fifth !== root;
+      if (!isRoot && !is5th) continue;
+      const cy = f === 0
+        ? null // open string → show O above
+        : (allLines[f - 1] + allLines[f]) / 2;
+      dots.push({ si, f, isRoot, is5th, cy });
+    }
+  });
+
+  return (
+    <svg width={64} height={90} viewBox="0 0 64 90" style={{ display:"block" }}>
+      {/* String labels */}
+      {STR_LABELS.map((label, i) => (
+        <text key={i} x={strX[i]} y={10} textAnchor="middle" fontSize={8} fill={C_dim}>{label}</text>
+      ))}
+      {/* Open string markers */}
+      {dots.filter(d => d.f === 0).map((d, i) => (
+        <text key={i} x={strX[d.si]} y={19}
+          textAnchor="middle" fontSize={10} fontWeight="700"
+          fill={d.isRoot ? C_pur : C_txt}>
+          {d.isRoot ? "●" : "○"}
+        </text>
+      ))}
+      {/* Nut */}
+      <rect x={strX[0]-2} y={allLines[0]-3} width={strX[3]-strX[0]+4} height={3} fill={C_txt} rx={1} />
+      {/* Fret wires */}
+      {allLines.slice(1).map((y, i) => (
+        <line key={i} x1={strX[0]} y1={y} x2={strX[3]} y2={y} stroke={C_bdr} strokeWidth={1} />
+      ))}
+      {/* String lines */}
+      {strX.map((x, i) => (
+        <line key={i} x1={x} y1={allLines[0]} x2={x} y2={allLines[4]} stroke={C_bdr} strokeWidth={1} />
+      ))}
+      {/* Fretted dots */}
+      {dots.filter(d => d.f > 0).map((d, i) => (
+        <g key={i}>
+          <circle cx={strX[d.si]} cy={d.cy} r={6}
+            fill={d.isRoot ? C_txt : "transparent"}
+            stroke={C_txt} strokeWidth={1.5} />
+          <text x={strX[d.si]} y={d.cy + 3.5} textAnchor="middle"
+            fontSize={6.5} fontWeight="700"
+            fill={d.isRoot ? "#fff" : C_txt}>
+            {d.isRoot ? "R" : "5"}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
    CHORD DICTIONARY MODAL
 ══════════════════════════════════════════════════════════════════ */
-function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, C }) {
+function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, userParts, C }) {
   const [search, setSearch] = useState("");
+
+  // Default tab based on user's instrument
+  const defaultTab = (() => {
+    if (!userParts) return "guitar";
+    if (userParts.includes("베이스")) return "bass";
+    if (userParts.some(p => ["키보드","피아노"].includes(p))) return "keyboard";
+    return "guitar";
+  })();
+  const [tab, setTab] = useState(defaultTab);
 
   const searchTrimmed = search.trim();
   const searchVoicings = searchTrimmed
     ? getVoicings(searchTrimmed) || getVoicings(searchTrimmed[0].toUpperCase() + searchTrimmed.slice(1))
     : null;
 
-  // Effective key after capo/transpose
   const effectiveKey = songKey ? transposeKey(songKey, effectiveSteps) : null;
   const diatonicChords = effectiveKey ? getDiatonicChords(effectiveKey) : [];
-
-  // What to show in the main (non-search) view
   const hasAiChords = songChords && songChords.length > 0;
 
+  const TABS = [
+    { id:"guitar",   label:"🎸 기타" },
+    { id:"bass",     label:"🎵 베이스" },
+    { id:"keyboard", label:"🎹 키보드" },
+  ];
+
   function ChordCard({ name, voicings, sub }) {
+    const cardBase = {
+      background:C.bg, borderRadius:12, padding:"10px 8px",
+      display:"flex", flexDirection:"column", alignItems:"center", gap:4,
+    };
+
+    if (tab === "bass") {
+      return (
+        <div style={cardBase}>
+          {sub && <div style={{ fontSize:9, color:C.pur, fontWeight:700 }}>{sub}</div>}
+          <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{name}</div>
+          <BassFretDiagram chordName={name} />
+        </div>
+      );
+    }
+    if (tab === "keyboard") {
+      return (
+        <div style={{ ...cardBase, padding:"10px 6px" }}>
+          {sub && <div style={{ fontSize:9, color:C.pur, fontWeight:700 }}>{sub}</div>}
+          <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{name}</div>
+          <PianoChordDiagram chordName={name} C={C} />
+        </div>
+      );
+    }
+    // Guitar tab
     return voicings ? (
-      <div style={{
-        background:C.bg, borderRadius:12, padding:"10px 8px",
-        display:"flex", flexDirection:"column", alignItems:"center", gap:4,
-      }}>
+      <div style={cardBase}>
         {sub && <div style={{ fontSize:9, color:C.pur, fontWeight:700 }}>{sub}</div>}
         <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{name}</div>
         <FretDiagram voicing={voicings[0]} />
-        {voicings.length > 1 && (
-          <div style={{ fontSize:9, color:C.dim }}>+{voicings.length - 1}개</div>
-        )}
+        {voicings.length > 1 && <div style={{ fontSize:9, color:C.dim }}>+{voicings.length - 1}개</div>}
       </div>
     ) : (
-      <div style={{
-        background:C.bg, borderRadius:12, padding:"10px 12px",
-        display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-        minWidth:66, opacity:0.55,
-      }}>
+      <div style={{ ...cardBase, minWidth:66, opacity:0.55 }}>
         {sub && <div style={{ fontSize:9, color:C.pur, fontWeight:700 }}>{sub}</div>}
         <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{name}</div>
         <div style={{ fontSize:9, color:C.dim, marginTop:4 }}>정보없음</div>
@@ -14902,28 +15067,21 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, C }) {
   }
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position:"fixed", inset:0, zIndex:3000,
-        background:"rgba(0,0,0,0.5)",
-        display:"flex", alignItems:"flex-end", justifyContent:"center",
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background:C.surf, borderRadius:"20px 20px 0 0",
-          width:"100%", maxWidth:600, maxHeight:"82vh",
-          display:"flex", flexDirection:"column",
-          boxShadow:"0 -4px 32px rgba(0,0,0,0.2)",
-        }}
-      >
+    <div onClick={onClose} style={{
+      position:"fixed", inset:0, zIndex:3000,
+      background:"rgba(0,0,0,0.5)",
+      display:"flex", alignItems:"flex-end", justifyContent:"center",
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background:C.surf, borderRadius:"20px 20px 0 0",
+        width:"100%", maxWidth:680, maxHeight:"84vh",
+        display:"flex", flexDirection:"column",
+        boxShadow:"0 -4px 32px rgba(0,0,0,0.2)",
+      }}>
         {/* Header */}
         <div style={{
           display:"flex", alignItems:"center", justifyContent:"space-between",
           padding:"16px 16px 10px", flexShrink:0,
-          borderBottom:`1px solid ${C.bdr}`,
         }}>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <div style={{ fontSize:15, fontWeight:800, color:C.txt }}>🎵 코드 사전</div>
@@ -14938,6 +15096,22 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, C }) {
             background:"transparent", border:"none", fontSize:20,
             color:C.dim, cursor:"pointer", lineHeight:1, padding:"0 4px",
           }}>×</button>
+        </div>
+
+        {/* Instrument tabs */}
+        <div style={{
+          display:"flex", gap:6, padding:"0 16px 10px", flexShrink:0,
+          borderBottom:`1px solid ${C.bdr}`,
+        }}>
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
+              padding:"6px 14px", borderRadius:20,
+              border:`1.5px solid ${tab === t.id ? C.pur : C.bdr}`,
+              background: tab === t.id ? C.pur : "transparent",
+              color: tab === t.id ? "#fff" : C.dim,
+              fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+            }}>{t.label}</button>
+          ))}
         </div>
 
         {/* Search */}
@@ -14962,25 +15136,26 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, C }) {
               <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:10 }}>
                 "{searchTrimmed}" 검색 결과
               </div>
-              {searchVoicings ? (
-                <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-                  {searchVoicings.map((v, i) => (
-                    <div key={i} style={{
-                      background:C.bg, borderRadius:12, padding:"12px 10px",
-                      display:"flex", flexDirection:"column", alignItems:"center", gap:6,
-                    }}>
-                      <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{v.label}</div>
-                      <FretDiagram voicing={v} />
-                    </div>
-                  ))}
-                </div>
+              {tab === "guitar" ? (
+                searchVoicings ? (
+                  <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+                    {searchVoicings.map((v, i) => (
+                      <div key={i} style={{
+                        background:C.bg, borderRadius:12, padding:"12px 10px",
+                        display:"flex", flexDirection:"column", alignItems:"center", gap:6,
+                      }}>
+                        <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{v.label}</div>
+                        <FretDiagram voicing={v} />
+                      </div>
+                    ))}
+                  </div>
+                ) : <div style={{ fontSize:13, color:C.dim, padding:"20px 0" }}>코드 정보 없음</div>
               ) : (
-                <div style={{ fontSize:13, color:C.dim, padding:"20px 0" }}>코드 정보 없음</div>
+                <ChordCard name={searchTrimmed} voicings={null} />
               )}
             </div>
           ) : (
             <>
-              {/* Diatonic chords of current key — always shown if key exists */}
               {diatonicChords.length > 0 && (
                 <div style={{ marginBottom:20 }}>
                   <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:10 }}>
@@ -14993,8 +15168,6 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, C }) {
                   </div>
                 </div>
               )}
-
-              {/* AI-detected chords for this song */}
               {hasAiChords && (
                 <div>
                   <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:10 }}>
@@ -15007,7 +15180,6 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, C }) {
                   </div>
                 </div>
               )}
-
               {!diatonicChords.length && !hasAiChords && (
                 <div style={{ fontSize:13, color:C.dim, padding:"24px 0", textAlign:"center" }}>
                   코드를 검색하거나, 곡에 키(Key)가 설정되어 있으면 자동으로 코드가 표시됩니다.

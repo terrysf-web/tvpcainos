@@ -208,3 +208,37 @@ export function parseChord(name) {
   if (!m) return null;
   return { root: m[1], suffix: m[2] || "" };
 }
+
+// Chord interval patterns (semitones from root)
+const CHORD_INTERVALS = {
+  "":     [0, 4, 7],
+  "m":    [0, 3, 7],
+  "7":    [0, 4, 7, 10],
+  "maj7": [0, 4, 7, 11],
+  "M7":   [0, 4, 7, 11],
+  "m7":   [0, 3, 7, 10],
+  "dim":  [0, 3, 6],
+  "dim7": [0, 3, 6, 9],
+  "aug":  [0, 4, 8],
+  "sus2": [0, 2, 7],
+  "sus4": [0, 5, 7],
+  "add9": [0, 4, 7, 2],
+  "9":    [0, 4, 7, 10, 2],
+  "m9":   [0, 3, 7, 10, 2],
+  "6":    [0, 4, 7, 9],
+  "m6":   [0, 3, 7, 9],
+};
+
+// Returns { root: 0-11, tones: [0-11, ...] } for a chord name
+export function getChordTones(chordName) {
+  if (!chordName) return { root: -1, tones: [] };
+  const base = chordName.split("/")[0].trim();
+  const m = base.match(/^([A-G][#b]?)(.*)/);
+  if (!m) return { root: -1, tones: [] };
+  let [, root, suffix] = m;
+  if (FLAT_TO_SHARP[root]) root = FLAT_TO_SHARP[root];
+  const rootIdx = SHARP_NOTES.indexOf(root);
+  if (rootIdx === -1) return { root: -1, tones: [] };
+  const intervals = CHORD_INTERVALS[suffix] || CHORD_INTERVALS[""];
+  return { root: rootIdx, tones: intervals.map(i => (rootIdx + i) % 12) };
+}
