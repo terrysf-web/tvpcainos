@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.639";
+const APP_VERSION = "3.640";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -9506,12 +9506,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     </button>
                   ) : (
                     <button onClick={startRecording} title="녹음" style={{
-                      position:"relative", width:28, height:28,
+                      position:"relative", height:28,
                       display:"flex", alignItems:"center", justifyContent:"center",
-                      padding:0, borderRadius:7, cursor:"pointer", flexShrink:0, fontSize:13,
+                      padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0, fontSize:11,
                       border:`1px solid ${C.bdr}`, background:"transparent", color:C.dim,
+                      fontWeight:700, fontFamily:"inherit",
                     }}>
-                      ⏺
+                      녹음
                       {recCount > 0 && <span style={{
                         position:"absolute", top:1, right:1,
                         background:C.acc, color:"#fff", borderRadius:"50%",
@@ -9521,7 +9522,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     </button>
                   )}
                   {/* 녹음 목록 */}
-                  {recCount > 0 && !recording && sqBtn("▶", false, () => setShowRecModal(true))}
+                  {recCount > 0 && !recording && sqBtn("재생", false, () => setShowRecModal(true))}
                   {/* 예배 연습 녹음 */}
                   {!isLibraryMode && svcPracticeUrl && tbBtn("연습", showWorshipPlayer, () => setShowWorshipPlayer(p => !p), C.grn)}
                   {tbSep}
