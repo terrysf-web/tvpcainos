@@ -145,6 +145,24 @@
   .msg-chip.custom { border-style: dashed; color: #8e8e93; border-color: #c8c8d0; background: #f8f8fb; }
   .msg-chip.custom:hover { background: #f0f0f5; color: #3c3c43; border-color: #8e8e93; }
 
+  /* 싱크 바 칩 */
+  .follow-chip {
+    font-size:11px;font-weight:600;color:#6b5de7;background:#ede9ff;
+    padding:3px 9px;border-radius:20px;cursor:pointer;white-space:nowrap;
+    border:1.5px solid transparent;transition:all .15s;
+  }
+  .follow-chip.active { background:#6b5de7;color:#fff; }
+  .sync-chip {
+    font-size:11px;font-weight:600;color:#c8c8d0;background:#f2f2f7;
+    padding:3px 9px;border-radius:20px;cursor:pointer;white-space:nowrap;
+    border:1.5px solid transparent;transition:all .15s;
+  }
+  .sync-chip.active { background:#6b5de7;color:#fff; }
+
+  /* 진행중 곡 하이라이트 애니메이션 */
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+  .auto-progress { animation: pulse .6s ease 2; }
+
   /* 전송 토스트 */
   .toast {
     position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
@@ -243,41 +261,54 @@
     </div>
   </div><!-- /left-inner -->
 
-    <!-- 하단 싱크 바 -->
-    <div style="border-top:1px solid #e5e5ea;padding:10px 12px;background:#f5f3ff;flex-shrink:0;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <!-- 타이틀 + 토글 -->
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-          <span style="font-size:13px;font-weight:800;color:#6b5de7;">악보 싱크</span>
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
-            <div onclick="toggleSync()" id="sync-toggle"
-              style="width:42px;height:24px;border-radius:12px;background:#6b5de7;position:relative;cursor:pointer;transition:background .2s;">
-              <div style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:3px;right:3px;transition:right .2s;box-shadow:0 1px 3px rgba(0,0,0,0.25);" id="toggle-knob"></div>
-            </div>
-            <span style="font-size:11px;font-weight:700;color:#6b5de7;" id="toggle-label">ON</span>
-          </label>
-        </div>
+    <!-- 하단 싱크 바 (두 줄) -->
+    <div style="border-top:1px solid #e5e5ea;background:#f5f3ff;flex-shrink:0;">
 
-        <!-- 악기 선택 칩 -->
-        <div style="display:flex;gap:4px;flex-wrap:wrap;flex:1;overflow:hidden;">
-          <span style="font-size:11px;font-weight:700;color:#fff;background:#6b5de7;padding:3px 9px;border-radius:20px;cursor:pointer;white-space:nowrap;">밴드</span>
-          <span style="font-size:11px;font-weight:600;color:#6b5de7;background:#ede9ff;padding:3px 9px;border-radius:20px;cursor:pointer;white-space:nowrap;">기타</span>
-          <span style="font-size:11px;font-weight:600;color:#6b5de7;background:#ede9ff;padding:3px 9px;border-radius:20px;cursor:pointer;white-space:nowrap;">베이스</span>
-          <span style="font-size:11px;font-weight:600;color:#6b5de7;background:#ede9ff;padding:3px 9px;border-radius:20px;cursor:pointer;white-space:nowrap;">드럼</span>
-          <span style="font-size:11px;font-weight:600;color:#6b5de7;background:#ede9ff;padding:3px 9px;border-radius:20px;cursor:pointer;white-space:nowrap;">키보드</span>
-          <span style="font-size:11px;font-weight:600;color:#6b5de7;background:#ede9ff;padding:3px 9px;border-radius:20px;cursor:pointer;white-space:nowrap;">일렉기타</span>
+      <!-- 1행: 예배순서 자동감지 (연주자 → FOH) -->
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px 6px;border-bottom:1px solid #e8e4ff;">
+        <span style="font-size:11px;font-weight:800;color:#6b5de7;white-space:nowrap;">🎹 예배순서 자동감지</span>
+        <div style="display:flex;gap:4px;flex:1;overflow-x:auto;scrollbar-width:none;">
+          <span onclick="setFollowTarget(this,'밴드')"    class="follow-chip">밴드</span>
+          <span onclick="setFollowTarget(this,'기타')"    class="follow-chip">기타</span>
+          <span onclick="setFollowTarget(this,'베이스')"  class="follow-chip">베이스</span>
+          <span onclick="setFollowTarget(this,'드럼')"    class="follow-chip">드럼</span>
+          <span onclick="setFollowTarget(this,'키보드')"  class="follow-chip active" id="follow-keyboard">키보드</span>
+          <span onclick="setFollowTarget(this,'일렉기타')" class="follow-chip">일렉기타</span>
         </div>
+        <!-- 시뮬 버튼 (데모용) -->
+        <button onclick="simKeyboardPage()"
+          style="font-size:10px;font-weight:700;color:#6b5de7;background:#ede9ff;
+          border:1px solid #d4c8ff;border-radius:8px;padding:4px 8px;cursor:pointer;
+          font-family:inherit;white-space:nowrap;flex-shrink:0;">▶ 시뮬</button>
+      </div>
 
-        <!-- 악보 페이지 넘기기 -->
-        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-          <span style="font-size:10px;color:#8e8e93;white-space:nowrap;" id="sync-sub">1 / 4</span>
-          <button onclick="prevPage()"
-            style="width:44px;height:44px;border-radius:10px;border:1.5px solid #d4c8ff;
-            background:#fff;font-size:20px;cursor:pointer;color:#6b5de7;font-weight:700;
+      <!-- 2행: 악보 싱크 (FOH → 연주자) -->
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 12px 9px;">
+        <span style="font-size:11px;font-weight:800;color:#6b5de7;white-space:nowrap;">🔗 악보 싱크</span>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0;">
+          <div onclick="toggleSync()" id="sync-toggle"
+            style="width:36px;height:20px;border-radius:10px;background:#c8c8d0;position:relative;cursor:pointer;transition:background .2s;">
+            <div style="width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);" id="toggle-knob"></div>
+          </div>
+          <span style="font-size:10px;font-weight:700;color:#8e8e93;" id="toggle-label">OFF</span>
+        </label>
+        <div style="display:flex;gap:4px;flex:1;overflow-x:auto;scrollbar-width:none;" id="sync-chips">
+          <span class="sync-chip">밴드</span>
+          <span class="sync-chip">기타</span>
+          <span class="sync-chip">베이스</span>
+          <span class="sync-chip">드럼</span>
+          <span class="sync-chip">키보드</span>
+          <span class="sync-chip">일렉기타</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
+          <span style="font-size:10px;color:#8e8e93;" id="sync-sub">—</span>
+          <button onclick="prevPage()" id="btn-prev"
+            style="width:44px;height:44px;border-radius:10px;border:1.5px solid #d4d4d4;
+            background:#f0f0f5;font-size:20px;cursor:not-allowed;color:#c8c8d0;font-weight:700;
             display:flex;align-items:center;justify-content:center;">◀</button>
-          <button onclick="nextPage()"
-            style="width:44px;height:44px;border-radius:10px;border:1.5px solid #d4c8ff;
-            background:#fff;font-size:20px;cursor:pointer;color:#6b5de7;font-weight:700;
+          <button onclick="nextPage()" id="btn-next"
+            style="width:44px;height:44px;border-radius:10px;border:1.5px solid #d4d4d4;
+            background:#f0f0f5;font-size:20px;cursor:not-allowed;color:#c8c8d0;font-weight:700;
             display:flex;align-items:center;justify-content:center;">▶</button>
         </div>
       </div>
@@ -606,29 +637,87 @@ function syncMsgDataToButtons() {
   // (실제 구현 시 state로 관리, 여기선 목업이라 openPopover 호출 시 참조하도록)
 }
 
-let curPage = 1, totalPages = 4, curSongTitle = '찬양하세';
-function updatePageLabel() {
-  document.getElementById('sync-sub').textContent = `${curPage} / ${totalPages} · ${curSongTitle}`;
-}
-function prevPage() {
-  if (curPage > 1) { curPage--; updatePageLabel(); }
-}
-function nextPage() {
-  if (curPage < totalPages) { curPage++; updatePageLabel(); }
+// ── 예배순서 자동감지 (연주자 → FOH)
+const songPages = [4, 3, 3, 2, 2, 3, 2]; // 각 곡의 총 페이지수
+const songTitles = ['나로부터 시작되리','가까이 가겠오소서','가까이 가겠오소서 (1/3)','가까이 가겠오소서 (2/3)','두 손 들고','주님 뜻대로 살기로 했네','예수 우리 왕이여'];
+let kbSong = 0, kbPage = 1; // 키보드 현재 곡/페이지
+
+function setFollowTarget(el, name) {
+  document.querySelectorAll('.follow-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
 }
 
-let syncOn = true;
+function simKeyboardPage() {
+  // 키보드가 다음 페이지로 넘김 → 마지막 페이지면 다음 곡으로
+  kbPage++;
+  if (kbPage > songPages[kbSong]) {
+    kbPage = 1;
+    kbSong = Math.min(kbSong + 1, songTitles.length - 1);
+    autoAdvanceSetlist(kbSong);
+  }
+  showToast(`🎹 키보드: ${songTitles[kbSong]} ${kbPage}/${songPages[kbSong]}페이지`);
+}
+
+function autoAdvanceSetlist(songIdx) {
+  const rows = document.querySelectorAll('.song-row');
+  rows.forEach((r, i) => {
+    r.classList.remove('playing','selected');
+    r.querySelector('.play-icon').innerHTML = '';
+    const badge = r.querySelector('.status-badge');
+    badge.className = 'status-badge status-wait';
+    badge.textContent = '대기';
+  });
+  const activeRow = rows[songIdx];
+  if (!activeRow) return;
+  activeRow.classList.add('playing','auto-progress');
+  activeRow.querySelector('.play-icon').innerHTML = '<div class="play-triangle"></div>';
+  const badge = activeRow.querySelector('.status-badge');
+  badge.className = 'status-badge status-playing';
+  badge.textContent = '진행중';
+  selectSong(activeRow, songIdx);
+  activeRow.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  setTimeout(() => activeRow.classList.remove('auto-progress'), 1500);
+}
+
+// ── 악보 싱크 (FOH → 연주자)
+let curPage = 1, totalPages = 4;
+let syncOn = false;
+
+function updatePageLabel() {
+  document.getElementById('sync-sub').textContent = syncOn ? `${curPage} / ${totalPages}` : '—';
+}
+function prevPage() {
+  if (!syncOn || curPage <= 1) return;
+  curPage--; updatePageLabel();
+}
+function nextPage() {
+  if (!syncOn || curPage >= totalPages) return;
+  curPage++; updatePageLabel();
+}
+
 function toggleSync() {
   syncOn = !syncOn;
   const t = document.getElementById('sync-toggle');
   const k = document.getElementById('toggle-knob');
   const l = document.getElementById('toggle-label');
-  const s = document.getElementById('sync-sub');
-  t.style.background = syncOn ? '#34c759' : '#c8c8d0';
-  k.style.right = syncOn ? '2px' : '18px';
-  l.textContent = syncOn ? 'ON' : 'OFF';
-  l.style.color = syncOn ? '#34c759' : '#8e8e93';
-  s.style.opacity = syncOn ? '1' : '0.4';
+  const pb = document.getElementById('btn-prev');
+  const nb = document.getElementById('btn-next');
+  t.style.background  = syncOn ? '#6b5de7' : '#c8c8d0';
+  k.style.left        = syncOn ? '18px'    : '2px';
+  l.textContent       = syncOn ? 'ON'      : 'OFF';
+  l.style.color       = syncOn ? '#6b5de7' : '#8e8e93';
+  [pb, nb].forEach(b => {
+    b.style.background   = syncOn ? '#fff'      : '#f0f0f5';
+    b.style.borderColor  = syncOn ? '#d4c8ff'   : '#d4d4d4';
+    b.style.color        = syncOn ? '#6b5de7'   : '#c8c8d0';
+    b.style.cursor       = syncOn ? 'pointer'   : 'not-allowed';
+  });
+  document.querySelectorAll('.sync-chip').forEach(c => {
+    c.style.color      = syncOn ? '#6b5de7' : '#c8c8d0';
+    c.style.background = syncOn ? '#ede9ff' : '#f2f2f7';
+  });
+  updatePageLabel();
+  if (syncOn) showToast('🔗 악보 싱크 ON — 연주자 화면이 함께 넘어갑니다');
 }
 
 document.getElementById('new-msg-input').addEventListener('keydown', e => {
