@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.631";
+const APP_VERSION = "3.632";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -9915,29 +9915,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     border:`1px solid ${drawWidth === w ? C.pur : C.bdr}`,
                     borderRadius:6, cursor:"pointer", flexShrink:0,
                   }}>
-                    {(drawTool === "stamp" || drawTool === "shape") ? (
-                      stampSymbol === "notehead" ? (
-                        <svg width={w===1?6:w===2?8:11} height={w===1?4:w===2?5:8}
-                          viewBox="0 0 11 8" style={{ display:"block" }}>
-                          <ellipse cx="5.5" cy="4" rx="4.5" ry="3.2"
-                            fill={drawColor} transform="rotate(-28 5.5 4)" />
-                        </svg>
-                      ) : (
-                        <span style={{ fontSize: w === 1 ? 9 : w === 2 ? 12 : 16, color:drawColor, fontWeight:700,
-                          fontStyle: drawTool === "stamp" && stampItalic ? "italic" : "normal", lineHeight:1 }}>
-                          {drawTool === "stamp" ? stampSymbol : w === 1 ? "S" : w === 2 ? "M" : "L"}
-                        </span>
-                      )
-                    ) : (
-                      <div style={{
-                        width: (drawTool === "highlighter" || drawTool === "cover") ? w * 2 + 1 : w + 2,
-                        height: (drawTool === "highlighter" || drawTool === "cover") ? Math.max(6, w) : w + 2,
-                        borderRadius: (drawTool === "highlighter" || drawTool === "cover") ? 2 : "50%",
-                        background: drawTool === "eraser" ? C.dim : drawTool === "cover" ? "#ccc" : drawColor,
-                        outline: drawTool === "cover" ? "1px solid #999" : "none",
-                        opacity: drawTool === "eraser" ? 0.4 : 0.8,
-                      }} />
-                    )}
+                    <div style={{
+                      width: w===1?4:w===2?7:11,
+                      height: w===1?4:w===2?7:11,
+                      borderRadius: (drawTool === "highlighter" || drawTool === "cover") ? 2 : "50%",
+                      background: drawTool === "eraser" ? C.dim : drawTool === "cover" ? "#ccc" : drawColor,
+                      outline: drawTool === "cover" ? "1px solid #999" : "none",
+                      opacity: drawTool === "eraser" ? 0.4 : 0.85,
+                    }} />
                   </button>
                 ))}
                 <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
