@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.645";
+const APP_VERSION = "3.646";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -16061,16 +16061,25 @@ export default function App() {
           window.location.href = window.location.pathname + "?t=" + Date.now();
         };
         return (
-          <div onClick={doUpdate} style={{
+          <div style={{
             position:"fixed", top:0, left:0, right:0, zIndex:9999,
             background:"#1d4ed8", color:"#fff",
-            display:"flex", alignItems:"center", justifyContent:"center", gap:14,
-            padding:"14px 20px", cursor:"pointer",
-            touchAction:"manipulation", WebkitTapHighlightColor:"transparent",
+            display:"flex", alignItems:"center", gap:10,
+            padding:"10px 14px",
           }}>
-            <span style={{ fontSize:14, fontWeight:600 }}>🆕 새 버전이 있습니다</span>
-            <span style={{ background:"#fff", color:"#1d4ed8",
-              borderRadius:10, padding:"8px 20px", fontWeight:800, fontSize:14 }}>업데이트</span>
+            <span style={{ flex:1, fontSize:14, fontWeight:600, minWidth:0 }}>🆕 새 버전이 있습니다</span>
+            <button onClick={doUpdate} style={{
+              background:"#fff", color:"#1d4ed8", border:"none",
+              borderRadius:10, padding:"10px 20px", fontWeight:800, fontSize:14,
+              cursor:"pointer", fontFamily:"inherit", flexShrink:0,
+              touchAction:"manipulation", WebkitTapHighlightColor:"transparent",
+            }}>업데이트</button>
+            <button onClick={() => setUpdateAvailable(false)} style={{
+              background:"none", border:"none", color:"#fff",
+              borderRadius:8, padding:"10px 14px", fontSize:20, lineHeight:1,
+              cursor:"pointer", flexShrink:0,
+              touchAction:"manipulation", WebkitTapHighlightColor:"transparent",
+            }}>✕</button>
           </div>
         );
       })()}
@@ -16079,20 +16088,26 @@ export default function App() {
         <div style={{
           position:"fixed", top:0, left:0, right:0, zIndex:9999,
           background:"#7c3aed", color:"#fff",
-          display:"flex", alignItems:"center", justifyContent:"center", gap:12,
-          padding:"10px 16px",
+          display:"flex", alignItems:"center", gap:10,
+          padding:"10px 14px",
         }}>
-          <span style={{ fontSize:13, fontWeight:600 }}>🔧 새 빌드 v{adminBuildData?.build || APP_VERSION} 준비됨 (어드민만 표시)</span>
+          <span style={{ flex:1, fontSize:13, fontWeight:600, minWidth:0 }}>
+            🔧 새 빌드 v{adminBuildData?.build || APP_VERSION} (어드민)
+          </span>
           <button onClick={releaseBuild} disabled={releasingBuild}
             style={{ background:"#fff", color:"#7c3aed", border:"none",
-              borderRadius:8, padding:"6px 16px", fontWeight:800, fontSize:13,
-              cursor: releasingBuild ? "not-allowed" : "pointer", fontFamily:"inherit" }}>
-            {releasingBuild ? "배포 중…" : "✓ 파이널 배포"}
+              borderRadius:8, padding:"10px 18px", fontWeight:800, fontSize:13,
+              cursor: releasingBuild ? "not-allowed" : "pointer", fontFamily:"inherit",
+              flexShrink:0, touchAction:"manipulation", WebkitTapHighlightColor:"transparent",
+            }}>
+            {releasingBuild ? "배포 중…" : "사용자 배포"}
           </button>
           <button onClick={() => setAdminNewBuild(false)}
-            style={{ background:"none", border:"1px solid rgba(255,255,255,0.5)",
-              color:"#fff", borderRadius:6, padding:"4px 10px", fontSize:12,
-              cursor:"pointer", fontFamily:"inherit" }}>나중에</button>
+            style={{ background:"none", border:"none",
+              color:"#fff", borderRadius:8, padding:"10px 14px", fontSize:20, lineHeight:1,
+              cursor:"pointer", fontFamily:"inherit", flexShrink:0,
+              touchAction:"manipulation", WebkitTapHighlightColor:"transparent",
+            }}>✕</button>
         </div>
       )}
       {view === "home"          && <HomeSplashScreen user={user} />}
