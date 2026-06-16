@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.630";
+const APP_VERSION = "3.631";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10055,6 +10055,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                             color: stampSymbol === name ? C.pur : C.txt }}>{name}</span>
                         </button>
                       ))}
+                      <input
+                        type="text" placeholder="직접입력"
+                        value={diatonic.some(d => d.name === stampSymbol) ? "" : stampSymbol}
+                        onChange={e => { setStampSymbol(e.target.value); setStampItalic(false); }}
+                        style={{
+                          height:28, width:64, padding:"0 6px", fontSize:11, fontWeight:700,
+                          border:`1px solid ${!diatonic.some(d => d.name === stampSymbol) && stampSymbol ? C.pur : C.bdr}`,
+                          borderRadius:6, background:"transparent", color:C.txt,
+                          fontFamily:"inherit", outline:"none",
+                        }}
+                      />
                     </div>
                   </>
                 );
