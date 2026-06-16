@@ -82,6 +82,32 @@ export const CHORD_VOICINGS = {
   "Dsus4": [{ frets:[-1,-1,0,2,3,3], fingers:[0,0,0,1,2,3], barre:0, label:"Dsus4" }],
   "Gsus4": [{ frets:[3,3,0,0,1,3], fingers:[2,3,0,0,1,4], barre:0, label:"Gsus4" }],
 
+  // ── Dominant 7th (chromatic — barre shape, root on low E)
+  // Pattern: [N, N+2, N, N+1, N, N] (E7 movable shape)
+  "C#7":  [{ frets:[9,11,9,10,9,9],   fingers:[1,3,1,2,1,1], barre:9,  label:"C#7/Db7" }],
+  "Db7":  [{ frets:[9,11,9,10,9,9],   fingers:[1,3,1,2,1,1], barre:9,  label:"Db7/C#7" }],
+  "D#7":  [{ frets:[11,13,11,12,11,11], fingers:[1,3,1,2,1,1], barre:11, label:"D#7/Eb7" }],
+  "Eb7":  [{ frets:[11,13,11,12,11,11], fingers:[1,3,1,2,1,1], barre:11, label:"Eb7/D#7" }],
+  "F#7":  [{ frets:[2,4,2,3,2,2],    fingers:[1,3,1,2,1,1], barre:2,  label:"F#7/Gb7" }],
+  "Gb7":  [{ frets:[2,4,2,3,2,2],    fingers:[1,3,1,2,1,1], barre:2,  label:"Gb7/F#7" }],
+  "G#7":  [{ frets:[4,6,4,5,4,4],    fingers:[1,3,1,2,1,1], barre:4,  label:"G#7/Ab7" }],
+  "Ab7":  [{ frets:[4,6,4,5,4,4],    fingers:[1,3,1,2,1,1], barre:4,  label:"Ab7/G#7" }],
+  "A#7":  [{ frets:[6,8,6,7,6,6],    fingers:[1,3,1,2,1,1], barre:6,  label:"A#7/Bb7" }],
+  "Bb7":  [{ frets:[6,8,6,7,6,6],    fingers:[1,3,1,2,1,1], barre:6,  label:"Bb7/A#7" }],
+
+  // ── Minor 7th (chromatic — barre shape, root on low E)
+  // Pattern: [N, N+2, N, N, N, N] (Em7 movable shape)
+  "C#m7": [{ frets:[9,11,9,9,9,9],   fingers:[1,3,1,1,1,1], barre:9,  label:"C#m7/Dbm7" }],
+  "Dbm7": [{ frets:[9,11,9,9,9,9],   fingers:[1,3,1,1,1,1], barre:9,  label:"Dbm7/C#m7" }],
+  "D#m7": [{ frets:[11,13,11,11,11,11], fingers:[1,3,1,1,1,1], barre:11, label:"D#m7/Ebm7" }],
+  "Ebm7": [{ frets:[11,13,11,11,11,11], fingers:[1,3,1,1,1,1], barre:11, label:"Ebm7/D#m7" }],
+  "F#m7": [{ frets:[2,4,2,2,2,2],    fingers:[1,3,1,1,1,1], barre:2,  label:"F#m7/Gbm7" }],
+  "Gbm7": [{ frets:[2,4,2,2,2,2],    fingers:[1,3,1,1,1,1], barre:2,  label:"Gbm7/F#m7" }],
+  "G#m7": [{ frets:[4,6,4,4,4,4],    fingers:[1,3,1,1,1,1], barre:4,  label:"G#m7/Abm7" }],
+  "Abm7": [{ frets:[4,6,4,4,4,4],    fingers:[1,3,1,1,1,1], barre:4,  label:"Abm7/G#m7" }],
+  "A#m7": [{ frets:[6,8,6,6,6,6],    fingers:[1,3,1,1,1,1], barre:6,  label:"A#m7/Bbm7" }],
+  "Bbm7": [{ frets:[6,8,6,6,6,6],    fingers:[1,3,1,1,1,1], barre:6,  label:"Bbm7/A#m7" }],
+
   // ── Diminished (movable shape: x N N+1 N+2 N+1 x, root on A string)
   "Bdim":  [{ frets:[-1,2,3,4,3,-1], fingers:[0,1,2,4,3,0], barre:0,  label:"Bdim" }],
   "Cdim":  [{ frets:[-1,3,4,5,4,-1], fingers:[0,1,2,4,3,0], barre:0,  label:"Cdim" }],
@@ -136,13 +162,42 @@ export function transposeKey(key, steps) {
   return SHARP_NOTES[((idx + steps) % 12 + 12) % 12];
 }
 
-// Get voicings for a chord name (handles enharmonic equivalents)
+// Flat ↔ Sharp enharmonic mapping (both directions)
+const FLAT_TO_SHARP = { Cb:"B", Db:"C#", Eb:"D#", Fb:"E", Gb:"F#", Ab:"G#", Bb:"A#" };
+const SHARP_TO_FLAT = { "C#":"Db", "D#":"Eb", "F#":"Gb", "G#":"Ab", "A#":"Bb" };
+
+// Get voicings for a chord name — handles slash chords + enharmonic equivalents
 export function getVoicings(chordName) {
   if (!chordName) return null;
-  if (CHORD_VOICINGS[chordName]) return CHORD_VOICINGS[chordName];
-  // Try stripping slash bass (e.g. "G/B" → "G")
-  const base = chordName.split("/")[0].trim();
-  if (CHORD_VOICINGS[base]) return CHORD_VOICINGS[base];
+
+  function tryLookup(name) {
+    if (CHORD_VOICINGS[name]) return CHORD_VOICINGS[name];
+    // Strip slash bass (e.g. "G/B" → "G")
+    const base = name.split("/")[0].trim();
+    if (CHORD_VOICINGS[base]) return CHORD_VOICINGS[base];
+    return null;
+  }
+
+  // Direct lookup
+  let found = tryLookup(chordName);
+  if (found) return found;
+
+  // Parse root + suffix, try enharmonic root
+  const m = chordName.match(/^([A-G][#b]?)(.*)/);
+  if (!m) return null;
+  const [, root, suffix] = m;
+
+  // Try flat → sharp
+  if (FLAT_TO_SHARP[root]) {
+    found = tryLookup(FLAT_TO_SHARP[root] + suffix);
+    if (found) return found;
+  }
+  // Try sharp → flat
+  if (SHARP_TO_FLAT[root]) {
+    found = tryLookup(SHARP_TO_FLAT[root] + suffix);
+    if (found) return found;
+  }
+
   return null;
 }
 
