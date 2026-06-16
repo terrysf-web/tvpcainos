@@ -12607,6 +12607,24 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
         ))}
       </div>
 
+      {/* 어드민 전용: 사용자 배포 */}
+      {(user.role === "admin" || user.role === "leader") && (
+        <div style={{ background:`${C.pur}0d`, border:`1.5px solid ${C.pur}44`, borderRadius:12, padding:"14px 16px", marginBottom:10 }}>
+          <div style={{ fontSize:12, fontWeight:800, color:C.pur, marginBottom:8 }}>🔧 사용자 배포 관리</div>
+          <div style={{ fontSize:11, color:C.dim, marginBottom:10 }}>
+            현재 앱 버전: <b style={{ color:C.txt }}>v{APP_VERSION}</b>
+          </div>
+          <button onClick={releaseBuild} disabled={releasingBuild} style={{
+            width:"100%", padding:"10px", borderRadius:9,
+            background: releasingBuild ? `${C.pur}55` : C.pur,
+            color:"#fff", border:"none", fontWeight:800, fontSize:13,
+            cursor: releasingBuild ? "not-allowed" : "pointer", fontFamily:"inherit",
+          }}>
+            {releasingBuild ? "배포 중…" : `✓ v${APP_VERSION} 사용자 배포`}
+          </button>
+        </div>
+      )}
+
       <Btn label="로그아웃" icon="logout" onClick={onLogout} variant="ghost" full />
 
       {showTeam && <TeamManagementModal currentUserId={user.uid} onClose={() => setShowTeam(false)} />}
