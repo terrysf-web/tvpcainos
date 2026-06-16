@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.644";
+const APP_VERSION = "3.645";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -9393,10 +9393,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           {(() => {
             const unread = isLibraryMode ? 0 : chatMsgs.filter(m => m.uid !== user?.uid).length;
             const viewActive = dual || fitActive || zoomMul !== 1.0;
-            const writeActive = drawMode || showNotePanel;
+            const writeActive = drawMode || showNotePanel || (!isLibraryMode && showCueInput);
             const scoreActive = transposeMode || media;
-            const teamActive = !isLibraryMode && (showChat || showCueInput || showWorshipPlayer);
-            const recActive = recording || recCount > 0;
+            const teamActive = false; // 팀채팅은 직접 버튼으로 분리
+            const recActive = recording || recCount > 0 || (!isLibraryMode && showWorshipPlayer);
             const mkGrp = (name, itemActive, color, badge) => {
               const isOpen = activeGroup === name;
               const c = isOpen ? C.acc : (itemActive ? (color || C.acc) : C.dim);
@@ -9431,7 +9431,33 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 {mkGrp("보기", viewActive, C.acc, 0)}
                 {mkGrp("필기", writeActive, drawMode ? C.pur : C.acc, 0)}
                 {mkGrp("악보", scoreActive, transposeMode ? C.grn : C.acc, 0)}
-                {!isLibraryMode && mkGrp("팀", teamActive, C.acc, unread)}
+                {!isLibraryMode && (() => {
+                  const isOpen = activeGroup === "팀채팅";
+                  const c = (isOpen || showChat) ? C.acc : C.dim;
+                  return (
+                    <button
+                      onClick={() => { setShowChat(p => !p); setActiveGroup(null); }}
+                      style={{
+                        position:"relative", flexShrink:0, height:28,
+                        padding: tbNarrow ? "0 6px" : "0 8px",
+                        borderRadius:7, cursor:"pointer",
+                        background: showChat ? `${C.acc}22` : "transparent",
+                        border:`1px solid ${showChat ? C.acc : C.bdr}`,
+                        color:c, fontWeight:700, fontSize: tbNarrow ? 10 : 11,
+                        fontFamily:"inherit", display:"flex", alignItems:"center", gap:2,
+                      }}>
+                      팀채팅
+                      {unread > 0 && !showChat && (
+                        <span style={{ position:"absolute", top:-4, right:-4,
+                          minWidth:14, height:14, borderRadius:7, background:C.red,
+                          fontSize:9, fontWeight:700, color:"#fff",
+                          display:"flex", alignItems:"center", justifyContent:"center",
+                          padding:"0 3px", pointerEvents:"none", lineHeight:1,
+                        }}>{unread > 9 ? "9+" : unread}</span>
+                      )}
+                    </button>
+                  );
+                })()}
                 {mkGrp("녹음", recActive, recording ? C.red : C.acc, 0)}
                 {dlActive && mkGrp("다운로드", false, C.acc, 0)}
                 <button onClick={() => setShowMobileHelp(true)} style={{
@@ -9502,7 +9528,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             </div>
           )}
 
-          {/* 필기: 필기 · 메모 */}
+          {/* 필기: 필기 · 메모 · 큐노트 */}
           {activeGroup === "필기" && (
             <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
               <button onClick={() => { setDrawMode(p=>!p); if(!drawMode) setDrawTool("pen"); }} style={{
@@ -9519,6 +9545,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 color: showNotePanel ? C.acc : C.dim,
                 fontWeight:700, fontSize:11, fontFamily:"inherit",
               }}>메모</button>
+              {!isLibraryMode && (
+                <button onClick={() => setShowCueInput(p=>!p)} style={{
+                  height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                  background: showCueInput ? "#ff6f0022" : "transparent",
+                  border:`1px solid ${showCueInput ? "#ff6f00" : C.bdr}`,
+                  color: showCueInput ? "#e65c00" : C.dim,
+                  fontWeight:700, fontSize:11, fontFamily:"inherit",
+                }}>큐노트</button>
+              )}
             </div>
           )}
 
@@ -9582,50 +9617,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             </div>
           )}
 
-          {/* 팀: 채팅 · 큐노트 · 연습듣기 */}
-          {activeGroup === "팀" && !isLibraryMode && (
-            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
-              {(() => {
-                const unread = chatMsgs.filter(m => m.uid !== user?.uid).length;
-                return (
-                  <div style={{ position:"relative", flexShrink:0 }}>
-                    <button onClick={() => setShowChat(p=>!p)} style={{
-                      height:28, padding:"0 8px", borderRadius:7, cursor:"pointer",
-                      background: showChat ? `${C.acc}22` : "transparent",
-                      border:`1px solid ${showChat ? C.acc : C.bdr}`,
-                      color: showChat ? C.acc : C.dim,
-                      fontWeight:700, fontSize:11, fontFamily:"inherit",
-                    }}>채팅</button>
-                    {!showChat && unread > 0 && (
-                      <span style={{ position:"absolute", top:-4, right:-4,
-                        minWidth:14, height:14, borderRadius:7, background:C.red,
-                        fontSize:9, fontWeight:700, color:"#fff",
-                        display:"flex", alignItems:"center", justifyContent:"center",
-                        padding:"0 3px", pointerEvents:"none" }}>{unread>9?"9+":unread}</span>
-                    )}
-                  </div>
-                );
-              })()}
-              <button onClick={() => setShowCueInput(p=>!p)} style={{
-                height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
-                background: showCueInput ? "#ff6f0022" : "transparent",
-                border:`1px solid ${showCueInput ? "#ff6f00" : C.bdr}`,
-                color: showCueInput ? "#e65c00" : C.dim,
-                fontWeight:700, fontSize:11, fontFamily:"inherit",
-              }}>큐노트</button>
-              {svcPracticeUrl && (
-                <button onClick={() => setShowWorshipPlayer(p=>!p)} style={{
-                  height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
-                  background: showWorshipPlayer ? `${C.grn}22` : "transparent",
-                  border:`1px solid ${showWorshipPlayer ? C.grn : C.bdr}`,
-                  color: showWorshipPlayer ? C.grn : C.dim,
-                  fontWeight:700, fontSize:11, fontFamily:"inherit",
-                }}>연습듣기</button>
-              )}
-            </div>
-          )}
-
-          {/* 녹음: 악기선택 · 녹음버튼 · 재생 */}
+          {/* 녹음: 악기선택 · 녹음버튼 · 재생 · 연습듣기 */}
           {activeGroup === "녹음" && (
             <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
               {/* 보컬 */}
@@ -9681,6 +9673,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 </button>
               )}
               {recCount > 0 && !recording && sqBtn("재생", false, () => setShowRecModal(true))}
+              {!isLibraryMode && svcPracticeUrl && <>
+                <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }}/>
+                <button onClick={() => setShowWorshipPlayer(p=>!p)} style={{
+                  height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                  background: showWorshipPlayer ? `${C.grn}22` : "transparent",
+                  border:`1px solid ${showWorshipPlayer ? C.grn : C.bdr}`,
+                  color: showWorshipPlayer ? C.grn : C.dim,
+                  fontWeight:700, fontSize:11, fontFamily:"inherit",
+                }}>연습듣기</button>
+              </>}
             </div>
           )}
         </div>
