@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.641";
+const APP_VERSION = "3.642";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -7304,7 +7304,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [metroOn,        setMetroOn]        = useState(false);
   const [metroMuted,     setMetroMuted]     = useState(false);
   const [showMetroPanel,  setShowMetroPanel]  = useState(false);
-  const [showMobileMore,  setShowMobileMore]  = useState(false);
+  const [activeGroup,     setActiveGroup]     = useState(null); // 그룹 드롭다운
   const [showMobileHelp,  setShowMobileHelp]  = useState(false);
   const [metroBeat,      setMetroBeat]      = useState(0);
   const [metroBpmEdit,   setMetroBpmEdit]   = useState(null);
@@ -9373,437 +9373,307 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             )
           )}
 
-          {/* 제목/키 — 태블릿(wide)에서만 중앙 표시 */}
-          {!tbNarrow && (
-            <div style={{ flex:1, minWidth:0, textAlign:"center" }}>
-              <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
-                textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
-              <div style={{ fontSize:11, color:C.dim }}>
+          {/* 제목/키 — 항상 중앙 표시 (좁은 화면은 1줄로) */}
+          <div style={{ flex:1, minWidth:0, textAlign:"center", overflow:"hidden" }}>
+            <div style={{ fontWeight:700, fontSize:tbNarrow?12:15, overflow:"hidden",
+              textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
+            {!tbNarrow && (
+              <div style={{ fontSize:11, color:C.dim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                 Key {transposeMode && transposeSteps !== 0
                   ? `${song.key} → ${keyName(song.key, transposeSteps)}`
                   : song.key}
                 {song.bpm ? ` · ♩${song.bpm}` : ""}
                 {numPages > 0 ? ` · ${pageNum}/${numPages}p` : ""}
-                {!isLibraryMode && svcSongs.length > 1 ? ` · 곡 ${songIdx + 1}/${svcSongs.length}` : ""}
+                {!isLibraryMode && svcSongs.length > 1 ? ` · 곡 ${songIdx+1}/${svcSongs.length}` : ""}
               </div>
-            </div>
-          )}
-          {tbNarrow && <div style={{ flex:1 }} />}
+            )}
+          </div>
 
-          {/* 오른쪽 버튼 그룹 — 600px 기준으로 폰/태블릿 레이아웃 분기 */}
+          {/* 그룹 버튼 */}
           {(() => {
-            const narrow = tbNarrow;
-            const gap = narrow ? 3 : 4;
-            const iconSz = tbIconSz;
-            const pad = narrow ? 6 : 7;
-            const sep = <div style={{ width:1, height:18, background:C.bdr, margin: narrow ? "0 1px" : "0 2px" }} />;
-            /* ── 모바일: zoom + 페이지 nav + ⋯ 만 표시 ── */
-            if (narrow) return (
-              <div style={{ display:"flex", gap:3, alignItems:"center", flexShrink:0 }}>
-                <button onClick={() => setZoomMul(z => Math.max(0.5, +(z - 0.15).toFixed(2)))}
-                  style={{ background:"none", border:"none", cursor:"pointer", padding:pad, display:"flex", borderRadius:8 }}>
-                  <Icon n="zoomOut" size={iconSz} color={C.dim} />
-                </button>
-                <button onClick={resetZoom} style={{
-                  background: zoomMul !== 1.0 ? `${C.acc}22` : "none",
-                  border: zoomMul !== 1.0 ? `1px solid ${C.acc}` : "1px solid transparent",
-                  borderRadius:6, cursor:"pointer", padding:"2px 5px",
-                  fontSize:10, color: zoomMul !== 1.0 ? C.acc : C.dim,
-                  fontWeight:700, fontFamily:"inherit", minWidth:32,
-                }}>{Math.round(zoomMul * 100)}%</button>
-                <button onClick={() => setZoomMul(z => Math.min(3.0, +(z + 0.15).toFixed(2)))}
-                  style={{ background:"none", border:"none", cursor:"pointer", padding:pad, display:"flex", borderRadius:8 }}>
-                  <Icon n="zoomIn" size={iconSz} color={C.dim} />
-                </button>
-                {!dual && numPages > 1 && <>
-                  <button onClick={() => { if (pageNum > 1) { slideAnimate(-1); setPageNum(p => p - 1); } }}
-                    disabled={pageNum <= 1}
-                    style={{ background:"none", border:"none", cursor: pageNum <= 1 ? "not-allowed" : "pointer",
-                      padding:pad, display:"flex", borderRadius:8, opacity: pageNum <= 1 ? 0.3 : 1 }}>
-                    <Icon n="prev" size={iconSz} color={C.dim} />
-                  </button>
-                  <button onClick={() => { if (pageNum < numPages) { slideAnimate(1); setPageNum(p => p + 1); } }}
-                    disabled={pageNum >= numPages}
-                    style={{ background:"none", border:"none", cursor: pageNum >= numPages ? "not-allowed" : "pointer",
-                      padding:pad, display:"flex", borderRadius:8, opacity: pageNum >= numPages ? 0.3 : 1 }}>
-                    <Icon n="next" size={iconSz} color={C.dim} />
-                  </button>
-                </>}
-                {/* ⋯ 더보기 */}
-                <button onClick={() => setShowMobileMore(p => !p)} title="더보기"
+            const unread = isLibraryMode ? 0 : chatMsgs.filter(m => m.uid !== user?.uid).length;
+            const viewActive = dual || fitActive || zoomMul !== 1.0;
+            const writeActive = drawMode || showNotePanel;
+            const scoreActive = transposeMode || media;
+            const teamActive = !isLibraryMode && (showChat || showCueInput || showWorshipPlayer);
+            const recActive = recording || recCount > 0;
+            const mkGrp = (name, itemActive, color, badge) => {
+              const isOpen = activeGroup === name;
+              const c = isOpen ? C.acc : (itemActive ? (color || C.acc) : C.dim);
+              return (
+                <button key={name}
+                  onClick={() => setActiveGroup(g => g === name ? null : name)}
                   style={{
-                    background: showMobileMore ? `${C.acc}22` : "transparent",
-                    border:`1px solid ${showMobileMore ? C.acc : C.bdr}`,
-                    borderRadius:8, padding:"5px 9px", cursor:"pointer",
-                    display:"flex", alignItems:"center",
+                    position:"relative", flexShrink:0, height:28,
+                    padding: tbNarrow ? "0 6px" : "0 8px",
+                    borderRadius:7, cursor:"pointer",
+                    background:(isOpen || itemActive) ? `${c}22` : "transparent",
+                    border:`1px solid ${(isOpen || itemActive) ? c : C.bdr}`,
+                    color:c, fontWeight:700, fontSize: tbNarrow ? 10 : 11,
+                    fontFamily:"inherit", display:"flex", alignItems:"center", gap:2,
                   }}>
-                  <span style={{ fontSize:14, fontWeight:900, color: showMobileMore ? C.acc : C.dim,
-                    letterSpacing:"-1px", lineHeight:1 }}>···</span>
-                </button>
-              </div>
-            );
-
-            /* ── 태블릿/데스크톱: 통일 텍스트 툴바 (height 28px) ── */
-            const tbSep = <div style={{ width:1, height:16, background:C.bdr, margin:"0 2px", flexShrink:0 }} />;
-            return (
-              <div className="toolbar-scroll" style={{
-                display:"flex", alignItems:"center", overflowX:"auto",
-                flexShrink:1, minWidth:0,
-              }}>
-                <div style={{ display:"flex", gap:3, alignItems:"center", flexShrink:0, paddingRight:4 }}>
-                  {/* 줌 */}
-                  {sqBtn("−", false, () => setZoomMul(z => Math.max(0.5, +(z-0.15).toFixed(2))))}
-                  <button onClick={resetZoom} style={{
-                    height:28, padding:"0 6px", borderRadius:7, cursor:"pointer", flexShrink:0,
-                    background: zoomMul !== 1.0 ? `${C.acc}22` : "transparent",
-                    border: zoomMul !== 1.0 ? `1px solid ${C.acc}` : "1px solid transparent",
-                    color: zoomMul !== 1.0 ? C.acc : C.dim,
-                    fontWeight:700, fontSize:11, fontFamily:"inherit", minWidth:38, textAlign:"center",
-                  }}>{Math.round(zoomMul*100)}%</button>
-                  {sqBtn("+", false, () => setZoomMul(z => Math.min(3.0, +(z+0.15).toFixed(2))))}
-                  {/* 페이지 이동 */}
-                  {!dual && numPages > 1 && <>
-                    <button onClick={() => { if (pageNum > 1) { slideAnimate(-1); setPageNum(p => p-1); } }}
-                      disabled={pageNum <= 1}
-                      style={{ width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center",
-                        padding:0, borderRadius:7, cursor: pageNum <= 1 ? "not-allowed" : "pointer",
-                        border:`1px solid ${C.bdr}`, background:"transparent",
-                        color:C.dim, fontSize:13, flexShrink:0, opacity: pageNum <= 1 ? 0.3 : 1 }}>◀</button>
-                    <button onClick={() => { if (pageNum < numPages) { slideAnimate(1); setPageNum(p => p+1); } }}
-                      disabled={pageNum >= numPages}
-                      style={{ width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center",
-                        padding:0, borderRadius:7, cursor: pageNum >= numPages ? "not-allowed" : "pointer",
-                        border:`1px solid ${C.bdr}`, background:"transparent",
-                        color:C.dim, fontSize:13, flexShrink:0, opacity: pageNum >= numPages ? 0.3 : 1 }}>▶</button>
-                    {tbSep}
-                  </>}
-                  {/* 녹음 모드 (split) */}
-                  {!recording && (() => {
-                    const isVocal = recMode === "vocal";
-                    const instInfo = INST_MODES.find(m => m.id === recMode) || INST_MODES[INST_MODES.length-1];
-                    const setMode = (id) => { setRecMode(id); recModeRef.current = id; localStorage.setItem("tvpc_recMode", id); };
-                    return (
-                      <div style={{ display:"flex", flexShrink:0 }}>
-                        <button onClick={() => { setShowInstPicker(false); setMode(isVocal ? (localStorage.getItem("tvpc_lastInst")||"other") : "vocal"); }}
-                          style={{ height:28, padding:"0 8px", display:"flex", alignItems:"center",
-                            borderRadius:"7px 0 0 7px", border:`1px solid ${isVocal ? C.pur : C.bdr}`,
-                            borderRight:"none", background: isVocal ? `${C.pur}22` : "transparent",
-                            color: isVocal ? C.pur : C.dim, fontWeight:700, fontSize:11,
-                            fontFamily:"inherit", cursor:"pointer" }}>🎤</button>
-                        <button data-inst-picker onClick={() => { if (isVocal) { setMode("other"); setShowInstPicker(true); } else { setShowInstPicker(p => !p); } }}
-                          style={{ height:28, padding:"0 8px", display:"flex", alignItems:"center", gap:3,
-                            borderRadius:"0 7px 7px 0", border:`1px solid ${!isVocal ? C.grn : C.bdr}`,
-                            background: !isVocal ? `${C.grn}22` : "transparent",
-                            color: !isVocal ? C.grn : C.dim, fontWeight:700, fontSize:11,
-                            fontFamily:"inherit", cursor:"pointer" }}>
-                          {isVocal ? "악기" : instInfo.label}
-                          <span style={{ fontSize:8, lineHeight:1 }}>▼</span>
-                        </button>
-                      </div>
-                    );
-                  })()}
-                  {/* 녹음 버튼 */}
-                  {recording ? (
-                    <button onClick={stopRecording} style={{
-                      height:28, display:"flex", alignItems:"center", gap:5,
-                      padding:"0 9px", borderRadius:7, cursor:"pointer", flexShrink:0,
-                      border:`1px solid ${C.red}`, background:`${C.red}15`,
-                      color:C.red, fontWeight:700, fontSize:11, fontFamily:"inherit",
-                      fontVariantNumeric:"tabular-nums",
-                    }}>
-                      <div style={{ width:6, height:6, borderRadius:"50%", background:C.red, animation:"pulse 1s infinite" }} />
-                      {`${Math.floor(recSeconds/60)}:${String(recSeconds%60).padStart(2,"0")}`}
-                    </button>
-                  ) : (
-                    <button onClick={startRecording} title="녹음" style={{
-                      position:"relative", height:28,
+                  {name}
+                  <span style={{fontSize:7,lineHeight:1}}>▾</span>
+                  {badge > 0 && (
+                    <span style={{ position:"absolute", top:-4, right:-4,
+                      minWidth:14, height:14, borderRadius:7, background:C.red,
+                      fontSize:9, fontWeight:700, color:"#fff",
                       display:"flex", alignItems:"center", justifyContent:"center",
-                      padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0, fontSize:11,
-                      border:`1px solid ${C.bdr}`, background:"transparent", color:C.dim,
-                      fontWeight:700, fontFamily:"inherit",
-                    }}>
-                      녹음
-                      {recCount > 0 && <span style={{
-                        position:"absolute", top:1, right:1,
-                        background:C.acc, color:"#fff", borderRadius:"50%",
-                        fontSize:7, fontWeight:800, width:11, height:11,
-                        display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
-                      }}>{recCount}</span>}
-                    </button>
+                      padding:"0 3px", pointerEvents:"none", lineHeight:1,
+                    }}>{badge > 9 ? "9+" : badge}</span>
                   )}
-                  {/* 녹음 목록 */}
-                  {recCount > 0 && !recording && sqBtn("재생", false, () => setShowRecModal(true))}
-                  {/* 예배 연습 녹음 */}
-                  {!isLibraryMode && svcPracticeUrl && tbBtn("연습", showWorshipPlayer, () => setShowWorshipPlayer(p => !p), C.grn)}
-                  {tbSep}
-                  {/* FIT */}
-                  {tbBtn("FIT", fitActive, autoFit, C.acc)}
-                  {tbSep}
-                  {/* 필기 */}
-                  {tbBtn("필기", drawMode, () => { setDrawMode(p => !p); setDrawTool("pen"); }, C.acc)}
-                  {/* 메모 */}
-                  {tbBtn("메모", showNotePanel, () => setShowNotePanel(p => !p), C.acc)}
-                  {/* Q (큐노트) */}
-                  {!isLibraryMode && tbBtn("큐노트", showCueInput, () => setShowCueInput(p => !p), "#ff6f00")}
-                  {/* 팀 채팅 */}
-                  {!isLibraryMode && (() => {
-                    const unread = chatMsgs.filter(m => m.uid !== user?.uid).length;
-                    return (
-                      <div style={{ position:"relative", flexShrink:0 }}>
-                        {tbBtn("채팅", showChat, () => setShowChat(p => !p), C.acc)}
-                        {!showChat && unread > 0 && (
-                          <span style={{ position:"absolute", top:-4, right:-4,
-                            minWidth:14, height:14, borderRadius:7, background:C.red,
-                            fontSize:9, fontWeight:700, color:"#fff",
-                            display:"flex", alignItems:"center", justifyContent:"center", padding:"0 3px",
-                            pointerEvents:"none" }}>{unread > 9 ? "9+" : unread}</span>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {/* 다운로드 */}
-                  {canDownload && tbBtn("⬇", false, downloadAnnotatedScore, C.acc)}
-                  {/* 리더: 멤버 다운로드 허용 */}
-                  {!isLibraryMode && leader && svc && tbBtn(
-                    svc.downloadEnabled ? "↓허용" : "↓멤버",
-                    svc.downloadEnabled, toggleDownloadEnabled, C.grn
-                  )}
-                  {!isLibraryMode && tbSep}
-                  {/* DUAL */}
-                  {!isLibraryMode && tbBtn("DUAL", dual, () => setDual(p => !p), C.pur)}
-                  {/* MEDIA */}
-                  {(() => {
-                    const hasYT = !!getYoutubeId(song?.youtubeUrl);
-                    return (
-                      <button onClick={() => { if (dual) { showToast("싱글 모드에서만 사용 가능합니다"); return; } setMedia(p => !p); }}
-                        style={{
-                          height:28, display:"flex", alignItems:"center", gap:4,
-                          padding:"0 9px", borderRadius:7, cursor:"pointer", whiteSpace:"nowrap",
-                          flexShrink:0, fontFamily:"inherit", fontSize:11, fontWeight:700,
-                          letterSpacing:"0.03em", border:`1px solid ${media ? C.acc : C.bdr}`,
-                          background: media ? `${C.acc}22` : "transparent",
-                          color: media ? C.acc : C.dim, transition:"all .12s",
-                        }}>
-                        MEDIA
-                        {hasYT && <span style={{
-                          fontSize:8, fontWeight:800, borderRadius:3, padding:"1px 3px",
-                          background: media ? `${C.acc}33` : `${C.red}22`,
-                          color: media ? C.acc : C.red,
-                        }}>YT</span>}
-                      </button>
-                    );
-                  })()}
-                  {/* 전조 */}
-                  {tbBtn(
-                    transposeMode && (transposeSteps !== 0 || capoFret > 0)
-                      ? `${song.key}→${keyName(song.key, transposeSteps - capoFret)}${capoFret > 0 ? ` C${capoFret}` : ""}` : "전조",
-                    transposeMode,
-                    () => {
-                      const next = !transposeMode;
-                      setTransposeMode(next);
-                      if (tmKey) localStorage.setItem(tmKey, next ? "1" : "0");
-                      if (!next) { setTransposeSteps(0); setDetectErr(""); }
-                    }, C.grn
-                  )}
-                </div>
+                </button>
+              );
+            };
+            return (
+              <div style={{ display:"flex", gap:3, alignItems:"center", flexShrink:0 }}>
+                {mkGrp("보기", viewActive, C.acc, 0)}
+                {mkGrp("필기", writeActive, drawMode ? C.pur : C.acc, 0)}
+                {mkGrp("악보", scoreActive, transposeMode ? C.grn : C.acc, 0)}
+                {!isLibraryMode && mkGrp("팀", teamActive, C.acc, unread)}
+                {mkGrp("녹음", recActive, recording ? C.red : C.acc, 0)}
               </div>
             );
           })()}
         </div>
       </div>
 
-      {/* 모바일 전용: 제목/키/BPM 정보 줄 */}
-      {tbNarrow && (
+      {/* 그룹 드롭다운 패널 */}
+      {activeGroup && (
         <div style={{ flexShrink:0, background:C.surf, borderBottom:`1px solid ${C.bdr}`,
-          padding:"4px 14px 5px", textAlign:"center" }}>
-          <div style={{ fontWeight:700, fontSize:13, overflow:"hidden",
-            textOverflow:"ellipsis", whiteSpace:"nowrap", color:C.txt }}>
-            {song.title}
-          </div>
-          <div style={{ fontSize:11, color:C.dim, marginTop:1 }}>
-            Key {transposeMode && transposeSteps !== 0
-              ? `${song.key} → ${keyName(song.key, transposeSteps)}`
-              : song.key}
-            {song.bpm ? ` · ♩${song.bpm}` : ""}
-            {numPages > 0 ? ` · ${pageNum}/${numPages}p` : ""}
-            {!isLibraryMode && svcSongs.length > 1 ? ` · 곡 ${songIdx + 1}/${svcSongs.length}` : ""}
-          </div>
-        </div>
-      )}
+          padding:"8px 14px", display:"flex", alignItems:"center" }}>
 
-      {/* 모바일 ⋯ 드롭다운 패널 */}
-      {tbNarrow && showMobileMore && (
-        <div style={{ flexShrink:0, background:C.surf, borderBottom:`1px solid ${C.bdr}`,
-          padding:"10px 14px 12px", display:"flex", flexWrap:"wrap", gap:8 }}>
-          {/* 필기 */}
-          <button onClick={() => { setDrawMode(p => !p); setDrawTool("pen"); setShowMobileMore(false); }} style={{
-            display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-            padding:"8px 12px", borderRadius:10, cursor:"pointer",
-            background: drawMode ? `${C.pur}22` : C.card,
-            border:`1px solid ${drawMode ? C.pur : C.bdr}`,
-            flex:"1 1 60px", minWidth:60,
-          }}>
-            <Icon n="pen" size={18} color={drawMode ? C.pur : C.dim} />
-            <span style={{ fontSize:10, fontWeight:700, color:drawMode ? C.pur : C.dim, fontFamily:"inherit" }}>필기</span>
-          </button>
-          {/* 메모 */}
-          <button onClick={() => { setShowNotePanel(p => !p); setShowMobileMore(false); }} style={{
-            display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-            padding:"8px 12px", borderRadius:10, cursor:"pointer",
-            background: showNotePanel ? `${C.acc}22` : C.card,
-            border:`1px solid ${showNotePanel ? C.acc : C.bdr}`,
-            flex:"1 1 60px", minWidth:60,
-          }}>
-            <Icon n="note" size={18} color={showNotePanel ? C.acc : C.dim} />
-            <span style={{ fontSize:10, fontWeight:700, color:showNotePanel ? C.acc : C.dim, fontFamily:"inherit" }}>메모</span>
-          </button>
-          {/* 녹음 */}
-          {recording ? (
-            <button onClick={() => { stopRecording(); setShowMobileMore(false); }} style={{
-              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-              padding:"8px 12px", borderRadius:10, cursor:"pointer",
-              background:`${C.red}22`, border:`1px solid ${C.red}`,
-              flex:"1 1 60px", minWidth:60,
-            }}>
-              <div style={{ width:10, height:10, borderRadius:"50%", background:C.red, animation:"pulse 1s infinite" }} />
-              <span style={{ fontSize:10, fontWeight:700, color:C.red, fontFamily:"inherit", fontVariantNumeric:"tabular-nums" }}>
-                {`${Math.floor(recSeconds/60)}:${String(recSeconds%60).padStart(2,"0")}`}
-              </span>
-            </button>
-          ) : (
-            <button onClick={() => { startRecording(); setShowMobileMore(false); }} style={{
-              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-              padding:"8px 12px", borderRadius:10, cursor:"pointer",
-              background: C.card, border:`1px solid ${C.bdr}`,
-              flex:"1 1 60px", minWidth:60, position:"relative",
-            }}>
-              <Icon n="mic" size={18} color={C.dim} />
-              <span style={{ fontSize:10, fontWeight:700, color:C.dim, fontFamily:"inherit" }}>녹음</span>
-              {recCount > 0 && (
-                <span style={{ position:"absolute", top:5, right:10, background:C.acc, color:"#fff",
-                  borderRadius:"50%", fontSize:8, fontWeight:800, width:13, height:13,
-                  display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
-                }}>{recCount}</span>
+          {/* 보기: 줌 · FIT · 페이지 · DUAL */}
+          {activeGroup === "보기" && (
+            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
+              {sqBtn("−", false, () => setZoomMul(z => Math.max(0.5, +(z-0.15).toFixed(2))))}
+              <button onClick={resetZoom} style={{
+                height:28, padding:"0 6px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                background: zoomMul!==1.0 ? `${C.acc}22` : "transparent",
+                border: zoomMul!==1.0 ? `1px solid ${C.acc}` : "1px solid transparent",
+                color: zoomMul!==1.0 ? C.acc : C.dim,
+                fontWeight:700, fontSize:11, fontFamily:"inherit", minWidth:38, textAlign:"center",
+              }}>{Math.round(zoomMul*100)}%</button>
+              {sqBtn("+", false, () => setZoomMul(z => Math.min(3.0, +(z+0.15).toFixed(2))))}
+              <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }}/>
+              <button onClick={autoFit} style={{
+                height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                background: fitActive ? `${C.acc}22` : "transparent",
+                border:`1px solid ${fitActive ? C.acc : C.bdr}`,
+                color: fitActive ? C.acc : C.dim,
+                fontWeight:700, fontSize:11, fontFamily:"inherit",
+              }}>FIT</button>
+              {!dual && numPages > 1 && <>
+                <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }}/>
+                <button onClick={() => { if(pageNum>1){slideAnimate(-1);setPageNum(p=>p-1);} }}
+                  disabled={pageNum<=1}
+                  style={{ width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center",
+                    padding:0, borderRadius:7, cursor:pageNum<=1?"not-allowed":"pointer",
+                    border:`1px solid ${C.bdr}`, background:"transparent",
+                    color:C.dim, fontSize:13, flexShrink:0, opacity:pageNum<=1?0.3:1 }}>◀</button>
+                <span style={{ fontSize:11, fontWeight:700, color:C.dim,
+                  minWidth:36, textAlign:"center", flexShrink:0 }}>{pageNum}/{numPages}p</span>
+                <button onClick={() => { if(pageNum<numPages){slideAnimate(1);setPageNum(p=>p+1);} }}
+                  disabled={pageNum>=numPages}
+                  style={{ width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center",
+                    padding:0, borderRadius:7, cursor:pageNum>=numPages?"not-allowed":"pointer",
+                    border:`1px solid ${C.bdr}`, background:"transparent",
+                    color:C.dim, fontSize:13, flexShrink:0, opacity:pageNum>=numPages?0.3:1 }}>▶</button>
+              </>}
+              {!isLibraryMode && <>
+                <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }}/>
+                <button onClick={() => setDual(p=>!p)} style={{
+                  height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                  background: dual ? `${C.pur}22` : "transparent",
+                  border:`1px solid ${dual ? C.pur : C.bdr}`,
+                  color: dual ? C.pur : C.dim,
+                  fontWeight:700, fontSize:11, fontFamily:"inherit",
+                }}>DUAL</button>
+              </>}
+            </div>
+          )}
+
+          {/* 필기: 필기 · 메모 · 다운로드 · 도움말 */}
+          {activeGroup === "필기" && (
+            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
+              <button onClick={() => { setDrawMode(p=>!p); if(!drawMode) setDrawTool("pen"); }} style={{
+                height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                background: drawMode ? `${C.pur}22` : "transparent",
+                border:`1px solid ${drawMode ? C.pur : C.bdr}`,
+                color: drawMode ? C.pur : C.dim,
+                fontWeight:700, fontSize:11, fontFamily:"inherit",
+              }}>필기</button>
+              <button onClick={() => setShowNotePanel(p=>!p)} style={{
+                height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                background: showNotePanel ? `${C.acc}22` : "transparent",
+                border:`1px solid ${showNotePanel ? C.acc : C.bdr}`,
+                color: showNotePanel ? C.acc : C.dim,
+                fontWeight:700, fontSize:11, fontFamily:"inherit",
+              }}>메모</button>
+              {canDownload && (
+                <button onClick={downloadAnnotatedScore} style={{
+                  height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                  background:"transparent", border:`1px solid ${C.bdr}`,
+                  color:C.dim, fontWeight:700, fontSize:11, fontFamily:"inherit",
+                }}>다운로드</button>
               )}
-            </button>
+              {!isLibraryMode && leader && svc && (
+                <button onClick={toggleDownloadEnabled} style={{
+                  height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                  background: svc.downloadEnabled ? `${C.grn}22` : "transparent",
+                  border:`1px solid ${svc.downloadEnabled ? C.grn : C.bdr}`,
+                  color: svc.downloadEnabled ? C.grn : C.dim,
+                  fontWeight:700, fontSize:11, fontFamily:"inherit",
+                }}>{svc.downloadEnabled ? "↓허용" : "↓멤버"}</button>
+              )}
+              <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }}/>
+              <button onClick={() => setShowMobileHelp(true)} style={{
+                height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                background:"transparent", border:`1px solid ${C.bdr}`,
+                color:C.dim, fontWeight:700, fontSize:11, fontFamily:"inherit",
+              }}>도움말</button>
+            </div>
           )}
-          {/* 녹음 재생 */}
-          {recCount > 0 && !recording && (
-            <button onClick={() => { setShowRecModal(true); setShowMobileMore(false); }} style={{
-              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-              padding:"8px 12px", borderRadius:10, cursor:"pointer",
-              background: C.card, border:`1px solid ${C.bdr}`,
-              flex:"1 1 60px", minWidth:60,
-            }}>
-              <Icon n="play" size={18} color={C.dim} />
-              <span style={{ fontSize:10, fontWeight:700, color:C.dim, fontFamily:"inherit" }}>재생</span>
-            </button>
+
+          {/* 악보: 전조 · MEDIA */}
+          {activeGroup === "악보" && (
+            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
+              <button onClick={() => {
+                const next = !transposeMode;
+                setTransposeMode(next);
+                if(tmKey) localStorage.setItem(tmKey, next?"1":"0");
+                if(!next){setTransposeSteps(0);setDetectErr("");}
+              }} style={{
+                height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                background: transposeMode ? `${C.grn}22` : "transparent",
+                border:`1px solid ${transposeMode ? C.grn : C.bdr}`,
+                color: transposeMode ? C.grn : C.dim,
+                fontWeight:700, fontSize:11, fontFamily:"inherit",
+              }}>
+                {transposeMode && (transposeSteps!==0 || capoFret>0)
+                  ? `${song.key}→${keyName(song.key, transposeSteps-capoFret)}${capoFret>0?` C${capoFret}`:""}`
+                  : "전조"}
+              </button>
+              <button onClick={() => { if(dual){showToast("싱글 모드에서만 사용 가능합니다");return;} setMedia(p=>!p); }}
+                style={{
+                  height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                  background: media ? `${C.acc}22` : "transparent",
+                  border:`1px solid ${media ? C.acc : C.bdr}`,
+                  color: media ? C.acc : C.dim,
+                  fontWeight:700, fontSize:11, fontFamily:"inherit",
+                  display:"flex", alignItems:"center", gap:4,
+                }}>
+                MEDIA
+                {!!getYoutubeId(song?.youtubeUrl) && (
+                  <span style={{ fontSize:8, fontWeight:800, borderRadius:3, padding:"1px 3px",
+                    background: media ? `${C.acc}33` : `${C.red}22`,
+                    color: media ? C.acc : C.red }}>YT</span>
+                )}
+              </button>
+            </div>
           )}
-          {/* 예배 연습 녹음 재생 */}
-          {!isLibraryMode && svcPracticeUrl && (
-            <button onClick={() => { setShowWorshipPlayer(p => !p); setShowMobileMore(false); }} style={{
-              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-              padding:"8px 12px", borderRadius:10, cursor:"pointer",
-              background: showWorshipPlayer ? `${C.grn}22` : C.card,
-              border:`1px solid ${showWorshipPlayer ? C.grn : C.bdr}`,
-              flex:"1 1 60px", minWidth:60,
-            }}>
-              <span style={{ fontSize:18, lineHeight:1 }}>🎧</span>
-              <span style={{ fontSize:10, fontWeight:700, color:showWorshipPlayer ? C.grn : C.dim, fontFamily:"inherit" }}>녹음듣기</span>
-            </button>
+
+          {/* 팀: 채팅 · 큐노트 · 연습듣기 */}
+          {activeGroup === "팀" && !isLibraryMode && (
+            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
+              {(() => {
+                const unread = chatMsgs.filter(m => m.uid !== user?.uid).length;
+                return (
+                  <div style={{ position:"relative", flexShrink:0 }}>
+                    <button onClick={() => setShowChat(p=>!p)} style={{
+                      height:28, padding:"0 8px", borderRadius:7, cursor:"pointer",
+                      background: showChat ? `${C.acc}22` : "transparent",
+                      border:`1px solid ${showChat ? C.acc : C.bdr}`,
+                      color: showChat ? C.acc : C.dim,
+                      fontWeight:700, fontSize:11, fontFamily:"inherit",
+                    }}>채팅</button>
+                    {!showChat && unread > 0 && (
+                      <span style={{ position:"absolute", top:-4, right:-4,
+                        minWidth:14, height:14, borderRadius:7, background:C.red,
+                        fontSize:9, fontWeight:700, color:"#fff",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        padding:"0 3px", pointerEvents:"none" }}>{unread>9?"9+":unread}</span>
+                    )}
+                  </div>
+                );
+              })()}
+              <button onClick={() => setShowCueInput(p=>!p)} style={{
+                height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                background: showCueInput ? "#ff6f0022" : "transparent",
+                border:`1px solid ${showCueInput ? "#ff6f00" : C.bdr}`,
+                color: showCueInput ? "#e65c00" : C.dim,
+                fontWeight:700, fontSize:11, fontFamily:"inherit",
+              }}>큐노트</button>
+              {svcPracticeUrl && (
+                <button onClick={() => setShowWorshipPlayer(p=>!p)} style={{
+                  height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                  background: showWorshipPlayer ? `${C.grn}22` : "transparent",
+                  border:`1px solid ${showWorshipPlayer ? C.grn : C.bdr}`,
+                  color: showWorshipPlayer ? C.grn : C.dim,
+                  fontWeight:700, fontSize:11, fontFamily:"inherit",
+                }}>연습듣기</button>
+              )}
+            </div>
           )}
-          {/* FIT */}
-          <button onClick={() => { autoFit(); setShowMobileMore(false); }} style={{
-            display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-            padding:"8px 12px", borderRadius:10, cursor:"pointer",
-            background: fitActive ? C.acc : C.card,
-            border:`1px solid ${fitActive ? C.acc : C.bdr}`,
-            flex:"1 1 60px", minWidth:60,
-          }}>
-            <Icon n="fitCrop" size={18} color={fitActive ? "#fff" : C.dim} />
-            <span style={{ fontSize:10, fontWeight:700, color:fitActive ? "#fff" : C.dim, fontFamily:"inherit" }}>FIT</span>
-          </button>
-          {/* 다운로드 */}
-          {canDownload && (
-            <button onClick={() => { downloadAnnotatedScore(); setShowMobileMore(false); }} style={{
-              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-              padding:"8px 12px", borderRadius:10, cursor:"pointer",
-              background: C.card, border:`1px solid ${C.bdr}`,
-              flex:"1 1 60px", minWidth:60,
-            }}>
-              <Icon n="download" size={18} color={C.dim} />
-              <span style={{ fontSize:10, fontWeight:700, color:C.dim, fontFamily:"inherit" }}>다운로드</span>
-            </button>
+
+          {/* 녹음: 녹음모드 · 녹음버튼 · 재생 */}
+          {activeGroup === "녹음" && (
+            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
+              {!recording && (() => {
+                const isVocal = recMode === "vocal";
+                const instInfo = INST_MODES.find(m => m.id === recMode) || INST_MODES[INST_MODES.length-1];
+                const setMode = (id) => { setRecMode(id); recModeRef.current=id; localStorage.setItem("tvpc_recMode",id); };
+                return (
+                  <div style={{ display:"flex", flexShrink:0 }}>
+                    <button onClick={() => { setShowInstPicker(false); setMode(isVocal?(localStorage.getItem("tvpc_lastInst")||"other"):"vocal"); }}
+                      style={{ height:28, padding:"0 8px", display:"flex", alignItems:"center",
+                        borderRadius:"7px 0 0 7px", border:`1px solid ${isVocal?C.pur:C.bdr}`,
+                        borderRight:"none", background:isVocal?`${C.pur}22`:"transparent",
+                        color:isVocal?C.pur:C.dim, fontWeight:700, fontSize:11,
+                        fontFamily:"inherit", cursor:"pointer" }}>🎤</button>
+                    <button data-inst-picker onClick={() => { if(isVocal){setMode("other");setShowInstPicker(true);}else{setShowInstPicker(p=>!p);} }}
+                      style={{ height:28, padding:"0 8px", display:"flex", alignItems:"center", gap:3,
+                        borderRadius:"0 7px 7px 0", border:`1px solid ${!isVocal?C.grn:C.bdr}`,
+                        background:!isVocal?`${C.grn}22`:"transparent",
+                        color:!isVocal?C.grn:C.dim, fontWeight:700, fontSize:11,
+                        fontFamily:"inherit", cursor:"pointer" }}>
+                      {isVocal?"악기":instInfo.label}
+                      <span style={{ fontSize:8, lineHeight:1 }}>▼</span>
+                    </button>
+                  </div>
+                );
+              })()}
+              {recording ? (
+                <button onClick={stopRecording} style={{
+                  height:28, display:"flex", alignItems:"center", gap:5,
+                  padding:"0 9px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                  border:`1px solid ${C.red}`, background:`${C.red}15`,
+                  color:C.red, fontWeight:700, fontSize:11, fontFamily:"inherit",
+                  fontVariantNumeric:"tabular-nums",
+                }}>
+                  <div style={{ width:6, height:6, borderRadius:"50%", background:C.red, animation:"pulse 1s infinite" }}/>
+                  {`${Math.floor(recSeconds/60)}:${String(recSeconds%60).padStart(2,"0")}`}
+                </button>
+              ) : (
+                <button onClick={startRecording} style={{
+                  position:"relative", height:28,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0, fontSize:11,
+                  border:`1px solid ${C.bdr}`, background:"transparent", color:C.dim,
+                  fontWeight:700, fontFamily:"inherit",
+                }}>
+                  녹음
+                  {recCount > 0 && <span style={{
+                    position:"absolute", top:1, right:1,
+                    background:C.acc, color:"#fff", borderRadius:"50%",
+                    fontSize:7, fontWeight:800, width:11, height:11,
+                    display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
+                  }}>{recCount}</span>}
+                </button>
+              )}
+              {recCount > 0 && !recording && sqBtn("재생", false, () => setShowRecModal(true))}
+            </div>
           )}
-          {/* DUAL */}
-          {!isLibraryMode && (
-            <button onClick={() => { setDual(p => !p); setShowMobileMore(false); }} style={{
-              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-              padding:"8px 12px", borderRadius:10, cursor:"pointer",
-              background: dual ? C.pur : C.card,
-              border:`1px solid ${dual ? C.pur : C.bdr}`,
-              flex:"1 1 60px", minWidth:60,
-            }}>
-              <Icon n="dual" size={18} color={dual ? "#fff" : C.dim} />
-              <span style={{ fontSize:10, fontWeight:700, color:dual ? "#fff" : C.dim, fontFamily:"inherit" }}>DUAL</span>
-            </button>
-          )}
-          {/* CUE */}
-          {!isLibraryMode && (
-            <button onClick={() => { setShowCueInput(p => !p); setShowMobileMore(false); }} style={{
-              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-              padding:"8px 12px", borderRadius:10, cursor:"pointer",
-              background: showCueInput ? "#ff6f0022" : C.card,
-              border:`1px solid ${showCueInput ? "#ff6f00" : C.bdr}`,
-              flex:"1 1 60px", minWidth:60,
-            }}>
-              <span style={{ fontSize:18, lineHeight:1 }}>🎯</span>
-              <span style={{ fontSize:10, fontWeight:700, color: showCueInput ? "#e65c00" : C.dim, fontFamily:"inherit" }}>CUE</span>
-            </button>
-          )}
-          {/* MEDIA */}
-          <button onClick={() => { if (dual) { showToast("싱글 모드에서만 사용 가능합니다"); return; } setMedia(p => !p); setShowMobileMore(false); }} style={{
-            display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-            padding:"8px 12px", borderRadius:10, cursor:"pointer",
-            background: media ? `${C.acc}22` : C.card,
-            border:`1px solid ${media ? C.acc : C.bdr}`,
-            flex:"1 1 60px", minWidth:60, position:"relative",
-          }}>
-            <Icon n="sideR" size={18} color={media ? C.acc : C.dim} />
-            <span style={{ fontSize:10, fontWeight:700, color:media ? C.acc : C.dim, fontFamily:"inherit" }}>미디어</span>
-            {getYoutubeId(song?.youtubeUrl) && (
-              <span style={{ position:"absolute", top:5, right:10, fontSize:7, fontWeight:800,
-                borderRadius:3, padding:"1px 3px",
-                background: media ? C.acc : `${C.red}33`, color: media ? "#fff" : C.red }}>YT</span>
-            )}
-          </button>
-          {/* 전조 */}
-          <button onClick={() => {
-            const next = !transposeMode;
-            setTransposeMode(next);
-            if (tmKey) localStorage.setItem(tmKey, next ? "1" : "0");
-            if (!next) { setTransposeSteps(0); setDetectErr(""); }
-            setShowMobileMore(false);
-          }} style={{
-            display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-            padding:"8px 12px", borderRadius:10, cursor:"pointer",
-            background: transposeMode ? `${C.grn}22` : C.card,
-            border:`1px solid ${transposeMode ? C.grn : C.bdr}`,
-            flex:"1 1 60px", minWidth:60,
-          }}>
-            <Icon n="music" size={18} color={transposeMode ? C.grn : C.dim} />
-            <span style={{ fontSize:10, fontWeight:700, color:transposeMode ? C.grn : C.dim, fontFamily:"inherit" }}>전조</span>
-          </button>
-          {/* 도움말 */}
-          <button onClick={() => { setShowMobileHelp(true); setShowMobileMore(false); }} style={{
-            display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-            padding:"8px 12px", borderRadius:10, cursor:"pointer",
-            background: C.card, border:`1px solid ${C.bdr}`,
-            flex:"1 1 60px", minWidth:60,
-          }}>
-            <Icon n="help" size={18} color={C.dim} />
-            <span style={{ fontSize:10, fontWeight:700, color:C.dim, fontFamily:"inherit" }}>도움말</span>
-          </button>
         </div>
       )}
 
