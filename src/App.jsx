@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.643";
+const APP_VERSION = "3.644";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -9625,33 +9625,33 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             </div>
           )}
 
-          {/* 녹음: 녹음모드 · 녹음버튼 · 재생 */}
+          {/* 녹음: 악기선택 · 녹음버튼 · 재생 */}
           {activeGroup === "녹음" && (
             <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
-              {!recording && (() => {
-                const isVocal = recMode === "vocal";
-                const instInfo = INST_MODES.find(m => m.id === recMode) || INST_MODES[INST_MODES.length-1];
+              {/* 보컬 */}
+              {(() => {
                 const setMode = (id) => { setRecMode(id); recModeRef.current=id; localStorage.setItem("tvpc_recMode",id); };
-                return (
-                  <div style={{ display:"flex", flexShrink:0 }}>
-                    <button onClick={() => { setShowInstPicker(false); setMode(isVocal?(localStorage.getItem("tvpc_lastInst")||"other"):"vocal"); }}
-                      style={{ height:28, padding:"0 8px", display:"flex", alignItems:"center",
-                        borderRadius:"7px 0 0 7px", border:`1px solid ${isVocal?C.pur:C.bdr}`,
-                        borderRight:"none", background:isVocal?`${C.pur}22`:"transparent",
-                        color:isVocal?C.pur:C.dim, fontWeight:700, fontSize:11,
-                        fontFamily:"inherit", cursor:"pointer" }}>🎤</button>
-                    <button data-inst-picker onClick={() => { if(isVocal){setMode("other");setShowInstPicker(true);}else{setShowInstPicker(p=>!p);} }}
-                      style={{ height:28, padding:"0 8px", display:"flex", alignItems:"center", gap:3,
-                        borderRadius:"0 7px 7px 0", border:`1px solid ${!isVocal?C.grn:C.bdr}`,
-                        background:!isVocal?`${C.grn}22`:"transparent",
-                        color:!isVocal?C.grn:C.dim, fontWeight:700, fontSize:11,
-                        fontFamily:"inherit", cursor:"pointer" }}>
-                      {isVocal?"악기":instInfo.label}
-                      <span style={{ fontSize:8, lineHeight:1 }}>▼</span>
+                const allModes = [{ id:"vocal", emoji:"🎤", label:"보컬" }, ...INST_MODES.filter(m => !m.leaderOnly || leader)];
+                return allModes.map(m => {
+                  const sel = recMode === m.id;
+                  const c = m.id === "vocal" ? C.pur : C.grn;
+                  return (
+                    <button key={m.id} onClick={() => setMode(m.id)} disabled={recording} style={{
+                      height:28, padding:"0 8px", borderRadius:7, cursor: recording ? "not-allowed" : "pointer",
+                      flexShrink:0, display:"flex", alignItems:"center", gap:4,
+                      background: sel ? `${c}22` : "transparent",
+                      border:`1px solid ${sel ? c : C.bdr}`,
+                      color: sel ? c : C.dim,
+                      fontWeight:700, fontSize:11, fontFamily:"inherit",
+                      opacity: recording ? 0.5 : 1,
+                    }}>
+                      <span style={{ fontSize:14, lineHeight:1 }}>{m.emoji}</span>
+                      {m.label}
                     </button>
-                  </div>
-                );
+                  );
+                });
               })()}
+              <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }}/>
               {recording ? (
                 <button onClick={stopRecording} style={{
                   height:28, display:"flex", alignItems:"center", gap:5,
