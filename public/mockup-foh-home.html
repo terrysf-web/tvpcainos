@@ -264,7 +264,11 @@
           </div>
         </label>
       </div>
-      <div style="font-size:10px;color:#8e8e93;margin-top:4px;padding-left:21px;" id="sync-sub">1 / 4 · 찬양하세</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px;padding-left:21px;">
+        <button onclick="prevPage()" style="padding:4px 14px;border-radius:8px;border:1px solid #e5e5ea;background:#fff;font-size:13px;cursor:pointer;color:#3c3c43;font-weight:700;">‹</button>
+        <span style="font-size:11px;color:#8e8e93;" id="sync-sub">1 / 4 · 찬양하세</span>
+        <button onclick="nextPage()" style="padding:4px 14px;border-radius:8px;border:1px solid #e5e5ea;background:#fff;font-size:13px;cursor:pointer;color:#3c3c43;font-weight:700;">›</button>
+      </div>
     </div>
   </div><!-- /left-panel -->
 
@@ -588,6 +592,17 @@ function deleteMsg(idx) {
 function syncMsgDataToButtons() {
   // 팝오버에 쓰이는 메세지 배열을 msgData로 동기화
   // (실제 구현 시 state로 관리, 여기선 목업이라 openPopover 호출 시 참조하도록)
+}
+
+let curPage = 1, totalPages = 4, curSongTitle = '찬양하세';
+function updatePageLabel() {
+  document.getElementById('sync-sub').textContent = `${curPage} / ${totalPages} · ${curSongTitle}`;
+}
+function prevPage() {
+  if (curPage > 1) { curPage--; updatePageLabel(); }
+}
+function nextPage() {
+  if (curPage < totalPages) { curPage++; updatePageLabel(); }
 }
 
 let syncOn = true;
