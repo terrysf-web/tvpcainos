@@ -2745,6 +2745,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   });
   const saveFohPresets = (list) => { setTeamChatPresets(list); localStorage.setItem("tvpc_foh_chat_presets", JSON.stringify(list)); };
   const [chatLastSeen, setChatLastSeen] = useState(0); // timestamp ms
+  const [fohRightTab,  setFohRightTab]  = useState("alert"); // "alert" | "chat"
+  const [fohFollowTarget, setFohFollowTarget] = useState("키보드"); // 예배순서 자동감지 대상 악기
   const teamChatEndRef = useRef(null);
   const autoNavDone  = useRef(false);
   const phaseFiredRef = useRef({});
@@ -2857,11 +2859,11 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   }, [nextSvc?.id]);
 
   useEffect(() => {
-    if (showTeamChat) {
+    if (showTeamChat || fohRightTab === "chat") {
       setChatLastSeen(Date.now());
       setTimeout(() => teamChatEndRef.current?.scrollIntoView({ behavior:"smooth" }), 60);
     }
-  }, [showTeamChat, teamChatMsgs.length]);
+  }, [showTeamChat, fohRightTab, teamChatMsgs.length]);
 
   // T-0 도달 시 첫 번째 악보로 자동이동 — tick 내부에서 직접 호출
 
@@ -3135,46 +3137,19 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     style={{ background:"none", border:"none", color:"rgba(255,255,255,0.7)", fontSize:16, cursor:"pointer", padding:"0 2px" }}>✕</button>
                 </div>
               )}
-              {/* ── 싱크 ON 플로팅 이전/다음 버튼 ── */}
-              {sheetLinkEnabled && svcSongs.length > 0 && (<>
-                {/* ◀ 이전 — nav bar 왼쪽 빈 공간 */}
-                <button onClick={() => advanceSong(-1)} disabled={dispIdx <= 0} style={{
-                  position:"fixed", bottom:0,
-                  left:0, right:"calc(50% + 320px)",
-                  height:`calc(env(safe-area-inset-bottom) + 62px)`,
-                  paddingBottom:"env(safe-area-inset-bottom)",
-                  zIndex:8800, cursor: dispIdx <= 0 ? "default" : "pointer",
-                  background: dispIdx <= 0 ? C.card : C.pur,
-                  border:"none", borderTop:`1px solid ${C.bdr}`,
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize:18, fontWeight:900, color: dispIdx <= 0 ? C.dim : "#fff",
-                  opacity: dispIdx <= 0 ? 0.35 : 1,
-                  fontFamily:"inherit", transition:"opacity 0.15s",
-                }}>◀ 이전</button>
-                {/* 다음 ▶ — nav bar 오른쪽 빈 공간 */}
-                <button onClick={() => advanceSong(1)} disabled={dispIdx >= svcSongs.length - 1} style={{
-                  position:"fixed", bottom:0,
-                  left:"calc(50% + 320px)", right:0,
-                  height:`calc(env(safe-area-inset-bottom) + 62px)`,
-                  paddingBottom:"env(safe-area-inset-bottom)",
-                  zIndex:8800, cursor: dispIdx >= svcSongs.length - 1 ? "default" : "pointer",
-                  background: dispIdx >= svcSongs.length - 1 ? C.card : C.pur,
-                  border:"none", borderTop:`1px solid ${C.bdr}`,
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize:18, fontWeight:900, color: dispIdx >= svcSongs.length - 1 ? C.dim : "#fff",
-                  opacity: dispIdx >= svcSongs.length - 1 ? 0.35 : 1,
-                  fontFamily:"inherit", transition:"opacity 0.15s",
-                }}>다음 ▶</button>
-              </>)}
-              <div style={{ display:"flex", gap:8, flex:"1 1 0", height:0, paddingBottom:"calc(70px + env(safe-area-inset-bottom))", overflow:"hidden" }}>
-                {/* ── 왼쪽: 히어로 + 컨트롤 + 곡 목록 ── */}
-                <div style={{ flex:1, minWidth:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", msOverflowStyle:"none" }}>
+              {/* floating nav buttons removed — moved into sync bar */}
+              <div style={{ display:"flex", flex:"1 1 0", height:0, paddingBottom:"calc(70px + env(safe-area-inset-bottom))", overflow:"hidden" }}>
+
+                {/* ── 왼쪽 50%: 히어로 + 셋리스트/큐노트 + 싱크바 ── */}
+                <div style={{ width:"50%", display:"flex", flexDirection:"column", borderRight:`1px solid ${C.bdr}`, overflow:"hidden" }}>
+
                   {/* 히어로 카드 */}
                   {nextSvc ? (
                   <div style={{
+                    flexShrink:0,
                     background: isPianoOn ? `linear-gradient(135deg, ${C.red}18, ${C.red}08)` : `linear-gradient(135deg, ${C.pur}22, ${C.acc}11)`,
                     border: isPianoOn ? `1.5px solid ${C.red}55` : `1.5px solid ${C.pur}33`,
-                    borderRadius:12, padding:"10px 12px",
+                    borderRadius:12, padding:"10px 12px", margin:"8px 8px 0",
                   }}>
                     <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                       {dDay === 0
@@ -3227,7 +3202,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     </div>
                   </div>
                   ) : (
-                  <div style={{ borderRadius:12, padding:"12px 14px",
+                  <div style={{ flexShrink:0, borderRadius:12, padding:"12px 14px", margin:"8px 8px 0",
                     background:`linear-gradient(135deg, ${C.pur}18, ${C.acc}0a)`,
                     border:`1.5px solid ${C.pur}33` }}>
                     <div style={{ fontSize:13, fontWeight:700, color:C.dim, textAlign:"center" }}>예정된 예배 없음</div>
@@ -3236,328 +3211,77 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
                   {/* 예배종료 */}
                   {worshipEnded && (
-                    <div style={{ borderRadius:12, padding:"12px 16px", textAlign:"center",
+                    <div style={{ flexShrink:0, borderRadius:12, padding:"10px 16px", textAlign:"center", margin:"6px 8px 0",
                       background:`linear-gradient(135deg, ${C.dim}12, ${C.dim}06)`, border:`2px solid ${C.dim}33` }}>
-                      <div style={{ fontSize:20, marginBottom:2 }}>🙏</div>
-                      <div style={{ fontSize:13, fontWeight:800, color:C.dim }}>예배종료</div>
+                      <div style={{ fontSize:16, marginBottom:2 }}>🙏</div>
+                      <div style={{ fontSize:12, fontWeight:800, color:C.dim }}>예배종료</div>
                     </div>
                   )}
 
-                  {/* X32 채널 상태 */}
-                  <X32StatusBar />
-
-                  {/* 악보 링크 컨트롤 */}
-                  {svcSongs.length > 0 && (
-                    <div style={{
-                      background: sheetLinkEnabled ? `${C.pur}0d` : C.surf,
-                      border: `1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
-                      borderRadius: 12, padding: "8px 10px",
-                    }}>
-                      <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:5, marginBottom: sheetLinkEnabled ? 8 : 0 }}>
-                        <span style={{ fontSize:12, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.dim, flexShrink:0 }}>🔗</span>
-                        {SHEET_SYNC_INST_PARTS.map(part => {
-                          const active = currentParts.includes(part);
-                          return (
-                            <button key={part} onClick={() => togglePart(part)} style={{
-                              fontSize:10, fontWeight:700,
-                              background: active ? C.pur : C.card, color: active ? "#fff" : C.dim,
-                              border:`1px solid ${active ? C.pur : C.bdr}`,
-                              borderRadius:20, padding:"2px 7px", cursor:"pointer", fontFamily:"inherit", flexShrink:0,
-                            }}>{part}</button>
-                          );
-                        })}
-                        <button onClick={toggleLink} style={{
-                          marginLeft:"auto", flexShrink:0, display:"flex", alignItems:"center", gap:5,
-                          background: sheetLinkEnabled ? C.pur : C.card,
-                          border:`1.5px solid ${sheetLinkEnabled ? C.pur : C.bdr}`,
-                          borderRadius:20, padding:"4px 10px", cursor:"pointer", fontFamily:"inherit",
-                        }}>
-                          <div style={{ width:22, height:13, borderRadius:7, background: sheetLinkEnabled ? "#fff" : C.bdr, position:"relative" }}>
-                            <div style={{ position:"absolute", top:2, left: sheetLinkEnabled ? 10 : 2,
-                              width:9, height:9, borderRadius:"50%",
-                              background: sheetLinkEnabled ? C.pur : "#aaa", transition:"left 0.15s" }} />
-                          </div>
-                          <span style={{ fontSize:11, fontWeight:700, color: sheetLinkEnabled ? "#fff" : C.dim }}>
-                            {sheetLinkEnabled ? "ON" : "OFF"}
-                          </span>
-                        </button>
-                      </div>
-                      {sheetLinkEnabled && (
-                        <>
-                          <div style={{ textAlign:"center", marginBottom:8 }}>
-                            {dispSong ? (
-                              <span>
-                                <span style={{ fontSize:11, color:C.dim, fontWeight:700 }}>{dispIdx + 1} / {svcSongs.length} &nbsp;·&nbsp;</span>
-                                <span style={{ fontSize:14, fontWeight:800, color:C.txt }}>{dispSong.title}</span>
-                              </span>
-                            ) : (
-                              <span style={{ fontSize:12, color:C.dim }}>— 곡 없음 —</span>
-                            )}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ── FOH 알림 (패닉 큐) — 항상 표시 ── */}
-                  {(() => {
-                    const allCues = svcSongs.flatMap(s => songCues?.[s.id] || []);
-                    const panicCues = allCues.filter(c => c.panic === true)
-                      .sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
-                    return (
-                      <div style={{ flexShrink:0, marginBottom:8 }}>
-                        <style>{`@keyframes cueSlideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}`}</style>
-                        <div style={{ fontSize:10, fontWeight:800, color:C.red,
-                          letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:5 }}>
-                          🚨 FOH 알림
-                        </div>
-                        {panicCues.length === 0 ? (
-                          <div style={{ fontSize:11, color:C.dim, padding:"6px 10px",
-                            background:C.card, borderRadius:8, border:`1px solid ${C.bdr}` }}>
-                            대기 중...
-                          </div>
-                        ) : panicCues.map(cue => {
-                          const acked = cue.acknowledged === true;
-                          const isNew = cue.createdAt?.toMillis?.() > Date.now() - 8000;
-                          return (
-                            <div key={cue.id} style={{
-                              display:"flex", alignItems:"center", gap:8,
-                              background: acked ? "#ffeaea" : "#ff3b3014",
-                              border:`1.5px solid ${acked ? "#ffaaaa" : C.red}`,
-                              borderRadius:8, padding:"7px 10px", marginBottom:5,
-                              animation: isNew ? "cueSlideIn 0.3s ease-out" : "none",
-                            }}>
-                              <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ fontSize:10, fontWeight:800, color:C.red, marginBottom:2 }}>
-                                  {cue.userPart || cue.userName}
-                                </div>
-                                <div style={{ fontSize:13, fontWeight:700, color:"#7b0000" }}>{cue.text}</div>
-                              </div>
-                              <button onClick={() => acknowledgeCue?.(cue.id, acked, { targetUid: cue.userId, cueText: cue.text })} style={{
-                                flexShrink:0, padding:"3px 10px", borderRadius:12,
-                                border:`1px solid ${acked ? "#43a047" : C.red}`,
-                                background: acked ? "#43a047" : "transparent",
-                                color: acked ? "#fff" : C.red,
-                                fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
-                              }}>{acked ? "확인됨" : "확인"}</button>
-                              <button onClick={() => deleteCue?.(cue.id)} style={{
-                                flexShrink:0, padding:"3px 8px", borderRadius:12,
-                                border:`1px solid ${C.bdr}`,
-                                background:"transparent", color:C.dim,
-                                fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
-                              }}>×</button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
-
-                  {/* ── FOH 팀 메시지 ── */}
-                  <div style={{ borderRadius:12, padding:"8px 10px", background:C.surf, border:`1px solid ${C.bdr}`, flexShrink:0 }}>
-                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
-                      <span style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase" }}>📢 팀 메시지</span>
-                      <button onClick={() => { setFohMsgEdit(e => !e); setFohMsgInput(""); }} style={{
-                        fontSize:9, fontWeight:700, fontFamily:"inherit", cursor:"pointer",
-                        padding:"2px 6px", borderRadius:6,
-                        background: fohMsgEdit ? `${C.pur}18` : "transparent",
-                        color: fohMsgEdit ? C.pur : C.dim,
-                        border:`1px solid ${fohMsgEdit ? C.pur+"44" : C.bdr}`,
-                      }}>{fohMsgEdit ? "완료" : "편집"}</button>
-                    </div>
-
-                    {fohMsgEdit ? (
-                      /* ── 편집 모드: 수신자 + 메시지 관리 ── */
-                      <div>
-                        <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:3 }}>수신자 목록 편집</div>
-                        <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:8 }}>
-                          {teamUsers.length === 0
-                            ? <span style={{ fontSize:10, color:C.dim }}>팀원 로딩 중...</span>
-                            : teamUsers.map(u => {
-                              const pinned = fohPinnedUids.includes(u.id);
-                              return (
-                                <button key={u.id} onClick={() => togglePinnedUid(u.id)} style={{
-                                  flexShrink:0, fontSize:10, fontWeight:700, fontFamily:"inherit",
-                                  padding:"3px 8px", borderRadius:12, cursor:"pointer",
-                                  background: pinned ? C.pur : C.card,
-                                  color: pinned ? "#fff" : C.dim,
-                                  border:`1px solid ${pinned ? C.pur : C.bdr}`,
-                                }}>
-                                  {pinned ? "✓ " : ""}{u.name.split(" ")[0]}{getUserDisplayPart(u) ? ` (${getUserDisplayPart(u)})` : ""}
-                                </button>
-                              );
-                            })
-                          }
-                        </div>
-                        <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:3 }}>메시지 편집</div>
-                        <div style={{ display:"flex", flexDirection:"column", gap:3, marginBottom:6 }}>
-                          {fohQuickMsgs.map((msg, idx) => (
-                            <div key={idx} style={{ display:"flex", alignItems:"center", gap:4 }}>
-                              <span style={{ flex:1, fontSize:11, color:C.txt, padding:"3px 6px" }}>{msg}</span>
-                              <button onClick={() => deleteFohMsg(idx)} style={{
-                                flexShrink:0, width:18, height:18, borderRadius:"50%",
-                                background:C.red, color:"#fff", border:"none",
-                                fontSize:11, fontWeight:900, cursor:"pointer", fontFamily:"inherit",
-                                display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
-                              }}>×</button>
-                            </div>
-                          ))}
-                        </div>
-                        <div style={{ display:"flex", gap:4 }}>
-                          <input
-                            value={fohMsgInput}
-                            onChange={e => setFohMsgInput(e.target.value)}
-                            onKeyDown={e => e.key === "Enter" && addFohMsg()}
-                            placeholder="새 메시지 입력..."
-                            style={{
-                              flex:1, fontSize:11, padding:"4px 8px", borderRadius:7,
-                              border:`1px solid ${C.bdr}`, background:C.bg, color:C.txt,
-                              outline:"none", fontFamily:"inherit",
-                            }}
-                          />
-                          <button onClick={addFohMsg} style={{
-                            flexShrink:0, padding:"4px 10px", borderRadius:7, cursor:"pointer",
-                            background:C.pur, color:"#fff", border:"none",
-                            fontSize:11, fontWeight:700, fontFamily:"inherit",
-                          }}>추가</button>
-                        </div>
-                      </div>
-                    ) : (
-                      /* ── 일반 모드: 좌=수신자 4열 그리드, 우=메시지 3열 그리드 ── */
-                      <div>
-                        <div style={{ display:"flex", gap:6, marginBottom:6 }}>
-                          {/* 좌: 수신자 — 4열 고정높이 아이콘 */}
-                          <div style={{ flex:1, minWidth:0 }}>
-                            <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:4 }}>수신자</div>
-                            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:3 }}>
-                              {[["밴드","🎶"],["보컬","🎤","보컬그룹"]].map(([label, emoji, groupId = label]) => {
-                                const members = teamUsers.filter(u => getUserParts(u).includes(groupId));
-                                if (members.length === 0) return null;
-                                const gKey = `group:${groupId}`;
-                                const sel = fohMsgTo === gKey;
-                                return (
-                                  <button key={gKey} onClick={() => setFohMsgTo(sel ? null : gKey)} style={{
-                                    height:44, borderRadius:8, cursor:"pointer", fontFamily:"inherit", padding:"2px 2px",
-                                    background: sel ? "#0a84ff" : "#0a84ff15",
-                                    color: sel ? "#fff" : "#0a84ff",
-                                    border:`1.5px solid ${sel ? "#0a84ff" : "#0a84ff33"}`,
-                                    display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:1,
-                                  }}>
-                                    <span style={{ fontSize:14, lineHeight:1 }}>{emoji}</span>
-                                    <span style={{ fontSize:8, fontWeight:800, lineHeight:1 }}>{label}</span>
-                                  </button>
-                                );
-                              })}
-                              {teamUsers.filter(u => fohPinnedUids.includes(u.id)).map(u => {
-                                const dp = getUserDisplayPart(u) || u.name.split(" ")[0];
-                                const sel = fohMsgTo === u.id;
-                                return (
-                                  <button key={u.id} onClick={() => setFohMsgTo(sel ? null : u.id)} style={{
-                                    height:44, borderRadius:8, cursor:"pointer", fontFamily:"inherit",
-                                    background: sel ? C.pur : C.card,
-                                    color: sel ? "#fff" : C.txt,
-                                    border:`1.5px solid ${sel ? C.pur : C.bdr}`,
-                                    display:"flex", alignItems:"center", justifyContent:"center",
-                                    fontSize:10, fontWeight:800, textAlign:"center", wordBreak:"keep-all",
-                                  }}>{dp}</button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          {/* 구분선 */}
-                          <div style={{ width:1, background:C.bdr, flexShrink:0 }} />
-                          {/* 우: 메시지 — 3열 고정높이 아이콘 */}
-                          <div style={{ flex:1, minWidth:0 }}>
-                            <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:4 }}>메시지</div>
-                            {fohQuickMsgs.length === 0
-                              ? <span style={{ fontSize:10, color:C.dim }}>편집에서 메시지 추가</span>
-                              : <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:3 }}>
-                                  {fohQuickMsgs.map((msg, idx) => {
-                                    const sel = msg === fohMsgText;
-                                    return (
-                                      <button key={idx} onClick={() => setFohMsgText(sel ? null : msg)} style={{
-                                        height:44, borderRadius:8, cursor:"pointer", fontFamily:"inherit", padding:"2px 4px",
-                                        background: sel ? C.pur : C.card,
-                                        color: sel ? "#fff" : C.txt,
-                                        border:`1.5px solid ${sel ? C.pur : C.bdr}`,
-                                        display:"flex", alignItems:"center", justifyContent:"center",
-                                        fontSize:9, fontWeight:700, lineHeight:1.25, textAlign:"center",
-                                        wordBreak:"keep-all", overflow:"hidden",
-                                      }}>{msg}</button>
-                                    );
-                                  })}
-                                </div>
-                            }
-                          </div>
-                        </div>
-                        {/* 보내기 버튼 */}
-                        <button
-                          disabled={!fohMsgTo || !fohMsgText || fohMsgSending}
-                          onClick={sendFohMessage}
-                          style={{
-                            width:"100%", padding:"10px 0", borderRadius:10,
-                            cursor: (fohMsgTo && fohMsgText) ? "pointer" : "default",
-                            background: (fohMsgTo && fohMsgText) ? C.pur : C.card,
-                            color: (fohMsgTo && fohMsgText) ? "#fff" : C.dim,
-                            border:"none", fontSize:13, fontWeight:800, fontFamily:"inherit",
-                            opacity: fohMsgSending ? 0.6 : 1,
-                          }}>
-                          {fohMsgSending ? "전송 중..." : fohMsgTo?.startsWith?.("group:") ? "그룹 보내기" : "보내기"}
-                        </button>
-                      </div>
-                    )}
+                  {/* X32 상태 */}
+                  <div style={{ flexShrink:0, padding:"0 8px", marginTop:6 }}>
+                    <X32StatusBar />
                   </div>
 
-                  {/* ── 곡 순서 + 큐 노트 2열 ── */}
-                  {svcSongs.length > 0 && (
-                    <div style={{ display:"flex", gap:6 }}>
-                      {/* 좌: 곡 순서 */}
-                      <div style={{ flex:"0 0 38%", display:"flex", flexDirection:"column", gap:1 }}>
-                        <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3, paddingLeft:2 }}>
-                          곡 순서
-                        </div>
-                        {svcSongs.map((song, idx) => {
+                  {/* ── 셋리스트 + 큐노트 2열 ── */}
+                  <div style={{ flex:"1 1 0", height:0, display:"flex", overflow:"hidden", marginTop:6 }}>
+
+                    {/* 셋리스트 열 */}
+                    <div style={{ width:"52%", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+                      <div style={{ padding:"8px 12px", borderBottom:`1px solid ${C.bdr}`, fontSize:13, fontWeight:800, color:C.txt, flexShrink:0 }}>
+                        예배 순서
+                      </div>
+                      <div style={{ flex:1, overflowY:"auto", padding:"6px 6px", scrollbarWidth:"none" }}>
+                        {svcSongs.length === 0 ? (
+                          <div style={{ fontSize:11, color:C.dim, padding:"10px 8px", textAlign:"center" }}>곡이 없습니다</div>
+                        ) : svcSongs.map((song, idx) => {
                           const isActive = idx === dispIdx;
                           const sc = songColor(idx);
                           const hasCues = (songCues?.[song.id] || []).filter(c => !c.panic).length > 0;
                           return (
-                            <div key={song.id + idx}
-                              onClick={() => selectSong(idx)}
-                              style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 8px", borderRadius:8, cursor:"pointer",
-                                background: isActive ? `${sc}18` : "transparent",
-                                border:`1px solid ${isActive ? sc+"66" : "transparent"}`,
+                            <div key={song.id + idx} onClick={() => selectSong(idx)}
+                              style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 8px", borderRadius:10, marginBottom:4, cursor:"pointer",
+                                background: isActive ? `${sc}20` : "transparent",
+                                border:`1px solid ${isActive ? sc+"55" : "transparent"}`,
                               }}>
-                              <div style={{ width:22, height:22, borderRadius:6, flexShrink:0,
-                                background: sc,
-                                display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
-                                <span style={{ fontSize:10, fontWeight:800, color:"#fff" }}>{idx+1}</span>
+                              {isActive
+                                ? <div style={{ width:20, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                                    <div style={{ width:0, height:0, borderTop:"7px solid transparent", borderBottom:"7px solid transparent", borderLeft:`12px solid ${sc}` }} />
+                                  </div>
+                                : <span style={{ width:20, display:"inline-flex", alignItems:"center", justifyContent:"center", flexShrink:0, color:`${C.dim}99`, fontSize:12 }}>⋮⋮</span>
+                              }
+                              <div style={{ width:26, height:26, borderRadius:8, flexShrink:0,
+                                background:sc, display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
+                                <span style={{ fontSize:11, fontWeight:800, color:"#fff" }}>{idx+1}</span>
                                 {hasCues && <div style={{ position:"absolute", top:-4, right:-4, width:9, height:9, borderRadius:"50%", background:"#ff6f00", border:"2px solid #fff" }} />}
                               </div>
-                              <span style={{ flex:1, fontSize:12, fontWeight: isActive ? 700 : 500,
+                              <span style={{ flex:1, fontSize:13, fontWeight: isActive ? 700 : 500,
                                 color: isActive ? C.pur : C.txt,
                                 overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                                 {song.title}
                               </span>
-                              {song.key && (
-                                <span style={{ flexShrink:0, fontSize:10, fontWeight:700,
-                                  background:`${keyColor(song.key)}22`, color:keyColor(song.key),
-                                  borderRadius:4, padding:"1px 5px" }}>
-                                  {song.key}
-                                </span>
-                              )}
+                              <span style={{ flexShrink:0, fontSize:10, fontWeight: isActive ? 700 : 400,
+                                color: isActive ? sc : C.dim,
+                                background: isActive ? `${sc}22` : "transparent",
+                                borderRadius:5, padding: isActive ? "1px 6px" : "0" }}>
+                                {isActive ? "진행중" : "대기"}
+                              </span>
                             </div>
                           );
                         })}
                       </div>
+                    </div>
 
-                      {/* 구분선 */}
-                      <div style={{ width:1, background:C.bdr, flexShrink:0 }} />
+                    {/* 구분선 */}
+                    <div style={{ width:1, background:C.bdr, flexShrink:0 }} />
 
-                      {/* 우: 큐 노트 — 선택된 곡 기준, 섹션별 카드 */}
-                      <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:3 }}>
-                        <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3 }}>
-                          {dispSong ? `${dispIdx+1}. ${dispSong.title} 큐노트` : "큐 노트"}
-                        </div>
+                    {/* 큐노트 열 */}
+                    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:C.surf }}>
+                      <div style={{ padding:"8px 12px", borderBottom:`1px solid ${C.bdr}`, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+                        <span style={{ fontSize:13, fontWeight:800, color:C.txt }}>큐 노트</span>
+                        {dispSong && <span style={{ fontSize:10, color:C.dim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"55%" }}>{dispIdx+1}. {dispSong.title}</span>}
+                      </div>
+                      <div style={{ flex:1, overflowY:"auto", padding:"8px 10px", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none" }}>
                         {(() => {
                           const songId = dispSong?.id;
                           const notes = songId
@@ -3565,11 +3289,19 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                 .slice().sort((a,b) => (a.createdAt?.seconds??0)-(b.createdAt?.seconds??0))
                             : [];
                           if (notes.length === 0) return (
-                            <div style={{ fontSize:10, color:C.dim, padding:"5px 8px",
-                              background:C.card, borderRadius:7, border:`1px solid ${C.bdr}` }}>
+                            <div style={{ fontSize:11, color:C.dim, padding:"6px 10px",
+                              background:C.card, borderRadius:8, border:`1px solid ${C.bdr}` }}>
                               {dispSong ? "큐노트 없음" : "곡을 선택하세요"}
                             </div>
                           );
+                          const SEC_STYLES = {
+                            "전체":         { bg:"#fff",    border:"#e8e8f0", title:"#1c1c1e" },
+                            "인트로":       { bg:"#fff",    border:"#e8e8f0", title:"#1c1c1e" },
+                            "브릿지":       { bg:"#fff8ec", border:"#f0e4c0", title:"#c07800" },
+                            "아웃트로":     { bg:"#edfaf3", border:"#b8e8ce", title:"#1a8a46" },
+                            "FOH 주의사항": { bg:"#fff0f0", border:"#f0c0c0", title:"#cc2200" },
+                            "기타":         { bg:"#f5f5fa", border:"#e0e0ea", title:"#555566" },
+                          };
                           const grouped = CUE_SECTIONS.reduce((acc, sec) => {
                             const list = notes.filter(c => (c.section || "전체") === sec);
                             if (list.length > 0) acc[sec] = list;
@@ -3577,236 +3309,315 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           }, {});
                           const unknownSec = notes.filter(c => !CUE_SECTIONS.includes(c.section || "전체"));
                           if (unknownSec.length > 0) grouped["기타"] = unknownSec;
-                          return Object.entries(grouped).map(([sec, list]) => (
-                            <div key={sec} style={{ background:"#fffde7", border:"1px solid #ffe082", borderRadius:8, overflow:"hidden", marginBottom:2 }}>
-                              <div style={{ background:"#ff6f0018", borderBottom:"1px solid #ffe082",
-                                padding:"3px 8px", fontSize:9, fontWeight:800,
-                                color:"#bf360c", letterSpacing:"0.06em", textTransform:"uppercase" }}>
-                                {sec}
-                              </div>
-                              <div style={{ display:"flex", flexDirection:"column", gap:4, padding:"5px 8px" }}>
-                                {list.map(cue => (
-                                  <div key={cue.id}>
-                                    <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:1 }}>
-                                      <span style={{ fontSize:8, color:C.dim, flexShrink:0 }}>
-                                        {cue.userPart || cue.userName || ""}
-                                      </span>
-                                      <button onClick={() => deleteCue?.(cue.id)} style={{
-                                        marginLeft:"auto", flexShrink:0, width:14, height:14, borderRadius:"50%",
-                                        background:"transparent", border:`1px solid ${C.bdr}`,
-                                        color:C.dim, fontSize:9, cursor:"pointer", fontFamily:"inherit",
-                                        display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
-                                      }}>×</button>
+                          return Object.entries(grouped).map(([sec, list]) => {
+                            const st = SEC_STYLES[sec] || { bg:"#fffde7", border:"#ffe082", title:"#bf360c" };
+                            return (
+                              <div key={sec} style={{ background:st.bg, border:`1px solid ${st.border}`, borderRadius:10, overflow:"hidden" }}>
+                                <div style={{ padding:"3px 10px", fontSize:10, fontWeight:800,
+                                  color:st.title, letterSpacing:"0.05em", borderBottom:`1px solid ${st.border}`,
+                                  background:`${st.title}10` }}>
+                                  {sec}
+                                </div>
+                                <div style={{ display:"flex", flexDirection:"column", gap:4, padding:"6px 10px" }}>
+                                  {list.map(cue => (
+                                    <div key={cue.id}>
+                                      <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:1 }}>
+                                        <span style={{ fontSize:9, color:C.dim, flexShrink:0 }}>{cue.userPart || cue.userName || ""}</span>
+                                        <button onClick={() => deleteCue?.(cue.id)} style={{
+                                          marginLeft:"auto", flexShrink:0, width:14, height:14, borderRadius:"50%",
+                                          background:"transparent", border:`1px solid ${C.bdr}`,
+                                          color:C.dim, fontSize:9, cursor:"pointer", fontFamily:"inherit",
+                                          display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
+                                        }}>×</button>
+                                      </div>
+                                      <div style={{ fontSize:12, fontWeight:700, color:"#3c3c43", lineHeight:1.5, wordBreak:"break-all" }}>{cue.text}</div>
                                     </div>
-                                    <div style={{ fontSize:11, fontWeight:700, color:"#5d4037", lineHeight:1.4, wordBreak:"break-all" }}>{cue.text}</div>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          ));
+                            );
+                          });
                         })()}
                       </div>
                     </div>
-                  )}
 
-                  {/* ── 팀 채팅 (멤버 ↔ FOH) ── */}
-                  {nextSvc?.id && (() => {
-                    const unread = teamChatMsgs.filter(m => m.uid !== user.uid &&
-                      m.createdAt?.toMillis?.() > chatLastSeen).length;
-                    const sendTeamChat = async (txt) => {
-                      const t = (txt ?? teamChatInput).trim();
-                      if (!t) return;
-                      await addDoc(collection(db, "liveChat", nextSvc.id, "messages"), {
-                        text: t, uid: user.uid,
-                        name: user.name || user.email, role: user.role,
-                        type: "chat", createdAt: serverTimestamp(),
-                      });
-                      if (!txt) setTeamChatInput("");
-                    };
-                    // 최근 4개 — 왼쪽(최신) → 오른쪽(오래된) 순서로 표시
-                    const recent = teamChatMsgs.slice(-4);
-                    return (
-                      <div style={{ borderRadius:12, background:C.surf, border:`1px solid ${C.bdr}`,
-                        flexShrink:0, overflow:"hidden" }}>
-                        {/* ─ 항상 보이는 티커 행 ─ */}
-                        <div style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 10px",
-                          cursor:"pointer", minHeight:36 }}
-                          onClick={() => { setShowTeamChat(p => !p); setTeamChatEditMode(false); }}>
-                          <span style={{ fontSize:11, flexShrink:0 }}>💬</span>
-                          {/* 메시지 티커: 최신이 왼쪽, 오래될수록 오른쪽으로 밀려 사라짐 */}
-                          <div style={{ flex:1, display:"flex", alignItems:"center", gap:8,
-                            overflow:"hidden", minWidth:0 }}>
-                            {recent.length === 0
-                              ? <span style={{ fontSize:10, color:C.dim }}>메시지 없음</span>
-                              : [...recent].reverse().map((m, i) => {
-                                  const isLatest = i === 0;
-                                  const opacity = [1, 0.55, 0.3, 0.15][i] ?? 0.1;
-                                  return (
-                                    <span key={m.id} style={{
-                                      fontSize: isLatest ? 11 : 10,
-                                      fontWeight: isLatest ? 700 : 400,
-                                      color: isLatest ? C.acc : C.dim,
-                                      opacity,
-                                      flexShrink: isLatest ? 0 : 1,
-                                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-                                      transition:"all 0.4s ease",
-                                      ...(isLatest ? { animation:"fohMsgIn 0.35s ease" } : {}),
-                                    }}>
-                                      {m.name?.split(" ")[0]}: {m.text}
-                                    </span>
-                                  );
-                                })
-                            }
-                          </div>
-                          <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
-                            {unread > 0 && (
-                              <span style={{ background:C.red, color:"#fff", borderRadius:8,
-                                fontSize:9, fontWeight:700, padding:"1px 6px" }}>{unread}</span>
-                            )}
-                            <span style={{ fontSize:10, color:C.dim }}>{showTeamChat ? "▲" : "▼"}</span>
-                          </div>
+                  </div>
+
+                  {/* ── 싱크 바 (두 줄) ── */}
+                  <div style={{ flexShrink:0, borderTop:`1px solid ${C.bdr}`, background:`${C.pur}08` }}>
+                    {/* 1행: 예배순서 자동감지 */}
+                    <div style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px 6px", borderBottom:`1px solid ${C.pur}22` }}>
+                      <span style={{ fontSize:11, fontWeight:800, color:C.pur, flexShrink:0, whiteSpace:"nowrap" }}>🎹 예배순서 자동감지</span>
+                      <div style={{ display:"flex", gap:4, flex:1, overflowX:"auto", scrollbarWidth:"none" }}>
+                        {SHEET_SYNC_INST_PARTS.map(part => {
+                          const active = fohFollowTarget === part;
+                          return (
+                            <button key={part} onClick={() => setFohFollowTarget(active ? null : part)} style={{
+                              fontSize:11, fontWeight: active ? 700 : 600,
+                              background: active ? C.pur : `${C.pur}18`,
+                              color: active ? "#fff" : C.pur,
+                              border:`1.5px solid ${active ? C.pur : "transparent"}`,
+                              borderRadius:20, padding:"3px 9px", cursor:"pointer", fontFamily:"inherit", flexShrink:0,
+                            }}>{part}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {/* 2행: 악보 싱크 */}
+                    <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px 8px" }}>
+                      <span style={{ fontSize:11, fontWeight:800, color:C.pur, flexShrink:0, whiteSpace:"nowrap" }}>🔗 악보 싱크</span>
+                      <button onClick={svcSongs.length > 0 ? toggleLink : undefined} style={{
+                        flexShrink:0, display:"flex", alignItems:"center", gap:4,
+                        background:"transparent", border:"none", cursor: svcSongs.length > 0 ? "pointer" : "default",
+                        padding:0, fontFamily:"inherit",
+                      }}>
+                        <div style={{ width:36, height:20, borderRadius:10, background: sheetLinkEnabled ? C.pur : C.bdr, position:"relative", transition:"background 0.2s" }}>
+                          <div style={{ width:16, height:16, borderRadius:"50%", background:"#fff", position:"absolute", top:2, left: sheetLinkEnabled ? 18 : 2, transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }} />
                         </div>
-                        {/* ─ 펼쳐지면: 빠른메시지 + 입력 ─ */}
-                        {showTeamChat && (
-                          <div style={{ borderTop:`1px solid ${C.bdr}` }}>
-                            {teamChatEditMode ? (
-                              <div style={{ padding:"8px 10px", display:"flex", flexDirection:"column", gap:6 }}>
-                                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                                  <span style={{ fontSize:10, fontWeight:700, color:C.dim }}>빠른 메시지 편집</span>
-                                  <button onClick={() => setTeamChatEditMode(false)} style={{
-                                    fontSize:10, color:C.acc, fontWeight:700, background:"none",
-                                    border:"none", cursor:"pointer", fontFamily:"inherit" }}>완료</button>
-                                </div>
-                                {teamChatPresets.map((p, i) => (
-                                  <div key={i} style={{ display:"flex", alignItems:"center", gap:6 }}>
-                                    <span style={{ flex:1, fontSize:12, color:C.txt }}>{p}</span>
-                                    <button onClick={() => saveFohPresets(teamChatPresets.filter((_,j) => j !== i))} style={{
-                                      background:"none", border:"none", cursor:"pointer",
-                                      color:"rgba(200,80,80,0.7)", fontSize:16, lineHeight:1, padding:"2px 4px",
-                                    }}>×</button>
-                                  </div>
-                                ))}
-                                <div style={{ display:"flex", gap:6, marginTop:2 }}>
-                                  <input value={teamChatPresetInput} onChange={e => setTeamChatPresetInput(e.target.value)}
-                                    onKeyDown={e => {
-                                      if (e.key === "Enter" && teamChatPresetInput.trim()) {
-                                        saveFohPresets([...teamChatPresets, teamChatPresetInput.trim()]);
-                                        setTeamChatPresetInput("");
-                                      }
-                                    }}
-                                    placeholder="새 메시지 추가..."
-                                    style={{ flex:1, padding:"5px 8px", borderRadius:7,
-                                      border:`1px solid ${C.bdr}`, fontSize:11, outline:"none",
-                                      fontFamily:"inherit", color:C.txt, background:C.bg }} />
-                                  <button onClick={() => {
-                                    if (!teamChatPresetInput.trim()) return;
-                                    saveFohPresets([...teamChatPresets, teamChatPresetInput.trim()]);
-                                    setTeamChatPresetInput("");
-                                  }} style={{ padding:"0 9px", borderRadius:7, border:"none",
-                                    background:C.acc, color:"#fff", fontSize:12, fontWeight:700,
-                                    cursor:"pointer", fontFamily:"inherit" }}>+</button>
-                                </div>
-                              </div>
-                            ) : (
-                              <>
-                                {/* 빠른 메시지 버튼들 */}
-                                {teamChatPresets.length > 0 && (
-                                  <div style={{ padding:"5px 8px", display:"flex", flexWrap:"wrap", gap:4 }}>
-                                    {teamChatPresets.map((p, i) => (
-                                      <button key={i} onClick={() => sendTeamChat(p)} style={{
-                                        padding:"5px 10px", borderRadius:14, fontSize:11, fontWeight:700,
-                                        border:`1.5px solid ${C.acc}55`, background:`${C.acc}12`,
-                                        color:C.acc, cursor:"pointer", fontFamily:"inherit",
-                                        touchAction:"manipulation",
-                                      }}>{p}</button>
-                                    ))}
-                                    <button onClick={() => setTeamChatEditMode(true)} style={{
-                                      padding:"5px 8px", borderRadius:14, fontSize:10,
-                                      border:`1px solid ${C.bdr}`, background:"none",
-                                      color:C.dim, cursor:"pointer", fontFamily:"inherit",
-                                    }}>✏️</button>
-                                  </div>
-                                )}
-                                <div style={{ display:"flex", gap:6, padding:"6px 8px",
-                                  borderTop:`1px solid ${C.bdr}` }}>
-                                  <input value={teamChatInput} onChange={e => setTeamChatInput(e.target.value)}
-                                    onKeyDown={e => e.key === "Enter" && sendTeamChat()}
-                                    placeholder="메시지 입력..."
-                                    style={{ flex:1, padding:"5px 9px", borderRadius:8,
-                                      border:`1px solid ${C.bdr}`, fontSize:12, outline:"none",
-                                      fontFamily:"inherit", color:C.txt, background:C.bg }} />
-                                  <button onClick={() => sendTeamChat()} style={{
-                                    padding:"0 10px", borderRadius:8, border:"none",
-                                    background:C.acc, color:"#fff", fontSize:12,
-                                    fontWeight:700, cursor:"pointer", fontFamily:"inherit",
-                                  }}>전송</button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        )}
+                        <span style={{ fontSize:10, fontWeight:700, color: sheetLinkEnabled ? C.pur : C.dim }}>{sheetLinkEnabled ? "ON" : "OFF"}</span>
+                      </button>
+                      <div style={{ display:"flex", gap:4, flex:1, overflowX:"auto", scrollbarWidth:"none" }}>
+                        {SHEET_SYNC_INST_PARTS.map(part => {
+                          const active = currentParts.includes(part);
+                          return (
+                            <button key={part} onClick={() => togglePart(part)} style={{
+                              fontSize:11, fontWeight: active ? 700 : 600,
+                              background: active && sheetLinkEnabled ? C.pur : (active ? `${C.pur}22` : C.card),
+                              color: active && sheetLinkEnabled ? "#fff" : (active ? C.pur : C.dim),
+                              border:`1.5px solid ${active ? C.pur+"44" : C.bdr}`,
+                              borderRadius:20, padding:"3px 9px", cursor:"pointer", fontFamily:"inherit", flexShrink:0,
+                            }}>{part}</button>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                        <button onClick={() => advanceSong(-1)} disabled={dispIdx <= 0} style={{
+                          width:44, height:44, borderRadius:10,
+                          border:`1.5px solid ${dispIdx <= 0 ? C.bdr : C.pur}`,
+                          background: dispIdx <= 0 ? C.card : `${C.pur}18`,
+                          fontSize:18, fontWeight:700, cursor: dispIdx <= 0 ? "not-allowed" : "pointer",
+                          color: dispIdx <= 0 ? C.dim : C.pur,
+                          display:"flex", alignItems:"center", justifyContent:"center",
+                        }}>◀</button>
+                        <button onClick={() => advanceSong(1)} disabled={dispIdx >= svcSongs.length - 1} style={{
+                          width:44, height:44, borderRadius:10,
+                          border:`1.5px solid ${dispIdx >= svcSongs.length - 1 ? C.bdr : C.pur}`,
+                          background: dispIdx >= svcSongs.length - 1 ? C.card : `${C.pur}18`,
+                          fontSize:18, fontWeight:700, cursor: dispIdx >= svcSongs.length - 1 ? "not-allowed" : "pointer",
+                          color: dispIdx >= svcSongs.length - 1 ? C.dim : C.pur,
+                          display:"flex", alignItems:"center", justifyContent:"center",
+                        }}>▶</button>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* ── 오른쪽 50%: 배지 + 컨텐츠 + 팀 메세지 ── */}
+                <div style={{ width:"50%", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+
+                  {/* 배지 행 */}
+                  {(() => {
+                    const allCuesR = svcSongs.flatMap(s => songCues?.[s.id] || []);
+                    const panicCount = allCuesR.filter(c => c.panic === true && !c.acknowledged).length;
+                    const unreadChat = teamChatMsgs.filter(m => m.uid !== user.uid && (m.createdAt?.toMillis?.() ?? 0) > chatLastSeen).length;
+                    const latestPanic = allCuesR.filter(c => c.panic === true).sort((a,b) => (b.createdAt?.seconds??0)-(a.createdAt?.seconds??0))[0];
+                    const latestChat = [...teamChatMsgs].reverse()[0];
+                    return (
+                      <div style={{ display:"flex", gap:8, padding:"10px 10px 8px", background:C.surf, borderBottom:`1px solid ${C.bdr}`, flexShrink:0 }}>
+                        <button onClick={() => setFohRightTab("alert")} style={{
+                          flex:1, borderRadius:10, padding:"9px 11px",
+                          border:`2px solid ${fohRightTab==="alert" ? C.red : "#ffd0cc"}`,
+                          background: fohRightTab==="alert" ? "#fff5f5" : "#fff9f9",
+                          cursor:"pointer", fontFamily:"inherit", textAlign:"left", position:"relative",
+                        }}>
+                          {panicCount > 0 && <div style={{ position:"absolute", top:7, right:9, minWidth:20, height:20, borderRadius:10, padding:"0 5px", background:C.red, color:"#fff", fontSize:11, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center" }}>{panicCount}</div>}
+                          <div style={{ fontSize:11, fontWeight:800, color:C.red }}>🔴 FOH 알림</div>
+                          {latestPanic ? <div style={{ fontSize:11, color:"#3c3c43", marginTop:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", paddingRight:panicCount>0?28:0 }}>{latestPanic.userPart||latestPanic.userName}: {latestPanic.text}</div> : <div style={{ fontSize:11, color:C.dim, marginTop:3 }}>대기 중...</div>}
+                        </button>
+                        <button onClick={() => setFohRightTab("chat")} style={{
+                          flex:1, borderRadius:10, padding:"9px 11px",
+                          border:`2px solid ${fohRightTab==="chat" ? "#007aff" : "#c0d4ff"}`,
+                          background: fohRightTab==="chat" ? "#f0f5ff" : "#f5f8ff",
+                          cursor:"pointer", fontFamily:"inherit", textAlign:"left", position:"relative",
+                        }}>
+                          {unreadChat > 0 && <div style={{ position:"absolute", top:7, right:9, minWidth:20, height:20, borderRadius:10, padding:"0 5px", background:"#007aff", color:"#fff", fontSize:11, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center" }}>{unreadChat}</div>}
+                          <div style={{ fontSize:11, fontWeight:800, color:"#007aff" }}>🔵 팀채팅</div>
+                          {latestChat ? <div style={{ fontSize:11, color:"#3c3c43", marginTop:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", paddingRight:unreadChat>0?28:0 }}>{latestChat.name?.split(" ")[0]}: {latestChat.text}</div> : <div style={{ fontSize:11, color:C.dim, marginTop:3 }}>메시지 없음</div>}
+                        </button>
                       </div>
                     );
                   })()}
-                </div>
 
-                {/* ── 오른쪽: 현재 악보 1장 ── */}
-                <div style={{ flexShrink:0, display:"flex", flexDirection:"column", width:"calc((100dvh - 162px) * 0.707)", minWidth:320 }}>
-                  {dispSong ? (
-                    <>
-                      {/* 번호 + 제목 */}
-                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5, flexShrink:0 }}>
-                        <div style={{ width:20, height:20, borderRadius:6,
-                          background: sheetLinkEnabled ? C.pur : `${C.pur}18`,
-                          display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                          <span style={{ fontSize:11, fontWeight:800, color: sheetLinkEnabled ? "#fff" : C.dim }}>{dispIdx + 1}</span>
+                  {/* 컨텐츠 영역 */}
+                  <div style={{ flex:"1 1 0", height:0, overflowY:"auto", padding:"8px 10px", scrollbarWidth:"none" }}>
+                    {fohRightTab === "alert" ? (() => {
+                      const allCuesA = svcSongs.flatMap(s => songCues?.[s.id] || []);
+                      const panicCues = allCuesA.filter(c => c.panic === true).sort((a,b) => (b.createdAt?.seconds??0)-(a.createdAt?.seconds??0));
+                      return panicCues.length === 0 ? (
+                        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", color:C.dim }}>
+                          <div style={{ textAlign:"center" }}><div style={{ fontSize:32, marginBottom:8, opacity:0.3 }}>🔔</div><div style={{ fontSize:12 }}>알림 없음</div></div>
                         </div>
-                        <span style={{ fontSize:13, fontWeight:800, color: sheetLinkEnabled ? C.pur : C.txt,
-                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
-                          {dispSong.title}
-                        </span>
-                        <span style={{ fontSize:11, color:C.dim, flexShrink:0 }}>{dispIdx + 1} / {svcSongs.length}</span>
-                      </div>
-                      {/* 악보 — 높이 100% 채우기 */}
-                      <div style={{ flex:"1 1 0", height:0, minHeight:0,
-                          borderRadius:12, overflow:"hidden",
-                          background:C.card,
-                          border: sheetLinkEnabled ? `2.5px solid ${C.pur}` : `1px solid ${C.bdr}`,
-                          boxShadow: sheetLinkEnabled ? `0 0 0 4px ${C.pur}28` : "none",
-                          position:"relative",
-                          display:"flex", alignItems:"center", justifyContent:"center",
-                        }}>
-                        {dispSong.imageUrl ? (
-                          <img src={dispSong.imageUrl} alt=""
-                            style={{ height:"100%", width:"auto", maxWidth:"100%", display:"block" }} />
-                        ) : dispSong.pdfUrl ? (
-                          <PdfThumb key={`${dispSong.id}_p${dispSong.pdfPage||1}`} pdfUrl={dispSong.pdfUrl} scale={0.8} fitHeight page={dispSong.pdfPage || 1} />
-                        ) : (
-                          <span style={{ fontSize:60, opacity:0.15 }}>🎵</span>
-                        )}
-                        {/* 뱃지 */}
-                        {(dispSong.key || dispSong.bpm) && (
-                          <div style={{ position:"absolute", bottom:8, left:8, display:"flex", gap:4, flexWrap:"wrap" }}>
-                            {dispSong.key && (
-                              <span style={{ background:`${keyColor(dispSong.key)}ee`, color:"#fff",
-                                borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:800 }}>{dispSong.key}</span>
-                            )}
-                            {dispSong.bpm && (
-                              <span style={{ background:"rgba(0,0,0,0.6)", color:"#fff",
-                                borderRadius:6, padding:"2px 7px", fontSize:10 }}>♩{dispSong.bpm}</span>
-                            )}
+                      ) : (
+                        <>
+                          <style>{`@keyframes cueSlideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}`}</style>
+                          {panicCues.map(cue => {
+                            const acked = cue.acknowledged === true;
+                            const isNew = (cue.createdAt?.toMillis?.() ?? 0) > Date.now() - 8000;
+                            const partIcon = cue.userPart==="드럼"?"🥁":cue.userPart==="베이스"?"🎸":cue.userPart==="키보드"?"🎹":cue.userPart==="일렉기타"?"⚡":cue.userPart==="기타"?"🎵":cue.userPart==="보컬"?"🎤":"🚨";
+                            return (
+                              <div key={cue.id} style={{ borderRadius:10, padding:"10px 12px", marginBottom:8, background:acked?"#f0fff5":"#fff5f5", border:`1.5px solid ${acked?"#34c75966":"#ffd0cc"}`, display:"flex", alignItems:"flex-start", gap:10, animation:isNew?"cueSlideIn 0.3s ease-out":"none" }}>
+                                <div style={{ fontSize:18, flexShrink:0, lineHeight:1, marginTop:1 }}>{partIcon}</div>
+                                <div style={{ flex:1, minWidth:0 }}>
+                                  <div style={{ fontSize:11, fontWeight:800, color:C.red }}>{cue.userPart||cue.userName}</div>
+                                  <div style={{ fontSize:13, fontWeight:700, color:"#1c1c1e", marginTop:2, lineHeight:1.5 }}>{cue.text}</div>
+                                  {cue.createdAt && <div style={{ fontSize:10, color:C.dim, marginTop:3 }}>{new Date(cue.createdAt.toMillis()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div>}
+                                </div>
+                                <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
+                                  <button onClick={() => acknowledgeCue?.(cue.id, acked, {targetUid:cue.userId,cueText:cue.text})} style={{ padding:"5px 11px", borderRadius:7, background:acked?"#f0fff5":"#fff", border:`1.5px solid ${acked?"#34c75966":C.red+"66"}`, color:acked?"#34c759":C.red, fontSize:11, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>{acked?"확인됨":"확인"}</button>
+                                  <button onClick={() => deleteCue?.(cue.id)} style={{ padding:"3px 8px", borderRadius:7, background:"transparent", border:`1px solid ${C.bdr}`, color:C.dim, fontSize:10, cursor:"pointer", fontFamily:"inherit" }}>삭제</button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </>
+                      );
+                    })() : (
+                      <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                        {teamChatPresets.length > 0 && (
+                          <div style={{ display:"flex", flexWrap:"wrap", gap:4, paddingBottom:6, borderBottom:`1px solid ${C.bdr}`, marginBottom:2 }}>
+                            {teamChatPresets.map((p, i) => (
+                              <button key={i} onClick={async () => {
+                                if (!nextSvc?.id) return;
+                                await addDoc(collection(db,"liveChat",nextSvc.id,"messages"),{text:p,uid:user.uid,name:user.name||user.email,role:user.role,type:"chat",createdAt:serverTimestamp()});
+                              }} style={{ padding:"5px 10px", borderRadius:14, fontSize:11, fontWeight:700, border:`1.5px solid ${C.acc}55`, background:`${C.acc}12`, color:C.acc, cursor:"pointer", fontFamily:"inherit" }}>{p}</button>
+                            ))}
+                            <button onClick={() => setTeamChatEditMode(p => !p)} style={{ padding:"5px 8px", borderRadius:14, fontSize:10, border:`1px solid ${C.bdr}`, background:"none", color:C.dim, cursor:"pointer", fontFamily:"inherit" }}>✏️</button>
                           </div>
                         )}
+                        {teamChatMsgs.map(m => {
+                          const isMe = m.uid === user.uid;
+                          return (
+                            <div key={m.id} style={{ display:"flex", flexDirection:"column", alignItems:isMe?"flex-end":"flex-start" }}>
+                              {!isMe && <div style={{ fontSize:10, color:C.dim, marginBottom:2 }}>{m.name?.split(" ")[0]}</div>}
+                              <div style={{ maxWidth:"82%", padding:"8px 12px", borderRadius:14, fontSize:12, lineHeight:1.6, background:isMe?"#007aff":C.surf, color:isMe?"#fff":C.txt, borderBottomLeftRadius:isMe?14:4, borderBottomRightRadius:isMe?4:14 }}>{m.text}</div>
+                            </div>
+                          );
+                        })}
+                        {teamChatMsgs.length === 0 && <div style={{ textAlign:"center", color:C.dim, fontSize:12, padding:"20px 0" }}>메시지 없음</div>}
+                        <div ref={teamChatEndRef} />
+                        <div style={{ display:"flex", gap:6, marginTop:4 }}>
+                          <input value={teamChatInput} onChange={e => setTeamChatInput(e.target.value)}
+                            onKeyDown={async e => {
+                              if (e.key==="Enter" && teamChatInput.trim() && nextSvc?.id) {
+                                const t = teamChatInput.trim(); setTeamChatInput("");
+                                await addDoc(collection(db,"liveChat",nextSvc.id,"messages"),{text:t,uid:user.uid,name:user.name||user.email,role:user.role,type:"chat",createdAt:serverTimestamp()});
+                              }
+                            }}
+                            placeholder="메시지 입력..."
+                            style={{ flex:1, padding:"8px 12px", borderRadius:10, border:`1.5px solid ${C.bdr}`, fontSize:12, outline:"none", fontFamily:"inherit", color:C.txt, background:C.bg }} />
+                          <button onClick={async () => {
+                            const t = teamChatInput.trim(); if (!t||!nextSvc?.id) return;
+                            setTeamChatInput("");
+                            await addDoc(collection(db,"liveChat",nextSvc.id,"messages"),{text:t,uid:user.uid,name:user.name||user.email,role:user.role,type:"chat",createdAt:serverTimestamp()});
+                          }} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:"#007aff", color:"#fff", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>전송</button>
+                        </div>
                       </div>
-                    </>
-                  ) : (
-                    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", color:C.dim }}>
-                      <div style={{ textAlign:"center" }}>
-                        <div style={{ fontSize:40, marginBottom:8, opacity:0.3 }}>🎵</div>
-                        <div style={{ fontSize:13 }}>아직 곡이 없습니다</div>
-                      </div>
+                    )}
+                  </div>
+
+                  {/* ── 팀 메세지 하단 바 ── */}
+                  <div style={{ flexShrink:0, borderTop:`1px solid ${C.bdr}`, background:C.surf, padding:"8px 10px", position:"relative" }}>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+                      <span style={{ fontSize:10, fontWeight:700, color:C.dim, letterSpacing:"0.05em", textTransform:"uppercase" }}>📢 팀 메세지</span>
+                      <button onClick={() => { setFohMsgEdit(e => !e); setFohMsgInput(""); }} style={{ fontSize:11, fontWeight:700, color:fohMsgEdit?C.pur:C.dim, background:"none", border:"none", cursor:"pointer", fontFamily:"inherit" }}>{fohMsgEdit?"완료":"편집"}</button>
                     </div>
-                  )}
+                    {fohMsgEdit ? (
+                      <div>
+                        <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:3 }}>수신자 목록 편집</div>
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:8 }}>
+                          {teamUsers.map(u => {
+                            const pinned = fohPinnedUids.includes(u.id);
+                            return (
+                              <button key={u.id} onClick={() => togglePinnedUid(u.id)} style={{ flexShrink:0, fontSize:10, fontWeight:700, fontFamily:"inherit", padding:"3px 8px", borderRadius:12, cursor:"pointer", background:pinned?C.pur:C.card, color:pinned?"#fff":C.dim, border:`1px solid ${pinned?C.pur:C.bdr}` }}>
+                                {pinned?"✓ ":""}{u.name.split(" ")[0]}{getUserDisplayPart(u)?` (${getUserDisplayPart(u)})`:""}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:3 }}>메시지 편집</div>
+                        <div style={{ display:"flex", flexDirection:"column", gap:3, marginBottom:6 }}>
+                          {fohQuickMsgs.map((msg, idx) => (
+                            <div key={idx} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                              <span style={{ flex:1, fontSize:11, color:C.txt }}>{msg}</span>
+                              <button onClick={() => deleteFohMsg(idx)} style={{ flexShrink:0, width:18, height:18, borderRadius:"50%", background:C.red, color:"#fff", border:"none", fontSize:11, fontWeight:900, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1 }}>×</button>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display:"flex", gap:4 }}>
+                          <input value={fohMsgInput} onChange={e => setFohMsgInput(e.target.value)} onKeyDown={e => e.key==="Enter"&&addFohMsg()} placeholder="새 메시지 입력..." style={{ flex:1, fontSize:11, padding:"4px 8px", borderRadius:7, border:`1px solid ${C.bdr}`, background:C.bg, color:C.txt, outline:"none", fontFamily:"inherit" }} />
+                          <button onClick={addFohMsg} style={{ flexShrink:0, padding:"4px 10px", borderRadius:7, cursor:"pointer", background:C.pur, color:"#fff", border:"none", fontSize:11, fontWeight:700, fontFamily:"inherit" }}>추가</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ position:"relative" }}>
+                        {fohMsgTo && (
+                          <div style={{ position:"absolute", bottom:"calc(100% + 6px)", left:0, right:0, background:C.card, borderRadius:14, padding:"12px", boxShadow:"0 -4px 24px rgba(0,0,0,0.13)", border:`1px solid ${C.bdr}`, zIndex:50 }}>
+                            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                              <span style={{ fontSize:12, fontWeight:800, color:C.txt }}>→ {fohMsgTo?.startsWith?.("group:")?fohMsgTo.slice(6):(teamUsers.find(u=>u.id===fohMsgTo)?.name?.split(" ")[0]||"")}에게 전송</span>
+                              <button onClick={() => setFohMsgTo(null)} style={{ background:"none", border:"none", fontSize:16, color:C.dim, cursor:"pointer", padding:"0 2px", lineHeight:1 }}>✕</button>
+                            </div>
+                            <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                              {fohQuickMsgs.length===0 ? <span style={{ fontSize:11, color:C.dim }}>편집에서 메시지를 추가하세요</span>
+                                : fohQuickMsgs.map((msg, idx) => (
+                                  <button key={idx} onClick={async () => {
+                                    if (fohMsgSending) return;
+                                    setFohMsgSending(true);
+                                    try {
+                                      if (fohMsgTo.startsWith("group:")) {
+                                        const targets = teamUsers.filter(u => getUserParts(u).includes(fohMsgTo.slice(6)));
+                                        await Promise.all(targets.map(u => setDoc(doc(db,"fohMessages",u.id),{message:msg,sentAt:serverTimestamp(),fromName:user.name||user.email})));
+                                      } else {
+                                        await setDoc(doc(db,"fohMessages",fohMsgTo),{message:msg,sentAt:serverTimestamp(),fromName:user.name||user.email});
+                                      }
+                                      setFohMsgTo(null);
+                                    } catch(e){}
+                                    setFohMsgSending(false);
+                                  }} style={{ padding:"6px 12px", borderRadius:20, border:`1.5px solid ${C.acc}55`, background:`${C.acc}12`, color:C.txt, fontSize:12, fontWeight:600, cursor:fohMsgSending?"default":"pointer", fontFamily:"inherit", opacity:fohMsgSending?0.6:1 }}>{msg}</button>
+                                ))
+                              }
+                            </div>
+                          </div>
+                        )}
+                        <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:2, scrollbarWidth:"none" }}>
+                          {[["밴드","🎶"],["보컬","🎤","보컬그룹"]].map(([label, emoji, groupId = label]) => {
+                            const members = teamUsers.filter(u => getUserParts(u).includes(groupId));
+                            if (members.length === 0) return null;
+                            const gKey = `group:${groupId}`;
+                            const sel = fohMsgTo === gKey;
+                            return (
+                              <button key={gKey} onClick={() => setFohMsgTo(sel?null:gKey)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"6px 10px", borderRadius:10, minWidth:52, border:`1.5px solid ${sel?C.acc:C.bdr}`, background:sel?`${C.acc}15`:C.card, cursor:"pointer", flexShrink:0, fontFamily:"inherit" }}>
+                                <span style={{ fontSize:18, lineHeight:1 }}>{emoji}</span>
+                                <span style={{ fontSize:10, fontWeight:700, color:C.txt }}>{label}</span>
+                              </button>
+                            );
+                          })}
+                          {teamUsers.filter(u => fohPinnedUids.includes(u.id)).map(u => {
+                            const dp = getUserDisplayPart(u)||u.name.split(" ")[0];
+                            const sel = fohMsgTo === u.id;
+                            const pEmoji = dp.includes("드럼")?"🥁":dp.includes("베이스")?"🎸":dp.includes("키보드")?"🎹":dp.includes("일렉")?"⚡":dp.includes("기타")?"🎵":dp.includes("보컬")?"🎤":"👤";
+                            return (
+                              <button key={u.id} onClick={() => setFohMsgTo(sel?null:u.id)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"6px 10px", borderRadius:10, minWidth:52, border:`1.5px solid ${sel?C.pur:C.bdr}`, background:sel?`${C.pur}15`:C.card, cursor:"pointer", flexShrink:0, fontFamily:"inherit" }}>
+                                <span style={{ fontSize:18, lineHeight:1 }}>{pEmoji}</span>
+                                <span style={{ fontSize:10, fontWeight:700, color:C.txt }}>{dp}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                 </div>
               </div>
               </>
