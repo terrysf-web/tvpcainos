@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.642";
+const APP_VERSION = "3.643";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -9425,6 +9425,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 </button>
               );
             };
+            const dlActive = canDownload || (!isLibraryMode && leader && !!svc);
             return (
               <div style={{ display:"flex", gap:3, alignItems:"center", flexShrink:0 }}>
                 {mkGrp("보기", viewActive, C.acc, 0)}
@@ -9432,6 +9433,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 {mkGrp("악보", scoreActive, transposeMode ? C.grn : C.acc, 0)}
                 {!isLibraryMode && mkGrp("팀", teamActive, C.acc, unread)}
                 {mkGrp("녹음", recActive, recording ? C.red : C.acc, 0)}
+                {dlActive && mkGrp("다운로드", false, C.acc, 0)}
+                <button onClick={() => setShowMobileHelp(true)} style={{
+                  flexShrink:0, height:28, width:28,
+                  borderRadius:7, cursor:"pointer",
+                  background:"transparent", border:`1px solid ${C.bdr}`,
+                  color:C.dim, fontWeight:700, fontSize:13, fontFamily:"inherit",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                }}>?</button>
               </div>
             );
           })()}
@@ -9493,7 +9502,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             </div>
           )}
 
-          {/* 필기: 필기 · 메모 · 다운로드 · 도움말 */}
+          {/* 필기: 필기 · 메모 */}
           {activeGroup === "필기" && (
             <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
               <button onClick={() => { setDrawMode(p=>!p); if(!drawMode) setDrawTool("pen"); }} style={{
@@ -9510,12 +9519,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 color: showNotePanel ? C.acc : C.dim,
                 fontWeight:700, fontSize:11, fontFamily:"inherit",
               }}>메모</button>
+            </div>
+          )}
+
+          {/* 다운로드: 악보 PDF · 멤버 허용 */}
+          {activeGroup === "다운로드" && (
+            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
               {canDownload && (
                 <button onClick={downloadAnnotatedScore} style={{
                   height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
                   background:"transparent", border:`1px solid ${C.bdr}`,
                   color:C.dim, fontWeight:700, fontSize:11, fontFamily:"inherit",
-                }}>다운로드</button>
+                }}>악보 PDF</button>
               )}
               {!isLibraryMode && leader && svc && (
                 <button onClick={toggleDownloadEnabled} style={{
@@ -9524,14 +9539,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   border:`1px solid ${svc.downloadEnabled ? C.grn : C.bdr}`,
                   color: svc.downloadEnabled ? C.grn : C.dim,
                   fontWeight:700, fontSize:11, fontFamily:"inherit",
-                }}>{svc.downloadEnabled ? "↓허용" : "↓멤버"}</button>
+                }}>{svc.downloadEnabled ? "멤버 허용 ON" : "멤버 허용 OFF"}</button>
               )}
-              <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }}/>
-              <button onClick={() => setShowMobileHelp(true)} style={{
-                height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
-                background:"transparent", border:`1px solid ${C.bdr}`,
-                color:C.dim, fontWeight:700, fontSize:11, fontFamily:"inherit",
-              }}>도움말</button>
             </div>
           )}
 
