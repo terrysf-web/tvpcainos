@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.629";
+const APP_VERSION = "3.630";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10030,6 +10030,35 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   ))}
                 </div>
               ))}
+              {/* 코드 섹션 — 현재 곡 키 기반 다이아토닉 코드 */}
+              {song?.key && (() => {
+                const effSteps = transposeSteps - capoFret;
+                const diatonic = getDiatonicChords(song.key, effSteps);
+                if (!diatonic.length) return null;
+                return (
+                  <>
+                    <div style={{ height:1, background:C.bdr, margin:"2px 0" }} />
+                    <div style={{ display:"flex", alignItems:"center", gap:4, flexWrap:"wrap" }}>
+                      <span style={{ fontSize:9, color:C.pur, fontWeight:700, width:32,
+                        textAlign:"right", flexShrink:0 }}>코드</span>
+                      {diatonic.map(({ name }) => (
+                        <button key={name}
+                          onClick={() => { setStampSymbol(name); setStampItalic(false); }}
+                          style={{
+                            height:28, padding:"0 6px", minWidth:36,
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                            background: stampSymbol === name ? `${C.pur}22` : "transparent",
+                            border:`1px solid ${stampSymbol === name ? C.pur : C.bdr}`,
+                            borderRadius:6, cursor:"pointer", flexShrink:0,
+                          }}>
+                          <span style={{ fontSize:11, fontWeight:700,
+                            color: stampSymbol === name ? C.pur : C.txt }}>{name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
           {/* 도형 도구 서브팔레트 — 플로팅 오버레이 */}
