@@ -81,14 +81,66 @@ export const CHORD_VOICINGS = {
   "Asus4": [{ frets:[-1,0,2,2,3,0], fingers:[0,0,1,2,3,0], barre:0, label:"Asus4" }],
   "Dsus4": [{ frets:[-1,-1,0,2,3,3], fingers:[0,0,0,1,2,3], barre:0, label:"Dsus4" }],
   "Gsus4": [{ frets:[3,3,0,0,1,3], fingers:[2,3,0,0,1,4], barre:0, label:"Gsus4" }],
+
+  // ── Diminished (movable shape: x N N+1 N+2 N+1 x, root on A string)
+  "Bdim":  [{ frets:[-1,2,3,4,3,-1], fingers:[0,1,2,4,3,0], barre:0,  label:"Bdim" }],
+  "Cdim":  [{ frets:[-1,3,4,5,4,-1], fingers:[0,1,2,4,3,0], barre:0,  label:"Cdim" }],
+  "C#dim": [{ frets:[-1,4,5,6,5,-1], fingers:[0,1,2,4,3,0], barre:4,  label:"C#dim" }],
+  "Dbdim": [{ frets:[-1,4,5,6,5,-1], fingers:[0,1,2,4,3,0], barre:4,  label:"Dbdim" }],
+  "Ddim":  [{ frets:[-1,5,6,7,6,-1], fingers:[0,1,2,4,3,0], barre:5,  label:"Ddim" }],
+  "D#dim": [{ frets:[-1,6,7,8,7,-1], fingers:[0,1,2,4,3,0], barre:6,  label:"D#dim" }],
+  "Ebdim": [{ frets:[-1,6,7,8,7,-1], fingers:[0,1,2,4,3,0], barre:6,  label:"Ebdim" }],
+  "Edim":  [{ frets:[-1,7,8,9,8,-1], fingers:[0,1,2,4,3,0], barre:7,  label:"Edim" }],
+  "Fdim":  [{ frets:[-1,8,9,10,9,-1], fingers:[0,1,2,4,3,0], barre:8, label:"Fdim" }],
+  "F#dim": [{ frets:[-1,9,10,11,10,-1], fingers:[0,1,2,4,3,0], barre:9, label:"F#dim" }],
+  "Gbdim": [{ frets:[-1,9,10,11,10,-1], fingers:[0,1,2,4,3,0], barre:9, label:"Gbdim" }],
+  "Gdim":  [{ frets:[-1,10,11,12,11,-1], fingers:[0,1,2,4,3,0], barre:10, label:"Gdim" }],
+  "G#dim": [{ frets:[-1,11,12,13,12,-1], fingers:[0,1,2,4,3,0], barre:11, label:"G#dim" }],
+  "Abdim": [{ frets:[-1,11,12,13,12,-1], fingers:[0,1,2,4,3,0], barre:11, label:"Abdim" }],
+  "Adim":  [{ frets:[-1,0,1,2,1,-1], fingers:[0,0,1,3,2,0], barre:0, label:"Adim" }],
+  "A#dim": [{ frets:[-1,1,2,3,2,-1], fingers:[0,1,2,4,3,0], barre:1,  label:"A#dim" }],
+  "Bbdim": [{ frets:[-1,1,2,3,2,-1], fingers:[0,1,2,4,3,0], barre:1,  label:"Bbdim" }],
 };
+
+const SHARP_NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+// Major key diatonic chord degrees: offset (semitones), suffix, Roman numeral label
+const DIATONIC_MAJOR = [
+  { offset:0,  suffix:"",    roman:"I" },
+  { offset:2,  suffix:"m",   roman:"ii" },
+  { offset:4,  suffix:"m",   roman:"iii" },
+  { offset:5,  suffix:"",    roman:"IV" },
+  { offset:7,  suffix:"",    roman:"V" },
+  { offset:9,  suffix:"m",   roman:"vi" },
+  { offset:11, suffix:"dim", roman:"vii°" },
+];
+
+// Returns 7 diatonic chords for the given key (sharp notation)
+// key: "C" | "C#" | "D" | ... | "B"
+// effectiveSteps: capo/transpose offset already factored in (usually pass 0 if key is already effective)
+export function getDiatonicChords(key, extraSteps = 0) {
+  const rootIdx = SHARP_NOTES.indexOf(key);
+  if (rootIdx === -1) return [];
+  const effIdx = ((rootIdx + extraSteps) % 12 + 12) % 12;
+  return DIATONIC_MAJOR.map(({ offset, suffix, roman }) => {
+    const noteIdx = (effIdx + offset) % 12;
+    const name = SHARP_NOTES[noteIdx] + suffix;
+    return { name, roman, voicings: getVoicings(name) };
+  });
+}
+
+// Transpose a key name by semitone steps
+export function transposeKey(key, steps) {
+  const idx = SHARP_NOTES.indexOf(key);
+  if (idx === -1) return key;
+  return SHARP_NOTES[((idx + steps) % 12 + 12) % 12];
+}
 
 // Get voicings for a chord name (handles enharmonic equivalents)
 export function getVoicings(chordName) {
   if (!chordName) return null;
-  // Try exact match first
   if (CHORD_VOICINGS[chordName]) return CHORD_VOICINGS[chordName];
-  // Try stripping extra info (e.g. "G/B" → "G")
+  // Try stripping slash bass (e.g. "G/B" → "G")
   const base = chordName.split("/")[0].trim();
   if (CHORD_VOICINGS[base]) return CHORD_VOICINGS[base];
   return null;

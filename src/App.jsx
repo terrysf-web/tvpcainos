@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { getVoicings } from "./chordVoicings.js";
+import { getVoicings, getDiatonicChords, transposeKey } from "./chordVoicings.js";
 import { auth, db, storage, messagingPromise, firebaseConfigObj } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.623";
+const APP_VERSION = "3.624";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10292,6 +10292,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         <ChordDictModal
           onClose={() => setShowChordDict(false)}
           songChords={songChords}
+          songKey={song?.key}
+          effectiveSteps={transposeSteps - capoFret}
           C={C}
         />
       )}
@@ -14858,18 +14860,46 @@ function FretDiagram({ voicing }) {
 /* ══════════════════════════════════════════════════════════════════
    CHORD DICTIONARY MODAL
 ══════════════════════════════════════════════════════════════════ */
-function ChordDictModal({ onClose, songChords, C }) {
+function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, C }) {
   const [search, setSearch] = useState("");
 
-  const searchTrimmed = search.trim().toUpperCase();
-
-  // Match searched chord
+  const searchTrimmed = search.trim();
   const searchVoicings = searchTrimmed
-    ? getVoicings(search.trim()) || getVoicings(searchTrimmed[0] + searchTrimmed.slice(1).toLowerCase())
+    ? getVoicings(searchTrimmed) || getVoicings(searchTrimmed[0].toUpperCase() + searchTrimmed.slice(1))
     : null;
 
-  // Normalize search display
-  const searchDisplay = search.trim() || "";
+  // Effective key after capo/transpose
+  const effectiveKey = songKey ? transposeKey(songKey, effectiveSteps) : null;
+  const diatonicChords = effectiveKey ? getDiatonicChords(effectiveKey) : [];
+
+  // What to show in the main (non-search) view
+  const hasAiChords = songChords && songChords.length > 0;
+
+  function ChordCard({ name, voicings, sub }) {
+    return voicings ? (
+      <div style={{
+        background:C.bg, borderRadius:12, padding:"10px 8px",
+        display:"flex", flexDirection:"column", alignItems:"center", gap:4,
+      }}>
+        {sub && <div style={{ fontSize:9, color:C.pur, fontWeight:700 }}>{sub}</div>}
+        <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{name}</div>
+        <FretDiagram voicing={voicings[0]} />
+        {voicings.length > 1 && (
+          <div style={{ fontSize:9, color:C.dim }}>+{voicings.length - 1}개</div>
+        )}
+      </div>
+    ) : (
+      <div style={{
+        background:C.bg, borderRadius:12, padding:"10px 12px",
+        display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+        minWidth:66, opacity:0.55,
+      }}>
+        {sub && <div style={{ fontSize:9, color:C.pur, fontWeight:700 }}>{sub}</div>}
+        <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{name}</div>
+        <div style={{ fontSize:9, color:C.dim, marginTop:4 }}>정보없음</div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -14884,7 +14914,7 @@ function ChordDictModal({ onClose, songChords, C }) {
         onClick={e => e.stopPropagation()}
         style={{
           background:C.surf, borderRadius:"20px 20px 0 0",
-          width:"100%", maxWidth:600, maxHeight:"80vh",
+          width:"100%", maxWidth:600, maxHeight:"82vh",
           display:"flex", flexDirection:"column",
           boxShadow:"0 -4px 32px rgba(0,0,0,0.2)",
         }}
@@ -14895,7 +14925,15 @@ function ChordDictModal({ onClose, songChords, C }) {
           padding:"16px 16px 10px", flexShrink:0,
           borderBottom:`1px solid ${C.bdr}`,
         }}>
-          <div style={{ fontSize:15, fontWeight:800, color:C.txt }}>🎵 코드 사전</div>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ fontSize:15, fontWeight:800, color:C.txt }}>🎵 코드 사전</div>
+            {effectiveKey && (
+              <div style={{
+                fontSize:11, fontWeight:700, color:C.pur,
+                background:`${C.pur}15`, borderRadius:6, padding:"2px 8px",
+              }}>Key {effectiveKey}</div>
+            )}
+          </div>
           <button onClick={onClose} style={{
             background:"transparent", border:"none", fontSize:20,
             color:C.dim, cursor:"pointer", lineHeight:1, padding:"0 4px",
@@ -14907,7 +14945,7 @@ function ChordDictModal({ onClose, songChords, C }) {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="코드 검색 (예: Am, G7, Cmaj7)"
+            placeholder="코드 검색 (예: Am, G7, Cmaj7, F#m)"
             style={{
               width:"100%", padding:"9px 12px", borderRadius:10,
               border:`1.5px solid ${C.bdr}`, fontSize:14,
@@ -14918,15 +14956,14 @@ function ChordDictModal({ onClose, songChords, C }) {
         </div>
 
         {/* Content */}
-        <div style={{ overflowY:"auto", padding:"4px 16px 24px", flex:1 }}>
+        <div style={{ overflowY:"auto", padding:"4px 16px 28px", flex:1 }}>
           {search.trim() ? (
-            /* Search result */
             <div>
               <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:10 }}>
-                "{searchDisplay}" 검색 결과
+                "{searchTrimmed}" 검색 결과
               </div>
               {searchVoicings ? (
-                <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+                <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
                   {searchVoicings.map((v, i) => (
                     <div key={i} style={{
                       background:C.bg, borderRadius:12, padding:"12px 10px",
@@ -14941,40 +14978,42 @@ function ChordDictModal({ onClose, songChords, C }) {
                 <div style={{ fontSize:13, color:C.dim, padding:"20px 0" }}>코드 정보 없음</div>
               )}
             </div>
-          ) : songChords && songChords.length > 0 ? (
-            /* Song chords */
-            <div>
-              <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:10 }}>
-                이 곡의 코드
-              </div>
-              <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-                {songChords.map(({ name, voicings }, i) => voicings ? (
-                  <div key={i} style={{
-                    background:C.bg, borderRadius:12, padding:"12px 10px",
-                    display:"flex", flexDirection:"column", alignItems:"center", gap:6,
-                  }}>
-                    <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{name}</div>
-                    <FretDiagram voicing={voicings[0]} />
-                    {voicings.length > 1 && (
-                      <div style={{ fontSize:9, color:C.dim }}>+{voicings.length - 1}가지 더</div>
-                    )}
-                  </div>
-                ) : (
-                  <div key={i} style={{
-                    background:C.bg, borderRadius:12, padding:"12px 14px",
-                    display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                    minWidth:70, opacity:0.6,
-                  }}>
-                    <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>{name}</div>
-                    <div style={{ fontSize:9, color:C.dim, marginTop:4 }}>정보 없음</div>
-                  </div>
-                ))}
-              </div>
-            </div>
           ) : (
-            <div style={{ fontSize:13, color:C.dim, padding:"20px 0", textAlign:"center" }}>
-              코드를 검색하거나, 전조 모드에서 AI 코드 감지 후 코드 목록을 확인하세요.
-            </div>
+            <>
+              {/* Diatonic chords of current key — always shown if key exists */}
+              {diatonicChords.length > 0 && (
+                <div style={{ marginBottom:20 }}>
+                  <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:10 }}>
+                    {effectiveKey} 장조 다이아토닉 코드
+                  </div>
+                  <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                    {diatonicChords.map(({ name, roman, voicings }, i) => (
+                      <ChordCard key={i} name={name} voicings={voicings} sub={roman} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* AI-detected chords for this song */}
+              {hasAiChords && (
+                <div>
+                  <div style={{ fontSize:11, color:C.dim, fontWeight:700, marginBottom:10 }}>
+                    이 곡에서 감지된 코드
+                  </div>
+                  <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                    {songChords.map(({ name, voicings }, i) => (
+                      <ChordCard key={i} name={name} voicings={voicings} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!diatonicChords.length && !hasAiChords && (
+                <div style={{ fontSize:13, color:C.dim, padding:"24px 0", textAlign:"center" }}>
+                  코드를 검색하거나, 곡에 키(Key)가 설정되어 있으면 자동으로 코드가 표시됩니다.
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
