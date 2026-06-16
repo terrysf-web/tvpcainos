@@ -102,15 +102,15 @@ function MiniGuitarDiagram({ frets, color = "#6b5de7" }) {
       )}
       {frets.map((f, i) => {
         if (f === -1) return (
-          <text key={i} x={sx(5 - i)} y={pT - 5} textAnchor="middle"
+          <text key={i} x={sx(i)} y={pT - 5} textAnchor="middle"
             fontSize={8} fill="#8e8e93">✕</text>
         );
         if (f === 0) return (
-          <circle key={i} cx={sx(5 - i)} cy={pT - 5} r={3}
+          <circle key={i} cx={sx(i)} cy={pT - 5} r={3}
             fill="none" stroke="#8e8e93" strokeWidth={1.2} />
         );
         return (
-          <circle key={i} cx={sx(5 - i)} cy={fy(f)} r={5}
+          <circle key={i} cx={sx(i)} cy={fy(f)} r={5}
             fill={color} />
         );
       })}
