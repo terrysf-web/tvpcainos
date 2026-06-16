@@ -20,7 +20,8 @@
   .main { display: flex; flex: 1; overflow: hidden; }
 
   /* 왼쪽 절반 */
-  .left-panel { width: 50%; border-right: 1px solid #e5e5ea; display: flex; overflow: hidden; background: #fff; }
+  .left-panel { width: 50%; border-right: 1px solid #e5e5ea; display: flex; flex-direction: column; overflow: hidden; background: #fff; }
+  .left-inner { display: flex; flex: 1; overflow: hidden; }
 
   .setlist-col { width: 52%; border-right: 1px solid #f0f0f5; display: flex; flex-direction: column; overflow: hidden; }
   .col-header { padding: 11px 14px; border-bottom: 1px solid #f0f0f5; font-size: 13px; font-weight: 800; color: #1c1c1e; flex-shrink: 0; background: #fff; }
@@ -168,6 +169,7 @@
 
   <!-- 왼쪽 절반 -->
   <div class="left-panel">
+  <div class="left-inner">
     <div class="setlist-col">
       <div class="col-header">예배 순서</div>
       <div class="song-list">
@@ -239,7 +241,32 @@
         </div>
       </div>
     </div>
-  </div>
+  </div><!-- /left-inner -->
+
+    <!-- 하단 싱크 바 -->
+    <div style="border-top:1px solid #f0f0f5;padding:7px 12px;background:#fafafa;flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:7px;">
+        <span style="font-size:14px;color:#c0c0cc;">🔗</span>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;flex:1;">
+          <span style="font-size:11px;font-weight:600;color:#6b5de7;background:#ede9ff;padding:2px 8px;border-radius:20px;">밴드</span>
+          <span style="font-size:11px;font-weight:600;color:#3c3c43;background:#f2f2f7;padding:2px 8px;border-radius:20px;">기타</span>
+          <span style="font-size:11px;font-weight:600;color:#3c3c43;background:#f2f2f7;padding:2px 8px;border-radius:20px;">베이스</span>
+          <span style="font-size:11px;font-weight:600;color:#3c3c43;background:#f2f2f7;padding:2px 8px;border-radius:20px;">드럼</span>
+          <span style="font-size:11px;font-weight:600;color:#3c3c43;background:#f2f2f7;padding:2px 8px;border-radius:20px;">키보드</span>
+          <span style="font-size:11px;font-weight:600;color:#3c3c43;background:#f2f2f7;padding:2px 8px;border-radius:20px;">피아노</span>
+          <span style="font-size:11px;font-weight:600;color:#3c3c43;background:#f2f2f7;padding:2px 8px;border-radius:20px;">일렉기타</span>
+        </div>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
+          <span style="font-size:10px;font-weight:700;color:#8e8e93;" id="toggle-label">ON</span>
+          <div onclick="toggleSync()" id="sync-toggle"
+            style="width:36px;height:20px;border-radius:10px;background:#34c759;position:relative;cursor:pointer;transition:background .2s;">
+            <div style="width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:2px;right:2px;transition:right .2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);" id="toggle-knob"></div>
+          </div>
+        </label>
+      </div>
+      <div style="font-size:10px;color:#8e8e93;margin-top:4px;padding-left:21px;" id="sync-sub">1 / 4 · 찬양하세</div>
+    </div>
+  </div><!-- /left-panel -->
 
   <!-- 오른쪽 절반 -->
   <div class="right-panel" style="position:relative;">
@@ -561,6 +588,20 @@ function deleteMsg(idx) {
 function syncMsgDataToButtons() {
   // 팝오버에 쓰이는 메세지 배열을 msgData로 동기화
   // (실제 구현 시 state로 관리, 여기선 목업이라 openPopover 호출 시 참조하도록)
+}
+
+let syncOn = true;
+function toggleSync() {
+  syncOn = !syncOn;
+  const t = document.getElementById('sync-toggle');
+  const k = document.getElementById('toggle-knob');
+  const l = document.getElementById('toggle-label');
+  const s = document.getElementById('sync-sub');
+  t.style.background = syncOn ? '#34c759' : '#c8c8d0';
+  k.style.right = syncOn ? '2px' : '18px';
+  l.textContent = syncOn ? 'ON' : 'OFF';
+  l.style.color = syncOn ? '#34c759' : '#8e8e93';
+  s.style.opacity = syncOn ? '1' : '0.4';
 }
 
 document.getElementById('new-msg-input').addEventListener('keydown', e => {
