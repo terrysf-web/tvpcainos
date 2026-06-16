@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.633";
+const APP_VERSION = "3.634";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -7170,7 +7170,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [detectErr,      setDetectErr]      = useState("");
   const [dragChord,      setDragChord]      = useState(null); // {side,idx,pointerId}
   const [deletingChord,  setDeletingChord]  = useState(null); // {side,idx} long-press pending
-  const [chordSearch,    setChordSearch]    = useState("");
+  const [chordPickRoot,  setChordPickRoot]  = useState(""); // 스탬프 코드 피커: 선택된 루트음
   const longPressTimer   = useRef(null);
   const longPressOrigin  = useRef(null); // {x,y} to detect move
   const pointerDownTimeRef = useRef(0);
@@ -10041,48 +10041,44 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                             color: stampSymbol === name ? C.pur : C.txt }}>{name}</span>
                         </button>
                       ))}
-                      <div style={{ position:"relative", flexShrink:0 }}>
-                        <input
-                          type="text" placeholder="검색…"
-                          value={chordSearch}
-                          onChange={e => setChordSearch(e.target.value)}
-                          onBlur={() => setTimeout(() => setChordSearch(""), 150)}
-                          style={{
-                            height:28, width:58, padding:"0 6px", fontSize:11, fontWeight:700,
-                            border:`1px solid ${chordSearch ? C.pur : C.bdr}`,
-                            borderRadius:6, background:"transparent", color:C.txt,
-                            fontFamily:"inherit", outline:"none",
-                          }}
-                        />
-                        {chordSearch.length > 0 && (() => {
-                          const q = chordSearch.trim();
-                          const matches = Object.keys(CHORD_VOICINGS)
-                            .filter(k => k.toLowerCase().startsWith(q.toLowerCase()))
-                            .slice(0, 12);
-                          if (!matches.length) return null;
-                          return (
-                            <div style={{
-                              position:"absolute", top:"100%", left:0, zIndex:600,
-                              background:C.surf, border:`1px solid ${C.bdr}`,
-                              borderRadius:8, boxShadow:"0 4px 16px rgba(0,0,0,0.25)",
-                              display:"flex", flexDirection:"column", minWidth:80, marginTop:2,
-                            }}>
-                              {matches.map(name => (
-                                <button key={name}
-                                  onMouseDown={() => { setStampSymbol(name); setStampItalic(false); setChordSearch(""); }}
-                                  style={{
-                                    padding:"6px 10px", border:"none", background:"transparent",
-                                    textAlign:"left", cursor:"pointer", fontSize:12, fontWeight:700,
-                                    color:C.txt, fontFamily:"inherit",
-                                  }}
-                                  onMouseEnter={e => e.currentTarget.style.background=`${C.pur}22`}
-                                  onMouseLeave={e => e.currentTarget.style.background="transparent"}
-                                >{name}</button>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </div>
+                      {/* 커스텀 코드 2단계 피커 */}
+                      {!chordPickRoot ? (
+                        // 1단계: 루트음 선택
+                        ["C","C#","D","Eb","E","F","F#","G","Ab","A","Bb","B"].map(root => (
+                          <button key={root} onClick={() => setChordPickRoot(root)} style={{
+                            height:28, padding:"0 7px", minWidth:30,
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                            background:"transparent", border:`1px solid ${C.bdr}`,
+                            borderRadius:6, cursor:"pointer", flexShrink:0, fontSize:11, fontWeight:700, color:C.dim,
+                          }}>{root}</button>
+                        ))
+                      ) : (
+                        // 2단계: 코드 질감 선택
+                        <>
+                          <button onClick={() => setChordPickRoot("")} style={{
+                            height:28, padding:"0 6px", display:"flex", alignItems:"center", gap:3,
+                            background:`${C.pur}22`, border:`1px solid ${C.pur}`, borderRadius:6,
+                            cursor:"pointer", flexShrink:0, fontSize:11, fontWeight:800, color:C.pur,
+                          }}>← {chordPickRoot}</button>
+                          {Object.keys(CHORD_VOICINGS)
+                            .filter(k => {
+                              const sharp = {"Eb":"D#","Ab":"G#","Bb":"A#","C#":"C#","F#":"F#","Db":"C#","Gb":"F#"};
+                              const r = sharp[chordPickRoot] || chordPickRoot;
+                              return k === chordPickRoot || k.startsWith(chordPickRoot) || k === r || k.startsWith(r);
+                            })
+                            .map(name => (
+                              <button key={name} onClick={() => { setStampSymbol(name); setStampItalic(false); setChordPickRoot(""); }} style={{
+                                height:28, padding:"0 7px",
+                                display:"flex", alignItems:"center", justifyContent:"center",
+                                background: stampSymbol === name ? `${C.pur}22` : "transparent",
+                                border:`1px solid ${stampSymbol === name ? C.pur : C.bdr}`,
+                                borderRadius:6, cursor:"pointer", flexShrink:0, fontSize:11, fontWeight:700,
+                                color: stampSymbol === name ? C.pur : C.txt,
+                              }}>{name}</button>
+                            ))
+                          }
+                        </>
+                      )}
                     </div>
                   </>
                 );
