@@ -8,6 +8,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: #f2f2f7; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  .app-header { background:#f2f2f7; flex-shrink:0; }
 
   .header {
     background: #1c1c2e; color: #fff; padding: 10px 16px;
@@ -17,7 +18,7 @@
   .header-sub { font-size: 11px; color: #8e8e93; margin-top: 1px; }
   .header-badge { background: #e8a93e; color: #111; font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 20px; }
 
-  .main { display: flex; flex: 1; overflow: hidden; }
+  .main { display: flex; flex: 1; overflow: hidden; margin-top:6px; }
 
   /* 왼쪽 절반 */
   .left-panel { width: 50%; border-right: 1px solid #e5e5ea; display: flex; flex-direction: column; overflow: hidden; background: #fff; }
@@ -175,26 +176,48 @@
 </head>
 <body>
 
-<div class="header">
-  <div>
-    <div class="header-title">⚡ FOH 콘솔</div>
-    <div class="header-sub">2026.06.16 주일 2부 예배</div>
-  </div>
-  <!-- 예배 상태 토글 -->
+<style>
+  @keyframes livepulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+  .app-bg { background:#f2f2f7; }
+  .hero-card {
+    margin:8px 8px 0; border-radius:12px; padding:10px 12px;
+    background:linear-gradient(135deg,#6b5de722,#e8a93e11);
+    border:1.5px solid #6b5de733; transition:all .3s;
+  }
+  .hero-card.piano-on {
+    background:linear-gradient(135deg,#ff3b3018,#ff3b3008);
+    border-color:#ff3b3055;
+  }
+</style>
+
+<!-- 히어로 카드 (실제 앱 디자인) -->
+<div class="hero-card" id="hero-card">
   <div style="display:flex;align-items:center;gap:10px;">
+    <span style="background:#ff3b30;color:#fff;font-weight:800;font-size:11px;border-radius:6px;padding:2px 8px;flex-shrink:0;">오늘</span>
+    <div style="min-width:0;">
+      <div style="font-weight:800;font-size:16px;color:#1c1c1e;line-height:1.2;">2026년 6월 16일 주일</div>
+      <div style="font-size:11px;color:#8e8e93;margin-top:2px;display:flex;align-items:center;gap:4px;">
+        <span>주일 2부 예배</span><span>·</span><span>11:00</span><span>·</span><span>7곡</span>
+      </div>
+    </div>
+    <div style="flex:1;text-align:center;">
+      <span id="hero-msg" style="color:#6b5de7;font-weight:800;font-size:12px;">⛪ 예배준비</span>
+    </div>
+    <!-- 예배 상태 배지 -->
     <div id="service-status-badge"
-      style="display:flex;align-items:center;gap:6px;background:#34c759;
-      color:#fff;font-size:12px;font-weight:800;padding:6px 14px;
-      border-radius:20px;cursor:pointer;transition:all .3s;user-select:none;"
+      style="display:flex;align-items:center;gap:5px;background:#34c759;
+      color:#fff;font-size:11px;font-weight:800;padding:5px 12px;
+      border-radius:20px;cursor:pointer;transition:all .3s;flex-shrink:0;"
       onclick="toggleServiceStatus()">
-      <span id="status-dot" style="width:7px;height:7px;border-radius:50%;background:#fff;display:inline-block;animation:livepulse 1.2s infinite;"></span>
+      <span id="status-dot" style="width:6px;height:6px;border-radius:50%;background:#fff;display:inline-block;animation:livepulse 1.2s infinite;"></span>
       <span id="status-text">예배 중</span>
     </div>
   </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+    <button style="font-size:11px;font-weight:800;color:#fff;background:#b71c1c;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-family:inherit;">🎹 Piano ON 알림 보내기</button>
+    <button style="font-size:10px;font-weight:700;color:#8e8e93;background:transparent;border:1px solid #e5e5ea;border-radius:5px;padding:2px 8px;cursor:pointer;font-family:inherit;">TEST</button>
+  </div>
 </div>
-<style>
-  @keyframes livepulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
-</style>
 
 <div class="main">
 
@@ -658,12 +681,16 @@ function toggleServiceStatus() {
   const dot    = document.getElementById('status-dot');
   const text   = document.getElementById('status-text');
   const bar    = document.getElementById('sync-bar');
-  badge.style.background = serviceOn ? '#34c759' : '#3c3c43';
+  badge.style.background = serviceOn ? '#34c759' : '#8e8e93';
   dot.style.animation    = serviceOn ? 'livepulse 1.2s infinite' : 'none';
-  dot.style.opacity      = serviceOn ? '1' : '0.4';
+  dot.style.opacity      = serviceOn ? '1' : '0.5';
   text.textContent       = serviceOn ? '예배 중' : '예배 아님';
-  bar.style.opacity      = serviceOn ? '1' : '0.4';
+  bar.style.opacity      = serviceOn ? '1' : '0.35';
   bar.style.pointerEvents = serviceOn ? 'auto' : 'none';
+  const hero = document.getElementById('hero-card');
+  const heroMsg = document.getElementById('hero-msg');
+  hero.className = serviceOn ? 'hero-card' : 'hero-card';
+  heroMsg.textContent = serviceOn ? '⛪ 예배준비' : '예배 없음';
   if (!serviceOn) {
     // 싱크 off
     syncOn = false;
