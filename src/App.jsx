@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.634";
+const APP_VERSION = "3.635";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -828,6 +828,28 @@ function keyName(key, steps) {
   const transposed = SEMITONES[((SEMITONES.indexOf(n) + steps) % 12 + 12) % 12];
   const displayMap = useFlats(key, steps) ? DISPLAY_FLAT : DISPLAY_SHARP;
   return displayMap[transposed] || transposed;
+}
+
+/* ── Capo recommendation: acoustic prefers G shape, electric prefers A shape */
+// Returns { acoustic: {shape, capo}, electric: {shape, capo} }
+function getCapoRec(key, steps = 0) {
+  if (!key) return null;
+  const n = FLAT_SHARP[key] || key;
+  const rootIdx = SEMITONES.indexOf(n);
+  if (rootIdx === -1) return null;
+  const soundIdx = ((rootIdx + steps) % 12 + 12) % 12;
+  const MAX = 7;
+  function best(order) {
+    for (const si of order) {
+      const capo = (soundIdx - si + 12) % 12;
+      if (capo <= MAX) return { shape: SEMITONES[si], capo };
+    }
+    return null;
+  }
+  return {
+    acoustic: best([7, 2, 0, 9, 4]),  // G→D→C→A→E
+    electric: best([9, 4, 2, 7, 0]),  // A→E→D→G→C
+  };
 }
 
 /* ── Stamp palette definition (module-level) */
@@ -10183,6 +10205,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       }}>{f===0 ? "X" : f}</button>
                     ))}
                   </div>
+                  {song?.key && (() => {
+                    const rec = getCapoRec(song.key, transposeSteps);
+                    if (!rec) return null;
+                    const parts = getUserParts(user);
+                    const hasAc = parts.includes("기타") || leader;
+                    const hasEl = parts.includes("일렉기타") || leader;
+                    const tips = [];
+                    if (hasAc && rec.acoustic) tips.push(`기타 ${rec.acoustic.shape}+${rec.acoustic.capo}`);
+                    if (hasEl && rec.electric) tips.push(`일렉 ${rec.electric.shape}+${rec.electric.capo}`);
+                    if (!tips.length) return null;
+                    return <span style={{ fontSize:9, color:C.dim, flexShrink:0, whiteSpace:"nowrap" }}>💡 {tips.join(" · ")}</span>;
+                  })()}
                 </>
               )}
               {/* 코드사전 (듀얼) */}
@@ -10291,6 +10325,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       }}>{f===0 ? "X" : f}</button>
                     ))}
                   </div>
+                  {song?.key && (() => {
+                    const rec = getCapoRec(song.key, transposeSteps);
+                    if (!rec) return null;
+                    const parts = getUserParts(user);
+                    const hasAc = parts.includes("기타") || leader;
+                    const hasEl = parts.includes("일렉기타") || leader;
+                    const tips = [];
+                    if (hasAc && rec.acoustic) tips.push(`기타 ${rec.acoustic.shape}+${rec.acoustic.capo}`);
+                    if (hasEl && rec.electric) tips.push(`일렉 ${rec.electric.shape}+${rec.electric.capo}`);
+                    if (!tips.length) return null;
+                    return <span style={{ fontSize:9, color:C.dim, flexShrink:0, whiteSpace:"nowrap" }}>💡 {tips.join(" · ")}</span>;
+                  })()}
                 </>
               )}
               {/* 코드사전 — 기타/일렉기타/베이스/키보드/피아노 파트 + 리더 */}
