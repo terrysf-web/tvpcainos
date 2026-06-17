@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.664";
+const APP_VERSION = "3.665";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10146,15 +10146,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           {dual ? (
             /* 듀얼: 왼쪽 [−][값][+] | 감지버튼 | 오른쪽 [−][값][+] [초기화] */
             <>
-              {/* 왼쪽 전조 */}
-              <span style={{ fontSize:10, color:C.dim, fontWeight:700, flexShrink:0 }}>왼쪽</span>
+              {/* 왼쪽 전조 — 원키 */}
+              <span style={{ fontSize:9, fontWeight:800, color:C.dim, flexShrink:0 }}>원키</span>
               <button onClick={() => saveTransposeSteps(Math.max(-6, transposeSteps - 1))}
                 style={{ width:26, height:26, borderRadius:6, border:`1px solid ${C.bdr}`,
                   background:"transparent", cursor:"pointer", fontWeight:700, fontSize:14, display:"flex",
                   alignItems:"center", justifyContent:"center", color:C.txt, flexShrink:0 }}>−</button>
-              <span style={{ fontSize:12, fontWeight:800, color: transposeSteps === 0 ? C.dim : C.grn,
-                minWidth:38, textAlign:"center", flexShrink:0 }}>
-                {transposeSteps === 0 ? "원본" : `${transposeSteps > 0 ? "+" : ""}${transposeSteps}`}
+              <span style={{ fontSize:13, fontWeight:800, color:C.txt, minWidth:24, textAlign:"center", flexShrink:0 }}>
+                {keyName(song?.key, transposeSteps)}
               </span>
               <button onClick={() => saveTransposeSteps(Math.min(6, transposeSteps + 1))}
                 style={{ width:26, height:26, borderRadius:6, border:`1px solid ${C.bdr}`,
@@ -10169,8 +10168,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       padding:"5px 10px", cursor: detectingChords ? "not-allowed" : "pointer",
                       fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
                     }}>{detectingChords ? "⏳" : "🎵"} 왼쪽</button>
-                  : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 왼쪽 {chordData.length}개</span>)
-                : chordData.length > 0 && <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 왼쪽 {chordData.length}개</span>
+                  : null)
+                : null
               }
               {leader
                 ? (chordData2.length === 0
@@ -10179,8 +10178,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       padding:"5px 10px", cursor: detectingChords ? "not-allowed" : "pointer",
                       fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
                     }}>{detectingChords ? "⏳" : "🎵"} 오른쪽</button>
-                  : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 오른쪽 {chordData2.length}개</span>)
-                : chordData2.length > 0 && <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ 오른쪽 {chordData2.length}개</span>
+                  : null)
+                : null
               }
               {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
               {/* 카포 — 기타/일렉기타 파트만 표시 (듀얼) */}
@@ -10246,7 +10245,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 {chordMoveMode && (chordData.length > 0 || chordData2.length > 0) && (
                   <span style={{ fontSize:9, color:C.dim, whiteSpace:"nowrap" }}>더블탭: 복사 · 꾹: 삭제</span>
                 )}
-                <span style={{ fontSize:10, color:C.dim, fontWeight:700 }}>오른쪽</span>
+                <span style={{ fontSize:9, fontWeight:800, color:C.dim, flexShrink:0 }}>서비스 키</span>
+                <div style={{ padding:"3px 10px", borderRadius:7, border:`1.5px solid ${C.grn}`,
+                  background:`${C.grn}22`, color:C.grn, fontWeight:800, fontSize:13, flexShrink:0 }}>
+                  {keyName((() => { const rs = songs?.find(s => s.id === dualRightSongId); return rs?.key || song?.key; })(), transposeSteps2)} ✓
+                </div>
                 {/* 오른쪽 전용 카포 */}
                 {(getUserParts(user).includes("기타") || getUserParts(user).includes("일렉기타") || leader) && (
                   <>
@@ -10286,10 +10289,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   style={{ width:26, height:26, borderRadius:6, border:`1px solid ${C.bdr}`,
                     background:"transparent", cursor:"pointer", fontWeight:700, fontSize:14, display:"flex",
                     alignItems:"center", justifyContent:"center", color:C.txt }}>−</button>
-                <span style={{ fontSize:12, fontWeight:800, color: transposeSteps2 === 0 ? C.dim : C.grn,
-                  minWidth:38, textAlign:"center" }}>
-                  {transposeSteps2 === 0 ? "원본" : `${transposeSteps2 > 0 ? "+" : ""}${transposeSteps2}`}
-                </span>
                 <button onClick={() => saveTransposeSteps2(Math.min(6, transposeSteps2 + 1))}
                   style={{ width:26, height:26, borderRadius:6, border:`1px solid ${C.bdr}`,
                     background:"transparent", cursor:"pointer", fontWeight:700, fontSize:14, display:"flex",
@@ -10320,20 +10319,26 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           ) : (
             /* 싱글: 기존 레이아웃 */
             <>
-              <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
+                <span style={{ fontSize:9, fontWeight:800, color:C.dim }}>원키</span>
                 <button onClick={() => saveTransposeSteps(Math.max(-6, transposeSteps - 1))}
                   style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
                     background:"transparent", cursor:"pointer", fontWeight:700, fontSize:15, display:"flex",
                     alignItems:"center", justifyContent:"center", color:C.txt }}>−</button>
-                <div style={{ textAlign:"center", minWidth:60 }}>
-                  <div style={{ fontSize:12, fontWeight:800, color: transposeSteps === 0 ? C.dim : C.grn }}>
-                    {transposeSteps === 0 ? "원본" : `${transposeSteps > 0 ? "+" : ""}${transposeSteps} 반음`}
-                  </div>
-                </div>
+                <span style={{ fontSize:13, fontWeight:800, color:C.txt, minWidth:22, textAlign:"center" }}>
+                  {song?.key || "?"}
+                </span>
                 <button onClick={() => saveTransposeSteps(Math.min(6, transposeSteps + 1))}
                   style={{ width:28, height:28, borderRadius:6, border:`1px solid ${C.bdr}`,
                     background:"transparent", cursor:"pointer", fontWeight:700, fontSize:15, display:"flex",
                     alignItems:"center", justifyContent:"center", color:C.txt }}>+</button>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", gap:1, flexShrink:0 }}>
+                <span style={{ fontSize:9, fontWeight:800, color:C.dim }}>서비스 키</span>
+                <div style={{ padding:"3px 10px", borderRadius:7, border:`1.5px solid ${C.grn}`,
+                  background:`${C.grn}22`, color:C.grn, fontWeight:800, fontSize:13 }}>
+                  {keyName(song?.key, transposeSteps)} ✓
+                </div>
               </div>
               <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
               {leader
