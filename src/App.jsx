@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.669";
+const APP_VERSION = "3.670";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10154,199 +10154,113 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             const showCapo = isGuitar || leader;
             const showDict = ["기타","일렉기타","베이스","키보드","피아노"].some(p => getUserParts(user).includes(p)) || leader;
 
-            if (dual) {
-              const rSong = songs?.find(s => s.id === dualRightSongId);
-              const rKey = rSong?.key || song?.key;
-              const capoBtn = (f, sel, onClick) => (
-                <button key={f} onClick={() => onClick(f)} style={{
-                  width:28, height:28, borderRadius:7,
-                  border:`1.5px solid ${sel===f ? C.acc : C.bdr}`,
-                  background: sel===f ? C.acc : "transparent",
-                  color: sel===f ? "#fff" : C.txt,
-                  fontSize:12, fontWeight:700, cursor:"pointer",
-                  display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit",
-                }}>{f===0 ? "X" : f}</button>
-              );
-              const recFor = (key, steps) => {
-                if (!showCapo || !key) return [];
-                const r = getCapoRec(key, steps);
-                if (!r) return [];
-                const parts = getUserParts(user);
-                return [
-                  ...((parts.includes("기타") || leader) && r.acoustic ? [{ name:"기타", shape:r.acoustic.shape, capo:r.acoustic.capo }] : []),
-                  ...((parts.includes("일렉기타") || leader) && r.electric ? [{ name:"일렉", shape:r.electric.shape, capo:r.electric.capo }] : []),
-                ];
-              };
-              const rec1 = recFor(song?.key, transposeSteps);
-              const rec2 = recFor(rKey, transposeSteps2);
-              const sectionDivider = <div style={{ width:2, height:38, background:C.bdr, flexShrink:0, borderRadius:1 }} />;
+            // 싱글 모드 UI 한 섹션 — 듀얼/싱글 공통 사용
+            const renderSection = (songKey, steps, saveFn, capoVal, setCapo, chords, detectFn) => {
+              const rec = showCapo && songKey ? getCapoRec(songKey, steps) : null;
+              const recItems = rec ? [
+                ...((getUserParts(user).includes("기타") || leader) && rec.acoustic ? [{ name:"기타", shape:rec.acoustic.shape, capo:rec.acoustic.capo }] : []),
+                ...((getUserParts(user).includes("일렉기타") || leader) && rec.electric ? [{ name:"일렉", shape:rec.electric.shape, capo:rec.electric.capo }] : []),
+              ] : [];
               return (
                 <>
-                  {/* ── 왼쪽 (원키) ── */}
                   <div style={colGrp}>
                     <span style={{ ...lbl, color:C.dim }}>원키</span>
                     <div style={{ display:"flex", alignItems:"center", gap:3 }}>
-                      <button onClick={() => saveTransposeSteps(Math.max(-6, transposeSteps - 1))} style={{ ...btnSt, color:C.txt }}>−</button>
-                      <span style={{ fontSize:14, fontWeight:800, color:C.txt, minWidth:24, textAlign:"center" }}>{keyName(song?.key, transposeSteps)}</span>
-                      <button onClick={() => saveTransposeSteps(Math.min(6, transposeSteps + 1))} style={{ ...btnSt, color:C.txt }}>+</button>
+                      <button onClick={() => saveFn(Math.max(-6, steps - 1))} style={{ ...btnSt, color:C.txt }}>−</button>
+                      <span style={{ fontSize:14, fontWeight:800, color:C.txt, minWidth:22, textAlign:"center" }}>{songKey || "?"}</span>
+                      <button onClick={() => saveFn(Math.min(6, steps + 1))} style={{ ...btnSt, color:C.txt }}>+</button>
                     </div>
                   </div>
-                  {showCapo && (
-                    <>
-                      {divH}
-                      <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
-                        <span style={{ fontSize:10, fontWeight:800, color:C.acc }}>🎸 카포</span>
-                        <div style={{ display:"flex", gap:3 }}>{[0,1,2,3,4,5,6,7].map(f => capoBtn(f, capoFret, setCapoFret))}</div>
-                      </div>
-                      {rec1.length > 0 && (
-                        <div style={colGrp}>
-                          <span style={{ ...lbl, color:C.acc }}>추천</span>
-                          <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
-                            {rec1.map(item => <span key={item.name} style={{ fontSize:12, fontWeight:800, color:C.pur, whiteSpace:"nowrap" }}>{item.name} {item.shape}+{item.capo}</span>)}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {leader && chordData.length === 0 && <button onClick={() => detectChords(1)} disabled={detectingChords} style={{ background: detectingChords ? `${C.grn}44` : C.grn, border:"none", borderRadius:7, padding:"5px 8px", cursor: detectingChords ? "not-allowed" : "pointer", fontWeight:700, fontSize:10, color:"#fff", fontFamily:"inherit", flexShrink:0 }}>{detectingChords ? "⏳" : "🎵"} 왼쪽</button>}
-
-                  {sectionDivider}
-
-                  {/* ── 오른쪽 (서비스 키) ── */}
+                  {divH}
                   <div style={colGrp}>
-                    <span style={{ ...lbl, color:C.grn }}>서비스 키</span>
-                    <div style={{ display:"flex", alignItems:"center", gap:3 }}>
-                      <button onClick={() => saveTransposeSteps2(Math.max(-6, transposeSteps2 - 1))} style={{ ...btnSt, color:C.txt }}>−</button>
-                      <div style={{ padding:"3px 10px", borderRadius:7, border:`1.5px solid ${C.grn}`,
-                        background:`${C.grn}22`, color:C.grn, fontWeight:800, fontSize:14, minWidth:30, textAlign:"center" }}>
-                        {keyName(rKey, transposeSteps2)}
-                      </div>
-                      <button onClick={() => saveTransposeSteps2(Math.min(6, transposeSteps2 + 1))} style={{ ...btnSt, color:C.txt }}>+</button>
+                    <span style={{ ...lbl, color:C.grn }}>서비스 키 ✓</span>
+                    <div style={{ padding:"3px 12px", borderRadius:7, border:`1.5px solid ${C.grn}`,
+                      background:`${C.grn}22`, color:C.grn, fontWeight:800, fontSize:14, textAlign:"center" }}>
+                      {keyName(songKey, steps)}
                     </div>
                   </div>
+                  {leader && chords.length === 0 && (
+                    <button onClick={detectFn} disabled={detectingChords} style={{
+                      background: detectingChords ? `${C.grn}44` : C.grn, border:"none", borderRadius:7,
+                      padding:"5px 12px", cursor: detectingChords ? "not-allowed" : "pointer",
+                      fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
+                    }}>{detectingChords ? "⏳ 감지 중..." : "🎵 코드 감지 (AI)"}</button>
+                  )}
                   {showCapo && (
                     <>
                       {divH}
                       <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
                         <span style={{ fontSize:10, fontWeight:800, color:C.acc }}>🎸 카포</span>
-                        <div style={{ display:"flex", gap:3 }}>{[0,1,2,3,4,5,6,7].map(f => capoBtn(f, capoFret2, setCapoFret2))}</div>
+                        <div style={{ display:"flex", gap:3 }}>
+                          {[0,1,2,3,4,5,6,7].map(f => (
+                            <button key={f} onClick={() => setCapo(f)} style={{
+                              width:28, height:28, borderRadius:7,
+                              border:`1.5px solid ${capoVal===f ? C.acc : C.bdr}`,
+                              background: capoVal===f ? C.acc : "transparent",
+                              color: capoVal===f ? "#fff" : C.txt,
+                              fontSize:12, fontWeight:700, cursor:"pointer",
+                              display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit",
+                            }}>{f===0 ? "X" : f}</button>
+                          ))}
+                        </div>
                       </div>
-                      {rec2.length > 0 && (
+                      {recItems.length > 0 && (
                         <div style={colGrp}>
                           <span style={{ ...lbl, color:C.acc }}>추천</span>
                           <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
-                            {rec2.map(item => <span key={item.name} style={{ fontSize:12, fontWeight:800, color:C.pur, whiteSpace:"nowrap" }}>{item.name} {item.shape}+{item.capo}</span>)}
+                            {recItems.map(item => (
+                              <span key={item.name} style={{ fontSize:12, fontWeight:800, color:C.pur, whiteSpace:"nowrap" }}>{item.name} {item.shape}+{item.capo}</span>
+                            ))}
                           </div>
                         </div>
                       )}
                     </>
                   )}
-                  {leader && chordData2.length === 0 && <button onClick={() => detectChords(2)} disabled={detectingChords} style={{ background: detectingChords ? `${C.grn}44` : C.grn, border:"none", borderRadius:7, padding:"5px 8px", cursor: detectingChords ? "not-allowed" : "pointer", fontWeight:700, fontSize:10, color:"#fff", fontFamily:"inherit", flexShrink:0 }}>{detectingChords ? "⏳" : "🎵"} 오른쪽</button>}
-                  {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
+                  {showDict && (
+                    <>
+                      {divH}
+                      <button onClick={() => setShowChordDict(true)} style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 10px", borderRadius:7, border:`1.5px solid ${C.pur}55`, background:`${C.pur}11`, color:C.pur, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>🎵 코드사전</button>
+                    </>
+                  )}
+                </>
+              );
+            };
 
-                  {/* ── 유틸리티 ── */}
-                  <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
-                    {showDict && <button onClick={() => setShowChordDict(true)} style={{ display:"flex", alignItems:"center", gap:4, padding:"3px 8px", borderRadius:7, border:`1.5px solid ${C.pur}55`, background:`${C.pur}11`, color:C.pur, fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>🎵 코드사전</button>}
-                    {leader && (chordData.length > 0 || chordData2.length > 0) && (
-                      <button onClick={() => setChordMoveMode(m => !m)} style={{ border:`1px solid ${chordMoveMode ? C.grn : C.bdr}`, borderRadius:6, background: chordMoveMode ? `${C.grn}22` : "transparent", padding:"3px 8px", cursor:"pointer", fontSize:10, color: chordMoveMode ? C.grn : C.dim, fontFamily:"inherit" }}>
-                        {chordMoveMode ? "✋ 이동 ON" : "코드 이동"}
-                      </button>
-                    )}
-                    {chordMoveMode && (chordData.length > 0 || chordData2.length > 0) && <span style={{ fontSize:9, color:C.dim, whiteSpace:"nowrap" }}>더블탭: 복사 · 꾹: 삭제</span>}
-                    <div style={{ width:1, height:20, background:C.bdr }} />
-                    <button onClick={() => { const v = Math.max(0.4, Math.round((chordFontScale - 0.2) * 10) / 10); setChordFontScale(v); saveChordFontScale(v); }} disabled={chordFontScale <= 0.4} style={{ ...btnSt, fontSize:11, color: chordFontScale <= 0.4 ? C.bdr : C.txt }}>A−</button>
-                    <button onClick={() => { const v = Math.min(2.0, Math.round((chordFontScale + 0.2) * 10) / 10); setChordFontScale(v); saveChordFontScale(v); }} disabled={chordFontScale >= 2.0} style={{ ...btnSt, fontSize:11, color: chordFontScale >= 2.0 ? C.bdr : C.txt }}>A+</button>
-                    <div style={{ width:1, height:20, background:C.bdr }} />
-                    {leader && <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setCapoFret(0); setCapoFret2(0); setChordData([]); setChordData2([]); setDetectErr(""); setChordFontScale(1.0); }} style={{ background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6, padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit" }}>초기화</button>}
-                  </div>
+            const utilBar = (mLeft) => (
+              <div style={{ marginLeft: mLeft ? "auto" : 0, display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                {leader && (chordData.length > 0 || chordData2.length > 0) && (
+                  <button onClick={() => setChordMoveMode(m => !m)} style={{ border:`1px solid ${chordMoveMode ? C.grn : C.bdr}`, borderRadius:6, background: chordMoveMode ? `${C.grn}22` : "transparent", padding:"3px 8px", cursor:"pointer", fontSize:10, color: chordMoveMode ? C.grn : C.dim, fontFamily:"inherit", flexShrink:0 }}>
+                    {chordMoveMode ? "✋ 이동 ON" : "코드 이동"}
+                  </button>
+                )}
+                {chordMoveMode && (chordData.length > 0 || chordData2.length > 0) && <span style={{ fontSize:9, color:C.dim, whiteSpace:"nowrap" }}>더블탭: 복사 · 꾹: 삭제</span>}
+                <button onClick={() => { const v = Math.max(0.4, Math.round((chordFontScale - 0.2) * 10) / 10); setChordFontScale(v); saveChordFontScale(v); }} disabled={chordFontScale <= 0.4} style={{ ...btnSt, width:28, height:28, fontSize:12, color: chordFontScale <= 0.4 ? C.bdr : C.txt }}>A−</button>
+                <button onClick={() => { const v = Math.min(2.0, Math.round((chordFontScale + 0.2) * 10) / 10); setChordFontScale(v); saveChordFontScale(v); }} disabled={chordFontScale >= 2.0} style={{ ...btnSt, width:28, height:28, fontSize:12, color: chordFontScale >= 2.0 ? C.bdr : C.txt }}>A+</button>
+                <div style={{ width:1, height:20, background:C.bdr }} />
+                {leader && <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setCapoFret(0); setCapoFret2(0); setChordData([]); setChordData2([]); setDetectErr(""); setChordFontScale(1.0); }} style={{ background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6, padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit" }}>초기화</button>}
+              </div>
+            );
+
+            if (dual) {
+              const rSong = songs?.find(s => s.id === dualRightSongId);
+              const rKey = rSong?.key || song?.key;
+              return (
+                <>
+                  {renderSection(song?.key, transposeSteps, saveTransposeSteps, capoFret, setCapoFret, chordData, () => detectChords(1))}
+                  <div style={{ width:2, height:36, background:C.bdr, flexShrink:0, borderRadius:1, marginBottom:2 }} />
+                  {renderSection(rKey, transposeSteps2, saveTransposeSteps2, capoFret2, setCapoFret2, chordData2, () => detectChords(2))}
+                  {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
+                  {utilBar(true)}
                 </>
               );
             }
 
             /* 싱글 모드 */
-            const rec = showCapo && song?.key ? getCapoRec(song.key, transposeSteps) : null;
-            const recItems = rec ? [
-              ...(((getUserParts(user).includes("기타") || leader) && rec.acoustic) ? [{ name:"기타", shape:rec.acoustic.shape, capo:rec.acoustic.capo }] : []),
-              ...(((getUserParts(user).includes("일렉기타") || leader) && rec.electric) ? [{ name:"일렉", shape:rec.electric.shape, capo:rec.electric.capo }] : []),
-            ] : [];
             return (
               <>
-                {/* 원키 */}
-                <div style={colGrp}>
-                  <span style={{ ...lbl, color:C.dim }}>원키</span>
-                  <div style={{ display:"flex", alignItems:"center", gap:3 }}>
-                    <button onClick={() => saveTransposeSteps(Math.max(-6, transposeSteps - 1))} style={{ ...btnSt, color:C.txt }}>−</button>
-                    <span style={{ fontSize:14, fontWeight:800, color:C.txt, minWidth:22, textAlign:"center" }}>{song?.key || "?"}</span>
-                    <button onClick={() => saveTransposeSteps(Math.min(6, transposeSteps + 1))} style={{ ...btnSt, color:C.txt }}>+</button>
-                  </div>
-                </div>
-                {divH}
-                {/* 서비스 키 */}
-                <div style={colGrp}>
-                  <span style={{ ...lbl, color:C.grn }}>서비스 키 ✓</span>
-                  <div style={{ padding:"3px 12px", borderRadius:7, border:`1.5px solid ${C.grn}`,
-                    background:`${C.grn}22`, color:C.grn, fontWeight:800, fontSize:14, textAlign:"center" }}>
-                    {keyName(song?.key, transposeSteps)}
-                  </div>
-                </div>
+                {renderSection(song?.key, transposeSteps, saveTransposeSteps, capoFret, setCapoFret, chordData, () => detectChords(1))}
                 {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
-                {leader && chordData.length === 0 && (
-                  <button onClick={() => detectChords(1)} disabled={detectingChords} style={{ background: detectingChords ? `${C.grn}44` : C.grn, border:"none", borderRadius:7, padding:"5px 12px", cursor: detectingChords ? "not-allowed" : "pointer", fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0 }}>
-                    {detectingChords ? "⏳ 감지 중..." : "🎵 코드 감지 (AI)"}
-                  </button>
-                )}
-                {/* 카포 */}
-                {showCapo && (
-                  <>
-                    {divH}
-                    <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
-                      <span style={{ fontSize:10, fontWeight:800, color:C.acc }}>🎸 카포</span>
-                      <div style={{ display:"flex", gap:3 }}>
-                      {[0,1,2,3,4,5,6,7].map(f => (
-                        <button key={f} onClick={() => setCapoFret(f)} style={{
-                          width:28, height:28, borderRadius:7,
-                          border:`1.5px solid ${capoFret===f ? C.acc : C.bdr}`,
-                          background: capoFret===f ? C.acc : "transparent",
-                          color: capoFret===f ? "#fff" : C.txt,
-                          fontSize:12, fontWeight:700, cursor:"pointer",
-                          display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit",
-                        }}>{f===0 ? "X" : f}</button>
-                      ))}
-                      </div>
-                    </div>
-                    {recItems.length > 0 && (
-                      <div style={colGrp}>
-                        <span style={{ ...lbl, color:C.acc }}>추천</span>
-                        <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
-                          {recItems.map(item => (
-                            <span key={item.name} style={{ fontSize:12, fontWeight:800, color:C.pur, whiteSpace:"nowrap" }}>{item.name} {item.shape}+{item.capo}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-                {/* 코드사전 */}
-                {showDict && (
-                  <>
-                    {divH}
-                    <button onClick={() => setShowChordDict(true)} style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 10px", borderRadius:7, border:`1.5px solid ${C.pur}55`, background:`${C.pur}11`, color:C.pur, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>🎵 코드사전</button>
-                  </>
-                )}
-                {/* 유틸리티 */}
-                <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
-                  {leader && chordData.length > 0 && (
-                    <button onClick={() => setChordMoveMode(m => !m)} style={{ border:`1px solid ${chordMoveMode ? C.grn : C.bdr}`, borderRadius:6, background: chordMoveMode ? `${C.grn}22` : "transparent", padding:"3px 8px", cursor:"pointer", fontSize:10, color: chordMoveMode ? C.grn : C.dim, fontFamily:"inherit", flexShrink:0 }}>
-                      {chordMoveMode ? "✋ 이동 ON" : "코드 이동"}
-                    </button>
-                  )}
-                  {chordMoveMode && chordData.length > 0 && <span style={{ fontSize:9, color:C.dim, whiteSpace:"nowrap" }}>더블탭: 복사 · 꾹: 삭제</span>}
-                  <button onClick={() => { const v = Math.max(0.4, Math.round((chordFontScale - 0.2) * 10) / 10); setChordFontScale(v); saveChordFontScale(v); }} disabled={chordFontScale <= 0.4} style={{ ...btnSt, width:28, height:28, fontSize:12, color: chordFontScale <= 0.4 ? C.bdr : C.txt }}>A−</button>
-                  <span style={{ fontSize:10, color:C.dim, minWidth:28, textAlign:"center" }}>{chordFontScale === 1.0 ? "크기" : `×${chordFontScale.toFixed(1)}`}</span>
-                  <button onClick={() => { const v = Math.min(2.0, Math.round((chordFontScale + 0.2) * 10) / 10); setChordFontScale(v); saveChordFontScale(v); }} disabled={chordFontScale >= 2.0} style={{ ...btnSt, width:28, height:28, fontSize:12, color: chordFontScale >= 2.0 ? C.bdr : C.txt }}>A+</button>
-                  <div style={{ width:1, height:20, background:C.bdr }} />
-                  {leader && <button onClick={() => { setTransposeSteps(0); setTransposeSteps2(0); setChordData([]); setChordData2([]); setDetectErr(""); setChordFontScale(1.0); }} style={{ background:"transparent", border:`1px solid ${C.bdr}`, borderRadius:6, padding:"4px 10px", cursor:"pointer", fontSize:11, color:C.dim, fontFamily:"inherit" }}>초기화</button>}
-                </div>
+                {utilBar(true)}
               </>
             );
           })()}
