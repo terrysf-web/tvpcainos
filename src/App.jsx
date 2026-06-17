@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.646";
+const APP_VERSION = "3.647";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -8489,6 +8489,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const handleTouchStart = (e) => {
     if (drawModeRef.current) return;
     if (penDownRef.current) return;
+    if (e.touches.length > 1) { touchStartX.current = null; return; } // 핀치 무시
+    if (zoomMul > 1.01) { touchStartX.current = null; return; }       // 확대 상태에서 pan 무시
     touchStartX.current    = e.touches[0].clientX;
     touchStartY.current    = e.touches[0].clientY;
     touchStartTime.current = Date.now();
@@ -8530,6 +8532,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const handleTouchMove = (e) => {
     if (drawModeRef.current) return;
     if (!swipeNav) return;
+    if (e.touches.length > 1) { touchStartX.current = null; return; } // 핀치 도중 취소
     if (touchStartX.current === null || touchFired.current) return;
     const dx = e.touches[0].clientX - touchStartX.current;
     const dy = e.touches[0].clientY - touchStartY.current;
