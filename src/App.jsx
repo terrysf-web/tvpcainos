@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.666";
+const APP_VERSION = "3.667";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10138,8 +10138,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       {/* 전조 서브툴바 */}
       {transposeMode && (
         <div style={{
-          display:"flex", alignItems:"center", gap:8, flexWrap:"wrap",
-          padding:"0 14px", minHeight:46, flexShrink:0,
+          display:"flex", alignItems:"flex-end", gap:8, flexWrap:"wrap",
+          padding:"6px 14px", minHeight:50, flexShrink:0,
           background:`${C.grn}0a`, borderBottom:`1px solid ${C.bdr}`,
           overflowX:"auto",
         }}>
@@ -10149,7 +10149,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               alignItems:"center", justifyContent:"center", fontFamily:"inherit", flexShrink:0 };
             const colGrp = { display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0 };
             const lbl = { fontSize:9, fontWeight:800, letterSpacing:"0.02em" };
-            const divH = <div style={{ width:1, height:36, background:C.bdr, flexShrink:0 }} />;
+            const divH = <div style={{ width:1, height:30, background:C.bdr, flexShrink:0, marginBottom:2 }} />;
             const isGuitar = getUserParts(user).includes("기타") || getUserParts(user).includes("일렉기타");
             const showCapo = isGuitar || leader;
             const showDict = ["기타","일렉기타","베이스","키보드","피아노"].some(p => getUserParts(user).includes(p)) || leader;
