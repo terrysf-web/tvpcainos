@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.663";
+const APP_VERSION = "3.664";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10343,8 +10343,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       padding:"5px 12px", cursor: detectingChords ? "not-allowed" : "pointer",
                       fontWeight:700, fontSize:11, color:"#fff", fontFamily:"inherit", flexShrink:0,
                     }}>{detectingChords ? "⏳ 감지 중..." : "🎵 코드 감지 (AI)"}</button>
-                  : <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ {chordData.length}개 감지됨</span>)
-                : chordData.length > 0 && <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ {chordData.length}개 감지됨</span>
+                  : null)
+                : null
               }
               {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
               {/* 카포 + 추천 + 코드사전 — 기타/일렉기타/리더 */}
