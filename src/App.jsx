@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.679";
+const APP_VERSION = "3.680";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10287,19 +10287,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         );
       })()}
 
-      {/* What's New 모달 */}
-      {showWhatsNewModal && (
-        <WhatsNewModal
-          items={whatsNewItems}
-          version={whatsNewVersion}
-          onClose={() => {
-            try { localStorage.setItem("tvpc_seen_whats_new", whatsNewVersion); } catch {}
-            setShowWhatsNewModal(false);
-          }}
-          C={C}
-        />
-      )}
-
       {/* 돋보기 루프 (스탬프 모드 / 애플펜슬) */}
       <canvas ref={loupeCanvasRef} width={160} height={160}
         style={{
@@ -16291,6 +16278,19 @@ export default function App() {
       {/* FOH → 멤버 메시지 배너 */}
       {fohMsgBanner && (
         <FohMsgToast message={fohMsgBanner.message} onDismiss={() => setFohMsgBanner(null)} />
+      )}
+
+      {/* What's New 모달 */}
+      {showWhatsNewModal && (
+        <WhatsNewModal
+          items={whatsNewItems}
+          version={whatsNewVersion}
+          onClose={() => {
+            try { localStorage.setItem("tvpc_seen_whats_new", whatsNewVersion); } catch {}
+            setShowWhatsNewModal(false);
+          }}
+          C={C}
+        />
       )}
 
       {notifPopup && (
