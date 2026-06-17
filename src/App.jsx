@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.672";
+const APP_VERSION = "3.673";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -16157,6 +16157,24 @@ export default function App() {
           <span style={{ flex:1, fontSize:13, fontWeight:600, minWidth:0 }}>
             🔧 새 빌드 v{adminBuildData?.build || APP_VERSION} (어드민)
           </span>
+          <button onClick={() => {
+              fetch(`/admin-version.json?t=${Date.now()}`).then(r => r.json()).then(data => {
+                if (data?.whatsNew?.length) {
+                  setWhatsNewItems(data.whatsNew);
+                  setWhatsNewVersion(data.build || APP_VERSION);
+                  setShowWhatsNewModal(true);
+                } else {
+                  alert("admin-version.json에 whatsNew 항목이 없습니다.");
+                }
+              }).catch(() => alert("admin-version.json 로드 실패"));
+            }}
+            style={{ background:"rgba(255,255,255,0.2)", color:"#fff", border:"1px solid rgba(255,255,255,0.4)",
+              borderRadius:8, padding:"10px 14px", fontWeight:700, fontSize:13,
+              cursor:"pointer", fontFamily:"inherit",
+              flexShrink:0, touchAction:"manipulation", WebkitTapHighlightColor:"transparent",
+            }}>
+            👁 미리보기
+          </button>
           <button onClick={releaseBuild} disabled={releasingBuild}
             style={{ background:"#fff", color:"#7c3aed", border:"none",
               borderRadius:8, padding:"10px 18px", fontWeight:800, fontSize:13,
