@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.667";
+const APP_VERSION = "3.668";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10194,8 +10194,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   {showCapo && (
                     <>
                       {divH}
-                      <span style={{ fontSize:10, fontWeight:800, color:C.acc, flexShrink:0 }}>🎸 카포</span>
-                      <div style={{ display:"flex", gap:3, flexShrink:0 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                        <span style={{ fontSize:10, fontWeight:800, color:C.acc }}>🎸 카포</span>
+                        <div style={{ display:"flex", gap:3 }}>
                         {[0,1,2,3,4,5,6,7].map(f => (
                           <button key={f} onClick={() => setCapoFret2(f)} style={{
                             width:28, height:28, borderRadius:7,
@@ -10206,6 +10207,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                             display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit",
                           }}>{f===0 ? "X" : f}</button>
                         ))}
+                        </div>
                       </div>
                       {recItems2.length > 0 && (
                         <div style={colGrp}>
@@ -10275,8 +10277,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 {showCapo && (
                   <>
                     {divH}
-                    <span style={{ fontSize:10, fontWeight:800, color:C.acc, flexShrink:0 }}>🎸 카포</span>
-                    <div style={{ display:"flex", gap:3, flexShrink:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                      <span style={{ fontSize:10, fontWeight:800, color:C.acc }}>🎸 카포</span>
+                      <div style={{ display:"flex", gap:3 }}>
                       {[0,1,2,3,4,5,6,7].map(f => (
                         <button key={f} onClick={() => setCapoFret(f)} style={{
                           width:28, height:28, borderRadius:7,
@@ -10287,6 +10290,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit",
                         }}>{f===0 ? "X" : f}</button>
                       ))}
+                      </div>
                     </div>
                     {recItems.length > 0 && (
                       <div style={colGrp}>
