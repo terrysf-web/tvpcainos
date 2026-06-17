@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.661";
+const APP_VERSION = "3.662";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -14868,8 +14868,8 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
   const navPur = "#2d2460";
   return (
     <div style={{
-      position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)",
-      width:"100%", maxWidth:640,
+      flexShrink:0,
+      width:"100%", maxWidth:640, margin:"0 auto",
       background: "transparent",
       backdropFilter: "none",
       WebkitBackdropFilter: "none",
@@ -14878,7 +14878,6 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
       padding:"4px 0",
       paddingBottom:"calc(4px + env(safe-area-inset-bottom))",
       zIndex:500,
-      transition:"background 0.3s",
     }}>
       {tabs.map(t => {
         const active = view === t.id;
@@ -16159,7 +16158,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ width:"100%", height:"100%", background:C.bg }}>
+    <div style={{ width:"100%", height:"100dvh", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* 일반 사용자 업데이트 배너 */}
       {updateAvailable && (() => {
         const doUpdate = async () => {
@@ -16239,35 +16238,39 @@ export default function App() {
           <span style={{ fontSize:13, fontWeight:700 }}>✓ v{adminBuildData?.build} 사용자 배포 완료!</span>
         </div>
       )}
-      {view === "home"          && <HomeSplashScreen user={user} />}
-      {view === "services"      && <ServicesScreen      {...shared} />}
-      {view === "foh"           && <HomeScreen           {...shared} />}
-      {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
-      {view === "library"       && <SongLibraryScreen   {...shared} />}
-      {view === "pdfViewer"     && (
-        <PDFViewerScreen {...shared} selectedSongId={selSongId}
-          selectedSvcId={selSvcId} selectedSvcSongIdx={selSvcSongIdx}
-          backTo={backTo} pdfjsReady={pdfjsReady} sharedGeminiKey={sharedGeminiKey} />
-      )}
-      {view === "notifications" && (
-        <NotificationsScreen
-          notifs={notifs}
-          services={services}
-          markNotifRead={markNotifRead}
-          markAllNotifRead={markAllNotifRead}
-          user={user}
-          nav={nav}
-        />
-      )}
-      {view === "live" && (user?.role === "admin" || (isBroadcast(user?.role) && anyLiveActive)) && (
-        <LiveScreen user={user} services={services} songs={songs} nav={nav} anyLiveActive={anyLiveActive} />
-      )}
-      {view === "profile" && (
-        <ProfileScreen user={user} onLogout={() => signOut(auth)}
-          onRoleUpdate={() => setUser(u => ({ ...u, role: "leader" }))}
-          sharedGeminiKey={sharedGeminiKey} />
-      )}
+      {/* 스크린 영역 — flex:1 로 남은 공간 차지, 각 스크린이 내부 스크롤 담당 */}
+      <div style={{ flex:1, overflow:"hidden", position:"relative", display:"flex", flexDirection:"column" }}>
+        {view === "home"          && <HomeSplashScreen user={user} />}
+        {view === "services"      && <ServicesScreen      {...shared} />}
+        {view === "foh"           && <HomeScreen           {...shared} />}
+        {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
+        {view === "library"       && <SongLibraryScreen   {...shared} />}
+        {view === "pdfViewer"     && (
+          <PDFViewerScreen {...shared} selectedSongId={selSongId}
+            selectedSvcId={selSvcId} selectedSvcSongIdx={selSvcSongIdx}
+            backTo={backTo} pdfjsReady={pdfjsReady} sharedGeminiKey={sharedGeminiKey} />
+        )}
+        {view === "notifications" && (
+          <NotificationsScreen
+            notifs={notifs}
+            services={services}
+            markNotifRead={markNotifRead}
+            markAllNotifRead={markAllNotifRead}
+            user={user}
+            nav={nav}
+          />
+        )}
+        {view === "live" && (user?.role === "admin" || (isBroadcast(user?.role) && anyLiveActive)) && (
+          <LiveScreen user={user} services={services} songs={songs} nav={nav} anyLiveActive={anyLiveActive} />
+        )}
+        {view === "profile" && (
+          <ProfileScreen user={user} onLogout={() => signOut(auth)}
+            onRoleUpdate={() => setUser(u => ({ ...u, role: "leader" }))}
+            sharedGeminiKey={sharedGeminiKey} />
+        )}
+      </div>
 
+      {/* 하단 탭바 — position:fixed 없이 flex 하단에 자연 배치 */}
       {view !== "pdfViewer" && (
         <BottomNav view={view} nav={nav} unread={unread} user={user} anyLiveActive={anyLiveActive} />
       )}
