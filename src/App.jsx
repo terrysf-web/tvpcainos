@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.670";
+const APP_VERSION = "3.671";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -7209,7 +7209,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [transposeSteps2, setTransposeSteps2] = useState(0);  // dual right
   const [capoFret,        setCapoFret]        = useState(0);  // 0=없음, 1~7 (기타/일렉기타만) — 싱글/듀얼 왼쪽
   const [capoFret2,       setCapoFret2]       = useState(0);  // 듀얼 오른쪽 전용
-  const [showChordDict,   setShowChordDict]   = useState(false);
+  const [showChordDict,   setShowChordDict]   = useState(""); // "" | "left" | "right"
   const [chordData,      setChordData]      = useState([]);   // [{chord,x,y}] — single / dual left
   const [chordData2,     setChordData2]     = useState([]);   // dual right
   const [chordFontScale, setChordFontScale] = useState(1.0);  // 0.4–2.0
@@ -10155,7 +10155,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             const showDict = ["기타","일렉기타","베이스","키보드","피아노"].some(p => getUserParts(user).includes(p)) || leader;
 
             // 싱글 모드 UI 한 섹션 — 듀얼/싱글 공통 사용
-            const renderSection = (songKey, steps, saveFn, capoVal, setCapo, chords, detectFn) => {
+            const renderSection = (songKey, steps, saveFn, capoVal, setCapo, chords, detectFn, side) => {
               const rec = showCapo && songKey ? getCapoRec(songKey, steps) : null;
               const recItems = rec ? [
                 ...((getUserParts(user).includes("기타") || leader) && rec.acoustic ? [{ name:"기타", shape:rec.acoustic.shape, capo:rec.acoustic.capo }] : []),
@@ -10219,7 +10219,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   {showDict && (
                     <>
                       {divH}
-                      <button onClick={() => setShowChordDict(true)} style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 10px", borderRadius:7, border:`1.5px solid ${C.pur}55`, background:`${C.pur}11`, color:C.pur, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>🎵 코드사전</button>
+                      <button onClick={() => setShowChordDict(side || "left")} style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 10px", borderRadius:7, border:`1.5px solid ${C.pur}55`, background:`${C.pur}11`, color:C.pur, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>🎵 코드사전</button>
                     </>
                   )}
                 </>
@@ -10268,16 +10268,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       )}
 
       {/* 코드 사전 모달 */}
-      {showChordDict && (
-        <ChordDictModal
-          onClose={() => setShowChordDict(false)}
-          songChords={songChords}
-          songKey={song?.key}
-          effectiveSteps={transposeSteps - capoFret}
-          userParts={getUserParts(user)}
-          C={C}
-        />
-      )}
+      {showChordDict && (() => {
+        const isRight = showChordDict === "right" && dual;
+        const rSongForDict = isRight ? songs?.find(s => s.id === dualRightSongId) : null;
+        const dictKey = isRight ? (rSongForDict?.key || song?.key) : song?.key;
+        const dictSteps = isRight ? transposeSteps2 : transposeSteps;
+        const dictCapo = isRight ? capoFret2 : capoFret;
+        return (
+          <ChordDictModal
+            onClose={() => setShowChordDict("")}
+            songChords={songChords}
+            songKey={dictKey}
+            effectiveSteps={dictSteps - dictCapo}
+            userParts={getUserParts(user)}
+            C={C}
+          />
+        );
+      })()}
 
       {/* 돋보기 루프 (스탬프 모드 / 애플펜슬) */}
       <canvas ref={loupeCanvasRef} width={160} height={160}
