@@ -138,9 +138,12 @@ export async function detectChordsViaEdge(imageData, userApiKey) {
 
 export async function uploadPdf(file, songId) {
   const { storage } = await import("./firebase.js");
-  const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
+  const { ref, uploadBytesResumable, getDownloadURL } = await import("firebase/storage");
   const fileRef = ref(storage, `pdfs/${songId}.pdf`);
-  await uploadBytes(fileRef, file, { contentType: "application/pdf" });
+  await new Promise((resolve, reject) => {
+    const task = uploadBytesResumable(fileRef, file, { contentType: "application/pdf" });
+    task.on("state_changed", null, reject, resolve);
+  });
   return getDownloadURL(fileRef);
 }
 
