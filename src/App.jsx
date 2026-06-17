@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.656";
+const APP_VERSION = "3.657";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -9786,37 +9786,39 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       {drawMode && (
         <div style={{ flexShrink:0, background:`${C.pur}0a`, borderBottom:`1px solid ${C.bdr}`, position:"relative" }}>
           {/* 필기 서브툴바 — 단일 스크롤 행 */}
-          <div style={{ display:"flex", alignItems:"center", gap:5, padding:"0 10px", height:44,
+          <div style={{ display:"flex", alignItems:"center", gap:4, padding:"0 10px", height:44,
             overflowX:"auto", background: drawTool === "select" && selAnnot ? `${C.pur}0e` : "transparent" }}>
-            {/* 도구 버튼 (아이콘만) */}
+            {/* 도구 버튼 — 텍스트 */}
             {[
-              { id:"select",      icon:"cursor",    title:"선택"   },
-              { id:"pen",         icon:"pen",       title:"펜"     },
-              { id:"highlighter", icon:"highlight", title:"마커"   },
-              { id:"cover",       icon:"cover",     title:"커버"   },
-              { id:"eraser",      icon:"eraser",    title:"지우개"  },
-              { id:"text",        icon:"textT",     title:"텍스트"  },
-              { id:"stamp",       icon:"stamp",     title:"스탬프"  },
-              { id:"shape",       icon:"slur",      title:"도형"   },
+              { id:"pen",         label:"펜"    },
+              { id:"highlighter", label:"마커"  },
+              { id:"cover",       label:"커버"  },
+              { id:"text",        label:"글자"  },
+              { id:"stamp",       label:"스탬프" },
+              { id:"shape",       label:"기호"  },
             ].map(t => (
-              <button key={t.id} onClick={() => setDrawTool(t.id)} title={t.title} style={{
-                width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center",
+              <button key={t.id} onClick={() => setDrawTool(t.id)} style={{
+                height:34, padding:"0 10px", flexShrink:0,
                 background: drawTool === t.id ? `${C.pur}22` : "transparent",
                 border:`1px solid ${drawTool === t.id ? C.pur : C.bdr}`,
-                borderRadius:7, cursor:"pointer", flexShrink:0,
-              }}>
-                <Icon n={t.icon} size={16} color={drawTool === t.id ? C.pur : C.dim} />
-              </button>
+                borderRadius:7, cursor:"pointer",
+                color: drawTool === t.id ? C.pur : C.dim,
+                fontSize:12, fontWeight:700, fontFamily:"inherit", whiteSpace:"nowrap",
+              }}>{t.label}</button>
             ))}
-            {/* 팀필기 토글 */}
+            {/* 팀필기 — 아이콘 + 텍스트 */}
             {leader && drawTool !== "select" && (
-              <button onClick={() => setTeamDrawMode(p => !p)} title="팀 필기" style={{
-                width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center",
+              <button onClick={() => setTeamDrawMode(p => !p)} style={{
+                height:34, padding:"0 10px", flexShrink:0,
+                display:"flex", alignItems:"center", gap:4,
                 background: teamDrawMode ? `${C.acc}22` : "transparent",
                 border:`1px solid ${teamDrawMode ? C.acc : C.bdr}`,
-                borderRadius:7, cursor:"pointer", flexShrink:0,
+                borderRadius:7, cursor:"pointer",
+                color: teamDrawMode ? C.acc : C.dim,
+                fontSize:12, fontWeight:700, fontFamily:"inherit",
               }}>
                 <span style={{ fontSize:14, lineHeight:1 }}>👥</span>
+                팀필기
               </button>
             )}
             <div style={{ width:1, height:20, background:C.bdr, flexShrink:0, marginLeft:2 }} />
@@ -9917,40 +9919,35 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   }} />
                 ))}
                 <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
-                {/* 굵기 */}
-                {[1, 2, 4].map(w => (
-                  <button key={w} onClick={() => setDrawWidth(w)} style={{
-                    width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center",
-                    background: drawWidth === w ? `${C.pur}22` : "transparent",
-                    border:`1px solid ${drawWidth === w ? C.pur : C.bdr}`,
-                    borderRadius:6, cursor:"pointer", flexShrink:0,
-                  }}>
-                    <div style={{
-                      width: w===1?4:w===2?7:11,
-                      height: w===1?4:w===2?7:11,
-                      borderRadius: (drawTool === "highlighter" || drawTool === "cover") ? 2 : "50%",
-                      background: drawTool === "eraser" ? C.dim : drawTool === "cover" ? "#ccc" : drawColor,
-                      outline: drawTool === "cover" ? "1px solid #999" : "none",
-                      opacity: drawTool === "eraser" ? 0.4 : 0.85,
-                    }} />
-                  </button>
-                ))}
+                {/* 굵기 S M L */}
+                <div style={{ display:"flex", flexShrink:0, border:`1px solid ${C.bdr}`, borderRadius:7, overflow:"hidden" }}>
+                  {[["S",1],["M",2],["L",4]].map(([lbl,w], i) => (
+                    <button key={w} onClick={() => setDrawWidth(w)} style={{
+                      height:34, padding:"0 10px", flexShrink:0,
+                      background: drawWidth === w ? `${C.pur}22` : "transparent",
+                      border:"none",
+                      borderLeft: i > 0 ? `1px solid ${C.bdr}` : "none",
+                      cursor:"pointer",
+                      color: drawWidth === w ? C.pur : C.dim,
+                      fontSize: lbl==="S" ? 9 : lbl==="M" ? 12 : 15,
+                      fontWeight:800, fontFamily:"inherit",
+                    }}>{lbl}</button>
+                  ))}
+                </div>
                 <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
-                {/* 실행취소 + 필기삭제 */}
-                <button onClick={handleUndo} title="실행취소" style={{
-                  width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center",
+                {/* 되돌리기 + 전체삭제 */}
+                <button onClick={handleUndo} style={{
+                  height:34, padding:"0 10px", flexShrink:0,
                   background:"transparent", border:`1px solid ${C.bdr}`,
-                  borderRadius:7, cursor:"pointer", flexShrink:0,
-                }}>
-                  <Icon n="undo" size={16} color={C.dim} />
-                </button>
-                <button onClick={handleClearPage} title="필기 전체 삭제" style={{
-                  width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center",
+                  borderRadius:7, cursor:"pointer",
+                  color:C.dim, fontSize:12, fontWeight:700, fontFamily:"inherit", whiteSpace:"nowrap",
+                }}>되돌리기</button>
+                <button onClick={handleClearPage} style={{
+                  height:34, padding:"0 10px", flexShrink:0,
                   background:"transparent", border:`1px solid ${C.red}44`,
-                  borderRadius:7, cursor:"pointer", flexShrink:0,
-                }}>
-                  <Icon n="trash" size={16} color={C.red} />
-                </button>
+                  borderRadius:7, cursor:"pointer",
+                  color:C.red, fontSize:12, fontWeight:700, fontFamily:"inherit", whiteSpace:"nowrap",
+                }}>전체삭제</button>
                 {drawSaveErr && (
                   <span style={{ fontSize:10, color:C.red, marginLeft:4, flexShrink:0 }}>⚠ {drawSaveErr}</span>
                 )}
