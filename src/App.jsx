@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.671";
+const APP_VERSION = "3.672";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10286,6 +10286,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         );
       })()}
 
+      {/* What's New 모달 */}
+      {showWhatsNewModal && (
+        <WhatsNewModal
+          items={whatsNewItems}
+          version={whatsNewVersion}
+          onClose={() => {
+            try { localStorage.setItem("tvpc_seen_whats_new", whatsNewVersion); } catch {}
+            setShowWhatsNewModal(false);
+          }}
+          C={C}
+        />
+      )}
+
       {/* 돋보기 루프 (스탬프 모드 / 애플펜슬) */}
       <canvas ref={loupeCanvasRef} width={160} height={160}
         style={{
@@ -14974,6 +14987,90 @@ function BassFretDiagram({ chordName }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   WHAT'S NEW MODAL
+══════════════════════════════════════════════════════════════════ */
+function WhatsNewModal({ items, version, onClose, C }) {
+  return (
+    <div
+      style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:9999,
+               display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background:C.surf, borderRadius:18, width:"100%", maxWidth:400,
+                 overflow:"hidden", boxShadow:"0 24px 60px rgba(0,0,0,0.35)" }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* 헤더 */}
+        <div style={{ background:"linear-gradient(135deg,#3a7bd5,#6b5de7)", padding:"22px 24px 18px", color:"#fff" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
+            <span>🎵</span>
+            <span style={{ background:"rgba(255,255,255,0.25)", borderRadius:20, padding:"2px 10px",
+                           fontSize:11, fontWeight:700, letterSpacing:"0.04em" }}>v{version}</span>
+          </div>
+          <div style={{ fontSize:20, fontWeight:800, letterSpacing:"-0.02em" }}>새로운 기능을 확인하세요</div>
+          <div style={{ fontSize:12, opacity:0.8, marginTop:2 }}>
+            {new Date().toLocaleDateString("ko-KR", { year:"numeric", month:"long", day:"numeric" })} 업데이트
+          </div>
+        </div>
+
+        {/* 바디 */}
+        <div style={{ maxHeight:"55vh", overflowY:"auto" }}>
+          {items.map((item, i) => (
+            <div key={i} style={{ borderBottom: i < items.length - 1 ? `1px solid ${C.bdr}` : "none" }}>
+              {item.image ? (
+                <>
+                  <img src={item.image} alt={item.title}
+                    style={{ width:"100%", display:"block", objectFit:"cover", maxHeight:180 }} />
+                  <div style={{ padding:"12px 16px 14px" }}>
+                    {item.tag && (
+                      <span style={{ display:"inline-block", background:`${item.tagColor||C.pur}18`,
+                        color:item.tagColor||C.pur, borderRadius:4, padding:"1px 7px",
+                        fontSize:10, fontWeight:700, marginBottom:5 }}>{item.tag}</span>
+                    )}
+                    <div style={{ fontSize:14, fontWeight:800, color:C.txt, marginBottom:3, letterSpacing:"-0.01em" }}>{item.title}</div>
+                    <div style={{ fontSize:12, color:C.dim, lineHeight:1.5 }}>{item.desc}</div>
+                  </div>
+                </>
+              ) : (
+                <div style={{ padding:"14px 16px", display:"flex", alignItems:"flex-start", gap:10 }}>
+                  <div style={{ width:32, height:32, borderRadius:8, flexShrink:0,
+                    background:`${item.tagColor||C.pur}18`, display:"flex",
+                    alignItems:"center", justifyContent:"center", fontSize:16 }}>
+                    {item.icon || "✨"}
+                  </div>
+                  <div>
+                    {item.tag && (
+                      <span style={{ display:"inline-block", background:`${item.tagColor||C.pur}18`,
+                        color:item.tagColor||C.pur, borderRadius:4, padding:"1px 7px",
+                        fontSize:10, fontWeight:700, marginBottom:3 }}>{item.tag}</span>
+                    )}
+                    <div style={{ fontSize:13, fontWeight:700, color:C.txt, marginBottom:2 }}>{item.title}</div>
+                    <div style={{ fontSize:11, color:C.dim, lineHeight:1.45 }}>{item.desc}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* 푸터 */}
+        <div style={{ padding:"14px 20px", borderTop:`1px solid ${C.bdr}`, display:"flex",
+                      alignItems:"center", justifyContent:"space-between", background:C.card }}>
+          <span style={{ fontSize:11, color:C.dim }}>버전 {version}</span>
+          <button onClick={onClose}
+            style={{ background:"linear-gradient(135deg,#3a7bd5,#6b5de7)", color:"#fff", border:"none",
+                     borderRadius:10, padding:"10px 28px", fontSize:14, fontWeight:700,
+                     cursor:"pointer", fontFamily:"inherit" }}>
+            확인했어요 ✓
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
    CHORD DICTIONARY MODAL
 ══════════════════════════════════════════════════════════════════ */
 function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, userParts, C }) {
@@ -15864,6 +15961,9 @@ export default function App() {
   const [adminBuildData,  setAdminBuildData]  = useState(null);
   const [releasingBuild,  setReleasingBuild]  = useState(false);
   const [releaseBuildOk,  setReleaseBuildOk]  = useState(false);
+  const [showWhatsNewModal,  setShowWhatsNewModal]  = useState(false);
+  const [whatsNewItems,      setWhatsNewItems]       = useState([]);
+  const [whatsNewVersion,    setWhatsNewVersion]     = useState("");
   useEffect(() => {
     // 일반 사용자: Firestore appConfig/release 버전이 현재보다 신버전일 때만 알림
     const unsub = onSnapshot(doc(db, "appConfig", "release"), (snap) => {
@@ -15894,6 +15994,20 @@ export default function App() {
       }
     }).catch(() => {});
   }, [isAdmin]);
+  useEffect(() => {
+    // What's New 모달: admin-version.json에 showWhatsNew:true이고 이 빌드를 아직 안 본 경우 표시
+    fetch(`/admin-version.json?t=${Date.now()}`).then(r => r.json()).then(data => {
+      if (!data?.showWhatsNew) return;
+      const build = data.build || "";
+      const seen = localStorage.getItem("tvpc_seen_whats_new");
+      if (seen === build) return;
+      if (data.whatsNew?.length) {
+        setWhatsNewItems(data.whatsNew);
+        setWhatsNewVersion(build);
+        setShowWhatsNewModal(true);
+      }
+    }).catch(() => {});
+  }, []);
   const releaseBuild = async () => {
     setReleasingBuild(true);
     try {
