@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.658";
+const APP_VERSION = "3.659";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10332,11 +10332,48 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 : chordData.length > 0 && <span style={{ fontSize:11, color:C.grn, fontWeight:700, flexShrink:0 }}>✓ {chordData.length}개 감지됨</span>
               }
               {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
-              {/* 코드사전 — 기타/일렉기타 없는 파트(베이스·키보드·피아노)용 — 기타 파트는 카포 카드에 포함 */}
-              {["베이스","키보드","피아노"].some(p => getUserParts(user).includes(p))
-               && !getUserParts(user).includes("기타")
-               && !getUserParts(user).includes("일렉기타")
-               && !leader && (
+              {/* 카포 + 추천 + 코드사전 — 기타/일렉기타/리더 */}
+              {(getUserParts(user).includes("기타") || getUserParts(user).includes("일렉기타") || leader) && (
+                <>
+                  <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
+                  <span style={{ fontSize:10, fontWeight:800, color:C.acc, flexShrink:0 }}>🎸 카포</span>
+                  <div style={{ display:"flex", gap:3, flexShrink:0 }}>
+                    {[0,1,2,3,4,5,6,7].map(f => (
+                      <button key={f} onClick={() => setCapoFret(f)} style={{
+                        width:28, height:28, borderRadius:7,
+                        border:`1.5px solid ${capoFret===f ? C.acc : C.bdr}`,
+                        background: capoFret===f ? C.acc : "transparent",
+                        color: capoFret===f ? "#fff" : C.txt,
+                        fontSize:12, fontWeight:700, cursor:"pointer",
+                        display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit",
+                      }}>{f===0 ? "X" : f}</button>
+                    ))}
+                  </div>
+                  {song?.key && (() => {
+                    const rec = getCapoRec(song.key, transposeSteps);
+                    if (!rec) return null;
+                    const parts = getUserParts(user);
+                    const hasAc = parts.includes("기타") || leader;
+                    const hasEl = parts.includes("일렉기타") || leader;
+                    const items = [];
+                    if (hasAc && rec.acoustic) items.push({ name:"기타", shape:rec.acoustic.shape, capo:rec.acoustic.capo });
+                    if (hasEl && rec.electric) items.push({ name:"일렉", shape:rec.electric.shape, capo:rec.electric.capo });
+                    if (!items.length) return null;
+                    return (
+                      <div style={{ display:"flex", flexDirection:"column", gap:1, flexShrink:0 }}>
+                        <span style={{ fontSize:9, fontWeight:800, color:C.acc, letterSpacing:"0.03em" }}>추천</span>
+                        {items.map(item => (
+                          <span key={item.name} style={{ fontSize:12, fontWeight:800, color:C.pur, whiteSpace:"nowrap" }}>
+                            {item.name} {item.shape}+{item.capo}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+              {/* 코드사전 */}
+              {(["기타","일렉기타","베이스","키보드","피아노"].some(p => getUserParts(user).includes(p)) || leader) && (
                 <>
                   <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
                   <button onClick={() => setShowChordDict(true)} style={{
@@ -10386,106 +10423,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               </div>
             </>
           )}
-        </div>
-      )}
-
-      {/* 카포 카드 — 싱글 모드, 기타/일렉기타/리더 */}
-      {transposeMode && !dual && (getUserParts(user).includes("기타") || getUserParts(user).includes("일렉기타") || leader) && (
-        <div style={{
-          margin:"0 10px 8px",
-          background: C.surf,
-          borderRadius:12,
-          border:`1px solid ${C.bdr}`,
-          overflow:"hidden",
-          flexShrink:0,
-        }}>
-          <div style={{ display:"flex", flexDirection: tbNarrow ? "column" : "row" }}>
-            {/* 왼쪽: 카포 버튼 */}
-            <div style={{ padding:"10px 14px", display:"flex", flexDirection:"column", gap:8 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                <span style={{ fontSize:14, lineHeight:1 }}>🎸</span>
-                <span style={{ fontSize:11, fontWeight:800, color:C.acc }}>카포</span>
-              </div>
-              <div style={{ display:"flex", gap:4 }}>
-                {[0,1,2,3,4,5,6,7].map(f => (
-                  <div key={f} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3, flexShrink:0 }}>
-                    <button onClick={() => setCapoFret(f)} style={{
-                      width:36, height:40, borderRadius:9,
-                      border:`1.5px solid ${capoFret===f ? C.acc : C.bdr}`,
-                      background: capoFret===f ? C.acc : "transparent",
-                      color: capoFret===f ? "#fff" : C.txt,
-                      fontSize:14, fontWeight:700, cursor:"pointer",
-                      display:"flex", alignItems:"center", justifyContent:"center",
-                      fontFamily:"inherit",
-                    }}>{f===0 ? "X" : f}</button>
-                    <span style={{
-                      fontSize:8, fontWeight:600, lineHeight:1, whiteSpace:"nowrap",
-                      color: f===capoFret ? C.acc : C.dim,
-                      opacity: f===0 || f===capoFret ? 1 : 0,
-                    }}>
-                      {f===0 ? "없음" : `${f}프렛`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 구분선 */}
-            {tbNarrow
-              ? <div style={{ height:1, background:C.bdr, margin:"0 14px" }} />
-              : <div style={{ width:1, background:C.bdr, flexShrink:0 }} />
-            }
-
-            {/* 오른쪽: 추천 + 코드사전 */}
-            <div style={{
-              padding:"10px 14px",
-              display:"flex",
-              flexDirection: tbNarrow ? "row" : "column",
-              gap:8,
-              alignItems: tbNarrow ? "center" : "flex-start",
-              flexWrap: tbNarrow ? "wrap" : "nowrap",
-            }}>
-              {song?.key && (() => {
-                const rec = getCapoRec(song.key, transposeSteps);
-                if (!rec) return null;
-                const parts = getUserParts(user);
-                const hasAc = parts.includes("기타") || leader;
-                const hasEl = parts.includes("일렉기타") || leader;
-                const items = [];
-                if (hasAc && rec.acoustic) items.push({ icon:"🎸", name:"기타", shape:rec.acoustic.shape, capo:rec.acoustic.capo });
-                if (hasEl && rec.electric) items.push({ icon:"🎹", name:"일렉", shape:rec.electric.shape, capo:rec.electric.capo });
-                if (!items.length) return null;
-                return (
-                  <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                    <span style={{ fontSize:9, fontWeight:800, color:C.acc, letterSpacing:"0.06em" }}>✨ 추천</span>
-                    <div style={{
-                      background:`${C.acc}0a`, borderRadius:8,
-                      border:`1px solid ${C.bdr}`, padding:"6px 10px",
-                      display:"flex", flexDirection:"column", gap:4,
-                    }}>
-                      {items.map(item => (
-                        <div key={item.name} style={{ display:"flex", alignItems:"center", gap:6 }}>
-                          <span style={{ fontSize:12, lineHeight:1 }}>{item.icon}</span>
-                          <span style={{ fontSize:10, color:C.dim, fontWeight:600, minWidth:20 }}>{item.name}</span>
-                          <span style={{ fontSize:15, fontWeight:800, color:C.pur }}>
-                            {item.shape}<span style={{ fontSize:12 }}> +{item.capo}</span>
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-              {(["기타","일렉기타","베이스","키보드","피아노"].some(p => getUserParts(user).includes(p)) || leader) && (
-                <button onClick={() => setShowChordDict(true)} style={{
-                  display:"flex", alignItems:"center", gap:4, padding:"5px 10px",
-                  borderRadius:7, border:`1.5px solid ${C.pur}55`,
-                  background:`${C.pur}11`, color:C.pur,
-                  fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
-                }}>🎵 코드사전</button>
-              )}
-            </div>
-          </div>
         </div>
       )}
 
