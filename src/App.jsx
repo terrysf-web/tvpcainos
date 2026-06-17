@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.674";
+const APP_VERSION = "3.675";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -12396,6 +12396,20 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
     } catch(e) { alert("배포 실패: " + e.message); }
     finally { setReleasing(false); }
   };
+  const [previewItems,   setPreviewItems]   = useState([]);
+  const [previewVersion, setPreviewVersion] = useState("");
+  const [showPreview,    setShowPreview]    = useState(false);
+  const openWhatsNewPreview = () => {
+    fetch(`/admin-version.json?t=${Date.now()}`).then(r => r.json()).then(data => {
+      if (data?.whatsNew?.length) {
+        setPreviewItems(data.whatsNew);
+        setPreviewVersion(data.build || APP_VERSION);
+        setShowPreview(true);
+      } else {
+        alert("admin-version.json에 whatsNew 항목이 없습니다.");
+      }
+    }).catch(() => alert("admin-version.json 로드 실패"));
+  };
   const [noLeader,    setNoLeader]    = useState(false);
   const [myPartSel,   setMyPartSel]   = useState(() => getUserParts(user));
   const [partSaving,  setPartSaving]  = useState(false);
@@ -12665,6 +12679,14 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
         <div style={{ background:`${C.pur}0d`, border:`1.5px solid ${C.pur}44`, borderRadius:12, padding:"14px 16px", marginBottom:10 }}>
           <div style={{ fontSize:12, fontWeight:800, color:C.pur, marginBottom:6 }}>🔧 사용자 배포</div>
           <div style={{ fontSize:11, color:C.dim, marginBottom:10 }}>현재 버전: <b style={{ color:C.txt }}>v{APP_VERSION}</b></div>
+          <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+            <button onClick={openWhatsNewPreview} style={{
+              flex:1, padding:"10px", borderRadius:9,
+              background:"transparent", color:C.pur,
+              border:`1.5px solid ${C.pur}66`, fontWeight:700, fontSize:13,
+              cursor:"pointer", fontFamily:"inherit",
+            }}>👁 What's New 미리보기</button>
+          </div>
           <button onClick={doReleaseBuild} disabled={releasing} style={{
             width:"100%", padding:"10px", borderRadius:9,
             background: releasing ? `${C.pur}55` : C.pur,
@@ -12672,6 +12694,14 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
             cursor: releasing ? "not-allowed" : "pointer", fontFamily:"inherit",
           }}>{releasing ? "배포 중…" : `✓ v${APP_VERSION} 사용자 배포`}</button>
         </div>
+      )}
+      {showPreview && (
+        <WhatsNewModal
+          items={previewItems}
+          version={previewVersion}
+          onClose={() => setShowPreview(false)}
+          C={C}
+        />
       )}
       <Btn label="로그아웃" icon="logout" onClick={onLogout} variant="ghost" full />
 
