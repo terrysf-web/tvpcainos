@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.650";
+const APP_VERSION = "3.651";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -8502,9 +8502,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (penDownRef.current) return;
     if (e.touches.length > 1) { touchStartX.current = null; return; }
     if (zoomMul > 1.01) {
-      // 확대 상태: 패닝 시작점 기록
-      touchStartX.current = e.touches[0].clientX;
-      touchStartY.current = e.touches[0].clientY;
+      // 확대 상태: 패닝 시작점 기록 (더블탭 판정용 시간도 포함)
+      touchStartX.current    = e.touches[0].clientX;
+      touchStartY.current    = e.touches[0].clientY;
+      touchStartTime.current = Date.now();
       return;
     }
     touchStartX.current    = e.touches[0].clientX;
