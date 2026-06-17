@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.660";
+const APP_VERSION = "3.661";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -5519,6 +5519,7 @@ function PdfPagePickerModal({ file, songTitle, onConfirm, onClose }) {
    SONG LIBRARY SCREEN
 ══════════════════════════════════════════════════════════════════ */
 function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotations, userMap, songDrawings }) {
+  const tbNarrow = window.innerWidth < 600;
   const [query,      setQuery]      = useState("");
   const [showAdd,    setShowAdd]    = useState(false);
   const [uploading,     setUploading]     = useState(null);
