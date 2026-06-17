@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.662";
+const APP_VERSION = "3.663";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10191,11 +10191,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   <div style={{ display:"flex", gap:3, flexShrink:0 }}>
                     {[0,1,2,3,4,5,6,7].map(f => (
                       <button key={f} onClick={() => setCapoFret(f)} style={{
-                        width:22, height:22, borderRadius:5,
+                        width:28, height:28, borderRadius:7,
                         border:`1.5px solid ${capoFret===f ? C.acc : C.bdr}`,
                         background: capoFret===f ? C.acc : "transparent",
                         color: capoFret===f ? "#fff" : C.txt,
-                        fontSize:10, fontWeight:700, cursor:"pointer",
+                        fontSize:12, fontWeight:700, cursor:"pointer",
                         display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit",
                       }}>{f===0 ? "X" : f}</button>
                     ))}
@@ -10206,14 +10206,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     const parts = getUserParts(user);
                     const hasAc = parts.includes("기타") || leader;
                     const hasEl = parts.includes("일렉기타") || leader;
-                    const tips = [];
-                    if (hasAc && rec.acoustic) tips.push(`기타 ${rec.acoustic.shape}+${rec.acoustic.capo}`);
-                    if (hasEl && rec.electric) tips.push(`일렉 ${rec.electric.shape}+${rec.electric.capo}`);
-                    if (!tips.length) return null;
+                    const items = [];
+                    if (hasAc && rec.acoustic) items.push({ name:"기타", shape:rec.acoustic.shape, capo:rec.acoustic.capo });
+                    if (hasEl && rec.electric) items.push({ name:"일렉", shape:rec.electric.shape, capo:rec.electric.capo });
+                    if (!items.length) return null;
                     return (
                       <div style={{ display:"flex", flexDirection:"column", gap:1, flexShrink:0 }}>
                         <span style={{ fontSize:9, fontWeight:800, color:C.acc, letterSpacing:"0.03em" }}>추천</span>
-                        {tips.map(t => <span key={t} style={{ fontSize:12, fontWeight:800, color:C.pur, whiteSpace:"nowrap" }}>{t}</span>)}
+                        {items.map(item => (
+                          <span key={item.name} style={{ fontSize:12, fontWeight:800, color:C.pur, whiteSpace:"nowrap" }}>
+                            {item.name} {item.shape}+{item.capo}
+                          </span>
+                        ))}
                       </div>
                     );
                   })()}
@@ -10247,14 +10251,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 {(getUserParts(user).includes("기타") || getUserParts(user).includes("일렉기타") || leader) && (
                   <>
                     <span style={{ fontSize:10, fontWeight:800, color:C.acc, flexShrink:0 }}>🎸 카포</span>
-                    <div style={{ display:"flex", gap:2, flexShrink:0 }}>
+                    <div style={{ display:"flex", gap:3, flexShrink:0 }}>
                       {[0,1,2,3,4,5,6,7].map(f => (
                         <button key={f} onClick={() => setCapoFret2(f)} style={{
-                          width:22, height:22, borderRadius:5,
+                          width:28, height:28, borderRadius:7,
                           border:`1.5px solid ${capoFret2===f ? C.acc : C.bdr}`,
                           background: capoFret2===f ? C.acc : "transparent",
                           color: capoFret2===f ? "#fff" : C.txt,
-                          fontSize:10, fontWeight:700, cursor:"pointer",
+                          fontSize:12, fontWeight:700, cursor:"pointer",
                           display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit",
                         }}>{f===0 ? "X" : f}</button>
                       ))}
