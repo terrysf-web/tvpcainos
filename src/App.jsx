@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.652";
+const APP_VERSION = "3.653";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -4743,6 +4743,10 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const downloadSvcProFile = async () => {
     const title = svcLyricsModal.song.title;
     const text  = svcLyricsModal.text;
+    if (!text || !text.trim()) {
+      alert("가사를 먼저 입력하세요. Pro 파일은 입력한 가사로 슬라이드를 생성합니다.");
+      return;
+    }
     const stanzaCount = text.split(/\n{2,}/).filter(s => s.trim()).length;
     if (stanzaCount > 12) {
       if (!window.confirm(`가사가 ${stanzaCount}단락입니다. 템플릿은 12슬라이드까지 지원하므로 처음 12단락만 사용됩니다. 계속할까요?`)) return;
@@ -4756,6 +4760,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       a.download = `${title.replace(/[\\\/:*?"<>|]/g, "_")}.pro`;
       a.click();
       URL.revokeObjectURL(url);
+      alert(`"${title}" — ${Math.min(stanzaCount, 12)}슬라이드 생성 완료!\n(입력한 가사로 교체된 .pro 파일입니다)`);
     } catch(e) {
       alert("PP7 파일 생성 실패: " + e.message);
     }
@@ -5633,6 +5638,10 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
   const downloadProFile = async () => {
     const title = lyricsModal.song.title;
     const text  = lyricsModal.text;
+    if (!text || !text.trim()) {
+      alert("가사를 먼저 입력하세요. Pro 파일은 입력한 가사로 슬라이드를 생성합니다.");
+      return;
+    }
     const stanzaCount = text.split(/\n{2,}/).filter(s => s.trim()).length;
     if (stanzaCount > 12) {
       if (!window.confirm(`가사가 ${stanzaCount}단락입니다. 템플릿은 12슬라이드까지 지원하므로 처음 12단락만 사용됩니다. 계속할까요?`)) return;
@@ -5646,6 +5655,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
       a.download = `${title.replace(/[\\\/:*?"<>|]/g, "_")}.pro`;
       a.click();
       URL.revokeObjectURL(url);
+      alert(`"${title}" — ${Math.min(stanzaCount, 12)}슬라이드 생성 완료!\n(입력한 가사로 교체된 .pro 파일입니다)`);
     } catch(e) {
       alert("PP7 파일 생성 실패: " + e.message);
     }
