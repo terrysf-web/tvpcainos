@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.677";
+const APP_VERSION = "3.678";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -15024,7 +15024,8 @@ function WhatsNewModal({ items, version, onClose, C }) {
   return (
     <div
       style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:9999,
-               display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+               display:"flex", alignItems:"center", justifyContent:"center", padding:20,
+               touchAction:"manipulation" }}
       onClick={onClose}
     >
       <div
@@ -15092,7 +15093,8 @@ function WhatsNewModal({ items, version, onClose, C }) {
           <button onClick={onClose}
             style={{ background:"linear-gradient(135deg,#3a7bd5,#6b5de7)", color:"#fff", border:"none",
                      borderRadius:10, padding:"10px 28px", fontSize:14, fontWeight:700,
-                     cursor:"pointer", fontFamily:"inherit" }}>
+                     cursor:"pointer", fontFamily:"inherit",
+                     touchAction:"manipulation", WebkitTapHighlightColor:"transparent" }}>
             확인했어요 ✓
           </button>
         </div>
