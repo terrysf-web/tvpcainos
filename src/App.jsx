@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.676";
+const APP_VERSION = "3.677";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1987,7 +1987,8 @@ function AddSongModal({ onClose, onAdd }) {
       onClose();
     } catch(e) {
       console.error(e);
-      alert("오류: " + e.message);
+      const detail = e.serverResponse || e.customData?.serverResponse || "";
+      alert("오류: " + e.message + (detail ? "\n\n서버 응답: " + detail : ""));
       setSaving(false);
       setSavingPage("");
     }
