@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.649";
+const APP_VERSION = "3.650";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -7086,6 +7086,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const touchFired     = useRef(false);
   const pinchStartDist = useRef(null);
   const pinchStartZoom = useRef(1.0);
+  const lastTapTime    = useRef(0);
   const toastTimer  = useRef(null);
   const penDownRef  = useRef(false); // 애플펜슬 터치 중 여부
   const dualFitModeRef   = useRef(false); // 듀얼 FIT 모드: 페이지 이동마다 자동 재적용
@@ -8593,8 +8594,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (drawModeRef.current) return;
-    // 확대 상태: 패닝 종료
-    if (zoomMul > 1.01) { touchStartX.current = null; return; }
+    // 확대 상태: 더블탭 → 원래화면 복귀 / 아니면 패닝 종료
+    if (zoomMul > 1.01) {
+      const now = Date.now();
+      const t = e.changedTouches[0];
+      const elapsed = now - (touchStartTime.current || 0);
+      if (elapsed < 250 && Math.abs(t.clientX - touchStartX.current) < 30
+          && Math.abs(t.clientY - touchStartY.current) < 30
+          && now - lastTapTime.current < 350) {
+        setZoomMul(1.0);
+        setPanOffset({ x: 0, y: 0 });
+        lastTapTime.current = 0;
+      } else {
+        lastTapTime.current = now;
+      }
+      touchStartX.current = null;
+      return;
+    }
     // touchMove에서 이미 처리된 경우 스킵
     if (touchFired.current || touchStartX.current === null) {
       touchStartX.current = null;
