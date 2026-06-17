@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.654";
+const APP_VERSION = "3.655";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -9762,12 +9762,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               {!isLibraryMode && svcPracticeUrl && <>
                 <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }}/>
                 <button onClick={() => setShowWorshipPlayer(p=>!p)} style={{
+                  position:"relative",
                   height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
                   background: showWorshipPlayer ? `${C.grn}22` : "transparent",
                   border:`1px solid ${showWorshipPlayer ? C.grn : C.bdr}`,
                   color: showWorshipPlayer ? C.grn : C.dim,
                   fontWeight:700, fontSize:11, fontFamily:"inherit",
-                }}>연습듣기</button>
+                }}>연습듣기
+                  {!showWorshipPlayer && (
+                    <span style={{ position:"absolute", top:3, right:3,
+                      width:6, height:6, borderRadius:"50%", background:C.grn, pointerEvents:"none",
+                    }} />
+                  )}
+                </button>
               </>}
             </div>
           )}
