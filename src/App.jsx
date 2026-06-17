@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.648";
+const APP_VERSION = "3.649";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -8500,7 +8500,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (drawModeRef.current) return;
     if (penDownRef.current) return;
     if (e.touches.length > 1) { touchStartX.current = null; return; }
-    if (zoomMul > 1.01) { touchStartX.current = null; return; } // 확대 상태 pan 무시
+    if (zoomMul > 1.01) {
+      // 확대 상태: 패닝 시작점 기록
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+      return;
+    }
     touchStartX.current    = e.touches[0].clientX;
     touchStartY.current    = e.touches[0].clientY;
     touchStartTime.current = Date.now();
@@ -8545,8 +8550,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const t0 = e.touches[0], t1 = e.touches[1];
       const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
       const ratio = dist / pinchStartDist.current;
-      const newZoom = Math.min(3.0, Math.max(0.5, +(pinchStartZoom.current * ratio).toFixed(2)));
+      const newZoom = Math.min(3.0, Math.max(1.0, +(pinchStartZoom.current * ratio).toFixed(2)));
+      if (newZoom <= 1.0) setPanOffset({ x: 0, y: 0 });
       setZoomMul(newZoom);
+      return;
+    }
+    // 확대 상태 1손가락 → 패닝
+    if (zoomMul > 1.01 && e.touches.length === 1 && touchStartX.current !== null) {
+      const dx = e.touches[0].clientX - touchStartX.current;
+      const dy = e.touches[0].clientY - touchStartY.current;
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+      const cont = containerRef.current;
+      const cnv  = canvas1Ref.current;
+      const maxX = cont && cnv ? Math.max(0, (cnv.offsetWidth  - cont.offsetWidth)  / 2) : 0;
+      const maxY = cont && cnv ? Math.max(0, (cnv.offsetHeight - cont.offsetHeight) / 2) : 0;
+      setPanOffset(prev => ({
+        x: Math.max(-maxX, Math.min(maxX, prev.x + dx)),
+        y: Math.max(-maxY, Math.min(maxY, prev.y + dy)),
+      }));
       return;
     }
     if (drawModeRef.current) return;
@@ -8571,6 +8593,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (drawModeRef.current) return;
+    // 확대 상태: 패닝 종료
+    if (zoomMul > 1.01) { touchStartX.current = null; return; }
     // touchMove에서 이미 처리된 경우 스킵
     if (touchFired.current || touchStartX.current === null) {
       touchStartX.current = null;
