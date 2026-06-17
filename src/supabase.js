@@ -196,11 +196,36 @@ export async function updateWorshipRecordingPart(docId, part, driveId, title) {
   await supabase.storage.from(REC_BUCKET).upload(recPath(docId), blob, { contentType: "application/json", upsert: true });
 }
 
+// 이미지 업로드 전 최대 1920px로 압축 (iOS 카메라 원본 등 대용량 파일 대응)
+async function _compressImage(file, maxPx = 1920, quality = 0.85) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const { naturalWidth: w, naturalHeight: h } = img;
+      const scale = Math.min(1, maxPx / Math.max(w, h));
+      const cw = Math.round(w * scale), ch = Math.round(h * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = cw; canvas.height = ch;
+      canvas.getContext("2d").drawImage(img, 0, 0, cw, ch);
+      const isPng = file.type === "image/png";
+      canvas.toBlob(blob => resolve(blob || file), isPng ? "image/png" : "image/jpeg", isPng ? 1 : quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 export async function uploadImage(file, songId) {
   const { storage } = await import("./firebase.js");
   const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
-  const ext = file.type.includes("png") ? "png" : "jpg";
+  const isPng = file.type === "image/png";
+  const ext = isPng ? "png" : "jpg";
+  // 2MB 초과 시 압축
+  const toUpload = file.size > 2 * 1024 * 1024 ? await _compressImage(file) : file;
+  const contentType = isPng ? "image/png" : "image/jpeg";
   const fileRef = ref(storage, `images/img_${songId}.${ext}`);
-  await uploadBytes(fileRef, file, { contentType: file.type });
+  await uploadBytes(fileRef, toUpload, { contentType });
   return getDownloadURL(fileRef);
 }
