@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.659";
+const APP_VERSION = "3.660";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -5719,12 +5719,8 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
               <div>{query || consonant ? "검색 결과가 없습니다" : "등록된 곡이 없습니다"}</div>
             </div>
           )}
-          {filtered.map(song => (
-            <div key={song.id} className="wFadeIn" style={{
-              background:C.card, borderRadius:14, padding:"13px 16px",
-              marginBottom:8, border:`1px solid ${C.bdr}`,
-              display:"flex", alignItems:"center", gap:12,
-            }}>
+          {filtered.map(song => {
+            const songIconBox = (
               <div style={{
                 width:46, height:46, borderRadius:11, flexShrink:0,
                 background: song.pdfUrl
@@ -5736,7 +5732,8 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                 display:"flex", alignItems:"center", justifyContent:"center",
                 fontSize:22,
               }}>{song.pdfUrl ? "📄" : song.imageUrl ? "🖼️" : "🎵"}</div>
-
+            );
+            const songInfoArea = (
               <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
                 onClick={() => nav("pdfViewer", { songId: song.id, svcId: null, backTo: "library" })}>
                 <div style={{ fontWeight:700, fontSize:14, letterSpacing:"-0.01em",
@@ -5749,6 +5746,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                   <Badge label={`♩ ${song.bpm}`} color={C.dim} />
                   {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF · 페이지${song.pdfPage}` : "PDF"} color={C.grn} />}
                   {song.imageUrl && !song.pdfUrl && <Badge label="이미지" color={C.acc} />}
+                  {song.lyrics && <Badge label="가사 ✓" color={C.grn} />}
                   {(() => {
                     const tNotes = (teamAnnotations || {})[song.id] || [];
                     const pNotes = (annotations || {})[song.id] || [];
@@ -5785,89 +5783,101 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                   })()}
                 </div>
               </div>
-
-              {isLeader(user.role) && (
-                <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-                  {(uploading === song.id || imgUploading === song.id) ? (
-                    <div style={{ fontSize:11, color:C.acc, padding:"0 6px" }}>업로드 중...</div>
-                  ) : (
-                    <>
-                      <button onClick={() => { setEditSong(song); setEditForm({ title: song.title, artist: song.artist || "", key: song.key || "", bpm: song.bpm || "", timeSig: song.timeSig || "4/4", youtubeUrl: song.youtubeUrl || "" }); }}
-                        title="편집"
-                        style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                          width:34, height:34, borderRadius:9, cursor:"pointer",
-                          background:`${C.acc}22`, border:`1px solid ${C.acc}55` }}>
-                        <Icon n="pen" size={14} color={C.acc} />
-                      </button>
-                      <button onClick={() => setLyricsModal({ song, text: song.lyrics || "" })}
-                        title={song.lyrics ? "가사입력 완료 — 클릭하여 편집" : "가사 편집 / .pro 다운로드"}
-                        style={{ display:"flex", alignItems:"center", gap:4,
-                          height:34, borderRadius:9, cursor:"pointer",
-                          padding: song.lyrics ? "0 10px" : "0",
-                          width: song.lyrics ? "auto" : 34,
-                          justifyContent:"center",
-                          background: song.lyrics ? `${C.grn}22` : `${C.pur}12`,
-                          border:`1px solid ${song.lyrics ? C.grn+"66" : C.pur+"33"}` }}>
-                        <Icon n="note" size={14} color={song.lyrics ? C.grn : C.dim} />
-                        {song.lyrics && <span style={{ fontSize:11, fontWeight:700, color:C.grn, fontFamily:"inherit", whiteSpace:"nowrap" }}>가사입력 완료</span>}
-                      </button>
-                      {(song.pdfUrl || song.imageUrl) && (
-                        <button onClick={() => setCropSong({ id: song.id, pdfUrl: song.pdfUrl || null, imageUrl: song.imageUrl || null, cropBox: song.cropBox || null })}
-                          title="크롭 설정"
-                          style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                            width:34, height:34, borderRadius:9, cursor:"pointer",
-                            background: song.cropBox ? `${C.acc}22` : `${C.pur}12`,
-                            border:`1px solid ${song.cropBox ? C.acc+"55" : C.pur+"33"}` }}>
-                          <Icon n="fitCrop" size={14} color={song.cropBox ? C.acc : C.pur} />
-                        </button>
-                      )}
-                      {/* PDF 업로드 — 클릭 시 메모 체크 후 파일 선택창 열기 */}
-                      <input type="file" accept=".pdf,application/pdf"
-                        style={{ display:"none" }} id={`up-${song.id}`}
-                        onChange={e => handleUpload(e, song.id)} />
-                      <button
-                        onClick={() => {
-                          if (!checkMemoBeforeReplace(song)) {
-                            document.getElementById(`up-${song.id}`)?.click();
-                          }
-                        }}
-                        title={song.pdfUrl ? "PDF 교체" : "PDF 업로드"}
-                        style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                          width:34, height:34, borderRadius:9, cursor:"pointer",
-                          background: song.pdfUrl ? `${C.grn}22` : C.surf,
-                          border:`1px solid ${song.pdfUrl ? C.grn : C.bdr}` }}>
-                        <Icon n="upload" size={14} color={song.pdfUrl ? C.grn : C.dim} />
-                      </button>
-                      {/* 이미지 업로드 — 클릭 시 메모 체크 후 파일 선택창 열기 */}
-                      <input type="file" accept="image/*"
-                        style={{ display:"none" }} id={`img-${song.id}`}
-                        onChange={e => handleImgUpload(e, song.id)} />
-                      <button
-                        onClick={() => {
-                          if (!checkMemoBeforeReplace(song)) {
-                            document.getElementById(`img-${song.id}`)?.click();
-                          }
-                        }}
-                        title={song.imageUrl ? "이미지 교체" : "이미지 업로드"}
-                        style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                          width:34, height:34, borderRadius:9, cursor:"pointer",
-                          background: song.imageUrl ? `${C.acc}22` : C.surf,
-                          border:`1px solid ${song.imageUrl ? C.acc+"55" : C.bdr}` }}>
-                        <span style={{ fontSize:14 }}>🖼️</span>
-                      </button>
-                      <button onClick={() => setConfirmDel(song.id)}
-                        title="곡 삭제"
-                        style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                          width:34, height:34, borderRadius:9, cursor:"pointer",
-                          background:`${C.red}11`, border:`1px solid ${C.red}33` }}>
-                        <Icon n="trash" size={14} color={C.red} />
-                      </button>
-                    </>
+            );
+            const BtnSz = tbNarrow ? 32 : 34;
+            const IcoSz = tbNarrow ? 13 : 14;
+            const songActionBtns = isLeader(user.role) ? (
+              (uploading === song.id || imgUploading === song.id) ? (
+                <div style={{ fontSize:11, color:C.acc, padding:"0 6px" }}>업로드 중...</div>
+              ) : (
+                <>
+                  <button onClick={() => { setEditSong(song); setEditForm({ title: song.title, artist: song.artist || "", key: song.key || "", bpm: song.bpm || "", timeSig: song.timeSig || "4/4", youtubeUrl: song.youtubeUrl || "" }); }}
+                    title="편집"
+                    style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                      width:BtnSz, height:BtnSz, borderRadius:9, cursor:"pointer",
+                      background:`${C.acc}22`, border:`1px solid ${C.acc}55` }}>
+                    <Icon n="pen" size={IcoSz} color={C.acc} />
+                  </button>
+                  <button onClick={() => setLyricsModal({ song, text: song.lyrics || "" })}
+                    title={song.lyrics ? "가사입력 완료 — 클릭하여 편집" : "가사 편집 / .pro 다운로드"}
+                    style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                      width:BtnSz, height:BtnSz, borderRadius:9, cursor:"pointer",
+                      background: song.lyrics ? `${C.grn}22` : `${C.pur}12`,
+                      border:`1px solid ${song.lyrics ? C.grn+"66" : C.pur+"33"}` }}>
+                    <Icon n="note" size={IcoSz} color={song.lyrics ? C.grn : C.dim} />
+                  </button>
+                  {(song.pdfUrl || song.imageUrl) && (
+                    <button onClick={() => setCropSong({ id: song.id, pdfUrl: song.pdfUrl || null, imageUrl: song.imageUrl || null, cropBox: song.cropBox || null })}
+                      title="크롭 설정"
+                      style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                        width:BtnSz, height:BtnSz, borderRadius:9, cursor:"pointer",
+                        background: song.cropBox ? `${C.acc}22` : `${C.pur}12`,
+                        border:`1px solid ${song.cropBox ? C.acc+"55" : C.pur+"33"}` }}>
+                      <Icon n="fitCrop" size={IcoSz} color={song.cropBox ? C.acc : C.pur} />
+                    </button>
+                  )}
+                  <input type="file" accept=".pdf,application/pdf"
+                    style={{ display:"none" }} id={`up-${song.id}`}
+                    onChange={e => handleUpload(e, song.id)} />
+                  <button
+                    onClick={() => { if (!checkMemoBeforeReplace(song)) document.getElementById(`up-${song.id}`)?.click(); }}
+                    title={song.pdfUrl ? "PDF 교체" : "PDF 업로드"}
+                    style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                      width:BtnSz, height:BtnSz, borderRadius:9, cursor:"pointer",
+                      background: song.pdfUrl ? `${C.grn}22` : C.surf,
+                      border:`1px solid ${song.pdfUrl ? C.grn : C.bdr}` }}>
+                    <Icon n="upload" size={IcoSz} color={song.pdfUrl ? C.grn : C.dim} />
+                  </button>
+                  <input type="file" accept="image/*"
+                    style={{ display:"none" }} id={`img-${song.id}`}
+                    onChange={e => handleImgUpload(e, song.id)} />
+                  <button
+                    onClick={() => { if (!checkMemoBeforeReplace(song)) document.getElementById(`img-${song.id}`)?.click(); }}
+                    title={song.imageUrl ? "이미지 교체" : "이미지 업로드"}
+                    style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                      width:BtnSz, height:BtnSz, borderRadius:9, cursor:"pointer",
+                      background: song.imageUrl ? `${C.acc}22` : C.surf,
+                      border:`1px solid ${song.imageUrl ? C.acc+"55" : C.bdr}` }}>
+                    <span style={{ fontSize:IcoSz+1 }}>🖼️</span>
+                  </button>
+                  <button onClick={() => setConfirmDel(song.id)}
+                    title="곡 삭제"
+                    style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                      width:BtnSz, height:BtnSz, borderRadius:9, cursor:"pointer",
+                      background:`${C.red}11`, border:`1px solid ${C.red}33` }}>
+                    <Icon n="trash" size={IcoSz} color={C.red} />
+                  </button>
+                </>
+              )
+            ) : null;
+            return (
+              <div key={song.id} className="wFadeIn" style={{
+                background:C.card, borderRadius:14, padding:"13px 16px",
+                marginBottom:8, border:`1px solid ${C.bdr}`,
+                display:"flex", flexDirection:"column", gap:0,
+              }}>
+                {/* 상단: 아이콘 + 곡 정보 (+ 넓은 화면에서만 버튼 인라인) */}
+                <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                  {songIconBox}
+                  {songInfoArea}
+                  {!tbNarrow && isLeader(user.role) && (
+                    <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                      {songActionBtns}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-          ))}
+                {/* 하단: 모바일에서 버튼 별도 행 */}
+                {tbNarrow && isLeader(user.role) && (
+                  <div style={{
+                    display:"flex", gap:5, marginTop:10, paddingTop:10,
+                    borderTop:`1px solid ${C.bdr}`,
+                  }}>
+                    {songActionBtns}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* 자음 인덱스 */}
