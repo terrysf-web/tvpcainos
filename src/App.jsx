@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.653";
+const APP_VERSION = "3.654";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -9477,7 +9477,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             const scoreActive = transposeMode || media;
             const teamActive = false; // 팀채팅은 직접 버튼으로 분리
             const recActive = recording || recCount > 0 || (!isLibraryMode && showWorshipPlayer);
-            const mkGrp = (name, itemActive, color, badge) => {
+            const mkGrp = (name, itemActive, color, badge, dot) => {
               const isOpen = activeGroup === name;
               const c = isOpen ? C.acc : (itemActive ? (color || C.acc) : C.dim);
               return (
@@ -9501,6 +9501,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       display:"flex", alignItems:"center", justifyContent:"center",
                       padding:"0 3px", pointerEvents:"none", lineHeight:1,
                     }}>{badge > 9 ? "9+" : badge}</span>
+                  )}
+                  {dot && !badge && (
+                    <span style={{ position:"absolute", top:3, right:3,
+                      width:6, height:6, borderRadius:"50%",
+                      background:C.grn, pointerEvents:"none",
+                    }} />
                   )}
                 </button>
               );
@@ -9538,7 +9544,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     </button>
                   );
                 })()}
-                {mkGrp("녹음", recActive, recording ? C.red : C.acc, 0)}
+                {mkGrp("녹음", recActive, recording ? C.red : C.acc, 0, !isLibraryMode && !!svcPracticeUrl)}
                 {dlActive && mkGrp("다운로드", false, C.acc, 0)}
                 <button onClick={() => setShowMobileHelp(true)} style={{
                   flexShrink:0, height:28, width:28,
