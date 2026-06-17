@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>필기 툴바 목업</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a2e; font-family: -apple-system, 'Noto Sans KR', sans-serif;
+    display: flex; flex-direction: column; align-items: center; padding: 40px 16px; gap: 32px; }
+
+  h3 { color: #aaa; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; align-self: flex-start; }
+
+  .phone {
+    width: 375px; background: #f2f2f7; border-radius: 32px;
+    overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+  .sheet-area {
+    height: 280px; background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    background-image: repeating-linear-gradient(#e8e8e8 0 1px, transparent 1px 24px),
+                      repeating-linear-gradient(90deg, #e8e8e8 0 1px, transparent 1px 24px);
+    background-size: 24px 24px;
+    position: relative;
+  }
+  .sheet-area::after {
+    content: "악보 영역";
+    color: #ccc; font-size: 13px; font-weight: 500;
+  }
+
+  /* ── 툴바 ── */
+  .toolbar {
+    background: #f9f9fb;
+    border-top: 1px solid #e0e0e5;
+    padding: 0;
+  }
+  .toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    height: 48px;
+  }
+  .toolbar-row::-webkit-scrollbar { display: none; }
+
+  /* 기본 버튼 */
+  .btn {
+    flex-shrink: 0;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid #d8d8de;
+    background: #fff;
+    color: #444;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .btn.active {
+    background: #7c3aed22;
+    border-color: #7c3aed88;
+    color: #7c3aed;
+  }
+  .btn.active-pen {
+    background: #7c3aed22;
+    border-color: #7c3aed88;
+    color: #7c3aed;
+  }
+  .btn.cover {
+    background: #fff;
+  }
+  .btn.team {
+    color: #0ea5e9;
+    border-color: #0ea5e988;
+    background: #0ea5e911;
+  }
+  .btn.danger {
+    color: #ef4444;
+    border-color: #ef444466;
+    background: #ef444411;
+  }
+  .btn.ghost {
+    color: #888;
+    border-color: #e0e0e5;
+    background: transparent;
+  }
+
+  /* S M L 그룹 */
+  .size-group {
+    display: flex;
+    flex-shrink: 0;
+    border: 1px solid #d8d8de;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .size-btn {
+    width: 30px;
+    height: 34px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 700;
+    color: #888;
+    font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .size-btn + .size-btn::before {
+    content: "";
+    position: absolute; left: 0; top: 20%; height: 60%;
+    width: 1px; background: #e0e0e5;
+  }
+  .size-btn.active {
+    background: #7c3aed22;
+    color: #7c3aed;
+  }
+  /* S = 작은 글자, M = 중간, L = 큰 글자 시각적 표현 */
+  .s-label { font-size: 8px; font-weight: 800; }
+  .m-label { font-size: 11px; font-weight: 800; }
+  .l-label { font-size: 14px; font-weight: 800; }
+
+  .divider {
+    width: 1px; height: 22px;
+    background: #d8d8de;
+    flex-shrink: 0;
+    margin: 0 2px;
+  }
+
+  /* ── 다크 버전 ── */
+  .phone.dark { background: #111118; }
+  .phone.dark .sheet-area { background: #0d0d14; filter: invert(0); }
+  .phone.dark .sheet-area::after { color: #333; }
+  .phone.dark .toolbar { background: #1c1c28; border-top-color: #2a2a3a; }
+  .phone.dark .btn { background: #252535; border-color: #353548; color: #bbb; }
+  .phone.dark .btn.active-pen { background: #7c3aed33; border-color: #7c3aed; color: #a78bfa; }
+  .phone.dark .btn.team { background: #0ea5e922; border-color: #0ea5e966; color: #38bdf8; }
+  .phone.dark .btn.danger { background: #ef444422; border-color: #ef444466; color: #f87171; }
+  .phone.dark .btn.ghost { background: transparent; border-color: #2a2a3a; color: #555; }
+  .phone.dark .size-group { background: #252535; border-color: #353548; }
+  .phone.dark .size-btn { color: #666; }
+  .phone.dark .size-btn::before { background: #353548 !important; }
+  .phone.dark .size-btn.active { background: #7c3aed33; color: #a78bfa; }
+  .phone.dark .divider { background: #2a2a3a; }
+
+  .label { color: #777; font-size: 11px; text-align: center; }
+</style>
+</head>
+<body>
+
+<h3>필기 툴바 목업</h3>
+
+<!-- 라이트 모드 -->
+<div class="phone">
+  <div class="sheet-area"></div>
+  <div class="toolbar">
+    <div class="toolbar-row">
+      <!-- 도구 -->
+      <button class="btn active-pen">✏️ 펜</button>
+      <button class="btn">🖊️ 마커</button>
+      <button class="btn cover">⬜ 커버</button>
+      <button class="btn">T 글자</button>
+      <button class="btn">🔖 스탬프</button>
+      <button class="btn">◻ 도형</button>
+      <button class="btn team">👥 팀필기</button>
+
+      <div class="divider"></div>
+
+      <!-- 크기 S M L -->
+      <div class="size-group">
+        <button class="size-btn"><span class="s-label">S</span></button>
+        <button class="size-btn active"><span class="m-label">M</span></button>
+        <button class="size-btn"><span class="l-label">L</span></button>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- 액션 -->
+      <button class="btn ghost">↩ 되돌리기</button>
+      <button class="btn danger">🗑 전체삭제</button>
+    </div>
+  </div>
+</div>
+<div class="label">라이트 모드 · 펜 선택됨 · M 크기</div>
+
+<!-- 다크 모드 -->
+<div class="phone dark">
+  <div class="sheet-area"></div>
+  <div class="toolbar">
+    <div class="toolbar-row">
+      <button class="btn">✏️ 펜</button>
+      <button class="btn">🖊️ 마커</button>
+      <button class="btn active-pen">⬜ 커버</button>
+      <button class="btn">T 글자</button>
+      <button class="btn">🔖 스탬프</button>
+      <button class="btn">◻ 도형</button>
+      <button class="btn team">👥 팀필기</button>
+
+      <div class="divider"></div>
+
+      <div class="size-group">
+        <button class="size-btn active"><span class="s-label">S</span></button>
+        <button class="size-btn"><span class="m-label">M</span></button>
+        <button class="size-btn"><span class="l-label">L</span></button>
+      </div>
+
+      <div class="divider"></div>
+
+      <button class="btn ghost">↩ 되돌리기</button>
+      <button class="btn danger">🗑 전체삭제</button>
+    </div>
+  </div>
+</div>
+<div class="label">다크 모드 · 커버 선택됨 · S 크기</div>
+
+</body>
+</html>
