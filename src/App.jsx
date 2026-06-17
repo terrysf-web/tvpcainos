@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.647";
+const APP_VERSION = "3.648";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -7084,6 +7084,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const touchStartY    = useRef(null);
   const touchStartTime = useRef(null);
   const touchFired     = useRef(false);
+  const pinchStartDist = useRef(null);
+  const pinchStartZoom = useRef(1.0);
   const toastTimer  = useRef(null);
   const penDownRef  = useRef(false); // 애플펜슬 터치 중 여부
   const dualFitModeRef   = useRef(false); // 듀얼 FIT 모드: 페이지 이동마다 자동 재적용
@@ -8487,10 +8489,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   }, [dualIdx, svcSongs, showToast]);
 
   const handleTouchStart = (e) => {
+    // 2손가락 핀치줌 — 필기 중에도 동작
+    if (e.touches.length === 2) {
+      const t0 = e.touches[0], t1 = e.touches[1];
+      pinchStartDist.current = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      pinchStartZoom.current = zoomMul;
+      touchStartX.current = null;
+      return;
+    }
     if (drawModeRef.current) return;
     if (penDownRef.current) return;
-    if (e.touches.length > 1) { touchStartX.current = null; return; } // 핀치 무시
-    if (zoomMul > 1.01) { touchStartX.current = null; return; }       // 확대 상태에서 pan 무시
+    if (e.touches.length > 1) { touchStartX.current = null; return; }
+    if (zoomMul > 1.01) { touchStartX.current = null; return; } // 확대 상태 pan 무시
     touchStartX.current    = e.touches[0].clientX;
     touchStartY.current    = e.touches[0].clientY;
     touchStartTime.current = Date.now();
@@ -8530,9 +8540,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
 
   const handleTouchMove = (e) => {
+    // 핀치줌 처리 — 필기 중에도 동작
+    if (e.touches.length === 2 && pinchStartDist.current !== null) {
+      const t0 = e.touches[0], t1 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      const ratio = dist / pinchStartDist.current;
+      const newZoom = Math.min(3.0, Math.max(0.5, +(pinchStartZoom.current * ratio).toFixed(2)));
+      setZoomMul(newZoom);
+      return;
+    }
     if (drawModeRef.current) return;
     if (!swipeNav) return;
-    if (e.touches.length > 1) { touchStartX.current = null; return; } // 핀치 도중 취소
+    if (e.touches.length > 1) { touchStartX.current = null; return; }
     if (touchStartX.current === null || touchFired.current) return;
     const dx = e.touches[0].clientX - touchStartX.current;
     const dy = e.touches[0].clientY - touchStartY.current;
@@ -8544,6 +8563,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
 
   const handleTouchEnd = (e) => {
+    // 핀치 종료
+    if (pinchStartDist.current !== null) {
+      pinchStartDist.current = null;
+      touchStartX.current = null;
+      touchFired.current = false;
+      return;
+    }
     if (drawModeRef.current) return;
     // touchMove에서 이미 처리된 경우 스킵
     if (touchFired.current || touchStartX.current === null) {
