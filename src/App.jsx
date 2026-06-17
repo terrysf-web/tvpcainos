@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.651";
+const APP_VERSION = "3.652";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -15992,6 +15992,7 @@ export default function App() {
   const [adminNewBuild,   setAdminNewBuild]   = useState(false);
   const [adminBuildData,  setAdminBuildData]  = useState(null);
   const [releasingBuild,  setReleasingBuild]  = useState(false);
+  const [releaseBuildOk,  setReleaseBuildOk]  = useState(false);
   useEffect(() => {
     // 일반 사용자: Firestore appConfig/release 버전이 현재보다 신버전일 때만 알림
     const unsub = onSnapshot(doc(db, "appConfig", "release"), (snap) => {
@@ -16014,6 +16015,9 @@ export default function App() {
       const buildTime  = adminData?.buildTime ? new Date(adminData.buildTime) : null;
       const releasedAt = snap.data()?.releasedAt?.toDate?.() || null;
       if (buildTime && (!releasedAt || buildTime > releasedAt)) {
+        // 이미 이 빌드를 배포/닫기 한 경우 다시 표시 안 함
+        const dismissed = localStorage.getItem("tvpc_dismissed_build");
+        if (dismissed === adminData.buildTime) return;
         setAdminNewBuild(true);
         setAdminBuildData(adminData);
       }
@@ -16024,8 +16028,12 @@ export default function App() {
     try {
       const newVersion = adminBuildData?.build || APP_VERSION;
       await setDoc(doc(db, "appConfig", "release"), { version: newVersion, releasedAt: serverTimestamp() });
+      if (adminBuildData?.buildTime) {
+        try { localStorage.setItem("tvpc_dismissed_build", adminBuildData.buildTime); } catch {}
+      }
       setAdminNewBuild(false);
-      alert(`v${newVersion} 정식 배포 완료! 사용자들에게 업데이트 알림이 갑니다.`);
+      setReleaseBuildOk(true);
+      setTimeout(() => setReleaseBuildOk(false), 3000);
     } catch(e) { alert("배포 실패: " + e.message); }
     finally { setReleasingBuild(false); }
   };
@@ -16172,12 +16180,28 @@ export default function App() {
             }}>
             {releasingBuild ? "배포 중…" : "사용자 배포"}
           </button>
-          <button onClick={() => setAdminNewBuild(false)}
+          <button onClick={() => {
+              if (adminBuildData?.buildTime) {
+                try { localStorage.setItem("tvpc_dismissed_build", adminBuildData.buildTime); } catch {}
+              }
+              setAdminNewBuild(false);
+            }}
             style={{ background:"none", border:"none",
               color:"#fff", borderRadius:8, padding:"10px 14px", fontSize:20, lineHeight:1,
               cursor:"pointer", fontFamily:"inherit", flexShrink:0,
               touchAction:"manipulation", WebkitTapHighlightColor:"transparent",
             }}>✕</button>
+        </div>
+      )}
+      {/* 어드민 전용: 배포 완료 알림 */}
+      {isAdmin && releaseBuildOk && (
+        <div style={{
+          position:"fixed", top:0, left:0, right:0, zIndex:9999,
+          background:"#16a34a", color:"#fff",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          padding:"12px 14px",
+        }}>
+          <span style={{ fontSize:13, fontWeight:700 }}>✓ v{adminBuildData?.build} 사용자 배포 완료!</span>
         </div>
       )}
       {view === "home"          && <HomeSplashScreen user={user} />}
