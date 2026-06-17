@@ -137,13 +137,42 @@ export async function detectChordsViaEdge(imageData, userApiKey) {
 }
 
 export async function uploadPdf(file, songId) {
-  const { storage, auth } = await import("./firebase.js");
-  const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
-  // 업로드 전 토큰 갱신 (모바일에서 만료된 토큰으로 인한 실패 방지)
-  try { if (auth.currentUser) await auth.currentUser.getIdToken(true); } catch {}
-  const fileRef = ref(storage, `pdfs/${songId}.pdf`);
-  await uploadBytes(fileRef, file, { contentType: "application/pdf" });
-  return getDownloadURL(fileRef);
+  const { auth } = await import("./firebase.js");
+  const BUCKET = "tvpcainos.firebasestorage.app";
+
+  // ── 1차: Firebase Storage REST API (fetch 사용 — iOS Safari XHR 우회)
+  try {
+    const token = await auth.currentUser?.getIdToken(true);
+    if (!token) throw new Error("unauthenticated");
+    const path = `pdfs/${songId}.pdf`;
+    const encodedPath = encodeURIComponent(path);
+    const res = await fetch(
+      `https://firebasestorage.googleapis.com/v0/b/${BUCKET}/o?uploadType=media&name=${encodedPath}`,
+      {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/pdf" },
+        body: file,
+      }
+    );
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw Object.assign(new Error(`HTTP ${res.status}`), { serverResponse: txt, code: `storage/http-${res.status}` });
+    }
+    const json = await res.json();
+    const dlToken = json.downloadTokens;
+    return `https://firebasestorage.googleapis.com/v0/b/${BUCKET}/o/${encodedPath}?alt=media&token=${dlToken}`;
+  } catch (e) {
+    console.warn("Firebase Storage upload failed, trying Supabase fallback:", e);
+  }
+
+  // ── 2차: Supabase Storage fallback
+  const sbPath = `pdfs/${songId}.pdf`;
+  const { data, error } = await supabase.storage.from("pdfs").upload(sbPath, file, {
+    contentType: "application/pdf", upsert: true,
+  });
+  if (error) throw new Error(error.message);
+  const { data: { publicUrl } } = supabase.storage.from("pdfs").getPublicUrl(sbPath);
+  return publicUrl;
 }
 
 // 예배 서비스 설정 (practiceUrl 등) — Supabase Storage (Firestore 할당량 우회)
@@ -220,15 +249,44 @@ async function _compressImage(file, maxPx = 1920, quality = 0.85) {
 }
 
 export async function uploadImage(file, songId) {
-  const { storage, auth } = await import("./firebase.js");
-  const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
-  try { if (auth.currentUser) await auth.currentUser.getIdToken(true); } catch {}
+  const { auth } = await import("./firebase.js");
+  const BUCKET = "tvpcainos.firebasestorage.app";
   const isPng = file.type === "image/png";
   const ext = isPng ? "png" : "jpg";
-  // 2MB 초과 시 압축
-  const toUpload = file.size > 2 * 1024 * 1024 ? await _compressImage(file) : file;
   const contentType = isPng ? "image/png" : "image/jpeg";
-  const fileRef = ref(storage, `images/img_${songId}.${ext}`);
-  await uploadBytes(fileRef, toUpload, { contentType });
-  return getDownloadURL(fileRef);
+  const toUpload = file.size > 2 * 1024 * 1024 ? await _compressImage(file) : file;
+
+  // ── 1차: Firebase Storage REST API (fetch 사용 — iOS Safari XHR 우회)
+  try {
+    const token = await auth.currentUser?.getIdToken(true);
+    if (!token) throw new Error("unauthenticated");
+    const path = `images/img_${songId}.${ext}`;
+    const encodedPath = encodeURIComponent(path);
+    const res = await fetch(
+      `https://firebasestorage.googleapis.com/v0/b/${BUCKET}/o?uploadType=media&name=${encodedPath}`,
+      {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": contentType },
+        body: toUpload,
+      }
+    );
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw Object.assign(new Error(`HTTP ${res.status}`), { serverResponse: txt, code: `storage/http-${res.status}` });
+    }
+    const json = await res.json();
+    const dlToken = json.downloadTokens;
+    return `https://firebasestorage.googleapis.com/v0/b/${BUCKET}/o/${encodedPath}?alt=media&token=${dlToken}`;
+  } catch (e) {
+    console.warn("Firebase Storage image upload failed, trying Supabase fallback:", e);
+  }
+
+  // ── 2차: Supabase Storage fallback
+  const sbPath = `images/img_${songId}.${ext}`;
+  const { data, error } = await supabase.storage.from("pdfs").upload(sbPath, toUpload, {
+    contentType, upsert: true,
+  });
+  if (error) throw new Error(error.message);
+  const { data: { publicUrl } } = supabase.storage.from("pdfs").getPublicUrl(sbPath);
+  return publicUrl;
 }
