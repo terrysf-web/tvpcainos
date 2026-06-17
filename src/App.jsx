@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.680";
+const APP_VERSION = "3.681";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1986,9 +1986,10 @@ function AddSongModal({ onClose, onAdd }) {
       }
       onClose();
     } catch(e) {
-      console.error(e);
+      console.error("upload error", e, e?.code, e?.customData);
       const detail = e.serverResponse || e.customData?.serverResponse || "";
-      alert("오류: " + e.message + (detail ? "\n\n서버 응답: " + detail : ""));
+      const code = e.code ? ` [${e.code}]` : "";
+      alert("오류: " + e.message + code + (detail ? "\n\n서버 응답: " + detail : ""));
       setSaving(false);
       setSavingPage("");
     }
@@ -5609,7 +5610,9 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
       const url = await uploadPdf(file, songId);
       await updateDoc(doc(db, "songs", songId), { pdfUrl: url, pdfPage: pageNum });
     } catch (err) {
-      alert("업로드 실패: " + err.message);
+      console.error("pdf upload error", err, err?.code, err?.customData);
+      const detail2 = err.customData?.serverResponse || "";
+      alert("업로드 실패: " + err.message + (err.code ? ` [${err.code}]` : "") + (detail2 ? "\n" + detail2 : ""));
     } finally {
       setUploading(null);
     }
@@ -5624,7 +5627,8 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
       const url = await uploadImage(file, songId);
       await updateDoc(doc(db, "songs", songId), { imageUrl: url });
     } catch (err) {
-      alert("이미지 업로드 실패: " + err.message);
+      console.error("img upload error", err, err?.code, err?.customData);
+      alert("이미지 업로드 실패: " + err.message + (err.code ? ` [${err.code}]` : ""));
     } finally {
       setImgUploading(null);
     }

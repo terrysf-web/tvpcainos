@@ -137,13 +137,12 @@ export async function detectChordsViaEdge(imageData, userApiKey) {
 }
 
 export async function uploadPdf(file, songId) {
-  const { storage } = await import("./firebase.js");
-  const { ref, uploadBytesResumable, getDownloadURL } = await import("firebase/storage");
+  const { storage, auth } = await import("./firebase.js");
+  const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
+  // 업로드 전 토큰 갱신 (모바일에서 만료된 토큰으로 인한 실패 방지)
+  try { if (auth.currentUser) await auth.currentUser.getIdToken(true); } catch {}
   const fileRef = ref(storage, `pdfs/${songId}.pdf`);
-  await new Promise((resolve, reject) => {
-    const task = uploadBytesResumable(fileRef, file, { contentType: "application/pdf" });
-    task.on("state_changed", null, reject, resolve);
-  });
+  await uploadBytes(fileRef, file, { contentType: "application/pdf" });
   return getDownloadURL(fileRef);
 }
 
@@ -221,8 +220,9 @@ async function _compressImage(file, maxPx = 1920, quality = 0.85) {
 }
 
 export async function uploadImage(file, songId) {
-  const { storage } = await import("./firebase.js");
+  const { storage, auth } = await import("./firebase.js");
   const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
+  try { if (auth.currentUser) await auth.currentUser.getIdToken(true); } catch {}
   const isPng = file.type === "image/png";
   const ext = isPng ? "png" : "jpg";
   // 2MB 초과 시 압축
