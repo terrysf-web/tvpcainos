@@ -12640,6 +12640,39 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
   const [showTeam,    setShowTeam]    = useState(false);
   const [claiming,    setClaiming]    = useState(false);
   const [releasing,   setReleasing]   = useState(false);
+  const [migrating,   setMigrating]   = useState(false);
+  const doMigrateFlags = async () => {
+    setMigrating(true);
+    try {
+      const [recsSnap, svcsSnap] = await Promise.all([
+        getDocs(collection(db, "worshipRecordings")),
+        getDocs(collection(db, "services")),
+      ]);
+      const serviceIdsWithRecs = new Set();
+      recsSnap.docs.forEach(d => { if (d.data().serviceId) serviceIdsWithRecs.add(d.data().serviceId); });
+
+      const batch = writeBatch(db);
+      svcsSnap.docs.forEach(svcDoc => {
+        const data = svcDoc.data();
+        const updates = {};
+        if (serviceIdsWithRecs.has(svcDoc.id)) updates.hasRecordings = true;
+        if ((data.shareCount || 0) > 0) updates.notified = true;
+        if (Object.keys(updates).length > 0) batch.update(doc(db, "services", svcDoc.id), updates);
+      });
+      await batch.commit();
+
+      let practiceCount = 0;
+      for (const svcDoc of svcsSnap.docs) {
+        const settings = await loadServiceSettings(svcDoc.id).catch(() => null);
+        if (settings?.practiceUrl) {
+          await updateDoc(doc(db, "services", svcDoc.id), { hasPracticeUrl: true }).catch(() => {});
+          practiceCount++;
+        }
+      }
+      alert(`마이그레이션 완료!\n예배녹음: ${serviceIdsWithRecs.size}개\n알림완료: 설정됨\n연습녹음: ${practiceCount}개`);
+    } catch(e) { alert("마이그레이션 실패: " + e.message); }
+    finally { setMigrating(false); }
+  };
   const doReleaseBuild = async () => {
     setReleasing(true);
     try {
@@ -12945,6 +12978,12 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
             color:"#fff", border:"none", fontWeight:800, fontSize:13,
             cursor: releasing ? "not-allowed" : "pointer", fontFamily:"inherit",
           }}>{releasing ? "배포 중…" : `✓ v${APP_VERSION} 사용자 배포`}</button>
+          <button onClick={doMigrateFlags} disabled={migrating} style={{
+            width:"100%", marginTop:8, padding:"9px", borderRadius:9,
+            background: migrating ? `${C.dim}33` : `${C.dim}18`,
+            color: C.dim, border:`1px solid ${C.bdr}`, fontWeight:700, fontSize:12,
+            cursor: migrating ? "not-allowed" : "pointer", fontFamily:"inherit",
+          }}>{migrating ? "마이그레이션 중…" : "🔄 기존 배지 데이터 마이그레이션"}</button>
         </div>
       )}
       {showPreview && (
