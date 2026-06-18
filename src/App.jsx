@@ -1865,6 +1865,7 @@ function EditServiceModal({ svc, onClose, onSave, onPracticeUrlSaved }) {
       if (practiceUrlLoaded) {
         const trimmedUrl = practiceUrl.trim() || null;
         await saveServiceSettings(svc.id, { practiceUrl: trimmedUrl });
+        updateDoc(doc(db, "services", svc.id), { hasPracticeUrl: !!trimmedUrl }).catch(() => {});
         onPracticeUrlSaved?.(trimmedUrl);
       }
       const changed = title !== svc.title || date !== svc.date || time !== (svc.time || "");
@@ -4274,9 +4275,15 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
               {svc.title}{svc.time ? ` · ${svc.time}` : ""}
             </div>
           </div>
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, flexShrink:0, marginLeft:8 }}>
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", gap:3, flexShrink:0, marginLeft:8 }}>
             {svc.notified && (
-              <span style={{ fontSize:11, color:C.dim }}>✓ 알림완료</span>
+              <span style={{ fontSize:10, fontWeight:700, color:C.dim, background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:4, padding:"2px 7px", whiteSpace:"nowrap" }}>알림완료</span>
+            )}
+            {svc.hasRecordings && (
+              <span style={{ fontSize:10, fontWeight:700, color:C.dim, background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:4, padding:"2px 7px", whiteSpace:"nowrap" }}>예배녹음</span>
+            )}
+            {svc.hasPracticeUrl && (
+              <span style={{ fontSize:10, fontWeight:700, color:C.dim, background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:4, padding:"2px 7px", whiteSpace:"nowrap" }}>연습녹음</span>
             )}
           </div>
         </div>
@@ -4855,6 +4862,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       senderRole: user.role || "leader",
     });
     sendFcmPush(title, body);
+    updateDoc(doc(db, "services", svc.id), { notified: true }).catch(() => {});
     setNotifContent("");
     setNotifType("예배 악보");
     setNotifSending(false);
@@ -4862,7 +4870,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   };
 
   const doKakaoSend = (text, countKey = "shareCount") => {
-    const doCount = () => updateDoc(doc(db, "services", svc.id), { [countKey]: increment(1) }).catch(() => {});
+    const doCount = () => updateDoc(doc(db, "services", svc.id), { [countKey]: increment(1), notified: true }).catch(() => {});
     if (window.Kakao?.isInitialized()) {
       window.Kakao.Share.sendDefault({
         objectType: "text",
@@ -6561,6 +6569,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
         updatedAt:    new Date().toISOString(),
         parts:        partsData,
       });
+      if (svc?.id) updateDoc(doc(db, "services", svc.id), { hasRecordings: true }).catch(() => {});
 
       setPartLinks({}); setAddTitle(""); setShowAdd(false);
       setRefreshKey(k => k + 1);
