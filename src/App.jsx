@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.687";
+const APP_VERSION = "3.688";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -7278,7 +7278,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // ── Stamp + loupe
   const [stampSymbol, setStampSymbol] = useState("f");
   const [stampItalic, setStampItalic] = useState(true);
-  const [stampSize,   setStampSize]   = useState(6); // 3–40
+  const [stampSize,        setStampSize]        = useState(6); // 3–40
+  const [showStampPalette, setShowStampPalette] = useState(false);
   const [loupePos, setLoupePos] = useState(null); // { x, y } viewport coords
   const loupeCanvasRef = useRef(null);
   const lastPt1Ref = useRef({ x: 0.5, y: 0.5 });
@@ -7722,6 +7723,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   useEffect(() => {
     if (drawTool !== "select") setSelAnnot(null);
     setStampPanel(null);
+    setShowStampPalette(drawTool === "stamp");
   }, [drawTool]);
 
   // Clear selection on page/song change
@@ -9972,7 +9974,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               { id:"stamp",       label:"스탬프" },
               { id:"shape",       label:"기호"  },
             ].map(t => (
-              <button key={t.id} onClick={() => setDrawTool(t.id)} style={{
+              <button key={t.id} onClick={() => {
+                if (t.id === "stamp" && drawTool === "stamp") {
+                  setShowStampPalette(p => !p);
+                } else {
+                  setDrawTool(t.id);
+                }
+              }} style={{
                 height:34, padding:"0 10px", flexShrink:0,
                 background: drawTool === t.id ? `${C.pur}22` : "transparent",
                 border:`1px solid ${drawTool === t.id ? C.pur : C.bdr}`,
@@ -9981,6 +9989,24 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 fontSize:12, fontWeight:700, fontFamily:"inherit", whiteSpace:"nowrap",
               }}>{t.label}</button>
             ))}
+            {/* 스탬프 모드 — 현재 심볼 표시 & 팔레트 토글 */}
+            {drawTool === "stamp" && (
+              <button onClick={() => setShowStampPalette(p => !p)} style={{
+                height:34, padding:"0 9px", flexShrink:0, display:"flex", alignItems:"center", gap:5,
+                background: showStampPalette ? `${C.pur}18` : C.card,
+                border:`1.5px solid ${showStampPalette ? C.pur : C.bdr}`,
+                borderRadius:7, cursor:"pointer",
+              }}>
+                <span style={{
+                  fontSize:14, fontWeight:700,
+                  color: stampItalic ? C.pur : C.txt,
+                  fontStyle: stampItalic ? "italic" : "normal",
+                  fontFamily: stampItalic ? '"Times New Roman", Georgia, serif' : "inherit",
+                  minWidth:18, textAlign:"center",
+                }}>{stampSymbol}</span>
+                <span style={{ fontSize:10, color:C.dim, fontWeight:600 }}>{stampSize}</span>
+              </button>
+            )}
             {/* 팀필기 — 아이콘 + 텍스트 */}
             {leader && drawTool !== "select" && (
               <button onClick={() => setTeamDrawMode(p => !p)} style={{
@@ -10129,8 +10155,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               </>
             )}
           </div>
-          {/* 스탬프 팔레트 — 플로팅 오버레이 (악보 공간 유지) */}
-          {drawTool === "stamp" && (
+          {/* 스탬프 팔레트 — 심볼 선택 후 자동 닫힘 */}
+          {drawTool === "stamp" && showStampPalette && (
             <div style={{
               position:"absolute", top:"100%", right:10, zIndex:500,
               background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}`,
@@ -10163,7 +10189,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     flexShrink:0, letterSpacing:"0.04em" }}>{group.label}</span>
                   {group.items.map(st => (
                     <button key={st.sym}
-                      onClick={() => { setStampSymbol(st.sym); setStampItalic(st.italic); }}
+                      onClick={() => { setStampSymbol(st.sym); setStampItalic(st.italic); setShowStampPalette(false); }}
                       style={{
                         width:38, height:32,
                         display:"flex", alignItems:"center", justifyContent:"center",
@@ -10210,7 +10236,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         textAlign:"right", flexShrink:0 }}>코드</span>
                       {diatonic.map(({ name }) => (
                         <button key={name}
-                          onClick={() => { setStampSymbol(name); setStampItalic(false); }}
+                          onClick={() => { setStampSymbol(name); setStampItalic(false); setShowStampPalette(false); }}
                           style={{
                             height:28, padding:"0 6px", minWidth:36,
                             display:"flex", alignItems:"center", justifyContent:"center",
