@@ -4280,10 +4280,10 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
               <span style={{ fontSize:10, fontWeight:700, color:C.dim, background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:4, padding:"2px 7px", whiteSpace:"nowrap" }}>알림완료</span>
             )}
             {svc.hasRecordings && (
-              <span style={{ fontSize:10, fontWeight:700, color:C.dim, background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:4, padding:"2px 7px", whiteSpace:"nowrap" }}>예배녹음</span>
+              <span style={{ fontSize:10, fontWeight:700, color:"#1a9e3f", background:"#34c75914", border:"1px solid #34c75940", borderRadius:4, padding:"2px 7px", whiteSpace:"nowrap" }}>예배녹음</span>
             )}
             {svc.hasPracticeUrl && (
-              <span style={{ fontSize:10, fontWeight:700, color:C.dim, background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:4, padding:"2px 7px", whiteSpace:"nowrap" }}>연습녹음</span>
+              <span style={{ fontSize:10, fontWeight:700, color:"#b07020", background:"#e8a93e14", border:"1px solid #e8a93e40", borderRadius:4, padding:"2px 7px", whiteSpace:"nowrap" }}>연습녹음</span>
             )}
           </div>
         </div>
@@ -4449,13 +4449,24 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
                         {svc.title}
                       </div>
                     </div>
-                    {svcSongs.length > 0 && (
-                      <span style={{
-                        fontSize:11, color:C.dim,
-                        background:C.bg, border:`1px solid ${C.bdr}`,
-                        borderRadius:5, padding:"1px 6px", flexShrink:0,
-                      }}>{svcSongs.length}곡</span>
-                    )}
+                    <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                      {svcSongs.length > 0 && (
+                        <span style={{
+                          fontSize:11, color:C.dim,
+                          background:C.bg, border:`1px solid ${C.bdr}`,
+                          borderRadius:5, padding:"1px 6px",
+                        }}>{svcSongs.length}곡</span>
+                      )}
+                      {svc.notified && (
+                        <span style={{ fontSize:10, fontWeight:700, color:C.dim, background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:4, padding:"1px 6px" }}>알림완료</span>
+                      )}
+                      {svc.hasRecordings && (
+                        <span style={{ fontSize:10, fontWeight:700, color:"#1a9e3f", background:"#34c75914", border:"1px solid #34c75940", borderRadius:4, padding:"1px 6px" }}>예배녹음</span>
+                      )}
+                      {svc.hasPracticeUrl && (
+                        <span style={{ fontSize:10, fontWeight:700, color:"#b07020", background:"#e8a93e14", border:"1px solid #e8a93e40", borderRadius:4, padding:"1px 6px" }}>연습녹음</span>
+                      )}
+                    </div>
                     <Icon n="chevR" size={14} color={C.bdr} />
                   </div>
                 );
