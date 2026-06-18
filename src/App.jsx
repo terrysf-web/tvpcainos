@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.688";
+const APP_VERSION = "3.689";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -10274,7 +10274,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                               return k === chordPickRoot || k.startsWith(chordPickRoot) || k === r || k.startsWith(r);
                             })
                             .map(name => (
-                              <button key={name} onClick={() => { setStampSymbol(name); setStampItalic(false); setChordPickRoot(""); }} style={{
+                              <button key={name} onClick={() => { setStampSymbol(name); setStampItalic(false); setChordPickRoot(""); setShowStampPalette(false); }} style={{
                                 height:28, padding:"0 7px",
                                 display:"flex", alignItems:"center", justifyContent:"center",
                                 background: stampSymbol === name ? `${C.pur}22` : "transparent",
