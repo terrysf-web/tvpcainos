@@ -93,6 +93,7 @@ jobs:
           EOF
 
       - name: Storage Rules 배포 (REST API)
+        continue-on-error: true
         env:
           SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
