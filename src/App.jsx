@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.686";
+const APP_VERSION = "3.687";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1034,26 +1034,21 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
         ctx.textBaseline = "middle";
         const sym = s.symbol || "f";
         const textW = ctx.measureText(sym).width;
-        const padX = sz * 0.55;
-        const padY = sz * 0.35;
+        const padX = sz * 0.28;
+        const padY = sz * 0.18;
         const boxW = textW + padX * 2;
         const boxH = sz + padY * 2;
         const bx = px - boxW / 2;
         const by = py - boxH / 2;
-        const rad = Math.max(3, sz * 0.28);
-        // shadow + background
-        ctx.shadowColor = "rgba(0,0,0,0.16)";
-        ctx.shadowBlur = sz * 0.55;
-        ctx.shadowOffsetY = sz * 0.12;
-        ctx.fillStyle = "rgba(255,255,255,0.95)";
+        const rad = Math.max(2, sz * 0.22);
+        // shadow + background only (no border)
+        ctx.shadowColor = "rgba(0,0,0,0.18)";
+        ctx.shadowBlur = sz * 0.5;
+        ctx.shadowOffsetY = sz * 0.1;
+        ctx.fillStyle = "rgba(255,255,255,0.94)";
         roundedRect(ctx, bx, by, boxW, boxH, rad);
         ctx.fill();
         ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-        // border
-        ctx.strokeStyle = s.color || "#e8383b";
-        ctx.lineWidth = Math.max(1, sz * 0.1);
-        roundedRect(ctx, bx, by, boxW, boxH, rad);
-        ctx.stroke();
         // text
         ctx.fillStyle = s.color || "#e8383b";
         ctx.fillText(sym, px, py);
@@ -1136,9 +1131,8 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
       ctx.globalAlpha = 0.85;
       if (sel.tool === "stamp") {
         const sz = Math.max(7, (sel.size || 10) * canvas.width / 450);
-        const pad = sz * 0.7;
-        const r = Math.max(4, sz * 0.35);
-        roundedRect(ctx, px - sz - pad, py - sz * 0.8, (sz + pad) * 2, sz * 1.6, r);
+        const hw = sz * 1.4, hh = sz * 0.9;
+        roundedRect(ctx, px - hw, py - hh, hw * 2, hh * 2, Math.max(3, sz * 0.25));
         ctx.stroke();
       } else {
         ctx.beginPath();
@@ -7284,7 +7278,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // ── Stamp + loupe
   const [stampSymbol, setStampSymbol] = useState("f");
   const [stampItalic, setStampItalic] = useState(true);
-  const [stampSize,   setStampSize]   = useState(12); // 6–40
+  const [stampSize,   setStampSize]   = useState(6); // 3–40
   const [loupePos, setLoupePos] = useState(null); // { x, y } viewport coords
   const loupeCanvasRef = useRef(null);
   const lastPt1Ref = useRef({ x: 0.5, y: 0.5 });
@@ -8973,7 +8967,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const pt = getCanvasPt(e, canvas);
       // Hit-test existing stamps — tap existing to select & show resize panel
       const sRef1s = teamDrawMode ? teamStrokes1Ref : strokes1Ref;
-      let bestIdx1 = -1, bestDist1 = 0.07;
+      let bestIdx1 = -1, bestDist1 = 0.05;
       sRef1s.current.forEach((s, i) => {
         if (s.tool !== "stamp") return;
         const sp = s.points?.[0]; if (!sp) return;
@@ -8984,6 +8978,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         const newSel = { idx: bestIdx1, canvasNum: 1, isTeam: teamDrawMode };
         setSelAnnot(newSel); selAnnotRef.current = newSel;
         const sp = sRef1s.current[bestIdx1].points[0];
+        selDragRef.current = { startX: pt.x, startY: pt.y, origX: sp.x, origY: sp.y };
         const rect1s = canvas.getBoundingClientRect();
         setStampPanel({ x: rect1s.left + sp.x * rect1s.width, y: rect1s.top + sp.y * rect1s.height });
         const rc1s = teamDrawMode ? (teamDrawCanvas1Ref.current || canvas) : canvas;
@@ -8991,7 +8986,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         return;
       }
       // No hit — place new stamp
-      setStampPanel(null);
+      setStampPanel(null); selAnnotRef.current = null; selDragRef.current = null;
       stampPressed1Ref.current = true;
       lastPt1Ref.current = pt;
       updateLoupe(e, canvas1Ref.current, canvas, stampSymbol, stampItalic, drawColor, stampSize);
@@ -9010,11 +9005,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       drawStrokes(rc, teamDrawMode ? teamStrokes1Ref.current : strokes1Ref.current, curStroke1Ref.current); }
   };
   const handleDraw1Move = (e) => {
-    if (e.pointerType === "touch" && drawTool !== "select") return;
+    if (e.pointerType === "touch" && drawTool !== "select" && !(drawTool === "stamp" && selDragRef.current)) return;
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
     e.preventDefault();
-    if (drawTool === "select") {
+    if (drawTool === "select" || (drawTool === "stamp" && selDragRef.current && selAnnotRef.current?.canvasNum === 1)) {
       if (!selDragRef.current || selAnnotRef.current?.canvasNum !== 1) return;
       const pt = getCanvasPt(e, canvas);
       const { startX, startY, origX, origY } = selDragRef.current;
@@ -9027,6 +9022,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         i === idx ? { ...s, points: [{ x: newX, y: newY }] } : s
       );
       drawStrokes(dc1m, sRef1m.current, null, idx);
+      if (drawTool === "stamp") {
+        const rect1d = canvas.getBoundingClientRect();
+        setStampPanel({ x: rect1d.left + newX * rect1d.width, y: rect1d.top + newY * rect1d.height });
+      }
       return;
     }
     if (drawTool === "text") {
@@ -9066,6 +9065,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }
     if (drawTool === "stamp") {
       setLoupePos(null);
+      // If dragging an existing stamp — save position and keep panel
+      if (selDragRef.current && selAnnotRef.current?.canvasNum === 1) {
+        selDragRef.current = null;
+        const sRefUp1 = selAnnotRef.current.isTeam ? teamStrokes1Ref : strokes1Ref;
+        const dcUp1 = selAnnotRef.current.isTeam ? (teamDrawCanvas1Ref.current || drawCanvas1Ref.current) : drawCanvas1Ref.current;
+        const songIdUp1 = dual ? dualLeftSongId : selectedSongId;
+        await (selAnnotRef.current.isTeam ? saveTeamDrawing : saveDrawing)(songIdUp1, dual ? (svcSongs[dualIdx]?.pdfPage || 1) : pageNum, sRefUp1.current);
+        if (dcUp1) drawStrokes(dcUp1, sRefUp1.current, null, selAnnotRef.current.idx);
+        return;
+      }
       if (!stampPressed1Ref.current) return; // hover exit or stamp-select tap — not a real placement
       stampPressed1Ref.current = false;
       setStampPanel(null);
@@ -9176,7 +9185,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const pt = getCanvasPt(e, canvas);
       // Hit-test existing stamps on canvas 2
       const sRef2s = teamDrawMode ? teamStrokes2Ref : strokes2Ref;
-      let bestIdx2 = -1, bestDist2 = 0.07;
+      let bestIdx2 = -1, bestDist2 = 0.05;
       sRef2s.current.forEach((s, i) => {
         if (s.tool !== "stamp") return;
         const sp = s.points?.[0]; if (!sp) return;
@@ -9187,6 +9196,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         const newSel = { idx: bestIdx2, canvasNum: 2, isTeam: teamDrawMode };
         setSelAnnot(newSel); selAnnotRef.current = newSel;
         const sp = sRef2s.current[bestIdx2].points[0];
+        selDragRef.current = { startX: pt.x, startY: pt.y, origX: sp.x, origY: sp.y };
         const rect2s = canvas.getBoundingClientRect();
         setStampPanel({ x: rect2s.left + sp.x * rect2s.width, y: rect2s.top + sp.y * rect2s.height });
         const rc2s = teamDrawMode ? (teamDrawCanvas2Ref.current || canvas) : canvas;
@@ -9194,7 +9204,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         return;
       }
       // No hit — place new stamp
-      setStampPanel(null);
+      setStampPanel(null); selAnnotRef.current = null; selDragRef.current = null;
       stampPressed2Ref.current = true;
       lastPt2Ref.current = pt;
       updateLoupe(e, canvas2Ref.current, canvas, stampSymbol, stampItalic, drawColor, stampSize);
@@ -9213,11 +9223,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       drawStrokes(rc, teamDrawMode ? teamStrokes2Ref.current : strokes2Ref.current, curStroke2Ref.current); }
   };
   const handleDraw2Move = (e) => {
-    if (e.pointerType === "touch" && drawTool !== "select") return;
+    if (e.pointerType === "touch" && drawTool !== "select" && !(drawTool === "stamp" && selDragRef.current)) return;
     const canvas = drawCanvas2Ref.current;
     if (!canvas) return;
     e.preventDefault();
-    if (drawTool === "select") {
+    if (drawTool === "select" || (drawTool === "stamp" && selDragRef.current && selAnnotRef.current?.canvasNum === 2)) {
       if (!selDragRef.current || selAnnotRef.current?.canvasNum !== 2) return;
       const pt = getCanvasPt(e, canvas);
       const { startX, startY, origX, origY } = selDragRef.current;
@@ -9230,6 +9240,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         i === idx ? { ...s, points: [{ x: newX, y: newY }] } : s
       );
       drawStrokes(dc2m, sRef2m.current, null, idx);
+      if (drawTool === "stamp") {
+        const rect2d = canvas.getBoundingClientRect();
+        setStampPanel({ x: rect2d.left + newX * rect2d.width, y: rect2d.top + newY * rect2d.height });
+      }
       return;
     }
     if (drawTool === "text") {
@@ -9268,6 +9282,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }
     if (drawTool === "stamp") {
       setLoupePos(null);
+      // If dragging an existing stamp — save position and keep panel
+      if (selDragRef.current && selAnnotRef.current?.canvasNum === 2) {
+        selDragRef.current = null;
+        const sRefUp2 = selAnnotRef.current.isTeam ? teamStrokes2Ref : strokes2Ref;
+        const dcUp2 = selAnnotRef.current.isTeam ? (teamDrawCanvas2Ref.current || drawCanvas2Ref.current) : drawCanvas2Ref.current;
+        await (selAnnotRef.current.isTeam ? saveTeamDrawing : saveDrawing)(dualRightSongId, svcSongs[dualIdx + 1]?.pdfPage || 1, sRefUp2.current);
+        if (dcUp2) drawStrokes(dcUp2, sRefUp2.current, null, selAnnotRef.current.idx);
+        return;
+      }
       if (!stampPressed2Ref.current) return; // hover exit or stamp-select tap — not a real placement
       stampPressed2Ref.current = false;
       setStampPanel(null);
