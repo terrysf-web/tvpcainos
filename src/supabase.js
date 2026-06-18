@@ -194,6 +194,24 @@ export async function loadServiceSettings(svcId) {
 const REC_BUCKET = "pdfs";
 const recPath = (docId) => `recordings/${docId}.json`;
 
+export async function listWorshipRecordingServiceIds() {
+  const serviceIds = new Set();
+  let offset = 0;
+  const limit = 100;
+  while (true) {
+    const { data, error } = await supabase.storage.from(REC_BUCKET).list("recordings", { limit, offset });
+    if (error || !data?.length) break;
+    data.forEach(f => {
+      const name = f.name.replace(/\.json$/, "");
+      const idx = name.indexOf("_");
+      if (idx > 0) serviceIds.add(name.slice(idx + 1));
+    });
+    if (data.length < limit) break;
+    offset += limit;
+  }
+  return serviceIds;
+}
+
 export async function saveWorshipRecording(docId, data) {
   const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
   const { error } = await supabase.storage.from(REC_BUCKET).upload(recPath(docId), blob, {

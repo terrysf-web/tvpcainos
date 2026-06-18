@@ -3,7 +3,7 @@ import { getVoicings, getDiatonicChords, getEffectiveKey, getChordTones, CHORD_V
 import { auth, db, storage, messagingPromise, firebaseConfigObj } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
-import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart, saveServiceSettings, loadServiceSettings } from "./supabase.js";
+import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart, saveServiceSettings, loadServiceSettings, listWorshipRecordingServiceIds } from "./supabase.js";
 import { openDrivePicker } from "./drivePicker.js";
 import AIPanel from "./AIPanel.jsx";
 import {
@@ -12655,11 +12655,12 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
   const doMigrateFlags = async () => {
     setMigrating(true);
     try {
-      const [recsSnap, svcsSnap] = await Promise.all([
+      const [recsSnap, svcsSnap, supaServiceIds] = await Promise.all([
         getDocs(collection(db, "worshipRecordings")),
         getDocs(collection(db, "services")),
+        listWorshipRecordingServiceIds(),
       ]);
-      const serviceIdsWithRecs = new Set();
+      const serviceIdsWithRecs = new Set(supaServiceIds);
       recsSnap.docs.forEach(d => { if (d.data().serviceId) serviceIdsWithRecs.add(d.data().serviceId); });
 
       const batch = writeBatch(db);
