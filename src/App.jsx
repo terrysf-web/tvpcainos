@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.684";
+const APP_VERSION = "3.685";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1852,6 +1852,27 @@ function EditServiceModal({ svc, onClose, onSave, onPracticeUrlSaved }) {
   );
 }
 
+/* ── PDF 단일 페이지 추출 (pdf-lib CDN 사용) ─────────────────────────────── */
+async function extractSinglePdfPage(pdfBytes, pageNum) {
+  if (!window.PDFLib) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js";
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+  if (!window.PDFLib) throw new Error("pdf-lib 로드 실패");
+  const { PDFDocument } = window.PDFLib;
+  const src = await PDFDocument.load(pdfBytes);
+  const dst = await PDFDocument.create();
+  const [page] = await dst.copyPages(src, [pageNum - 1]); // 0-indexed
+  dst.addPage(page);
+  const bytes = await dst.save();
+  return new Blob([bytes], { type: "application/pdf" });
+}
+
 /* ══════════════════════════════════════════════════════════════════
    ADD SONG MODAL
 ══════════════════════════════════════════════════════════════════ */
@@ -1949,28 +1970,36 @@ function AddSongModal({ onClose, onAdd }) {
         const toSave = splitEntries
           .map((e, i) => ({ ...e, pageNum: i + 1 }))
           .filter(e => e.selected);
-        setSavingPage(`1/${toSave.length}`);
-        const first = toSave[0];
-        const firstRef = await onAdd({
-          title: first.title, artist: first.artist,
-          key: first.key, bpm: Number(first.bpm) || 80, pdfPage: first.pageNum,
-        });
-        let sharedUrl = null;
-        if (pdfFile && firstRef?.id) {
-          sharedUrl = await uploadPdf(pdfFile, firstRef.id);
-          const extra = { pdfUrl: sharedUrl };
-          if (cropBox) extra.cropBox = cropBox;
-          await updateDoc(doc(db, "songs", firstRef.id), extra);
+
+        // PDF bytes를 한 번만 읽어 페이지 추출에 재사용
+        let pdfBytes = null;
+        if (pdfFile) {
+          try { pdfBytes = await pdfFile.arrayBuffer(); } catch {}
         }
-        for (let i = 1; i < toSave.length; i++) {
+
+        for (let i = 0; i < toSave.length; i++) {
           const e = toSave[i];
           setSavingPage(`${i + 1}/${toSave.length}`);
+
+          // 각 곡마다 해당 페이지만 추출해 독립 파일로 업로드
+          let uploadFile = pdfFile;
+          let pdfPageToStore = e.pageNum;
+          if (pdfBytes) {
+            try {
+              uploadFile = await extractSinglePdfPage(pdfBytes, e.pageNum);
+              pdfPageToStore = 1; // 1-page PDF이므로 항상 1
+            } catch (ex) {
+              console.warn(`페이지 ${e.pageNum} 추출 실패 — 전체 PDF 사용:`, ex);
+            }
+          }
+
           const ref = await onAdd({
             title: e.title, artist: e.artist,
-            key: e.key, bpm: Number(e.bpm) || 80, pdfPage: e.pageNum,
+            key: e.key, bpm: Number(e.bpm) || 80, pdfPage: pdfPageToStore,
           });
-          if (sharedUrl && ref?.id) {
-            const extra = { pdfUrl: sharedUrl };
+          if (uploadFile && ref?.id) {
+            const url = await uploadPdf(uploadFile, ref.id);
+            const extra = { pdfUrl: url };
             if (cropBox) extra.cropBox = cropBox;
             await updateDoc(doc(db, "songs", ref.id), extra);
           }
