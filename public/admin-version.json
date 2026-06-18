@@ -1,7 +1,7 @@
 {
   "build": "3.691",
   "buildTime": "2026-06-18T07:00:00Z",
-  "showWhatsNew": true,
+  "showWhatsNew": false,
   "whatsNew": [
     {
       "tag": "스탬프",
