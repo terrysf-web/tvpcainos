@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.685";
+const APP_VERSION = "3.686";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -914,6 +914,20 @@ function getStampBaseline(_sym) {
   return "middle";
 }
 
+function roundedRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
 /* ── Canvas drawing utility (module-level, pure) */
 function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
   if (!canvas || !canvas.width || !canvas.height) return;
@@ -1017,8 +1031,32 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
           : 'system-ui, -apple-system, sans-serif';
         ctx.font = `${s.italic ? "italic " : ""}bold ${sz}px ${family}`;
         ctx.textAlign = "center";
-        ctx.textBaseline = getStampBaseline(s.symbol);
-        ctx.fillText(s.symbol || "f", px, py);
+        ctx.textBaseline = "middle";
+        const sym = s.symbol || "f";
+        const textW = ctx.measureText(sym).width;
+        const padX = sz * 0.55;
+        const padY = sz * 0.35;
+        const boxW = textW + padX * 2;
+        const boxH = sz + padY * 2;
+        const bx = px - boxW / 2;
+        const by = py - boxH / 2;
+        const rad = Math.max(3, sz * 0.28);
+        // shadow + background
+        ctx.shadowColor = "rgba(0,0,0,0.16)";
+        ctx.shadowBlur = sz * 0.55;
+        ctx.shadowOffsetY = sz * 0.12;
+        ctx.fillStyle = "rgba(255,255,255,0.95)";
+        roundedRect(ctx, bx, by, boxW, boxH, rad);
+        ctx.fill();
+        ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+        // border
+        ctx.strokeStyle = s.color || "#e8383b";
+        ctx.lineWidth = Math.max(1, sz * 0.1);
+        roundedRect(ctx, bx, by, boxW, boxH, rad);
+        ctx.stroke();
+        // text
+        ctx.fillStyle = s.color || "#e8383b";
+        ctx.fillText(sym, px, py);
       }
       ctx.restore();
       continue;
@@ -1096,9 +1134,17 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
       ctx.lineWidth = Math.max(1.5, canvas.width * 0.003);
       ctx.setLineDash([5, 3]);
       ctx.globalAlpha = 0.85;
-      ctx.beginPath();
-      ctx.arc(px, py, Math.max(18, canvas.width * 0.045), 0, Math.PI * 2);
-      ctx.stroke();
+      if (sel.tool === "stamp") {
+        const sz = Math.max(7, (sel.size || 10) * canvas.width / 450);
+        const pad = sz * 0.7;
+        const r = Math.max(4, sz * 0.35);
+        roundedRect(ctx, px - sz - pad, py - sz * 0.8, (sz + pad) * 2, sz * 1.6, r);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.arc(px, py, Math.max(18, canvas.width * 0.045), 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.setLineDash([]);
       ctx.restore();
     }
@@ -7233,6 +7279,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [selAnnot,   setSelAnnot]   = useState(null); // { idx, canvasNum }
   const selAnnotRef  = useRef(null);
   const selDragRef   = useRef(null);
+  const [stampPanel, setStampPanel] = useState(null); // { x, y } screen coords of selected stamp
 
   // ── Stamp + loupe
   const [stampSymbol, setStampSymbol] = useState("f");
@@ -7680,10 +7727,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // Clear selection when switching away from select tool or draw mode off
   useEffect(() => {
     if (drawTool !== "select") setSelAnnot(null);
+    setStampPanel(null);
   }, [drawTool]);
 
   // Clear selection on page/song change
-  useEffect(() => { setSelAnnot(null); }, [selectedSongId, pageNum, dualIdx]);
+  useEffect(() => { setSelAnnot(null); setStampPanel(null); }, [selectedSongId, pageNum, dualIdx]);
 
   // 곡 변경 시 IndexedDB에서 녹음 카운트 로드
   useEffect(() => {
@@ -8922,8 +8970,29 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (drawTool === "stamp") {
-      stampPressed1Ref.current = true;
       const pt = getCanvasPt(e, canvas);
+      // Hit-test existing stamps — tap existing to select & show resize panel
+      const sRef1s = teamDrawMode ? teamStrokes1Ref : strokes1Ref;
+      let bestIdx1 = -1, bestDist1 = 0.07;
+      sRef1s.current.forEach((s, i) => {
+        if (s.tool !== "stamp") return;
+        const sp = s.points?.[0]; if (!sp) return;
+        const d = Math.sqrt((sp.x - pt.x)**2 + (sp.y - pt.y)**2);
+        if (d < bestDist1) { bestDist1 = d; bestIdx1 = i; }
+      });
+      if (bestIdx1 >= 0) {
+        const newSel = { idx: bestIdx1, canvasNum: 1, isTeam: teamDrawMode };
+        setSelAnnot(newSel); selAnnotRef.current = newSel;
+        const sp = sRef1s.current[bestIdx1].points[0];
+        const rect1s = canvas.getBoundingClientRect();
+        setStampPanel({ x: rect1s.left + sp.x * rect1s.width, y: rect1s.top + sp.y * rect1s.height });
+        const rc1s = teamDrawMode ? (teamDrawCanvas1Ref.current || canvas) : canvas;
+        drawStrokes(rc1s, sRef1s.current, null, bestIdx1);
+        return;
+      }
+      // No hit — place new stamp
+      setStampPanel(null);
+      stampPressed1Ref.current = true;
       lastPt1Ref.current = pt;
       updateLoupe(e, canvas1Ref.current, canvas, stampSymbol, stampItalic, drawColor, stampSize);
       setLoupePos({ x: e.clientX, y: e.clientY });
@@ -8997,8 +9066,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }
     if (drawTool === "stamp") {
       setLoupePos(null);
-      if (!stampPressed1Ref.current) return; // hover exit — not a real tap
+      if (!stampPressed1Ref.current) return; // hover exit or stamp-select tap — not a real placement
       stampPressed1Ref.current = false;
+      setStampPanel(null);
+      setSelAnnot(null); selAnnotRef.current = null;
       const canvas = teamDrawMode ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current;
       if (!canvas) return;
       const coordCanvas = drawCanvas1Ref.current || canvas;
@@ -9102,8 +9173,29 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (drawTool === "stamp") {
-      stampPressed2Ref.current = true;
       const pt = getCanvasPt(e, canvas);
+      // Hit-test existing stamps on canvas 2
+      const sRef2s = teamDrawMode ? teamStrokes2Ref : strokes2Ref;
+      let bestIdx2 = -1, bestDist2 = 0.07;
+      sRef2s.current.forEach((s, i) => {
+        if (s.tool !== "stamp") return;
+        const sp = s.points?.[0]; if (!sp) return;
+        const d = Math.sqrt((sp.x - pt.x)**2 + (sp.y - pt.y)**2);
+        if (d < bestDist2) { bestDist2 = d; bestIdx2 = i; }
+      });
+      if (bestIdx2 >= 0) {
+        const newSel = { idx: bestIdx2, canvasNum: 2, isTeam: teamDrawMode };
+        setSelAnnot(newSel); selAnnotRef.current = newSel;
+        const sp = sRef2s.current[bestIdx2].points[0];
+        const rect2s = canvas.getBoundingClientRect();
+        setStampPanel({ x: rect2s.left + sp.x * rect2s.width, y: rect2s.top + sp.y * rect2s.height });
+        const rc2s = teamDrawMode ? (teamDrawCanvas2Ref.current || canvas) : canvas;
+        drawStrokes(rc2s, sRef2s.current, null, bestIdx2);
+        return;
+      }
+      // No hit — place new stamp
+      setStampPanel(null);
+      stampPressed2Ref.current = true;
       lastPt2Ref.current = pt;
       updateLoupe(e, canvas2Ref.current, canvas, stampSymbol, stampItalic, drawColor, stampSize);
       setLoupePos({ x: e.clientX, y: e.clientY });
@@ -9176,8 +9268,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }
     if (drawTool === "stamp") {
       setLoupePos(null);
-      if (!stampPressed2Ref.current) return; // hover exit — not a real tap
+      if (!stampPressed2Ref.current) return; // hover exit or stamp-select tap — not a real placement
       stampPressed2Ref.current = false;
+      setStampPanel(null);
+      setSelAnnot(null); selAnnotRef.current = null;
       const canvas = teamDrawMode ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
       if (!canvas) return;
       const coordCanvas = drawCanvas2Ref.current || canvas;
@@ -10348,6 +10442,61 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           display: loupePos ? "block" : "none",
         }}
       />
+
+      {/* 스탬프 선택 플로팅 패널 */}
+      {stampPanel && selAnnot && (() => {
+        const selSt = selStrokesRef(selAnnot).current[selAnnot.idx];
+        if (!selSt || selSt.tool !== "stamp") return null;
+        const curSz = selSt.size || 12;
+        const clr = selSt.color || "#e8383b";
+        return (
+          <div style={{
+            position:"fixed",
+            left: stampPanel.x,
+            top: stampPanel.y,
+            transform: "translate(-50%, calc(-100% - 14px))",
+            background:"#fff",
+            border:`1.5px solid ${clr}`,
+            borderRadius:14,
+            padding:"6px 10px",
+            display:"flex", alignItems:"center", gap:8,
+            boxShadow:"0 4px 20px rgba(0,0,0,0.18), 0 1px 6px rgba(0,0,0,0.10)",
+            zIndex:1500,
+            touchAction:"none",
+          }}>
+            <button onPointerDown={e => { e.stopPropagation(); resizeSelText(-3); }} style={{
+              width:32, height:32, borderRadius:8, border:`1px solid ${C.bdr}`,
+              background:C.surf, cursor:"pointer", fontSize:16, fontWeight:700,
+              color:C.txt, display:"flex", alignItems:"center", justifyContent:"center",
+              fontFamily:"inherit",
+            }}>−</button>
+            <span style={{ fontSize:12, fontWeight:700, color:clr, minWidth:20, textAlign:"center" }}>{curSz}</span>
+            <button onPointerDown={e => { e.stopPropagation(); resizeSelText(3); }} style={{
+              width:32, height:32, borderRadius:8, border:`1px solid ${C.bdr}`,
+              background:C.surf, cursor:"pointer", fontSize:16, fontWeight:700,
+              color:C.txt, display:"flex", alignItems:"center", justifyContent:"center",
+              fontFamily:"inherit",
+            }}>+</button>
+            <div style={{ width:1, height:22, background:C.bdr, flexShrink:0 }} />
+            <button onPointerDown={e => { e.stopPropagation(); deleteSelAnnot(); setStampPanel(null); }} style={{
+              width:32, height:32, borderRadius:8, border:"none",
+              background:`${C.red}18`, cursor:"pointer", fontSize:15,
+              display:"flex", alignItems:"center", justifyContent:"center",
+            }}>🗑</button>
+            <button onPointerDown={e => {
+              e.stopPropagation();
+              setStampPanel(null); setSelAnnot(null); selAnnotRef.current = null;
+              const dc1 = drawCanvas1Ref.current, dc2 = drawCanvas2Ref.current;
+              if (dc1) drawStrokes(dc1, strokes1Ref.current);
+              if (dc2) drawStrokes(dc2, strokes2Ref.current);
+            }} style={{
+              width:28, height:28, borderRadius:7, border:`1px solid ${C.bdr}`,
+              background:"transparent", cursor:"pointer", fontSize:13, color:C.dim,
+              display:"flex", alignItems:"center", justifyContent:"center",
+            }}>✕</button>
+          </div>
+        );
+      })()}
 
       {/* 텍스트 입력 오버레이 */}
       {textDot && (
