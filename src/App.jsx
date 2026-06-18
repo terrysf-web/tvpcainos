@@ -4814,6 +4814,12 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [_songIdsKey, _isVocalist]);
 
+  useEffect(() => {
+    if (svc?.id && songsWithRecs.size > 0) {
+      updateDoc(doc(db, "services", svc.id), { hasRecordings: true }).catch(() => {});
+    }
+  }, [songsWithRecs, svc?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!svc) return null;
 
   // Map from svc.songIds — keep raw index (i) for duplicate support
