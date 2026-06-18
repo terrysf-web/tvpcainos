@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.683";
+const APP_VERSION = "3.684";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1914,10 +1914,13 @@ function AddSongModal({ onClose, onAdd }) {
     }
     if (!window.pdfjsLib) return;
     try {
-      const buf = await file.arrayBuffer();
-      const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
-      const n = pdf.numPages;
-      setPdfPageCount(n);
+      const objectUrl = URL.createObjectURL(file);
+      try {
+        const pdf = await window.pdfjsLib.getDocument({ url: objectUrl }).promise;
+        setPdfPageCount(pdf.numPages);
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
     } catch { /* ignore */ }
   };
 
@@ -5405,9 +5408,10 @@ function PdfPagePickerModal({ file, songTitle, onConfirm, onClose }) {
   useEffect(() => {
     if (!file || !window.pdfjsLib) return;
     let cancelled = false;
+    // objectURL 사용 — arrayBuffer()로 버퍼 소비 없이 썸네일 렌더링 (iOS Safari 호환)
+    const objectUrl = URL.createObjectURL(file);
     (async () => {
-      const buf = await file.arrayBuffer();
-      const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      const pdf = await window.pdfjsLib.getDocument({ url: objectUrl }).promise;
       const n = pdf.numPages;
       if (!cancelled) setNumPages(n);
       const thumbs = [];
@@ -5422,7 +5426,8 @@ function PdfPagePickerModal({ file, songTitle, onConfirm, onClose }) {
         if (!cancelled) setThumbnails([...thumbs]);
       }
       if (!cancelled) setRendering(false);
-    })().catch(e => { console.error(e); if (!cancelled) setRendering(false); });
+    })().catch(e => { console.error(e); if (!cancelled) setRendering(false); })
+      .finally(() => URL.revokeObjectURL(objectUrl));
     return () => { cancelled = true; };
   }, [file]);
 
@@ -5593,9 +5598,17 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
     // 멀티페이지 PDF이면 페이지 선택 모달
     if (window.pdfjsLib) {
       try {
-        const buf = await file.arrayBuffer();
-        const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
-        if (pdf.numPages > 1) {
+        // objectURL 사용 — arrayBuffer()로 파일 버퍼를 소비하면 iOS Safari에서
+        // 이후 업로드 시 파일이 비어있는 문제가 생김
+        const objectUrl = URL.createObjectURL(file);
+        let numPages = 1;
+        try {
+          const pdf = await window.pdfjsLib.getDocument({ url: objectUrl }).promise;
+          numPages = pdf.numPages;
+        } finally {
+          URL.revokeObjectURL(objectUrl);
+        }
+        if (numPages > 1) {
           setPagePicker({ songId, file });
           return;
         }
