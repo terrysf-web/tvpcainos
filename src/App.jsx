@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 
 /* ── App version ── */
-const APP_VERSION = "3.689";
+const APP_VERSION = "3.690";
 
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
@@ -1041,14 +1041,15 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
         const bx = px - boxW / 2;
         const by = py - boxH / 2;
         const rad = Math.max(2, sz * 0.22);
-        // shadow + background only (no border)
-        ctx.shadowColor = "rgba(0,0,0,0.18)";
-        ctx.shadowBlur = sz * 0.5;
-        ctx.shadowOffsetY = sz * 0.1;
-        ctx.fillStyle = "rgba(255,255,255,0.94)";
-        roundedRect(ctx, bx, by, boxW, boxH, rad);
-        ctx.fill();
-        ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+        if (s.bg) {
+          ctx.shadowColor = "rgba(0,0,0,0.18)";
+          ctx.shadowBlur = sz * 0.5;
+          ctx.shadowOffsetY = sz * 0.1;
+          ctx.fillStyle = "rgba(255,255,255,0.94)";
+          roundedRect(ctx, bx, by, boxW, boxH, rad);
+          ctx.fill();
+          ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+        }
         // text
         ctx.fillStyle = s.color || "#e8383b";
         ctx.fillText(sym, px, py);
@@ -7279,6 +7280,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [stampSymbol, setStampSymbol] = useState("f");
   const [stampItalic, setStampItalic] = useState(true);
   const [stampSize,        setStampSize]        = useState(6); // 3–40
+  const [stampBg,          setStampBg]          = useState(false); // 흰 배경 여부
   const [showStampPalette, setShowStampPalette] = useState(false);
   const [loupePos, setLoupePos] = useState(null); // { x, y } viewport coords
   const loupeCanvasRef = useRef(null);
@@ -9086,7 +9088,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const coordCanvas = drawCanvas1Ref.current || canvas;
       const pt = e ? getCanvasPt(e, coordCanvas) : lastPt1Ref.current;
       const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
-        color:activeColor, size:stampSize, points:[pt], ...(teamDrawMode && { team: true }) };
+        color:activeColor, size:stampSize, bg:stampBg, points:[pt], ...(teamDrawMode && { team: true }) };
       const sRef1 = teamDrawMode ? teamStrokes1Ref : strokes1Ref;
       const next = [...sRef1.current, stamp];
       sRef1.current = next;
@@ -9302,7 +9304,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const coordCanvas = drawCanvas2Ref.current || canvas;
       const pt = e ? getCanvasPt(e, coordCanvas) : lastPt2Ref.current;
       const stamp = { tool:"stamp", symbol:stampSymbol, italic:stampItalic,
-        color:activeColor, size:stampSize, points:[pt], ...(teamDrawMode && { team: true }) };
+        color:activeColor, size:stampSize, bg:stampBg, points:[pt], ...(teamDrawMode && { team: true }) };
       const sRef2 = teamDrawMode ? teamStrokes2Ref : strokes2Ref;
       const next = [...sRef2.current, stamp];
       sRef2.current = next;
@@ -9968,6 +9970,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             {/* 도구 버튼 — 텍스트 */}
             {[
               { id:"pen",         label:"펜"    },
+              { id:"eraser",      label:"지우개" },
               { id:"highlighter", label:"마커"  },
               { id:"cover",       label:"커버"  },
               { id:"text",        label:"글자"  },
@@ -10163,12 +10166,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               boxShadow:"0 8px 32px rgba(0,0,0,0.5)",
               padding:"8px 10px", display:"flex", flexDirection:"column", gap:3,
             }}>
-              {/* 크기 조절 */}
+              {/* 크기 조절 + 배경 토글 */}
               <div style={{ display:"flex", alignItems:"center", gap:4, paddingBottom:6,
                 borderBottom:`1px solid ${C.bdr}`, marginBottom:2 }}>
                 <span style={{ fontSize:9, color:C.dim, fontWeight:700, width:32,
                   textAlign:"right", flexShrink:0 }}>크기</span>
-                <button onClick={() => setStampSize(s => Math.max(6, s - 2))} style={{
+                <button onClick={() => setStampSize(s => Math.max(3, s - 2))} style={{
                   width:28, height:28, borderRadius:7, border:`1px solid ${C.bdr}`,
                   background:"transparent", cursor:"pointer", fontSize:16,
                   color:C.txt, display:"flex", alignItems:"center", justifyContent:"center",
@@ -10182,6 +10185,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   color:C.txt, display:"flex", alignItems:"center", justifyContent:"center",
                   fontFamily:"inherit", flexShrink:0,
                 }}>+</button>
+                <div style={{ width:1, height:18, background:C.bdr, flexShrink:0, margin:"0 2px" }} />
+                <button onClick={() => setStampBg(p => !p)} style={{
+                  height:28, padding:"0 8px", borderRadius:7, flexShrink:0,
+                  border:`1px solid ${stampBg ? C.acc : C.bdr}`,
+                  background: stampBg ? `${C.acc}22` : "transparent",
+                  cursor:"pointer", fontSize:11, fontWeight:700,
+                  color: stampBg ? C.acc : C.dim, fontFamily:"inherit",
+                }}>배경</button>
               </div>
               {STAMP_GROUPS.map(group => (
                 <div key={group.label} style={{ display:"flex", alignItems:"center", gap:4 }}>
