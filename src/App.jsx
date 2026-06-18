@@ -67,7 +67,7 @@ function _pp7FindLyricRTF(buf, start, end, ancestors) {
         if (buf[contentPos] === 0x7B && buf[contentPos+1] === 0x5C &&
             buf[contentPos+2] === 0x72 && buf[contentPos+3] === 0x74) {
           const preview = new TextDecoder('latin-1').decode(buf.slice(contentPos, Math.min(contentPos+300, pos)));
-          if (preview.includes('fcharset')) {
+          if (preview.includes('fcharset129') || preview.includes('HelveticaNeue') || preview.includes('Batang')) {
             return { contentPos, contentLen: length,
                      ancestors: [...ancestors, { lenPos, lenVal: length }] };
           }
@@ -1865,7 +1865,7 @@ function EditServiceModal({ svc, onClose, onSave, onPracticeUrlSaved }) {
       if (practiceUrlLoaded) {
         const trimmedUrl = practiceUrl.trim() || null;
         await saveServiceSettings(svc.id, { practiceUrl: trimmedUrl });
-        updateDoc(doc(db, "services", svc.id), { hasPracticeUrl: !!trimmedUrl }).catch(() => {});
+        await updateDoc(doc(db, "services", svc.id), { hasPracticeUrl: !!trimmedUrl }).catch(() => {});
         onPracticeUrlSaved?.(trimmedUrl);
       }
       const changed = title !== svc.title || date !== svc.date || time !== (svc.time || "");
@@ -4784,7 +4784,16 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     let cancelled = false;
     let firestoreSet = new Set();
     let supaSet = new Set();
-    const merge = () => { if (!cancelled) setSongsWithRecs(new Set([...firestoreSet, ...supaSet])); };
+    let supaLoaded = false;
+    const merge = () => {
+      if (!cancelled) {
+        const combined = new Set([...firestoreSet, ...supaSet]);
+        setSongsWithRecs(combined);
+        if (supaLoaded && svc?.id) {
+          updateDoc(doc(db, "services", svc.id), { hasRecordings: combined.size > 0 }).catch(() => {});
+        }
+      }
+    };
 
     const q = query(collection(db, "worshipRecordings"), where("songId", "in", ids));
     const unsub = onSnapshot(q, snap => {
@@ -4807,6 +4816,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       return null;
     })).then(results => {
       supaSet = new Set(results.filter(Boolean));
+      supaLoaded = true;
       merge();
     });
 
@@ -4814,11 +4824,6 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [_songIdsKey, _isVocalist]);
 
-  useEffect(() => {
-    if (svc?.id && songsWithRecs.size > 0) {
-      updateDoc(doc(db, "services", svc.id), { hasRecordings: true }).catch(() => {});
-    }
-  }, [songsWithRecs, svc?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!svc) return null;
 
@@ -4893,8 +4898,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
         objectType: "text",
         text,
         link: { mobileWebUrl: window.location.origin, webUrl: window.location.origin },
+        success: doCount,
       });
-      doCount();
     } else {
       navigator.clipboard?.writeText(text)
         .then(() => { alert("메시지가 복사됐습니다. 카카오톡에 붙여넣기 해주세요."); doCount(); })
@@ -7756,6 +7761,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // Clear selection on page/song change
   useEffect(() => { setSelAnnot(null); setStampPanel(null); }, [selectedSongId, pageNum, dualIdx]);
+
+  // 스크롤/리사이즈 시 stampPanel 좌표 stale 방지 — 패널 닫기
+  useEffect(() => {
+    if (!stampPanel) return;
+    const close = () => setStampPanel(null);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => { window.removeEventListener("scroll", close, true); window.removeEventListener("resize", close); };
+  }, [stampPanel]);
 
   // 곡 변경 시 IndexedDB에서 녹음 카운트 로드
   useEffect(() => {
