@@ -66,8 +66,8 @@ function _pp7FindLyricRTF(buf, start, end, ancestors) {
         // Detect lyric RTF: starts with {\rtf1 and has both fcharset129 and HelveticaNeue
         if (buf[contentPos] === 0x7B && buf[contentPos+1] === 0x5C &&
             buf[contentPos+2] === 0x72 && buf[contentPos+3] === 0x74) {
-          const preview = new TextDecoder('latin-1').decode(buf.slice(contentPos, Math.min(contentPos+220, pos)));
-          if (preview.includes('fcharset129') && preview.includes('HelveticaNeue')) {
+          const preview = new TextDecoder('latin-1').decode(buf.slice(contentPos, Math.min(contentPos+300, pos)));
+          if (preview.includes('fcharset')) {
             return { contentPos, contentLen: length,
                      ancestors: [...ancestors, { lenPos, lenVal: length }] };
           }
