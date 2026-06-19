@@ -1341,7 +1341,7 @@ const CHORD_NOTES = {
 function GuitarDiagram({ chord, color = "#6b5de7" }) {
   const frets = GUITAR_CHORDS[chord];
   if (!frets) return (
-    <div style={{ fontSize:11, color:"#8e8e93", textAlign:"center", padding:"8px 0" }}>
+    <div style={{ fontSize:11, color:"#636366", textAlign:"center", padding:"8px 0" }}>
       {chord} — 다이어그램 없음
     </div>
   );
@@ -4277,13 +4277,13 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
           </div>
           <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", gap:3, flexShrink:0, marginLeft:8 }}>
             {svc.notified && (
-              <span style={{ fontSize:10, fontWeight:700, color:"#b07020", background:"#e8a93e14", border:"1px solid #e8a93e40", borderRadius:4, padding:"2px 7px", whiteSpace:"nowrap" }}>알림완료</span>
+              <span style={{ fontSize:10, fontWeight:700, color:"#8a4f00", background:"#e8a93e14", border:"1px solid #e8a93e40", borderRadius:4, padding:"2px 7px", whiteSpace:"nowrap" }}>알림완료</span>
             )}
             {svc.hasRecordings && (
               <span style={{ fontSize:10, fontWeight:700, color:"#1a72c2", background:"#3a7bd514", border:"1px solid #3a7bd540", borderRadius:4, padding:"2px 7px", whiteSpace:"nowrap" }}>예배녹음</span>
             )}
             {svc.hasPracticeUrl && (
-              <span style={{ fontSize:10, fontWeight:700, color:"#1a9e3f", background:"#34c75914", border:"1px solid #34c75940", borderRadius:4, padding:"2px 7px", whiteSpace:"nowrap" }}>연습녹음</span>
+              <span style={{ fontSize:10, fontWeight:700, color:"#157a30", background:"#34c75914", border:"1px solid #34c75940", borderRadius:4, padding:"2px 7px", whiteSpace:"nowrap" }}>연습녹음</span>
             )}
           </div>
         </div>
@@ -4458,13 +4458,13 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
                         }}>{svcSongs.length}곡</span>
                       )}
                       {svc.notified && (
-                        <span style={{ fontSize:10, fontWeight:700, color:"#b07020", background:"#e8a93e14", border:"1px solid #e8a93e40", borderRadius:4, padding:"1px 6px" }}>알림완료</span>
+                        <span style={{ fontSize:10, fontWeight:700, color:"#8a4f00", background:"#e8a93e14", border:"1px solid #e8a93e40", borderRadius:4, padding:"1px 6px" }}>알림완료</span>
                       )}
                       {svc.hasRecordings && (
                         <span style={{ fontSize:10, fontWeight:700, color:"#1a72c2", background:"#3a7bd514", border:"1px solid #3a7bd540", borderRadius:4, padding:"1px 6px" }}>예배녹음</span>
                       )}
                       {svc.hasPracticeUrl && (
-                        <span style={{ fontSize:10, fontWeight:700, color:"#1a9e3f", background:"#34c75914", border:"1px solid #34c75940", borderRadius:4, padding:"1px 6px" }}>연습녹음</span>
+                        <span style={{ fontSize:10, fontWeight:700, color:"#157a30", background:"#34c75914", border:"1px solid #34c75940", borderRadius:4, padding:"1px 6px" }}>연습녹음</span>
                       )}
                     </div>
                     <Icon n="chevR" size={14} color={C.bdr} />
@@ -13802,21 +13802,21 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
                     border:`1px solid rgba(255,255,255,0.08)`, boxShadow:"0 2px 12px rgba(0,0,0,0.18)" }}>
                     <div style={{ padding:"8px 16px", borderBottom:"1px solid rgba(255,255,255,0.08)",
                       display:"flex", alignItems:"center", gap:8 }}>
-                      <span style={{ fontSize:10, fontWeight:800, color:"rgba(255,255,255,0.4)",
+                      <span style={{ fontSize:10, fontWeight:800, color:"rgba(255,255,255,0.65)",
                         letterSpacing:"0.1em" }}>SLIDES</span>
                       {ppPresentation?.id?.name && (
-                        <span style={{ fontSize:10, color:"rgba(255,255,255,0.3)", flex:1,
+                        <span style={{ fontSize:10, color:"rgba(255,255,255,0.6)", flex:1,
                           overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                           {ppPresentation.id.name}
                         </span>
                       )}
-                      <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)" }}>{ppAllSlides.length}장</span>
+                      <span style={{ fontSize:10, color:"rgba(255,255,255,0.55)" }}>{ppAllSlides.length}장</span>
                     </div>
                     <div style={{ maxHeight:220, overflowY:"auto", padding:"8px 0" }}>
                       {ppAllSlides.map((text, i) => (
                         <div key={i} style={{ padding:"6px 16px", display:"flex", gap:10, alignItems:"flex-start",
                           borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
-                          <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", flexShrink:0,
+                          <span style={{ fontSize:10, color:"rgba(255,255,255,0.55)", flexShrink:0,
                             minWidth:18, paddingTop:2 }}>{i+1}</span>
                           <span style={{ fontSize:12, color:"rgba(255,255,255,0.75)", lineHeight:1.6,
                             whiteSpace:"pre-line" }}>{text}</span>
@@ -14295,21 +14295,21 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
               border:`1px solid rgba(255,255,255,0.08)`, boxShadow:"0 2px 10px rgba(0,0,0,0.18)" }}>
               <div style={{ padding:"7px 14px", borderBottom:"1px solid rgba(255,255,255,0.08)",
                 display:"flex", alignItems:"center", gap:7 }}>
-                <span style={{ fontSize:10, fontWeight:800, color:"rgba(255,255,255,0.4)",
+                <span style={{ fontSize:10, fontWeight:800, color:"rgba(255,255,255,0.65)",
                   letterSpacing:"0.1em" }}>SLIDES</span>
                 {ppPresentation?.id?.name && (
-                  <span style={{ fontSize:10, color:"rgba(255,255,255,0.3)", flex:1,
+                  <span style={{ fontSize:10, color:"rgba(255,255,255,0.6)", flex:1,
                     overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                     {ppPresentation.id.name}
                   </span>
                 )}
-                <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)" }}>{ppAllSlides.length}장</span>
+                <span style={{ fontSize:10, color:"rgba(255,255,255,0.55)" }}>{ppAllSlides.length}장</span>
               </div>
               <div style={{ maxHeight:200, overflowY:"auto", padding:"6px 0" }}>
                 {ppAllSlides.map((text, i) => (
                   <div key={i} style={{ padding:"5px 14px", display:"flex", gap:9, alignItems:"flex-start",
                     borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
-                    <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", flexShrink:0,
+                    <span style={{ fontSize:10, color:"rgba(255,255,255,0.55)", flexShrink:0,
                       minWidth:16, paddingTop:2 }}>{i+1}</span>
                     <span style={{ fontSize:11, color:"rgba(255,255,255,0.75)", lineHeight:1.6,
                       whiteSpace:"pre-line" }}>{text}</span>
@@ -14690,7 +14690,7 @@ function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait, screenW
         {ldr && (
           <button onClick={onAdd} style={{
             background:"none", border:"none", cursor:"pointer", padding:"0 2px",
-            color:"rgba(45,36,96,0.45)", fontSize:20, lineHeight:1, fontWeight:300,
+            color:"rgba(45,36,96,0.75)", fontSize:20, lineHeight:1, fontWeight:300,
           }}>+</button>
         )}
       </div>
@@ -14698,19 +14698,19 @@ function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait, screenW
       <div style={{ height:1, background:"rgba(45,36,96,0.1)", marginBottom: portrait ? 8 : 10 }} />
       {/* events */}
       {visible.length === 0 ? (
-        <div style={{ fontSize:11, color:"rgba(45,36,96,0.3)", textAlign:"center", padding:"4px 0" }}>
+        <div style={{ fontSize:11, color:"rgba(45,36,96,0.65)", textAlign:"center", padding:"4px 0" }}>
           {ldr ? "+ 추가" : "예정 없음"}
         </div>
       ) : visible.map((e, i) => (
         <div key={e.id}>
           {i > 0 && <div style={{ height:1, background:"rgba(45,36,96,0.07)", margin:"7px 0" }} />}
           <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:4 }}>
-            <div style={{ fontSize:dateSz, color:"rgba(45,36,96,0.5)", fontWeight:700,
+            <div style={{ fontSize:dateSz, color:"rgba(45,36,96,0.75)", fontWeight:700,
               letterSpacing:"0.02em", marginBottom:2 }}>
               {fmtSchedDate(e.date)}
             </div>
             {e.type === "service" && (
-              <span style={{ fontSize:9, fontWeight:700, color:"rgba(16,185,129,0.8)",
+              <span style={{ fontSize:9, fontWeight:700, color:"#047857",
                 background:"rgba(16,185,129,0.12)", borderRadius:4, padding:"1px 5px",
                 flexShrink:0, lineHeight:1.6 }}>자동</span>
             )}
@@ -14719,16 +14719,16 @@ function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait, screenW
             {e.title}
           </div>
           {e.time && (
-            <div style={{ fontSize:timeSz, color:"rgba(45,36,96,0.55)", marginTop:2 }}>{fmtSchedTime(e.time)}</div>
+            <div style={{ fontSize:timeSz, color:"rgba(45,36,96,0.75)", marginTop:2 }}>{fmtSchedTime(e.time)}</div>
           )}
           {e.type === "rehearsal" && (
             <span style={{ display:"inline-block", background:"rgba(232,169,62,0.18)",
-              color:"#a07020", borderRadius:4, padding:"2px 7px",
+              color:"#7a4a00", borderRadius:4, padding:"2px 7px",
               fontSize:10, fontWeight:700, marginTop:4 }}>연습</span>
           )}
           {e.type === "service" && (
             <span style={{ display:"inline-block", background:"rgba(16,185,129,0.15)",
-              color:"#059669", borderRadius:4, padding:"2px 7px",
+              color:"#047857", borderRadius:4, padding:"2px 7px",
               fontSize:10, fontWeight:700, marginTop:4 }}>예배</span>
           )}
         </div>
@@ -14783,7 +14783,7 @@ function ScheduleEditModal({ group, schedules, onClose }) {
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
           <div style={{ fontSize:16, fontWeight:800, color:"#2d2460" }}>연습 스케줄 관리</div>
           <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer",
-            fontSize:20, color:"rgba(45,36,96,0.4)", padding:4 }}>✕</button>
+            fontSize:20, color:"rgba(45,36,96,0.7)", padding:4 }}>✕</button>
         </div>
 
         {/* 그룹 탭 */}
@@ -14793,7 +14793,7 @@ function ScheduleEditModal({ group, schedules, onClose }) {
               flex:1, padding:"7px 0", borderRadius:10, border:"1.5px solid",
               borderColor: grp === g ? "#2d2460" : "rgba(45,36,96,0.15)",
               background: grp === g ? "#2d2460" : "transparent",
-              color: grp === g ? "#fff" : "rgba(45,36,96,0.55)",
+              color: grp === g ? "#fff" : "rgba(45,36,96,0.75)",
               fontWeight:700, fontSize:12, cursor:"pointer",
             }}>{grpLabel[g]}</button>
           ))}
@@ -14802,7 +14802,7 @@ function ScheduleEditModal({ group, schedules, onClose }) {
         {/* 이벤트 목록 */}
         <div style={{ flex:1, overflowY:"auto", marginBottom:16 }}>
           {upcoming.length === 0 ? (
-            <div style={{ textAlign:"center", padding:"20px 0", color:"rgba(45,36,96,0.3)", fontSize:13 }}>
+            <div style={{ textAlign:"center", padding:"20px 0", color:"rgba(45,36,96,0.65)", fontSize:13 }}>
               예정된 일정이 없습니다
             </div>
           ) : upcoming.map(e => (
@@ -14811,16 +14811,16 @@ function ScheduleEditModal({ group, schedules, onClose }) {
               padding:"10px 0", borderBottom:"1px solid rgba(45,36,96,0.06)",
             }}>
               <div>
-                <div style={{ fontSize:10, color:"rgba(45,36,96,0.4)", fontWeight:700, marginBottom:2 }}>
+                <div style={{ fontSize:10, color:"rgba(45,36,96,0.7)", fontWeight:700, marginBottom:2 }}>
                   {fmtSchedDate(e.date)}{e.time ? " · " + fmtSchedTime(e.time) : ""}
                   {" "}
                   <span style={{ background: e.type==="rehearsal"?"rgba(232,169,62,0.18)":"rgba(45,36,96,0.07)",
-                    color: e.type==="rehearsal"?"#a07020":"rgba(45,36,96,0.5)",
+                    color: e.type==="rehearsal"?"#7a4a00":"rgba(45,36,96,0.75)",
                     borderRadius:4, padding:"1px 5px", fontSize:8, fontWeight:700 }}>
                     {e.type==="rehearsal"?"연습":"예배"}
                   </span>
                   {" "}
-                  <span style={{ fontSize:8, color:"rgba(45,36,96,0.3)" }}>
+                  <span style={{ fontSize:8, color:"rgba(45,36,96,0.65)" }}>
                     [{grpLabel[e.group]||e.group}]
                   </span>
                 </div>
@@ -14836,7 +14836,7 @@ function ScheduleEditModal({ group, schedules, onClose }) {
 
         {/* 추가 폼 */}
         <div style={{ borderTop:"1px solid rgba(45,36,96,0.1)", paddingTop:14, display:"flex", flexDirection:"column", gap:10 }}>
-          <div style={{ fontSize:11, fontWeight:700, color:"rgba(45,36,96,0.4)",
+          <div style={{ fontSize:11, fontWeight:700, color:"rgba(45,36,96,0.7)",
             letterSpacing:"0.06em", textTransform:"uppercase" }}>새 일정 추가</div>
 
           <input value={title} onChange={e=>setTitle(e.target.value)}
@@ -14853,7 +14853,7 @@ function ScheduleEditModal({ group, schedules, onClose }) {
             <select value={time} onChange={e=>setTime(e.target.value)}
               style={{ width:120, padding:"9px 10px", borderRadius:10,
                 border:"1.5px solid rgba(45,36,96,0.18)", fontSize:13,
-                color: time ? "#2d2460" : "rgba(45,36,96,0.4)",
+                color: time ? "#2d2460" : "rgba(45,36,96,0.65)",
                 outline:"none", fontFamily:"inherit", background:"#fff" }}>
               <option value="">시간 선택</option>
               {Array.from({length: 18*4}, (_, i) => {
@@ -14871,7 +14871,7 @@ function ScheduleEditModal({ group, schedules, onClose }) {
                 flex:1, padding:"8px 0", borderRadius:10, border:"1.5px solid",
                 borderColor: type===v ? "#e8a93e" : "rgba(45,36,96,0.15)",
                 background: type===v ? "rgba(232,169,62,0.12)" : "transparent",
-                color: type===v ? "#a07020" : "rgba(45,36,96,0.5)",
+                color: type===v ? "#7a4a00" : "rgba(45,36,96,0.75)",
                 fontWeight:700, fontSize:12, cursor:"pointer",
               }}>{l}</button>
             ))}
