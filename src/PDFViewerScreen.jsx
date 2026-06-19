@@ -4967,12 +4967,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         const dictKey = isRight ? (rSongForDict?.key || song?.key) : song?.key;
         const dictSteps = isRight ? transposeSteps2 : transposeSteps;
         const dictCapo = isRight ? capoFret2 : capoFret;
+        const effSteps = dictSteps - dictCapo;
+        const sideChords = isRight ? chordData2 : chordData;
+        const seen = new Set();
+        const dictSongChords = sideChords
+          .map(d => transposeChord(d.chord, effSteps, useFlats(dictKey, effSteps)))
+          .filter(name => { if (!name || seen.has(name)) return false; seen.add(name); return true; })
+          .map(name => ({ name, voicings: getVoicings(name) }));
         return (
           <ChordDictModal
             onClose={() => setShowChordDict("")}
-            songChords={songChords}
+            songChords={dictSongChords}
             songKey={dictKey}
-            effectiveSteps={dictSteps - dictCapo}
+            effectiveSteps={effSteps}
             userParts={getUserParts(user)}
             C={C}
           />
