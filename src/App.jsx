@@ -305,7 +305,12 @@ const KEY_CLR = {
   C:"#45b87a", D:"#60b4e0", E:"#e07a60", F:"#a060e0",
   G:"#60e0a0", A:"#e8a93e", B:"#7b6af5",
 };
+const DARK_KEY = {
+  C:"#1a6b40", D:"#1a5c7a", E:"#8a3018",
+  F:"#5a1fa0", G:"#1a7a50", A:"#7a4a00", B:"#3d2fa0",
+};
 const keyColor = (k) => KEY_CLR[k ? k[0].toUpperCase() : "C"] || C.acc;
+const darkKeyColor = (k) => DARK_KEY[k ? k[0].toUpperCase() : "C"] || "#7a4a00";
 
 const isLeader = (role) => role === "leader" || role === "admin";
 const isBroadcast = (role) => role === "broadcast" || isLeader(role);
@@ -1180,9 +1185,11 @@ function Btn({ label, icon, onClick, variant="primary", disabled=false, full=fal
 }
 
 function Badge({ label, color = C.acc }) {
+  const DARK = { [C.acc]: "#7a4a00", [C.grn]: "#157a30" };
+  const textColor = DARK[color] || color;
   return (
     <span style={{
-      background:`${color}22`, color, border:`1px solid ${color}44`,
+      background:`${color}22`, color: textColor, border:`1px solid ${color}44`,
       padding:"2px 8px", borderRadius:6, fontSize:11, fontWeight:700,
       letterSpacing:"0.02em", display:"inline-block",
     }}>{label}</span>
@@ -1703,7 +1710,7 @@ function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
               <button onClick={() => setShowReqForm(true)} style={{
                 width:"100%", padding:"11px 0", borderRadius:10,
                 background:`${C.acc}15`, border:`1px solid ${C.acc}44`,
-                color:C.acc, fontSize:14, fontWeight:600,
+                color:"#7a4a00", fontSize:14, fontWeight:600,
                 cursor:"pointer", fontFamily:"inherit",
               }}>→ 액세스 신청하기</button>
             )}
@@ -4033,7 +4040,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           </span>
                           {song.key && (
                             <span style={{ flexShrink:0, fontSize:11, fontWeight:700,
-                              background:`${keyColor(song.key)}22`, color:keyColor(song.key),
+                              background:`${keyColor(song.key)}22`, color:darkKeyColor(song.key),
                               border:`1px solid ${keyColor(song.key)}44`,
                               borderRadius:6, padding:"2px 8px" }}>
                               {song.key}
@@ -4219,8 +4226,8 @@ function ServiceStatusBadge({ svc }) {
 
   const s = {
     preparing: { bg:`${C.dim}18`, color:C.dim, border:`1px solid ${C.bdr}` },
-    countdown: { bg:`${C.acc}15`, color:C.acc, border:`1px solid ${C.acc}55`, fontVariantNumeric:"tabular-nums", fontWeight:800, fontSize:15, letterSpacing:"-0.02em" },
-    active:    { bg:`${C.grn}18`, color:C.grn, border:`1px solid ${C.grn}55` },
+    countdown: { bg:`${C.acc}15`, color:"#7a4a00", border:`1px solid ${C.acc}55`, fontVariantNumeric:"tabular-nums", fontWeight:800, fontSize:15, letterSpacing:"-0.02em" },
+    active:    { bg:`${C.grn}18`, color:"#157a30", border:`1px solid ${C.grn}55` },
     ended:     { bg:`${C.dim}12`, color:C.dim, border:`1px solid ${C.bdr}` },
     next:      { bg:`${C.pur}15`, color:C.pur, border:`1px solid ${C.pur}44` },
   }[type];
@@ -4327,7 +4334,7 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
               <span style={{ color:C.dim, fontSize:11 }}>{i+1}.</span>
               {s.title}
               <span style={{
-                background:`${keyColor(s.key)}22`, color:keyColor(s.key),
+                background:`${keyColor(s.key)}22`, color:darkKeyColor(s.key),
                 borderRadius:4, padding:"0 4px", fontSize:10, fontWeight:700,
               }}>Key {s.key}</span>
             </span>
