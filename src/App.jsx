@@ -16128,6 +16128,13 @@ export default function App() {
     );
   }, [user?.uid]);
 
+  // 알림 토스트 5초 후 자동 닫기
+  useEffect(() => {
+    if (!notifPopup) return;
+    const t = setTimeout(() => setNotifPopup(null), 5000);
+    return () => clearTimeout(t);
+  }, [notifPopup]);
+
   // ── Firestore: 개인 메모 (본인만)
   useEffect(() => {
     if (!user?.uid) return;
@@ -16752,52 +16759,45 @@ export default function App() {
       )}
 
       {notifPopup && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)", zIndex:3000,
-          display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
-          <div style={{ background:C.surf, borderRadius:20, padding:24, maxWidth:340, width:"100%",
-            boxShadow:"0 8px 32px rgba(0,0,0,0.25)" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
-              <div style={{ width:44, height:44, borderRadius:12, background:`${C.pur}20`,
-                display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <Icon n="bell" size={22} color={C.pur} />
+        <div style={{
+          position:"fixed", top:"calc(env(safe-area-inset-top) + 10px)",
+          left:12, right:12, zIndex:3000,
+          animation:"notifToastSlide .32s cubic-bezier(.16,1,.3,1)",
+        }}>
+          <style>{`@keyframes notifToastSlide{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}`}</style>
+          <div
+            onClick={() => {
+              setNotifPopup(null);
+              const n = notifPopup.latest;
+              markNotifRead(n.id);
+              nav("notifications");
+            }}
+            style={{
+              background:C.surf, borderRadius:16,
+              boxShadow:"0 4px 20px rgba(0,0,0,0.18)",
+              border:`1px solid ${C.bdr}`,
+              padding:"12px 14px", cursor:"pointer",
+              display:"flex", alignItems:"center", gap:12,
+            }}>
+            <div style={{ width:38, height:38, borderRadius:10, background:`${C.pur}18`,
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <Icon n="bell" size={19} color={C.pur} />
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontWeight:700, fontSize:13, color:C.txt }}>
+                새 알림 {notifPopup.unreadCount}개
               </div>
-              <div>
-                <div style={{ fontWeight:700, fontSize:16, color:C.txt }}>읽지 않은 알림</div>
-                <div style={{ fontSize:13, color:C.dim }}>{notifPopup.unreadCount}개의 새 알림이 있습니다</div>
+              <div style={{ fontSize:12, color:C.dim, overflow:"hidden",
+                textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {notifPopup.latest.title?.replace(/^\[.*?\]\s*/, "") || notifPopup.latest.content || ""}
               </div>
             </div>
-            <div style={{ background:C.card, borderRadius:12, padding:"12px 14px", marginBottom:20,
-              border:`1px solid ${C.bdr}` }}>
-              <div style={{ fontWeight:700, fontSize:14, color:C.txt, marginBottom:4 }}>
-                {notifPopup.latest.type ? `[${notifPopup.latest.type}]` : ""} {notifPopup.latest.title?.replace(/^\[.*?\]\s*/, "") || ""}
-              </div>
-              <div style={{ fontSize:13, color:C.dim, lineHeight:1.5 }}>
-                {notifPopup.latest.content || notifPopup.latest.body}
-              </div>
-            </div>
-            <div style={{ display:"flex", gap:10 }}>
-              <button onClick={() => setNotifPopup(null)}
-                style={{ flex:1, padding:"11px 0", borderRadius:10, border:`1px solid ${C.bdr}`,
-                  background:C.card, color:C.txt, fontWeight:600, fontSize:14,
-                  cursor:"pointer", fontFamily:"inherit" }}>
-                닫기
-              </button>
-              <button onClick={() => {
-                setNotifPopup(null);
-                const n = notifPopup.latest;
-                markNotifRead(n.id);
-                if ((!n.category || n.category === "service") && n.serviceId) {
-                  nav("svcDetail", { svcId: n.serviceId });
-                } else {
-                  nav("notifications");
-                }
-              }}
-                style={{ flex:2, padding:"11px 0", borderRadius:10, border:"none",
-                  background:C.pur, color:"#fff", fontWeight:700, fontSize:14,
-                  cursor:"pointer", fontFamily:"inherit" }}>
-                알림 보기
-              </button>
-            </div>
+            <button
+              onClick={e => { e.stopPropagation(); setNotifPopup(null); }}
+              style={{ background:"none", border:"none", cursor:"pointer",
+                padding:4, display:"flex", flexShrink:0, color:C.dim }}>
+              <Icon n="xmark" size={16} color={C.dim} />
+            </button>
           </div>
         </div>
       )}
