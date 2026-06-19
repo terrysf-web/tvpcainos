@@ -4844,7 +4844,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             const lbl = { fontSize:9, fontWeight:800, letterSpacing:"0.02em" };
             const divH = <div style={{ width:1, height:30, background:C.bdr, flexShrink:0, marginBottom:2 }} />;
             const isGuitar = getUserParts(user).includes("기타") || getUserParts(user).includes("일렉기타");
-            const showCapo = isGuitar;
+            const showCapo = isGuitar || user?.role === "admin";
             const showDict = ["기타","일렉기타","베이스","키보드","피아노"].some(p => getUserParts(user).includes(p)) || leader;
 
             // 싱글 모드 UI 한 섹션 — 듀얼/싱글 공통 사용
