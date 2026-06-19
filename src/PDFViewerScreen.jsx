@@ -4939,9 +4939,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               const rKey = rSong?.key || song?.key;
               return (
                 <>
-                  {renderSection(song?.key, transposeSteps, saveTransposeSteps, capoFret, setCapoFret, chordData, () => detectChords(1))}
+                  {renderSection(song?.key, transposeSteps, saveTransposeSteps, capoFret, setCapoFret, chordData, () => detectChords(1), "left")}
                   <div style={{ width:2, height:36, background:C.bdr, flexShrink:0, borderRadius:1, marginBottom:2 }} />
-                  {renderSection(rKey, transposeSteps2, saveTransposeSteps2, capoFret2, setCapoFret2, chordData2, () => detectChords(2))}
+                  {renderSection(rKey, transposeSteps2, saveTransposeSteps2, capoFret2, setCapoFret2, chordData2, () => detectChords(2), "right")}
                   {detectErr && <span style={{ fontSize:11, color:C.red, flexShrink:0 }}>⚠ {detectErr}</span>}
                   {utilBar(true)}
                 </>
