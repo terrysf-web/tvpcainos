@@ -5404,7 +5404,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           <div style={{ padding:"0 4px 8px" }}>
             <div style={{ fontSize:13, color:C.txt, marginBottom:14, lineHeight:1.6 }}>
               <strong style={{ color:C.red }}>"{memoBlockModal.song.title}"</strong>에 작성된 팀 메모가 있습니다.
-              메모 작성자가 먼저 메모를 삭제해야 이 악보를 예배에서 제거할 수 있습니다.
+              메모 작성자가 먼저 메모를 삭제해야 예배 목록에서 이 악보를 제거할 수 있습니다.
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:16 }}>
               {[...new Map(memoBlockModal.notes.map(n => [n.userId, n])).values()].map(n => {
