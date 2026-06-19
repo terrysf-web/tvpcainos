@@ -4785,6 +4785,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [svcLyricsModal,        setSvcLyricsModal]        = useState(null); // { song, text }
   const [svcLyricsSaving,       setSvcLyricsSaving]       = useState(false);
   const [svcPp7Confirm,         setSvcPp7Confirm]         = useState(null); // { stanzaCount, title, text }
+  const [removeSongConfirm,     setRemoveSongConfirm]     = useState(null); // { idx, songTitle }
   const [showKakaoFormatPicker, setShowKakaoFormatPicker] = useState(false);
   const [landscape, setLandscape] = useState(() => window.innerWidth > window.innerHeight);
   useEffect(() => {
@@ -4973,7 +4974,15 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
   const [memoBlockModal, setMemoBlockModal] = useState(null); // { song, notes }
 
-  const removeSong = async (idx) => {
+  const _doRemoveSong = async (idx) => {
+    const song = entries[idx]?.song;
+    const newIds = (svc.songIds || []).filter((_, i) => i !== idx);
+    const newAddedAt = { ...(svc.songAddedAt || {}) };
+    if (song) delete newAddedAt[song.id];
+    await updateDoc(doc(db, "services", svc.id), { songIds: newIds, songAddedAt: newAddedAt });
+  };
+
+  const removeSong = (idx) => {
     const song = entries[idx]?.song;
     if (song) {
       const addedAt = (svc.songAddedAt || {})[song.id];
@@ -4989,10 +4998,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
         return;
       }
     }
-    const newIds = (svc.songIds || []).filter((_, i) => i !== idx);
-    const newAddedAt = { ...(svc.songAddedAt || {}) };
-    if (song) delete newAddedAt[song.id];
-    await updateDoc(doc(db, "services", svc.id), { songIds: newIds, songAddedAt: newAddedAt });
+    setRemoveSongConfirm({ idx, songTitle: song?.title || "이 곡" });
   };
 
   const duplicateSong = async (idx) => {
@@ -5432,6 +5438,16 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           confirmLabel="계속"
           onConfirm={() => { setSvcPp7Confirm(null); _doSvcProDownload(svcPp7Confirm.title, svcPp7Confirm.text, svcPp7Confirm.stanzaCount); }}
           onClose={() => setSvcPp7Confirm(null)}
+        />
+      )}
+      {removeSongConfirm && (
+        <ConfirmModal
+          title="곡 제거"
+          message={`"${removeSongConfirm.songTitle}"을(를) 예배 목록에서 제거하시겠습니까?`}
+          confirmLabel="제거"
+          danger
+          onConfirm={() => { const idx = removeSongConfirm.idx; setRemoveSongConfirm(null); _doRemoveSong(idx); }}
+          onClose={() => setRemoveSongConfirm(null)}
         />
       )}
 
@@ -12293,6 +12309,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
   const [emailErr,       setEmailErr]       = useState("");
   const [accessRequests, setAccessRequests] = useState([]); // [{email, name, part, message, ...}]
   const [approvingReq,   setApprovingReq]   = useState(null);
+  const [removeEmailConfirm, setRemoveEmailConfirm] = useState(null); // email string
 
   useEffect(() => {
     // 팀원 목록 (1회)
@@ -12410,6 +12427,17 @@ function TeamManagementModal({ currentUserId, onClose }) {
   const roleColor = (r) => r === "admin" ? C.red : r === "leader" ? C.acc : r === "broadcast" ? "#ff9f0a" : r?.toLowerCase() === "foh" ? "#0a84ff" : C.grn;
 
   return (
+    <>
+    {removeEmailConfirm && (
+      <ConfirmModal
+        title="팀원 접근 권한 삭제"
+        message={`"${removeEmailConfirm}" 이메일을 삭제하면 해당 팀원이 로그인할 수 없게 됩니다. 삭제하시겠습니까?`}
+        confirmLabel="삭제"
+        danger
+        onConfirm={() => { removeEmail(removeEmailConfirm); setRemoveEmailConfirm(null); }}
+        onClose={() => setRemoveEmailConfirm(null)}
+      />
+    )}
     <Modal title={`팀원 관리 · ${members.length}명`} onClose={onClose}>
 
       {/* ── 액세스 신청 대기 */}
@@ -12727,7 +12755,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
                     fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:5,
                     background:`${clr}22`, color:clr, flexShrink:0,
                   }}>{roleLabel}</span>
-                  <button onClick={() => removeEmail(item.email)} style={{
+                  <button onClick={() => setRemoveEmailConfirm(item.email)} style={{
                     background:"transparent", border:"none", cursor:"pointer",
                     padding:4, display:"flex", flexShrink:0,
                   }}>
@@ -12740,6 +12768,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
         )}
       </div>
     </Modal>
+    </>
   );
 }
 
@@ -14823,6 +14852,7 @@ function ScheduleEditModal({ group, schedules, onClose }) {
   const [type, setType]       = useState("rehearsal");
   const [grp, setGrp]         = useState(group);
   const [saving, setSaving]   = useState(false);
+  const [delConfirm, setDelConfirm] = useState(null); // { id, title }
 
   const upcoming = schedules
     .filter(s => s.group === grp || s.group === "all" || grp === "all")
@@ -14844,9 +14874,22 @@ function ScheduleEditModal({ group, schedules, onClose }) {
     await deleteDoc(doc(db, "rehearsalSchedule", id));
   };
 
+  const confirmAndDel = (e) => setDelConfirm({ id: e.id, title: e.title });
+
   const grpLabel = { vocal:"보컬", band:"밴드", all:"전체" };
 
   return (
+    <>
+    {delConfirm && (
+      <ConfirmModal
+        title="일정 삭제"
+        message={`"${delConfirm.title}" 일정을 삭제하시겠습니까?`}
+        confirmLabel="삭제"
+        danger
+        onConfirm={() => { del(delConfirm.id); setDelConfirm(null); }}
+        onClose={() => setDelConfirm(null)}
+      />
+    )}
     <div style={{
       position:"fixed", inset:0, zIndex:9000,
       background:"rgba(0,0,0,0.45)",
@@ -14905,7 +14948,7 @@ function ScheduleEditModal({ group, schedules, onClose }) {
                 </div>
                 <div style={{ fontSize:13, fontWeight:700, color:"#2d2460" }}>{e.title}</div>
               </div>
-              <button onClick={() => del(e.id)} style={{
+              <button onClick={() => confirmAndDel(e)} style={{
                 background:"none", border:"none", cursor:"pointer",
                 color:"rgba(200,80,80,0.55)", fontSize:18, padding:"4px 8px",
               }}>🗑</button>
@@ -14968,6 +15011,7 @@ function ScheduleEditModal({ group, schedules, onClose }) {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
