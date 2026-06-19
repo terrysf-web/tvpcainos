@@ -16028,7 +16028,7 @@ export default function App() {
           geminiKey: d.geminiKey || "",
         }));
       }
-    });
+    }, () => {});
   }, [user?.uid]);
 
   // ── Firestore: songs (real-time, auth-gated)
@@ -16040,7 +16040,8 @@ export default function App() {
         const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setSongs(data);
         try { localStorage.setItem("tvpc_songs_cache", JSON.stringify(data)); } catch {}
-      }
+      },
+      () => {}
     );
   }, [user?.uid]);
 
@@ -16054,7 +16055,8 @@ export default function App() {
         setServices(data);
         setServicesLoaded(true);
         try { localStorage.setItem("tvpc_services_cache", JSON.stringify(data)); } catch {}
-      }
+      },
+      () => {}
     );
   }, [user?.uid]);
 
@@ -16124,7 +16126,8 @@ export default function App() {
             setNotifPopup({ unreadCount: unread.length, latest });
           }
         }
-      }
+      },
+      () => {}
     );
   }, [user?.uid]);
 
@@ -16242,10 +16245,11 @@ export default function App() {
 
   // ── Firestore: 라이브 상태 (방송팀 탭 표시용)
   useEffect(() => {
+    if (!user?.uid) { setAnyLiveActive(false); return; }
     return onSnapshot(doc(db, "liveStatus", "global"), snap => {
       setAnyLiveActive(snap.exists() && snap.data().active === true);
-    });
-  }, []);
+    }, () => {});
+  }, [user?.uid]);
 
   // ── FOH 팀 메시지 수신 (멤버 전용)
   useEffect(() => {
