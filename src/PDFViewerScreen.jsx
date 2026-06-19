@@ -4844,15 +4844,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             const lbl = { fontSize:9, fontWeight:800, letterSpacing:"0.02em" };
             const divH = <div style={{ width:1, height:30, background:C.bdr, flexShrink:0, marginBottom:2 }} />;
             const isGuitar = getUserParts(user).includes("기타") || getUserParts(user).includes("일렉기타");
-            const showCapo = isGuitar || leader;
+            const showCapo = isGuitar;
             const showDict = ["기타","일렉기타","베이스","키보드","피아노"].some(p => getUserParts(user).includes(p)) || leader;
 
             // 싱글 모드 UI 한 섹션 — 듀얼/싱글 공통 사용
             const renderSection = (songKey, steps, saveFn, capoVal, setCapo, chords, detectFn, side) => {
               const rec = showCapo && songKey ? getCapoRec(songKey, steps) : null;
               const recItems = rec ? [
-                ...((getUserParts(user).includes("기타") || leader) && rec.acoustic ? [{ name:"기타", shape:rec.acoustic.shape, capo:rec.acoustic.capo }] : []),
-                ...((getUserParts(user).includes("일렉기타") || leader) && rec.electric ? [{ name:"일렉", shape:rec.electric.shape, capo:rec.electric.capo }] : []),
+                ...(getUserParts(user).includes("기타") && rec.acoustic ? [{ name:"기타", shape:rec.acoustic.shape, capo:rec.acoustic.capo }] : []),
+                ...(getUserParts(user).includes("일렉기타") && rec.electric ? [{ name:"일렉", shape:rec.electric.shape, capo:rec.electric.capo }] : []),
               ] : [];
               return (
                 <>
