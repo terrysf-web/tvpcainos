@@ -297,7 +297,7 @@ const C = {
   pur:   "#6b5de7",
   grn:   "#34c759",
   txt:   "#1c1c1e",
-  dim:   "#8e8e93",
+  dim:   "#6e6e73",
   red:   "#ff3b30",
 };
 
@@ -1576,7 +1576,7 @@ function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
             fontSize:10, fontWeight:700, color:C.dim, flexShrink:0,
           }}>G</div>
           <span style={{ fontSize:13, color:C.dim, flex:1 }}>{blockedUser?.email}</span>
-          <span style={{ fontSize:10, color:`${C.dim}77` }}>자동입력</span>
+          <span style={{ fontSize:10, color:C.dim }}>자동입력</span>
         </div>
 
         {/* 이름 */}
@@ -1594,7 +1594,7 @@ function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
 
         {/* 파트 */}
         <div style={{ fontSize:12, fontWeight:600, color:C.dim, marginBottom:6, letterSpacing:".03em" }}>
-          소속 파트 <span style={{ color:`${C.dim}88`, fontWeight:400 }}>(선택)</span>
+          소속 파트 <span style={{ color:C.dim, fontWeight:400 }}>(선택)</span>
         </div>
         <input value={reqPart} onChange={e => setReqPart(e.target.value)}
           placeholder="예: 보컬, 기타, 건반..."
@@ -1607,7 +1607,7 @@ function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
 
         {/* 메시지 */}
         <div style={{ fontSize:12, fontWeight:600, color:C.dim, marginBottom:6, letterSpacing:".03em" }}>
-          신청 메시지 <span style={{ color:`${C.dim}88`, fontWeight:400 }}>(선택)</span>
+          신청 메시지 <span style={{ color:C.dim, fontWeight:400 }}>(선택)</span>
         </div>
         <textarea value={reqMsg} onChange={e => setReqMsg(e.target.value)}
           placeholder="관리자에게 전하고 싶은 말을 입력해주세요"
@@ -2774,7 +2774,7 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
                           }}>
                             {acked && <span style={{ color:"#fff", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
                           </div>
-                          <span style={{ fontSize:10, color: acked ? "#43a047" : "#888", fontWeight:700 }}>
+                          <span style={{ fontSize:10, color: acked ? "#43a047" : "#636366", fontWeight:700 }}>
                             {acked ? "확인됨" : "확인"}
                           </span>
                         </button>
@@ -2788,7 +2788,7 @@ function CueNotesSection({ svcSongs, songCues, user, acknowledgeCue }) {
                           }}>
                             {acked && <span style={{ color:"#fff", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
                           </div>
-                          <span style={{ fontSize:10, color: acked ? "#43a047" : "#bbb", fontWeight:700 }}>
+                          <span style={{ fontSize:10, color: acked ? "#43a047" : "#636366", fontWeight:700 }}>
                             {acked ? "확인됨" : "미확인"}
                           </span>
                         </div>
@@ -3377,7 +3377,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                 ? <div style={{ width:20, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                                     <div style={{ width:0, height:0, borderTop:"7px solid transparent", borderBottom:"7px solid transparent", borderLeft:`12px solid ${sc}` }} />
                                   </div>
-                                : <span style={{ width:20, display:"inline-flex", alignItems:"center", justifyContent:"center", flexShrink:0, color:`${C.dim}99`, fontSize:12 }}>⋮⋮</span>
+                                : <span style={{ width:20, display:"inline-flex", alignItems:"center", justifyContent:"center", flexShrink:0, color:C.dim, fontSize:12 }}>⋮⋮</span>
                               }
                               <div style={{ width:26, height:26, borderRadius:8, flexShrink:0,
                                 background:sc, display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
@@ -3796,7 +3796,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           <div key={m.id} style={{ display:"flex", flexDirection:"column", alignItems:isMe?"flex-end":"flex-start" }}>
                             <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:2 }}>
                               {!isMe && <span style={{ fontSize:10, color:C.dim }}>{m.name?.split(" ")[0]}</span>}
-                              {timeStr && <span style={{ fontSize:9, color:`${C.dim}99` }}>{timeStr}</span>}
+                              {timeStr && <span style={{ fontSize:9, color:C.dim }}>{timeStr}</span>}
                             </div>
                             <div style={{ maxWidth:"82%", padding:"6px 10px", borderRadius:12, fontSize:12, lineHeight:1.5, background:isMe?C.pur:C.card, color:isMe?"#fff":C.txt, borderBottomLeftRadius:isMe?12:4, borderBottomRightRadius:isMe?4:12, border:`1px solid ${isMe?"transparent":C.bdr}` }}>{m.text}</div>
                           </div>
@@ -3880,7 +3880,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                 <div style={{ fontSize:15, fontWeight:800, color:C.dim, letterSpacing:"0.08em" }}>
                   예배종료
                 </div>
-                <div style={{ fontSize:11, color:`${C.dim}88`, marginTop:4 }}>
+                <div style={{ fontSize:11, color:C.dim, marginTop:4 }}>
                   {nextSvc?.title} · {nextSvc?.time}
                 </div>
               </div>
@@ -12478,7 +12478,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
                       <div style={{ fontSize:11, color:C.dim, marginTop:1 }}>파트: {req.part}</div>
                     )}
                     {req.message && (
-                      <div style={{ fontSize:12, color:`${C.dim}cc`, marginTop:4,
+                      <div style={{ fontSize:12, color:C.dim, marginTop:4,
                         fontStyle:"italic", lineHeight:1.5 }}>
                         "{req.message}"
                       </div>
@@ -12612,7 +12612,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
               ) : (
                 <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
                   <span style={{ fontSize:12, color:C.dim, flex:1 }}>
-                    {getUserParts(m).join(", ") || <span style={{ color:`${C.dim}88` }}>파트 미설정</span>}
+                    {getUserParts(m).join(", ") || <span style={{ color:C.dim }}>파트 미설정</span>}
                   </span>
                   {partSaveOk === m.id && (
                     <span style={{ fontSize:11, color:C.grn, fontWeight:700 }}>저장됨 ✓</span>
@@ -12727,7 +12727,7 @@ function TeamManagementModal({ currentUserId, onClose }) {
           <div style={{
             padding:"14px", borderRadius:8, textAlign:"center",
             background:C.card, border:`1px dashed ${C.bdr}`,
-            fontSize:12, color:`${C.dim}88`,
+            fontSize:12, color:C.dim,
           }}>
             허용된 이메일이 없습니다 (부트스트랩 모드 — 누구나 로그인 가능)
           </div>
