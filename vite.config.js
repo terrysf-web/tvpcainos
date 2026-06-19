@@ -26,5 +26,16 @@ export default defineConfig({
   base: "/",
   build: {
     target: "esnext",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-firebase": [
+            "firebase/app", "firebase/auth", "firebase/firestore",
+            "firebase/storage", "firebase/messaging",
+          ],
+          "vendor-react": ["react", "react-dom"],
+        },
+      },
+    },
   },
 });
