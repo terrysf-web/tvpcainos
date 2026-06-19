@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 import { ref as storageRef, deleteObject } from "firebase/storage";
 import { detectChordsViaEdge, loadServiceSettings, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart } from "./supabase.js";
+import { openDrivePicker } from "./drivePicker.js";
 import AIPanel from "./AIPanel.jsx";
 
 /* ══════════════════════════════════════════════════════════════════
