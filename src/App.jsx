@@ -1251,6 +1251,36 @@ function Modal({ title, onClose, children, noBackdrop = false }) {
   );
 }
 
+function ConfirmModal({ title, message, confirmLabel = "확인", danger = false, onConfirm, onClose }) {
+  return (
+    <div style={{
+      position:"fixed", inset:0, background:"rgba(0,0,0,.5)",
+      display:"flex", alignItems:"center", justifyContent:"center",
+      zIndex:1200, backdropFilter:"blur(4px)", padding:"16px",
+    }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="wSlideUp" style={{
+        background:C.surf, borderRadius:20, width:"100%", maxWidth:360,
+        padding:"24px 20px 20px", border:`1px solid ${C.bdr}`,
+      }}>
+        <div style={{ fontWeight:700, fontSize:16, marginBottom:10, color:C.txt }}>{title}</div>
+        <div style={{ fontSize:14, color:"#636366", lineHeight:1.6, marginBottom:22 }}>{message}</div>
+        <div style={{ display:"flex", gap:10 }}>
+          <button onClick={onClose} style={{
+            flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.bdr}`,
+            background:"transparent", color:C.txt, fontSize:14, fontWeight:700,
+            cursor:"pointer", fontFamily:"inherit",
+          }}>취소</button>
+          <button onClick={onConfirm} style={{
+            flex:1, padding:"12px 0", borderRadius:12, border:"none",
+            background: danger ? C.red : C.acc, color:"#fff", fontSize:14, fontWeight:700,
+            cursor:"pointer", fontFamily:"inherit",
+          }}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════════════
    YOUTUBE HELPERS
 ══════════════════════════════════════════════════════════════════ */
@@ -4754,6 +4784,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const cardRefs = useRef([]);
   const [svcLyricsModal,        setSvcLyricsModal]        = useState(null); // { song, text }
   const [svcLyricsSaving,       setSvcLyricsSaving]       = useState(false);
+  const [svcPp7Confirm,         setSvcPp7Confirm]         = useState(null); // { stanzaCount, title, text }
   const [showKakaoFormatPicker, setShowKakaoFormatPicker] = useState(false);
   const [landscape, setLandscape] = useState(() => window.innerWidth > window.innerHeight);
   useEffect(() => {
@@ -4844,17 +4875,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     setSvcLyricsModal(null);
   };
 
-  const downloadSvcProFile = async () => {
-    const title = svcLyricsModal.song.title;
-    const text  = svcLyricsModal.text;
-    if (!text || !text.trim()) {
-      alert("가사를 먼저 입력하세요. Pro 파일은 입력한 가사로 슬라이드를 생성합니다.");
-      return;
-    }
-    const stanzaCount = text.split(/\n{2,}/).filter(s => s.trim()).length;
-    if (stanzaCount > 12) {
-      if (!window.confirm(`가사가 ${stanzaCount}단락입니다. 템플릿은 12슬라이드까지 지원하므로 처음 12단락만 사용됩니다. 계속할까요?`)) return;
-    }
+  const _doSvcProDownload = async (title, text, stanzaCount) => {
     try {
       const binary = await _generatePP7Binary(title, text);
       const blob = new Blob([binary], { type: "application/octet-stream" });
@@ -4868,6 +4889,21 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     } catch(e) {
       alert("PP7 파일 생성 실패: " + e.message);
     }
+  };
+
+  const downloadSvcProFile = async () => {
+    const title = svcLyricsModal.song.title;
+    const text  = svcLyricsModal.text;
+    if (!text || !text.trim()) {
+      alert("가사를 먼저 입력하세요. Pro 파일은 입력한 가사로 슬라이드를 생성합니다.");
+      return;
+    }
+    const stanzaCount = text.split(/\n{2,}/).filter(s => s.trim()).length;
+    if (stanzaCount > 12) {
+      setSvcPp7Confirm({ stanzaCount, title, text });
+      return;
+    }
+    _doSvcProDownload(title, text, stanzaCount);
   };
 
   const sendNotif = async () => {
@@ -5389,6 +5425,16 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
         </Modal>
       )}
 
+      {svcPp7Confirm && (
+        <ConfirmModal
+          title="슬라이드 개수 초과"
+          message={`가사가 ${svcPp7Confirm.stanzaCount}단락입니다. 템플릿은 12슬라이드까지 지원하므로 처음 12단락만 사용됩니다.`}
+          confirmLabel="계속"
+          onConfirm={() => { setSvcPp7Confirm(null); _doSvcProDownload(svcPp7Confirm.title, svcPp7Confirm.text, svcPp7Confirm.stanzaCount); }}
+          onClose={() => setSvcPp7Confirm(null)}
+        />
+      )}
+
       {/* 가사 편집 + .pro 다운로드 모달 (서비스 화면) */}
       {svcLyricsModal && (
         <Modal title={`가사 — ${svcLyricsModal.song.title}`} onClose={() => setSvcLyricsModal(null)}>
@@ -5640,6 +5686,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
   const [memoReplaceModal, setMemoReplaceModal] = useState(null); // { song, othersNotes, ownNotes, pendingUpload }
   const [lyricsModal,  setLyricsModal]  = useState(null); // { song, text }
   const [lyricsSaving, setLyricsSaving] = useState(false);
+  const [pp7Confirm,   setPp7Confirm]   = useState(null); // { stanzaCount, title, text }
 
   const checkMemoBeforeReplace = (song) => {
     const teamNotes = (teamAnnotations || {})[song.id] || [];
@@ -5754,17 +5801,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
     setLyricsModal(null);
   };
 
-  const downloadProFile = async () => {
-    const title = lyricsModal.song.title;
-    const text  = lyricsModal.text;
-    if (!text || !text.trim()) {
-      alert("가사를 먼저 입력하세요. Pro 파일은 입력한 가사로 슬라이드를 생성합니다.");
-      return;
-    }
-    const stanzaCount = text.split(/\n{2,}/).filter(s => s.trim()).length;
-    if (stanzaCount > 12) {
-      if (!window.confirm(`가사가 ${stanzaCount}단락입니다. 템플릿은 12슬라이드까지 지원하므로 처음 12단락만 사용됩니다. 계속할까요?`)) return;
-    }
+  const _doProDownload = async (title, text, stanzaCount) => {
     try {
       const binary = await _generatePP7Binary(title, text);
       const blob = new Blob([binary], { type: "application/octet-stream" });
@@ -5778,6 +5815,21 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
     } catch(e) {
       alert("PP7 파일 생성 실패: " + e.message);
     }
+  };
+
+  const downloadProFile = async () => {
+    const title = lyricsModal.song.title;
+    const text  = lyricsModal.text;
+    if (!text || !text.trim()) {
+      alert("가사를 먼저 입력하세요. Pro 파일은 입력한 가사로 슬라이드를 생성합니다.");
+      return;
+    }
+    const stanzaCount = text.split(/\n{2,}/).filter(s => s.trim()).length;
+    if (stanzaCount > 12) {
+      setPp7Confirm({ stanzaCount, title, text });
+      return;
+    }
+    _doProDownload(title, text, stanzaCount);
   };
 
   const saveEdit = async () => {
@@ -6151,6 +6203,16 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
         );
       })()}
 
+      {pp7Confirm && (
+        <ConfirmModal
+          title="슬라이드 개수 초과"
+          message={`가사가 ${pp7Confirm.stanzaCount}단락입니다. 템플릿은 12슬라이드까지 지원하므로 처음 12단락만 사용됩니다.`}
+          confirmLabel="계속"
+          onConfirm={() => { setPp7Confirm(null); _doProDownload(pp7Confirm.title, pp7Confirm.text, pp7Confirm.stanzaCount); }}
+          onClose={() => setPp7Confirm(null)}
+        />
+      )}
+
       {/* 가사 편집 + .pro 다운로드 모달 */}
       {lyricsModal && (
         <Modal title={`가사 — ${lyricsModal.song.title}`} onClose={() => setLyricsModal(null)}>
@@ -6444,6 +6506,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   const [addTitle,     setAddTitle]      = useState("");
   const [saving,       setSaving]        = useState(false);
   const [saveProgress, setSaveProgress]  = useState("");
+  const [confirmDel,   setConfirmDel]    = useState(null); // rec to delete
   const [editingId,    setEditingId]     = useState(null);
   const [editData,     setEditData]      = useState({});
   const [bulkText,     setBulkText]      = useState("");
@@ -6507,7 +6570,11 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   }, [showAdd]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const del = async (rec) => {
-    if (!window.confirm("이 항목을 삭제하시겠습니까?")) return;
+    setConfirmDel(rec);
+  };
+
+  const _doDel = async (rec) => {
+    setConfirmDel(null);
     if (expandedId === rec.id) setExpandedId(null);
     try {
       if (rec._supabase) {
@@ -6643,6 +6710,17 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   const visibleTabs = PARTS.filter(p => accessibleParts.includes(p.id));
 
   return (
+    <>
+    {confirmDel && (
+      <ConfirmModal
+        title="녹음 항목 삭제"
+        message="이 항목을 삭제하시겠습니까? 삭제 후 복구할 수 없습니다."
+        confirmLabel="삭제"
+        danger
+        onConfirm={() => _doDel(confirmDel)}
+        onClose={() => setConfirmDel(null)}
+      />
+    )}
     <Modal title={`예배 녹음 — ${songTitle}`} onClose={onClose} noBackdrop>
       {/* 파트 탭 — 접근 가능한 파트만 표시 */}
       <div style={{ display:"flex", overflowX:"auto", gap:5, marginBottom:10, paddingBottom:2 }}>
@@ -6969,6 +7047,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
         </div>
       )}
     </Modal>
+    </>
   );
 }
 
