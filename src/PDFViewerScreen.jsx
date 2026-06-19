@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { C } from "./theme.js";
+import {
+  PARTS, VOCALIST_PART_IDS, INST_MODES, CUE_SECTIONS,
+  getUserParts, isVocalistUser,
+  isLeader, isFoh,
+} from "./appUtils.js";
 import { Icon, Btn, Modal, ConfirmModal } from "./ui.jsx";
 import { getVoicings, getDiatonicChords, getEffectiveKey, CHORD_VOICINGS, getChordTones } from "./chordVoicings.js";
 import { db, storage } from "./firebase.js";

@@ -9,6 +9,12 @@ import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRe
 import { openDrivePicker } from "./drivePicker.js";
 import AIPanel from "./AIPanel.jsx";
 import {
+  PARTS, VOCALIST_PART_IDS, SHEET_SYNC_INST_PARTS, DEFAULT_SHEET_PARTS,
+  GROUP_PART_IDS, CUE_SECTIONS, INST_MODES,
+  getUserParts, isVocalistUser, getUserDisplayPart,
+  isLeader, isBroadcast, isFoh,
+} from "./appUtils.js";
+import {
   signOut,
   onAuthStateChanged,
   GoogleAuthProvider,
@@ -241,51 +247,6 @@ async function _generatePP7Binary(title, lyricsText) {
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
-const CUE_SECTIONS = ["전체","Intro","Verse","Chorus","Bridge","Outro"];
-
-const PARTS = [
-  { id:"전체",      emoji:"🎵", label:"전체" },
-  { id:"밴드",      emoji:"🎶", label:"밴드" },
-  { id:"보컬그룹",  emoji:"🎤", label:"보컬 그룹" },
-  { id:"리드보컬",  emoji:"🎤", label:"리드 보컬" },
-  { id:"보컬Jeon",  emoji:"🎤", label:"보컬 Jeon" },
-  { id:"보컬Chung", emoji:"🎤", label:"보컬 Chung" },
-  { id:"보컬Lee",   emoji:"🎤", label:"보컬 Lee" },
-  { id:"기타",      emoji:"🎸", label:"기타" },
-  { id:"베이스",    emoji:"🎶", label:"베이스" },
-  { id:"드럼",      emoji:"🥁", label:"드럼" },
-  { id:"키보드",    emoji:"🎹", label:"키보드" },
-  { id:"피아노",    emoji:"🎹", label:"피아노" },
-  { id:"일렉기타",  emoji:"⚡", label:"일렉기타" },
-  { id:"FOH",       emoji:"🎚", label:"FOH" },
-];
-
-// 보컬 파트 ID 집합 — "밴드" 녹음 접근 불가
-const VOCALIST_PART_IDS = new Set(["보컬그룹","리드보컬","보컬Jeon","보컬Chung","보컬Lee"]);
-// 악보 링크 파트 선택 대상 (보컬 제외 악기 파트)
-const SHEET_SYNC_INST_PARTS = ["밴드","기타","베이스","드럼","키보드","피아노","일렉기타"];
-const DEFAULT_SHEET_PARTS   = ["밴드","기타","베이스","드럼","키보드","피아노","일렉기타"];
-
-// 사용자 파트 배열 반환 (구버전 part 문자열 호환)
-const getUserParts = (u) => u?.parts?.length ? u.parts : (u?.part ? [u.part] : []);
-const isVocalistUser = (u) => getUserParts(u).some(p => VOCALIST_PART_IDS.has(p));
-// 그룹 파트 ID — 악기가 아닌 그룹 레이블
-const GROUP_PART_IDS = new Set(["밴드", "보컬그룹"]);
-// 표시용 파트: 개인 악기 우선, 없으면 그룹, 없으면 빈 문자열
-const getUserDisplayPart = (u) => {
-  const parts = getUserParts(u);
-  const inst = parts.find(p => !GROUP_PART_IDS.has(p) && p !== "전체");
-  return inst || parts[0] || "";
-};
-
-const INST_MODES = [
-  { id:"piano",    emoji:"🎹", label:"피아노" },
-  { id:"guitar",   emoji:"🎸", label:"기타" },
-  { id:"drum",     emoji:"🥁", label:"드럼" },
-  { id:"bass",     emoji:"🎶", label:"베이스" },
-  { id:"other",    emoji:"🎵", label:"기타 악기" },
-  { id:"ensemble", emoji:"🎼", label:"앙상블" },
-];
 
 /* ── Kakao SDK ── */
 const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
@@ -294,17 +255,6 @@ const KAKAO_JS_KEY = "36693cbaae62398d925e37d550fc74a5";
    THEME
 ══════════════════════════════════════════════════════════════════ */
 
-const isLeader = (role) => role === "leader" || role === "admin";
-const isBroadcast = (role) => role === "broadcast" || isLeader(role);
-const isFoh = (userOrRole) => {
-  if (!userOrRole) return false;
-  if (typeof userOrRole === "string") {
-    return userOrRole === "admin" || userOrRole.toLowerCase() === "foh";
-  }
-  return userOrRole.role === "admin" ||
-         userOrRole.role?.toLowerCase() === "foh" ||
-         getUserParts(userOrRole).some(p => p?.toLowerCase() === "foh");
-};
 
 const fmtTime = (ts) => {
   if (!ts?.toDate) return "방금";
