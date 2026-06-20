@@ -2950,14 +2950,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         const availW = cSize.w - 16;
         const availH = cSize.h - 16;
         await renderWithCrop(canvas1Ref.current, pdfDocRef.current, pageNum, song?.cropBox || null, availW, availH);
-        // 렌더 결과가 너무 작으면 컨테이너가 아직 확정되지 않은 것 — 실제 크기로 재측정 후 재렌더
-        if (canvas1Ref.current && containerRef.current) {
-          const actual = containerRef.current.getBoundingClientRect();
-          if (actual.width >= 50 && Math.abs(actual.width - cSize.w) > 10) {
-            setCSize({ w: actual.width, h: actual.height });
-            return;
-          }
-        }
         if (drawCanvas1Ref.current) {
           drawCanvas1Ref.current.width  = canvas1Ref.current.width;
           drawCanvas1Ref.current.height = canvas1Ref.current.height;
