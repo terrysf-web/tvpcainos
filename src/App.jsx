@@ -2715,7 +2715,47 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         {teamChatMsgs.length === 0 && <div style={{ textAlign:"center", color:C.dim, fontSize:12, padding:"20px 0" }}>메시지 없음</div>}
                         <div ref={teamChatEndRef} />
                       </div>
-                      {teamChatPresets.length > 0 && (
+                      {teamChatEditMode ? (
+                        <div style={{ flexShrink:0, padding:"8px 10px", borderTop:`1px solid ${C.bdr}`, background:C.card }}>
+                          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+                            <span style={{ fontSize:10, fontWeight:800, color:C.dim }}>프리셋 편집</span>
+                            <button onClick={() => { setTeamChatEditMode(false); setTeamChatPresetInput(""); }} style={{ fontSize:11, fontWeight:700, color:C.pur, background:"none", border:"none", cursor:"pointer", fontFamily:"inherit" }}>완료</button>
+                          </div>
+                          <div style={{ display:"flex", flexDirection:"column", gap:4, marginBottom:6 }}>
+                            {teamChatPresets.map((p, i) => (
+                              <div key={i} style={{ display:"flex", alignItems:"center", gap:6 }}>
+                                <span style={{ flex:1, fontSize:11, color:C.txt }}>{p}</span>
+                                <button onClick={() => {
+                                  const next = teamChatPresets.filter((_,idx) => idx !== i);
+                                  setTeamChatPresets(next);
+                                  localStorage.setItem("tvpc_foh_chat_presets", JSON.stringify(next));
+                                }} style={{ flexShrink:0, width:18, height:18, borderRadius:"50%", background:C.red, color:"#fff", border:"none", fontSize:12, fontWeight:900, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1 }}>×</button>
+                              </div>
+                            ))}
+                            {teamChatPresets.length === 0 && <span style={{ fontSize:11, color:C.dim }}>프리셋 없음</span>}
+                          </div>
+                          <div style={{ display:"flex", gap:4 }}>
+                            <input value={teamChatPresetInput} onChange={e => setTeamChatPresetInput(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key==="Enter" && teamChatPresetInput.trim()) {
+                                  const next = [...teamChatPresets, teamChatPresetInput.trim()];
+                                  setTeamChatPresets(next);
+                                  localStorage.setItem("tvpc_foh_chat_presets", JSON.stringify(next));
+                                  setTeamChatPresetInput("");
+                                }
+                              }}
+                              placeholder="새 프리셋 추가..."
+                              style={{ flex:1, fontSize:11, padding:"5px 8px", borderRadius:8, border:`1px solid ${C.bdr}`, background:C.bg, color:C.txt, outline:"none", fontFamily:"inherit" }} />
+                            <button onClick={() => {
+                              if (!teamChatPresetInput.trim()) return;
+                              const next = [...teamChatPresets, teamChatPresetInput.trim()];
+                              setTeamChatPresets(next);
+                              localStorage.setItem("tvpc_foh_chat_presets", JSON.stringify(next));
+                              setTeamChatPresetInput("");
+                            }} style={{ flexShrink:0, padding:"5px 10px", borderRadius:8, background:C.pur, color:"#fff", border:"none", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>추가</button>
+                          </div>
+                        </div>
+                      ) : (
                         <div style={{ flexShrink:0, padding:"6px 10px", borderTop:`1px solid ${C.bdr}`, display:"flex", flexWrap:"wrap", gap:4 }}>
                           {teamChatPresets.map((p, i) => (
                             <button key={i} onClick={async () => {
@@ -2723,7 +2763,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                               await addDoc(collection(db,"liveChat",nextSvc.id,"messages"),{text:p,uid:user.uid,name:user.name||user.email,role:user.role,type:"chat",createdAt:serverTimestamp()});
                             }} style={{ padding:"4px 10px", borderRadius:14, fontSize:11, fontWeight:700, border:`1.5px solid ${C.acc}55`, background:`${C.acc}12`, color:C.acc, cursor:"pointer", fontFamily:"inherit" }}>{p}</button>
                           ))}
-                          <button onClick={() => setTeamChatEditMode(p => !p)} style={{ padding:"4px 8px", borderRadius:14, fontSize:10, border:`1px solid ${C.bdr}`, background:"none", color:C.dim, cursor:"pointer", fontFamily:"inherit" }}>✏️</button>
+                          <button onClick={() => setTeamChatEditMode(true)} style={{ padding:"4px 8px", borderRadius:14, fontSize:10, border:`1px solid ${C.bdr}`, background:"none", color:C.dim, cursor:"pointer", fontFamily:"inherit" }}>✏️</button>
                         </div>
                       )}
                       <div style={{ flexShrink:0, display:"flex", gap:6, padding:"8px 10px", borderTop:`1px solid ${C.bdr}` }}>
