@@ -2324,19 +2324,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // 컨테이너 크기 추적 (ResizeObserver)
   useEffect(() => {
     if (!containerRef.current) return;
-    // 즉시 측정 — 마운트 시 ResizeObserver 첫 콜백보다 먼저 cSize를 확정
     const rect = containerRef.current.getBoundingClientRect();
     if (rect.width >= 50 && rect.height >= 50) {
       setCSize({ w: rect.width, h: rect.height });
     }
+    let timer;
     const ro = new ResizeObserver(([e]) => {
       const { width, height } = e.contentRect;
-      // 애니메이션/전환 중 잠깐 작아지는 크기는 무시 (최소 50px)
       if (width < 50 || height < 50) return;
-      setCSize({ w: width, h: height });
+      clearTimeout(timer);
+      timer = setTimeout(() => setCSize({ w: width, h: height }), 120);
     });
     ro.observe(containerRef.current);
-    return () => ro.disconnect();
+    return () => { ro.disconnect(); clearTimeout(timer); };
   }, []);
 
   // 스와이프 중 브라우저 기본 스크롤 차단 (iOS Safari 포함)
