@@ -2904,39 +2904,41 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
                   {/* 탭 3: FOH 알림 */}
                   {fohCardTab === "foh" && (
-                    <div style={{ flex:"1 1 0", height:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", paddingRight:2 }}>
-                      {(() => {
-                        const allCuesOv = svcSongs.flatMap(s => songCues?.[s.id] || []);
-                        const panicCues = allCuesOv.filter(c => c.panic === true).sort((a,b) => (b.createdAt?.seconds??0)-(a.createdAt?.seconds??0));
-                        return panicCues.length === 0 ? (
-                          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", color:C.dim }}>
-                            <div style={{ textAlign:"center" }}><div style={{ fontSize:32, marginBottom:8, opacity:0.3 }}>🔔</div><div style={{ fontSize:12 }}>알림 없음</div></div>
-                          </div>
-                        ) : (
-                          <>
-                            <style>{`@keyframes cueSlideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}`}</style>
-                            {panicCues.map(cue => {
-                              const acked = cue.acknowledged === true;
-                              const isNew = (cue.createdAt?.toMillis?.() ?? 0) > Date.now() - 8000;
-                              const partIcon = cue.userPart==="드럼"?"🥁":cue.userPart==="베이스"?"🎸":cue.userPart==="키보드"?"🎹":cue.userPart==="일렉기타"?"⚡":cue.userPart==="기타"?"🎵":cue.userPart==="보컬"?"🎤":"🚨";
-                              return (
-                                <div key={cue.id} style={{ borderRadius:12, padding:"10px 12px", background:acked?"#f0fff5":"#fff5f5", border:`1.5px solid ${acked?"#34c75966":"#ffd0cc"}`, display:"flex", alignItems:"flex-start", gap:10, animation:isNew?"cueSlideIn 0.3s ease-out":"none", flexShrink:0 }}>
-                                  <div style={{ fontSize:18, flexShrink:0, lineHeight:1, marginTop:1 }}>{partIcon}</div>
-                                  <div style={{ flex:1, minWidth:0 }}>
-                                    <div style={{ fontSize:11, fontWeight:800, color:acked?"#34c759":C.red }}>{cue.userPart||cue.userName}</div>
-                                    <div style={{ fontSize:13, fontWeight:700, color:"#1c1c1e", marginTop:2, lineHeight:1.5 }}>{cue.text}</div>
-                                    {cue.createdAt && <div style={{ fontSize:10, color:C.dim, marginTop:3 }}>{new Date(cue.createdAt.toMillis()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div>}
+                    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}` }}>
+                      <div style={{ flex:"1 1 0", height:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, padding:"10px", scrollbarWidth:"none" }}>
+                        {(() => {
+                          const allCuesOv = svcSongs.flatMap(s => songCues?.[s.id] || []);
+                          const panicCues = allCuesOv.filter(c => c.panic === true).sort((a,b) => (b.createdAt?.seconds??0)-(a.createdAt?.seconds??0));
+                          return panicCues.length === 0 ? (
+                            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flex:1, color:C.dim }}>
+                              <div style={{ textAlign:"center" }}><div style={{ fontSize:32, marginBottom:8, opacity:0.3 }}>🔔</div><div style={{ fontSize:12 }}>알림 없음</div></div>
+                            </div>
+                          ) : (
+                            <>
+                              <style>{`@keyframes cueSlideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}`}</style>
+                              {panicCues.map(cue => {
+                                const acked = cue.acknowledged === true;
+                                const isNew = (cue.createdAt?.toMillis?.() ?? 0) > Date.now() - 8000;
+                                const partIcon = cue.userPart==="드럼"?"🥁":cue.userPart==="베이스"?"🎸":cue.userPart==="키보드"?"🎹":cue.userPart==="일렉기타"?"⚡":cue.userPart==="기타"?"🎵":cue.userPart==="보컬"?"🎤":"🚨";
+                                return (
+                                  <div key={cue.id} style={{ borderRadius:12, padding:"10px 12px", background:acked?"#f0fff5":"#fff5f5", border:`1.5px solid ${acked?"#34c75966":"#ffd0cc"}`, display:"flex", alignItems:"flex-start", gap:10, animation:isNew?"cueSlideIn 0.3s ease-out":"none", flexShrink:0 }}>
+                                    <div style={{ fontSize:18, flexShrink:0, lineHeight:1, marginTop:1 }}>{partIcon}</div>
+                                    <div style={{ flex:1, minWidth:0 }}>
+                                      <div style={{ fontSize:11, fontWeight:800, color:acked?"#34c759":C.red }}>{cue.userPart||cue.userName}</div>
+                                      <div style={{ fontSize:13, fontWeight:700, color:"#1c1c1e", marginTop:2, lineHeight:1.5 }}>{cue.text}</div>
+                                      {cue.createdAt && <div style={{ fontSize:10, color:C.dim, marginTop:3 }}>{new Date(cue.createdAt.toMillis()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div>}
+                                    </div>
+                                    <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
+                                      <button onClick={() => acknowledgeCue?.(cue.id, acked, {targetUid:cue.userId,cueText:cue.text})} style={{ padding:"5px 11px", borderRadius:7, background:acked?"#f0fff5":"#fff", border:`1.5px solid ${acked?"#34c75966":C.red+"66"}`, color:acked?"#34c759":C.red, fontSize:11, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>{acked?"확인됨":"확인"}</button>
+                                      <button onClick={() => deleteCue?.(cue.id)} style={{ padding:"3px 8px", borderRadius:7, background:"transparent", border:`1px solid ${C.bdr}`, color:C.dim, fontSize:10, cursor:"pointer", fontFamily:"inherit" }}>삭제</button>
+                                    </div>
                                   </div>
-                                  <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
-                                    <button onClick={() => acknowledgeCue?.(cue.id, acked, {targetUid:cue.userId,cueText:cue.text})} style={{ padding:"5px 11px", borderRadius:7, background:acked?"#f0fff5":"#fff", border:`1.5px solid ${acked?"#34c75966":C.red+"66"}`, color:acked?"#34c759":C.red, fontSize:11, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>{acked?"확인됨":"확인"}</button>
-                                    <button onClick={() => deleteCue?.(cue.id)} style={{ padding:"3px 8px", borderRadius:7, background:"transparent", border:`1px solid ${C.bdr}`, color:C.dim, fontSize:10, cursor:"pointer", fontFamily:"inherit" }}>삭제</button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </>
-                        );
-                      })()}
+                                );
+                              })}
+                            </>
+                          );
+                        })()}
+                      </div>
                     </div>
                   )}
 
