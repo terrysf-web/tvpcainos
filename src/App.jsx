@@ -1760,7 +1760,7 @@ function FohMsgToast({ message, fromName, onDismiss }) {
       <div style={{ display:"flex", alignItems:"center", gap:14, padding:"14px 20px" }}>
         <span style={{ fontSize:34, lineHeight:1 }}>📢</span>
         <div style={{ flex:1 }}>
-          {fromName && <div style={{ fontSize:12, opacity:0.7, marginBottom:3, fontWeight:700 }}>{fromName.split(" ")[0]}</div>}
+          {fromName && <div style={{ fontSize:12, opacity:0.7, marginBottom:3, fontWeight:700 }}>{String(fromName).split(" ")[0]}</div>}
           <div style={{ fontWeight:900, fontSize:20, letterSpacing:"0.03em", lineHeight:1.1 }}>{message}</div>
         </div>
         <div style={{ fontSize:12, opacity:0.55, flexShrink:0 }}>탭하면 닫힘</div>
@@ -2116,11 +2116,11 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   }, [nextSvc?.id]);
 
   useEffect(() => {
-    if (showTeamChat || fohRightTab === "chat") {
+    if (showTeamChat || fohCardTab === "chat") {
       setChatLastSeen(Date.now());
       setTimeout(() => teamChatEndRef.current?.scrollIntoView({ behavior:"smooth" }), 60);
     }
-  }, [showTeamChat, fohRightTab, teamChatMsgs.length]);
+  }, [showTeamChat, fohCardTab, teamChatMsgs.length]);
 
   // T-0 도달 시 첫 번째 악보로 자동이동 — tick 내부에서 직접 호출
 
@@ -2160,6 +2160,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
     };
 
     const tick = () => {
+      if (!nextSvc?.time?.includes(":")) return;
       const [h, m] = nextSvc.time.split(":").map(Number);
       const svcDt  = new Date(nextSvc.date + "T00:00:00");
       svcDt.setHours(h, m, 0, 0);
@@ -7300,10 +7301,10 @@ export default function App() {
     return saved;
   });
   const [songs,       setSongs]       = useState(() => {
-    try { const c = localStorage.getItem("tvpc_songs_cache"); return c ? JSON.parse(c) : []; } catch { return []; }
+    try { const c = localStorage.getItem("tvpc_songs_cache"); const p = c ? JSON.parse(c) : []; return Array.isArray(p) ? p : []; } catch { return []; }
   });
   const [services,    setServices]    = useState(() => {
-    try { const c = localStorage.getItem("tvpc_services_cache"); return c ? JSON.parse(c) : []; } catch { return []; }
+    try { const c = localStorage.getItem("tvpc_services_cache"); const p = c ? JSON.parse(c) : []; return Array.isArray(p) ? p : []; } catch { return []; }
   });
   const [servicesLoaded, setServicesLoaded] = useState(() => {
     try { return !!localStorage.getItem("tvpc_services_cache"); } catch { return false; }
