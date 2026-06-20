@@ -1700,6 +1700,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [chatToastKb,   setChatToastKb]   = useState(null); // { name, text }
   const chatToastKbTimer = useRef(null);
   const chatMsgsPrevRef  = useRef([]);
+  const [chatLastSeen,  setChatLastSeen]  = useState(0);
   const [chatEditMode,  setChatEditMode]  = useState(false);
   const [chatPresets,   setChatPresets]   = useState(() => {
     try { return JSON.parse(localStorage.getItem("tvpc_chat_presets") || "null") || ["볼륨 올려주세요","볼륨 낮춰주세요","준비됐습니다","잠깐요","확인했습니다"]; }
@@ -2290,7 +2291,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     });
   }, [selectedSvcId]);
   useEffect(() => {
-    if (showChat) setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior:"smooth" }), 60);
+    if (showChat) {
+      setChatLastSeen(Date.now());
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior:"smooth" }), 60);
+    }
   }, [chatMsgs.length, showChat]);
 
   const saveDrawing = useCallback(async (songId, page, strokes) => {
@@ -4150,7 +4154,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
           {/* 그룹 버튼 */}
           {(() => {
-            const unread = isLibraryMode ? 0 : chatMsgs.filter(m => m.uid !== user?.uid).length;
+            const unread = isLibraryMode ? 0 : chatMsgs.filter(m => m.uid !== user?.uid && (m.createdAt?.toMillis?.() ?? Date.now()) > chatLastSeen).length;
             const viewActive = dual || fitActive || zoomMul !== 1.0;
             const writeActive = drawMode || showNotePanel || (!isLibraryMode && showCueInput);
             const scoreActive = transposeMode || media;
