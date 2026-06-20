@@ -4196,7 +4196,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 {mkGrp("보기", viewActive, C.acc, 0)}
                 {mkGrp("필기", writeActive, drawMode ? C.pur : C.acc, 0)}
                 {mkGrp("악보", scoreActive, transposeMode ? C.grn : C.acc, 0)}
-                {!isLibraryMode && (() => {
+                {!isLibraryMode && (getUserParts(user).some(p => ["키보드","피아노"].includes(p)) || isFoh(user)) && (() => {
                   const isOpen = activeGroup === "팀채팅";
                   const c = (isOpen || showChat) ? C.acc : C.dim;
                   return (
@@ -5731,7 +5731,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       )}
 
       {/* 팀 채팅 패널 */}
-      {showChat && !isLibraryMode && selectedSvcId && (() => {
+      {showChat && !isLibraryMode && selectedSvcId && (getUserParts(user).some(p => ["키보드","피아노"].includes(p)) || isFoh(user)) && (() => {
         const sendMsg = async (text) => {
           if (!text?.trim()) return;
           await addDoc(collection(db, "liveChat", selectedSvcId, "messages"), {
