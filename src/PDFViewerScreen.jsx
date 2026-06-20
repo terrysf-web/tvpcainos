@@ -4850,9 +4850,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             // 싱글 모드 UI 한 섹션 — 듀얼/싱글 공통 사용
             const renderSection = (songKey, steps, saveFn, capoVal, setCapo, chords, detectFn, side) => {
               const rec = showCapo && songKey ? getCapoRec(songKey, steps) : null;
+              const isAdmin = user?.role === "admin";
               const recItems = rec ? [
-                ...(getUserParts(user).includes("기타") && rec.acoustic ? [{ name:"기타", shape:rec.acoustic.shape, capo:rec.acoustic.capo }] : []),
-                ...(getUserParts(user).includes("일렉기타") && rec.electric ? [{ name:"일렉", shape:rec.electric.shape, capo:rec.electric.capo }] : []),
+                ...((isAdmin || getUserParts(user).includes("기타")) && rec.acoustic ? [{ name:"기타", shape:rec.acoustic.shape, capo:rec.acoustic.capo }] : []),
+                ...((isAdmin || getUserParts(user).includes("일렉기타")) && rec.electric ? [{ name:"일렉", shape:rec.electric.shape, capo:rec.electric.capo }] : []),
               ] : [];
               return (
                 <>
