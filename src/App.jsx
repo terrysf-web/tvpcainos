@@ -33,6 +33,12 @@ const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 /* ── App version ── */
 const APP_VERSION = "3.691";
 
+function getYoutubeId(url) {
+  if (!url) return null;
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
 /* ── PP7 Binary Generator ────────────────────────────────────────────────────
  * Patches the lyric RTF blocks in the template file with new lyrics text.
  * Template: /templates/pp7-lyric-template.pro (12 slides, field-13 at root)
