@@ -1700,7 +1700,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [chatToastKb,   setChatToastKb]   = useState(null); // { name, text }
   const chatToastKbTimer = useRef(null);
   const chatMsgsPrevRef  = useRef([]);
-  const [chatLastSeen,  setChatLastSeen]  = useState(0);
+  const [chatLastSeen,  setChatLastSeen]  = useState(() => {
+    try { return Number(localStorage.getItem("tvpc_chat_last_seen")) || 0; } catch { return 0; }
+  });
   const [chatEditMode,  setChatEditMode]  = useState(false);
   const [chatPresets,   setChatPresets]   = useState(() => {
     try { return JSON.parse(localStorage.getItem("tvpc_chat_presets") || "null") || ["볼륨 올려주세요","볼륨 낮춰주세요","준비됐습니다","잠깐요","확인했습니다"]; }
@@ -2292,7 +2294,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   }, [selectedSvcId]);
   useEffect(() => {
     if (showChat) {
-      setChatLastSeen(Date.now());
+      const now = Date.now();
+      setChatLastSeen(now);
+      try { localStorage.setItem("tvpc_chat_last_seen", String(now)); } catch {}
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior:"smooth" }), 60);
     }
   }, [chatMsgs.length, showChat]);
