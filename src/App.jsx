@@ -1727,7 +1727,7 @@ const PIANO_TOAST_MS = 8000;
 
 /* ── FOH 팀 메시지 토스트 ── */
 const FOH_MSG_MS = 3000;
-function FohMsgToast({ message, onDismiss }) {
+function FohMsgToast({ message, fromName, onDismiss }) {
   const [pct, setPct] = useState(100);
   useEffect(() => {
     const start = Date.now();
@@ -1754,6 +1754,7 @@ function FohMsgToast({ message, onDismiss }) {
       <div style={{ display:"flex", alignItems:"center", gap:14, padding:"14px 20px" }}>
         <span style={{ fontSize:34, lineHeight:1 }}>📢</span>
         <div style={{ flex:1 }}>
+          {fromName && <div style={{ fontSize:12, opacity:0.7, marginBottom:3, fontWeight:700 }}>{fromName.split(" ")[0]}</div>}
           <div style={{ fontWeight:900, fontSize:20, letterSpacing:"0.03em", lineHeight:1.1 }}>{message}</div>
         </div>
         <div style={{ fontSize:12, opacity:0.55, flexShrink:0 }}>탭하면 닫힘</div>
@@ -1993,8 +1994,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   });
   const saveFohPresets = (list) => { setTeamChatPresets(list); localStorage.setItem("tvpc_foh_chat_presets", JSON.stringify(list)); };
   const [chatLastSeen, setChatLastSeen] = useState(0); // timestamp ms
-  const [fohRightTab,  setFohRightTab]  = useState(null); // "alert" | "chat" | null
-  const [fohCardTab,   setFohCardTab]   = useState("alert"); // "alert" | "chat"
+  const [fohRightTab,  setFohRightTab]  = useState(null); // legacy — 미사용
+  const [fohCardTab,   setFohCardTab]   = useState("chat"); // "chat" | "msg" | "foh"
+  const [fohRecentSent, setFohRecentSent] = useState([]); // [{toLabel, text, time}]
   const [fohFollowTarget, setFohFollowTarget] = useState("키보드"); // 예배순서 자동감지 대상 악기
   const teamChatEndRef = useRef(null);
   const autoNavDone  = useRef(false);
@@ -2663,283 +2665,241 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
                 </div>
 
-                {/* ── 오른쪽 50%: 카드 기반 레이아웃 ── */}
-                <div style={{ width:"50%", display:"flex", flexDirection:"column", gap:6, padding:"6px 6px 6px 4px", overflow:"hidden", position:"relative" }}>
+                {/* ── 오른쪽 50%: 3탭 레이아웃 ── */}
+                <div style={{ width:"50%", display:"flex", flexDirection:"column", padding:"6px 6px 6px 4px", overflow:"hidden" }}>
 
-                  {/* FOH 알림 전체보기 오버레이 */}
-                  {fohRightTab === "alert" && (
-                    <div style={{ position:"absolute", inset:0, background:C.bg, zIndex:10, display:"flex", flexDirection:"column", padding:"6px 6px 6px 4px" }}>
-                      {/* 헤더 카드 */}
-                      <div style={{ flexShrink:0, background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}`, padding:"10px 14px", marginBottom:6, display:"flex", alignItems:"center", gap:10 }}>
-                        <button onClick={() => setFohRightTab(null)} style={{ background:"none", border:"none", fontSize:16, color:C.dim, cursor:"pointer", padding:"0 2px", fontFamily:"inherit", lineHeight:1 }}>←</button>
-                        <span style={{ fontSize:14, fontWeight:800, color:C.red, flex:1 }}>FOH 알림</span>
+                  {/* 탭 바 */}
+                  {(() => {
+                    const allCuesT = svcSongs.flatMap(s => songCues?.[s.id] || []);
+                    const panicBadge = allCuesT.filter(c => c.panic === true && !c.acknowledged).length;
+                    const unreadBadge = teamChatMsgs.filter(m => m.uid !== user.uid && (m.createdAt?.toMillis?.() ?? 0) > chatLastSeen).length;
+                    return (
+                      <div style={{ display:"flex", background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}`, marginBottom:6, flexShrink:0, overflow:"hidden" }}>
+                        {[
+                          { key:"chat", label:"팀채팅",    icon:"💬", color:C.pur, badge:unreadBadge },
+                          { key:"msg",  label:"팀 메시지", icon:"📢", color:C.acc, badge:0 },
+                          { key:"foh",  label:"FOH 알림",  icon:"🔴", color:C.red, badge:panicBadge },
+                        ].map(t => (
+                          <button key={t.key} onClick={() => setFohCardTab(t.key)} style={{
+                            flex:1, padding:"9px 4px 7px", border:"none",
+                            borderBottom:`2.5px solid ${fohCardTab===t.key ? t.color : "transparent"}`,
+                            background:"none", cursor:"pointer", fontFamily:"inherit",
+                            display:"flex", flexDirection:"column", alignItems:"center", gap:2, position:"relative",
+                          }}>
+                            <span style={{ fontSize:13, lineHeight:1 }}>{t.icon}</span>
+                            <span style={{ fontSize:10, fontWeight:700, color:fohCardTab===t.key ? t.color : C.dim }}>{t.label}</span>
+                            {t.badge > 0 && <span style={{ position:"absolute", top:5, right:8, minWidth:16, height:16, borderRadius:8, padding:"0 3px", background:t.color, color:"#fff", fontSize:9, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center" }}>{t.badge}</span>}
+                          </button>
+                        ))}
                       </div>
-                      {/* 알림 목록 */}
-                      <div style={{ flex:"1 1 0", height:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none" }}>
-                        {(() => {
-                          const allCuesOv = svcSongs.flatMap(s => songCues?.[s.id] || []);
-                          const panicCues = allCuesOv.filter(c => c.panic === true).sort((a,b) => (b.createdAt?.seconds??0)-(a.createdAt?.seconds??0));
-                          return panicCues.length === 0 ? (
-                            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", color:C.dim }}>
-                              <div style={{ textAlign:"center" }}><div style={{ fontSize:32, marginBottom:8, opacity:0.3 }}>🔔</div><div style={{ fontSize:12 }}>알림 없음</div></div>
-                            </div>
-                          ) : (
-                            <>
-                              <style>{`@keyframes cueSlideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}`}</style>
-                              {panicCues.map(cue => {
-                                const acked = cue.acknowledged === true;
-                                const isNew = (cue.createdAt?.toMillis?.() ?? 0) > Date.now() - 8000;
-                                const partIcon = cue.userPart==="드럼"?"🥁":cue.userPart==="베이스"?"🎸":cue.userPart==="키보드"?"🎹":cue.userPart==="일렉기타"?"⚡":cue.userPart==="기타"?"🎵":cue.userPart==="보컬"?"🎤":"🚨";
-                                return (
-                                  <div key={cue.id} style={{ borderRadius:12, padding:"10px 12px", background:acked?"#f0fff5":"#fff5f5", border:`1.5px solid ${acked?"#34c75966":"#ffd0cc"}`, display:"flex", alignItems:"flex-start", gap:10, animation:isNew?"cueSlideIn 0.3s ease-out":"none" }}>
-                                    <div style={{ fontSize:18, flexShrink:0, lineHeight:1, marginTop:1 }}>{partIcon}</div>
-                                    <div style={{ flex:1, minWidth:0 }}>
-                                      <div style={{ fontSize:11, fontWeight:800, color:C.red }}>{cue.userPart||cue.userName}</div>
-                                      <div style={{ fontSize:13, fontWeight:700, color:"#1c1c1e", marginTop:2, lineHeight:1.5 }}>{cue.text}</div>
-                                      {cue.createdAt && <div style={{ fontSize:10, color:C.dim, marginTop:3 }}>{new Date(cue.createdAt.toMillis()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div>}
-                                    </div>
-                                    <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
-                                      <button onClick={() => acknowledgeCue?.(cue.id, acked, {targetUid:cue.userId,cueText:cue.text})} style={{ padding:"5px 11px", borderRadius:7, background:acked?"#f0fff5":"#fff", border:`1.5px solid ${acked?"#34c75966":C.red+"66"}`, color:acked?"#34c759":C.red, fontSize:11, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>{acked?"확인됨":"확인"}</button>
-                                      <button onClick={() => deleteCue?.(cue.id)} style={{ padding:"3px 8px", borderRadius:7, background:"transparent", border:`1px solid ${C.bdr}`, color:C.dim, fontSize:10, cursor:"pointer", fontFamily:"inherit" }}>삭제</button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
-                  {/* 팀채팅 전체보기 오버레이 */}
-                  {fohRightTab === "chat" && (
-                    <div style={{ position:"absolute", inset:0, background:C.bg, zIndex:10, display:"flex", flexDirection:"column", padding:"6px 6px 6px 4px" }}>
-                      {/* 헤더 카드 */}
-                      <div style={{ flexShrink:0, background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}`, padding:"10px 14px", marginBottom:6, display:"flex", alignItems:"center", gap:10 }}>
-                        <button onClick={() => setFohRightTab(null)} style={{ background:"none", border:"none", fontSize:16, color:C.dim, cursor:"pointer", padding:"0 2px", fontFamily:"inherit", lineHeight:1 }}>←</button>
-                        <span style={{ fontSize:14, fontWeight:800, color:C.pur, flex:1 }}>팀채팅</span>
-                      </div>
-                      {/* 프리셋 버튼 */}
-                      {teamChatPresets.length > 0 && (
-                        <div style={{ flexShrink:0, background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}`, padding:"8px 10px", marginBottom:6 }}>
-                          <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
-                            {teamChatPresets.map((p, i) => (
-                              <button key={i} onClick={async () => {
-                                if (!nextSvc?.id) return;
-                                await addDoc(collection(db,"liveChat",nextSvc.id,"messages"),{text:p,uid:user.uid,name:user.name||user.email,role:user.role,type:"chat",createdAt:serverTimestamp()});
-                              }} style={{ padding:"5px 10px", borderRadius:14, fontSize:11, fontWeight:700, border:`1.5px solid ${C.acc}55`, background:`${C.acc}12`, color:C.acc, cursor:"pointer", fontFamily:"inherit" }}>{p}</button>
-                            ))}
-                            <button onClick={() => setTeamChatEditMode(p => !p)} style={{ padding:"5px 8px", borderRadius:14, fontSize:10, border:`1px solid ${C.bdr}`, background:"none", color:C.dim, cursor:"pointer", fontFamily:"inherit" }}>✏️</button>
-                          </div>
-                        </div>
-                      )}
-                      {/* 채팅 메시지 목록 */}
-                      <div style={{ flex:"1 1 0", height:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", padding:"0 2px" }}>
+                  {/* 탭 1: 팀채팅 */}
+                  {fohCardTab === "chat" && (
+                    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}` }}>
+                      <div style={{ flex:"1 1 0", height:0, overflowY:"auto", padding:"10px", display:"flex", flexDirection:"column", gap:7, scrollbarWidth:"none" }}>
                         {teamChatMsgs.map(m => {
                           const isMe = m.uid === user.uid;
+                          const timeStr = m.createdAt ? new Date(m.createdAt.toMillis()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}) : "";
                           return (
                             <div key={m.id} style={{ display:"flex", flexDirection:"column", alignItems:isMe?"flex-end":"flex-start" }}>
-                              {!isMe && <div style={{ fontSize:10, color:C.dim, marginBottom:2 }}>{m.name?.split(" ")[0]}</div>}
-                              <div style={{ maxWidth:"82%", padding:"8px 12px", borderRadius:14, fontSize:12, lineHeight:1.6, background:isMe?C.pur:C.surf, color:isMe?"#fff":C.txt, borderBottomLeftRadius:isMe?14:4, borderBottomRightRadius:isMe?4:14, border:`1px solid ${isMe?"transparent":C.bdr}` }}>{m.text}</div>
+                              <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:2 }}>
+                                {!isMe && <span style={{ fontSize:10, color:C.dim }}>{m.name?.split(" ")[0]}</span>}
+                                {timeStr && <span style={{ fontSize:9, color:C.dim }}>{timeStr}</span>}
+                              </div>
+                              <div style={{ maxWidth:"82%", padding:"7px 11px", borderRadius:14, fontSize:12, lineHeight:1.5, background:isMe?C.pur:C.card, color:isMe?"#fff":C.txt, borderBottomLeftRadius:isMe?14:4, borderBottomRightRadius:isMe?4:14, border:`1px solid ${isMe?"transparent":C.bdr}` }}>{m.text}</div>
                             </div>
                           );
                         })}
                         {teamChatMsgs.length === 0 && <div style={{ textAlign:"center", color:C.dim, fontSize:12, padding:"20px 0" }}>메시지 없음</div>}
                         <div ref={teamChatEndRef} />
                       </div>
-                      {/* 입력창 */}
-                      <div style={{ flexShrink:0, background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}`, padding:"8px 10px", marginTop:6 }}>
-                        <div style={{ display:"flex", gap:6 }}>
-                          <input value={teamChatInput} onChange={e => setTeamChatInput(e.target.value)}
-                            onKeyDown={async e => {
-                              if (e.key==="Enter" && teamChatInput.trim() && nextSvc?.id) {
-                                const t = teamChatInput.trim(); setTeamChatInput("");
-                                await addDoc(collection(db,"liveChat",nextSvc.id,"messages"),{text:t,uid:user.uid,name:user.name||user.email,role:user.role,type:"chat",createdAt:serverTimestamp()});
-                              }
-                            }}
-                            placeholder="메시지 입력..."
-                            style={{ flex:1, padding:"8px 12px", borderRadius:10, border:`1.5px solid ${C.bdr}`, fontSize:12, outline:"none", fontFamily:"inherit", color:C.txt, background:C.bg }} />
-                          <button onClick={async () => {
-                            const t = teamChatInput.trim(); if (!t||!nextSvc?.id) return;
-                            setTeamChatInput("");
-                            await addDoc(collection(db,"liveChat",nextSvc.id,"messages"),{text:t,uid:user.uid,name:user.name||user.email,role:user.role,type:"chat",createdAt:serverTimestamp()});
-                          }} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:C.pur, color:"#fff", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>전송</button>
+                      {teamChatPresets.length > 0 && (
+                        <div style={{ flexShrink:0, padding:"6px 10px", borderTop:`1px solid ${C.bdr}`, display:"flex", flexWrap:"wrap", gap:4 }}>
+                          {teamChatPresets.map((p, i) => (
+                            <button key={i} onClick={async () => {
+                              if (!nextSvc?.id) return;
+                              await addDoc(collection(db,"liveChat",nextSvc.id,"messages"),{text:p,uid:user.uid,name:user.name||user.email,role:user.role,type:"chat",createdAt:serverTimestamp()});
+                            }} style={{ padding:"4px 10px", borderRadius:14, fontSize:11, fontWeight:700, border:`1.5px solid ${C.acc}55`, background:`${C.acc}12`, color:C.acc, cursor:"pointer", fontFamily:"inherit" }}>{p}</button>
+                          ))}
+                          <button onClick={() => setTeamChatEditMode(p => !p)} style={{ padding:"4px 8px", borderRadius:14, fontSize:10, border:`1px solid ${C.bdr}`, background:"none", color:C.dim, cursor:"pointer", fontFamily:"inherit" }}>✏️</button>
                         </div>
+                      )}
+                      <div style={{ flexShrink:0, display:"flex", gap:6, padding:"8px 10px", borderTop:`1px solid ${C.bdr}` }}>
+                        <input value={teamChatInput} onChange={e => setTeamChatInput(e.target.value)}
+                          onKeyDown={async e => {
+                            if (e.key==="Enter" && teamChatInput.trim() && nextSvc?.id) {
+                              const t = teamChatInput.trim(); setTeamChatInput("");
+                              await addDoc(collection(db,"liveChat",nextSvc.id,"messages"),{text:t,uid:user.uid,name:user.name||user.email,role:user.role,type:"chat",createdAt:serverTimestamp()});
+                            }
+                          }}
+                          placeholder="메시지 입력..."
+                          style={{ flex:1, padding:"7px 10px", borderRadius:20, border:`1px solid ${C.bdr}`, background:C.bg, color:C.txt, fontSize:12, outline:"none", fontFamily:"inherit" }} />
+                        <button onClick={async () => {
+                          const t = teamChatInput.trim(); if (!t||!nextSvc?.id) return;
+                          setTeamChatInput("");
+                          await addDoc(collection(db,"liveChat",nextSvc.id,"messages"),{text:t,uid:user.uid,name:user.name||user.email,role:user.role,type:"chat",createdAt:serverTimestamp()});
+                        }} style={{ width:30, height:30, borderRadius:15, background:C.pur, border:"none", color:"#fff", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>↑</button>
                       </div>
                     </div>
                   )}
 
-                  {/* ── 메인 뷰 (오버레이 없을 때) ── */}
-                  {/* 상단 정보 카드 2개: FOH 알림 + 팀채팅 */}
-                  {(() => {
-                    const allCuesR = svcSongs.flatMap(s => songCues?.[s.id] || []);
-                    const panicCount = allCuesR.filter(c => c.panic === true && !c.acknowledged).length;
-                    const unreadChat = teamChatMsgs.filter(m => m.uid !== user.uid && (m.createdAt?.toMillis?.() ?? 0) > chatLastSeen).length;
-                    const latestPanic = allCuesR.filter(c => c.panic === true).sort((a,b) => (b.createdAt?.seconds??0)-(a.createdAt?.seconds??0))[0];
-                    const latestChat = [...teamChatMsgs].reverse()[0];
-                    return (
-                      <div style={{ flexShrink:0, background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}`, overflow:"hidden" }}>
-                        {/* 탭 바 */}
-                        <div style={{ display:"flex", borderBottom:`1px solid ${C.bdr}` }}>
-                          {[
-                            { key:"alert", label:"FOH 알림", color:C.red, badge:panicCount },
-                            { key:"chat",  label:"팀채팅",   color:C.pur, badge:unreadChat },
-                          ].map(t => (
-                            <button key={t.key} onClick={() => setFohCardTab(t.key)} style={{
-                              flex:1, padding:"8px 4px", border:"none", borderBottom:`2px solid ${fohCardTab===t.key ? t.color : "transparent"}`,
-                              background:"none", cursor:"pointer", fontFamily:"inherit",
-                              display:"flex", alignItems:"center", justifyContent:"center", gap:5,
-                            }}>
-                              <span style={{ width:7, height:7, borderRadius:"50%", background:t.color, display:"inline-block", boxShadow: t.badge>0?`0 0 5px ${t.color}`:"none" }} />
-                              <span style={{ fontSize:12, fontWeight:800, color:fohCardTab===t.key ? t.color : C.dim }}>{t.label}</span>
-                              {t.badge > 0 && <span style={{ minWidth:18, height:18, borderRadius:9, padding:"0 4px", background:t.color, color:"#fff", fontSize:10, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center" }}>{t.badge}</span>}
-                            </button>
-                          ))}
+                  {/* 탭 2: 팀 메시지 */}
+                  {fohCardTab === "msg" && (
+                    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}` }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"8px 12px", borderBottom:`1px solid ${C.bdr}`, flexShrink:0 }}>
+                        <span style={{ fontSize:12, fontWeight:800, color:C.acc }}>팀 메시지 보내기</span>
+                        <button onClick={() => { setFohMsgEdit(e => !e); setFohMsgInput(""); }} style={{ fontSize:11, fontWeight:700, color:fohMsgEdit?C.acc:C.dim, background:"none", border:"none", cursor:"pointer", fontFamily:"inherit" }}>{fohMsgEdit?"완료":"편집"}</button>
+                      </div>
+                      {fohMsgEdit ? (
+                        <div style={{ flex:"1 1 0", height:0, overflowY:"auto", padding:"10px", scrollbarWidth:"none" }}>
+                          <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:3 }}>수신자 목록 편집</div>
+                          <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:8 }}>
+                            {teamUsers.map(u => {
+                              const pinned = fohPinnedUids.includes(u.id);
+                              return (
+                                <button key={u.id} onClick={() => togglePinnedUid(u.id)} style={{ flexShrink:0, fontSize:10, fontWeight:700, fontFamily:"inherit", padding:"3px 8px", borderRadius:12, cursor:"pointer", background:pinned?C.acc:C.card, color:pinned?"#fff":C.dim, border:`1px solid ${pinned?C.acc:C.bdr}` }}>
+                                  {pinned?"✓ ":""}{u.name.split(" ")[0]}{getUserDisplayPart(u)?` (${getUserDisplayPart(u)})`:""}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:3 }}>메시지 편집</div>
+                          <div style={{ display:"flex", flexDirection:"column", gap:3, marginBottom:6 }}>
+                            {fohQuickMsgs.map((msg, idx) => (
+                              <div key={idx} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                                <span style={{ flex:1, fontSize:11, color:C.txt }}>{msg}</span>
+                                <button onClick={() => deleteFohMsg(idx)} style={{ flexShrink:0, width:18, height:18, borderRadius:"50%", background:C.red, color:"#fff", border:"none", fontSize:11, fontWeight:900, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1 }}>×</button>
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ display:"flex", gap:4 }}>
+                            <input value={fohMsgInput} onChange={e => setFohMsgInput(e.target.value)} onKeyDown={e => e.key==="Enter"&&addFohMsg()} placeholder="새 메시지 입력..." style={{ flex:1, fontSize:11, padding:"4px 8px", borderRadius:7, border:`1px solid ${C.bdr}`, background:C.bg, color:C.txt, outline:"none", fontFamily:"inherit" }} />
+                            <button onClick={addFohMsg} style={{ flexShrink:0, padding:"4px 10px", borderRadius:7, cursor:"pointer", background:C.acc, color:"#fff", border:"none", fontSize:11, fontWeight:700, fontFamily:"inherit" }}>추가</button>
+                          </div>
                         </div>
-                        {/* 탭 콘텐츠 */}
-                        <div style={{ padding:"8px 12px 10px" }}>
-                          {fohCardTab === "alert" ? (
-                            <>
-                              {latestPanic
-                                ? <div style={{ fontSize:11, color:C.txt, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{latestPanic.userPart||latestPanic.userName}: {latestPanic.text}</div>
-                                : <div style={{ fontSize:11, color:C.dim }}>대기 중...</div>}
-                              <button onClick={() => setFohRightTab("alert")} style={{ marginTop:5, fontSize:10, fontWeight:700, color:C.red, background:"none", border:`1px solid ${C.red}44`, borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>전체 보기 〉</button>
-                            </>
-                          ) : (
-                            <>
-                              {latestChat
-                                ? <div style={{ fontSize:11, color:C.txt, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{latestChat.name?.split(" ")[0]}: {latestChat.text}</div>
-                                : <div style={{ fontSize:11, color:C.dim }}>메시지 없음</div>}
-                              <button onClick={() => setFohRightTab("chat")} style={{ marginTop:5, fontSize:10, fontWeight:700, color:C.pur, background:"none", border:`1px solid ${C.pur}44`, borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>전체 보기 〉</button>
-                            </>
+                      ) : (
+                        <div style={{ flex:"1 1 0", height:0, overflowY:"auto", padding:"10px", display:"flex", flexDirection:"column", gap:10, scrollbarWidth:"none" }}>
+                          {/* 수신자 그리드 */}
+                          <div>
+                            <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.04em", marginBottom:5 }}>수신자 선택</div>
+                            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:5 }}>
+                              {[["밴드","🎶"],["보컬","🎤","보컬그룹"]].map(([label, emoji, groupId = label]) => {
+                                const members = teamUsers.filter(u => getUserParts(u).includes(groupId));
+                                if (members.length === 0) return null;
+                                const gKey = `group:${groupId}`;
+                                const sel = fohMsgTo === gKey;
+                                return (
+                                  <button key={gKey} onClick={() => setFohMsgTo(sel?null:gKey)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"7px 4px", borderRadius:10, border:`1.5px solid ${sel?C.acc:C.bdr}`, background:sel?`${C.acc}15`:C.card, cursor:"pointer", fontFamily:"inherit" }}>
+                                    <span style={{ fontSize:16, lineHeight:1 }}>{emoji}</span>
+                                    <span style={{ fontSize:10, fontWeight:700, color:sel?C.acc:C.txt }}>{label}</span>
+                                  </button>
+                                );
+                              })}
+                              {teamUsers.filter(u => fohPinnedUids.includes(u.id)).map(u => {
+                                const dp = getUserDisplayPart(u)||u.name.split(" ")[0];
+                                const sel = fohMsgTo === u.id;
+                                const pEmoji = dp.includes("드럼")?"🥁":dp.includes("베이스")?"🎸":dp.includes("키보드")?"🎹":dp.includes("일렉")?"⚡":dp.includes("기타")?"🎵":dp.includes("보컬")?"🎤":"👤";
+                                return (
+                                  <button key={u.id} onClick={() => setFohMsgTo(sel?null:u.id)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"7px 4px", borderRadius:10, border:`1.5px solid ${sel?C.pur:C.bdr}`, background:sel?`${C.pur}15`:C.card, cursor:"pointer", fontFamily:"inherit" }}>
+                                    <span style={{ fontSize:16, lineHeight:1 }}>{pEmoji}</span>
+                                    <span style={{ fontSize:10, fontWeight:700, color:sel?C.pur:C.txt }}>{dp}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          {/* 빠른 메시지 */}
+                          {fohMsgTo && (
+                            <div style={{ background:C.card, borderRadius:10, border:`1px solid ${C.bdr}`, padding:"10px" }}>
+                              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+                                <span style={{ fontSize:11, fontWeight:800, color:C.acc }}>→ {fohMsgTo?.startsWith?.("group:")?fohMsgTo.slice(6):(teamUsers.find(u=>u.id===fohMsgTo)?.name?.split(" ")[0]||"")}에게 전송</span>
+                                <button onClick={() => setFohMsgTo(null)} style={{ background:"none", border:"none", fontSize:16, color:C.dim, cursor:"pointer", padding:"0 2px", lineHeight:1 }}>✕</button>
+                              </div>
+                              <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+                                {fohQuickMsgs.length===0
+                                  ? <span style={{ fontSize:11, color:C.dim }}>편집에서 메시지를 추가하세요</span>
+                                  : fohQuickMsgs.map((msg, idx) => (
+                                    <button key={idx} onClick={async () => {
+                                      if (fohMsgSending) return;
+                                      setFohMsgSending(true);
+                                      const toLabel = fohMsgTo?.startsWith?.("group:") ? fohMsgTo.slice(6) : (teamUsers.find(u=>u.id===fohMsgTo)?.name?.split(" ")[0] || "");
+                                      try {
+                                        if (fohMsgTo.startsWith("group:")) {
+                                          const targets = teamUsers.filter(u => getUserParts(u).includes(fohMsgTo.slice(6)));
+                                          await Promise.all(targets.map(u => setDoc(doc(db,"fohMessages",u.id),{message:msg,sentAt:serverTimestamp(),fromName:user.name||user.email})));
+                                        } else {
+                                          await setDoc(doc(db,"fohMessages",fohMsgTo),{message:msg,sentAt:serverTimestamp(),fromName:user.name||user.email});
+                                        }
+                                        setFohRecentSent(prev => [{toLabel, text:msg, time:new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}, ...prev].slice(0,5));
+                                        setFohMsgTo(null);
+                                      } catch(e){}
+                                      setFohMsgSending(false);
+                                    }} style={{ padding:"6px 12px", borderRadius:20, border:`1.5px solid ${C.acc}55`, background:`${C.acc}12`, color:C.txt, fontSize:12, fontWeight:600, cursor:fohMsgSending?"default":"pointer", fontFamily:"inherit", opacity:fohMsgSending?0.6:1 }}>{msg}</button>
+                                  ))
+                                }
+                              </div>
+                            </div>
+                          )}
+                          {/* 최근 전송 */}
+                          {fohRecentSent.length > 0 && (
+                            <div>
+                              <div style={{ fontSize:10, fontWeight:800, color:C.dim, letterSpacing:"0.04em", marginBottom:5 }}>최근 전송</div>
+                              <div style={{ background:C.card, borderRadius:10, border:`1px solid ${C.bdr}`, overflow:"hidden" }}>
+                                {fohRecentSent.map((r, i) => (
+                                  <div key={i} style={{ display:"flex", alignItems:"center", gap:7, padding:"6px 10px", borderBottom: i < fohRecentSent.length-1 ? `1px solid ${C.bdr}` : "none" }}>
+                                    <span style={{ fontSize:11, fontWeight:800, color:C.pur, minWidth:40 }}>→ {r.toLabel}</span>
+                                    <span style={{ flex:1, fontSize:11, color:C.txt, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.text}</span>
+                                    <span style={{ fontSize:10, color:C.dim, flexShrink:0 }}>{r.time}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                           )}
                         </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* 팀 메시지 보내기 카드 */}
-                  <div style={{ flexShrink:0, background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}`, padding:"10px 12px", position:"relative" }}>
-                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-                      <span style={{ fontSize:12, fontWeight:800, color:C.pur, display:"flex", alignItems:"center", gap:5 }}>
-                        <span style={{ width:3, height:14, background:C.pur, borderRadius:2, display:"inline-block" }} />
-                        팀 메시지 보내기
-                      </span>
-                      <button onClick={() => { setFohMsgEdit(e => !e); setFohMsgInput(""); }} style={{ fontSize:11, fontWeight:700, color:fohMsgEdit?C.pur:C.dim, background:"none", border:"none", cursor:"pointer", fontFamily:"inherit" }}>{fohMsgEdit?"완료":"편집"}</button>
+                      )}
                     </div>
-                    {fohMsgEdit ? (
-                      <div>
-                        <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:3 }}>수신자 목록 편집</div>
-                        <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:8 }}>
-                          {teamUsers.map(u => {
-                            const pinned = fohPinnedUids.includes(u.id);
-                            return (
-                              <button key={u.id} onClick={() => togglePinnedUid(u.id)} style={{ flexShrink:0, fontSize:10, fontWeight:700, fontFamily:"inherit", padding:"3px 8px", borderRadius:12, cursor:"pointer", background:pinned?C.pur:C.card, color:pinned?"#fff":C.dim, border:`1px solid ${pinned?C.pur:C.bdr}` }}>
-                                {pinned?"✓ ":""}{u.name.split(" ")[0]}{getUserDisplayPart(u)?` (${getUserDisplayPart(u)})`:""}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div style={{ fontSize:9, color:C.dim, fontWeight:700, marginBottom:3 }}>메시지 편집</div>
-                        <div style={{ display:"flex", flexDirection:"column", gap:3, marginBottom:6 }}>
-                          {fohQuickMsgs.map((msg, idx) => (
-                            <div key={idx} style={{ display:"flex", alignItems:"center", gap:4 }}>
-                              <span style={{ flex:1, fontSize:11, color:C.txt }}>{msg}</span>
-                              <button onClick={() => deleteFohMsg(idx)} style={{ flexShrink:0, width:18, height:18, borderRadius:"50%", background:C.red, color:"#fff", border:"none", fontSize:11, fontWeight:900, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1 }}>×</button>
-                            </div>
-                          ))}
-                        </div>
-                        <div style={{ display:"flex", gap:4 }}>
-                          <input value={fohMsgInput} onChange={e => setFohMsgInput(e.target.value)} onKeyDown={e => e.key==="Enter"&&addFohMsg()} placeholder="새 메시지 입력..." style={{ flex:1, fontSize:11, padding:"4px 8px", borderRadius:7, border:`1px solid ${C.bdr}`, background:C.bg, color:C.txt, outline:"none", fontFamily:"inherit" }} />
-                          <button onClick={addFohMsg} style={{ flexShrink:0, padding:"4px 10px", borderRadius:7, cursor:"pointer", background:C.pur, color:"#fff", border:"none", fontSize:11, fontWeight:700, fontFamily:"inherit" }}>추가</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        {/* 수신자 선택 */}
-                        <div style={{ display:"flex", flexWrap:"wrap", gap:5, paddingBottom:2 }}>
-                          {[["밴드","🎶"],["보컬","🎤","보컬그룹"]].map(([label, emoji, groupId = label]) => {
-                            const members = teamUsers.filter(u => getUserParts(u).includes(groupId));
-                            if (members.length === 0) return null;
-                            const gKey = `group:${groupId}`;
-                            const sel = fohMsgTo === gKey;
-                            return (
-                              <button key={gKey} onClick={() => setFohMsgTo(sel?null:gKey)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"6px 10px", borderRadius:10, minWidth:52, border:`1.5px solid ${sel?C.acc:C.bdr}`, background:sel?`${C.acc}15`:C.card, cursor:"pointer", flexShrink:0, fontFamily:"inherit" }}>
-                                <span style={{ fontSize:18, lineHeight:1 }}>{emoji}</span>
-                                <span style={{ fontSize:10, fontWeight:700, color:C.txt }}>{label}</span>
-                              </button>
-                            );
-                          })}
-                          {teamUsers.filter(u => fohPinnedUids.includes(u.id)).map(u => {
-                            const dp = getUserDisplayPart(u)||u.name.split(" ")[0];
-                            const sel = fohMsgTo === u.id;
-                            const pEmoji = dp.includes("드럼")?"🥁":dp.includes("베이스")?"🎸":dp.includes("키보드")?"🎹":dp.includes("일렉")?"⚡":dp.includes("기타")?"🎵":dp.includes("보컬")?"🎤":"👤";
-                            return (
-                              <button key={u.id} onClick={() => setFohMsgTo(sel?null:u.id)} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, padding:"6px 10px", borderRadius:10, minWidth:52, border:`1.5px solid ${sel?C.pur:C.bdr}`, background:sel?`${C.pur}15`:C.card, cursor:"pointer", flexShrink:0, fontFamily:"inherit" }}>
-                                <span style={{ fontSize:18, lineHeight:1 }}>{pEmoji}</span>
-                                <span style={{ fontSize:10, fontWeight:700, color:C.txt }}>{dp}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                        {/* 메시지 선택 그리드 */}
-                        {fohMsgTo && (
-                          <div style={{ marginTop:8, padding:"10px", background:C.card, borderRadius:10, border:`1px solid ${C.bdr}` }}>
-                            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
-                              <span style={{ fontSize:11, fontWeight:800, color:C.txt }}>→ {fohMsgTo?.startsWith?.("group:")?fohMsgTo.slice(6):(teamUsers.find(u=>u.id===fohMsgTo)?.name?.split(" ")[0]||"")}에게 전송</span>
-                              <button onClick={() => setFohMsgTo(null)} style={{ background:"none", border:"none", fontSize:16, color:C.dim, cursor:"pointer", padding:"0 2px", lineHeight:1 }}>✕</button>
-                            </div>
-                            <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-                              {fohQuickMsgs.length===0 ? <span style={{ fontSize:11, color:C.dim }}>편집에서 메시지를 추가하세요</span>
-                                : fohQuickMsgs.map((msg, idx) => (
-                                  <button key={idx} onClick={async () => {
-                                    if (fohMsgSending) return;
-                                    setFohMsgSending(true);
-                                    try {
-                                      if (fohMsgTo.startsWith("group:")) {
-                                        const targets = teamUsers.filter(u => getUserParts(u).includes(fohMsgTo.slice(6)));
-                                        await Promise.all(targets.map(u => setDoc(doc(db,"fohMessages",u.id),{message:msg,sentAt:serverTimestamp(),fromName:user.name||user.email})));
-                                      } else {
-                                        await setDoc(doc(db,"fohMessages",fohMsgTo),{message:msg,sentAt:serverTimestamp(),fromName:user.name||user.email});
-                                      }
-                                      setFohMsgTo(null);
-                                    } catch(e){}
-                                    setFohMsgSending(false);
-                                  }} style={{ padding:"6px 12px", borderRadius:20, border:`1.5px solid ${C.acc}55`, background:`${C.acc}12`, color:C.txt, fontSize:12, fontWeight:600, cursor:fohMsgSending?"default":"pointer", fontFamily:"inherit", opacity:fohMsgSending?0.6:1 }}>{msg}</button>
-                                ))
-                              }
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  )}
 
-                  {/* 최근 메시지 카드 */}
-                  <div style={{ flex:"1 1 0", height:0, background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-                    <div style={{ padding:"8px 12px", borderBottom:`1px solid ${C.bdr}`, fontSize:12, fontWeight:800, color:C.txt, flexShrink:0, display:"flex", alignItems:"center", gap:6 }}>
-                      <span style={{ width:3, height:14, background:C.pur, borderRadius:2, display:"inline-block", flexShrink:0 }} />
-                      최근 메시지
-                    </div>
-                    <div style={{ flex:1, overflowY:"auto", padding:"8px 10px", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none" }}>
-                      {teamChatMsgs.length === 0 ? (
-                        <div style={{ textAlign:"center", color:C.dim, fontSize:12, padding:"16px 0" }}>메시지 없음</div>
-                      ) : [...teamChatMsgs].slice(-6).map(m => {
-                        const isMe = m.uid === user.uid;
-                        const timeStr = m.createdAt ? new Date(m.createdAt.toMillis()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}) : "";
-                        return (
-                          <div key={m.id} style={{ display:"flex", flexDirection:"column", alignItems:isMe?"flex-end":"flex-start" }}>
-                            <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:2 }}>
-                              {!isMe && <span style={{ fontSize:10, color:C.dim }}>{m.name?.split(" ")[0]}</span>}
-                              {timeStr && <span style={{ fontSize:9, color:C.dim }}>{timeStr}</span>}
-                            </div>
-                            <div style={{ maxWidth:"82%", padding:"6px 10px", borderRadius:12, fontSize:12, lineHeight:1.5, background:isMe?C.pur:C.card, color:isMe?"#fff":C.txt, borderBottomLeftRadius:isMe?12:4, borderBottomRightRadius:isMe?4:12, border:`1px solid ${isMe?"transparent":C.bdr}` }}>{m.text}</div>
+                  {/* 탭 3: FOH 알림 */}
+                  {fohCardTab === "foh" && (
+                    <div style={{ flex:"1 1 0", height:0, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", paddingRight:2 }}>
+                      {(() => {
+                        const allCuesOv = svcSongs.flatMap(s => songCues?.[s.id] || []);
+                        const panicCues = allCuesOv.filter(c => c.panic === true).sort((a,b) => (b.createdAt?.seconds??0)-(a.createdAt?.seconds??0));
+                        return panicCues.length === 0 ? (
+                          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", color:C.dim }}>
+                            <div style={{ textAlign:"center" }}><div style={{ fontSize:32, marginBottom:8, opacity:0.3 }}>🔔</div><div style={{ fontSize:12 }}>알림 없음</div></div>
                           </div>
+                        ) : (
+                          <>
+                            <style>{`@keyframes cueSlideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}`}</style>
+                            {panicCues.map(cue => {
+                              const acked = cue.acknowledged === true;
+                              const isNew = (cue.createdAt?.toMillis?.() ?? 0) > Date.now() - 8000;
+                              const partIcon = cue.userPart==="드럼"?"🥁":cue.userPart==="베이스"?"🎸":cue.userPart==="키보드"?"🎹":cue.userPart==="일렉기타"?"⚡":cue.userPart==="기타"?"🎵":cue.userPart==="보컬"?"🎤":"🚨";
+                              return (
+                                <div key={cue.id} style={{ borderRadius:12, padding:"10px 12px", background:acked?"#f0fff5":"#fff5f5", border:`1.5px solid ${acked?"#34c75966":"#ffd0cc"}`, display:"flex", alignItems:"flex-start", gap:10, animation:isNew?"cueSlideIn 0.3s ease-out":"none", flexShrink:0 }}>
+                                  <div style={{ fontSize:18, flexShrink:0, lineHeight:1, marginTop:1 }}>{partIcon}</div>
+                                  <div style={{ flex:1, minWidth:0 }}>
+                                    <div style={{ fontSize:11, fontWeight:800, color:acked?"#34c759":C.red }}>{cue.userPart||cue.userName}</div>
+                                    <div style={{ fontSize:13, fontWeight:700, color:"#1c1c1e", marginTop:2, lineHeight:1.5 }}>{cue.text}</div>
+                                    {cue.createdAt && <div style={{ fontSize:10, color:C.dim, marginTop:3 }}>{new Date(cue.createdAt.toMillis()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div>}
+                                  </div>
+                                  <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
+                                    <button onClick={() => acknowledgeCue?.(cue.id, acked, {targetUid:cue.userId,cueText:cue.text})} style={{ padding:"5px 11px", borderRadius:7, background:acked?"#f0fff5":"#fff", border:`1.5px solid ${acked?"#34c75966":C.red+"66"}`, color:acked?"#34c759":C.red, fontSize:11, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>{acked?"확인됨":"확인"}</button>
+                                    <button onClick={() => deleteCue?.(cue.id)} style={{ padding:"3px 8px", borderRadius:7, background:"transparent", border:`1px solid ${C.bdr}`, color:C.dim, fontSize:10, cursor:"pointer", fontFamily:"inherit" }}>삭제</button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </>
                         );
-                      })}
+                      })()}
                     </div>
-                  </div>
+                  )}
+
 
                 </div>
               </div>
@@ -7771,7 +7731,7 @@ export default function App() {
       if (ts === fohMsgTsRef.current) return;
       fohMsgTsRef.current = ts;
       if (Date.now() - ts > 10_000) return;
-      setFohMsgBanner({ message: data.message });
+      setFohMsgBanner({ message: data.message, fromName: data.fromName });
     }, () => {});
   }, [user?.uid, user?.role]);
 
@@ -8259,7 +8219,7 @@ export default function App() {
 
       {/* FOH → 멤버 메시지 배너 */}
       {fohMsgBanner && (
-        <FohMsgToast message={fohMsgBanner.message} onDismiss={() => setFohMsgBanner(null)} />
+        <FohMsgToast message={fohMsgBanner.message} fromName={fohMsgBanner.fromName} onDismiss={() => setFohMsgBanner(null)} />
       )}
 
       {/* What's New 모달 */}
