@@ -5235,7 +5235,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 background:"#fff" }}>
                 {(svcSongs[dualIdx]?.pdfUrl || svcSongs[dualIdx]?.imageUrl)
                   ? <div style={{ position:"relative", display:"inline-block", lineHeight:0 }}>
-                      <canvas ref={canvas1Ref} style={{ display:"block" }} />
+                      <canvas ref={canvas1Ref} width={0} height={0} style={{ display:"block" }} />
                       <canvas ref={teamDrawCanvas1Ref} style={{
                         position:"absolute", top:0, left:0, width:"100%", height:"100%",
                         borderRadius:4, pointerEvents:"none",
@@ -5308,7 +5308,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 {svcSongs[dualIdx + 1]
                   ? (svcSongs[dualIdx + 1].pdfUrl || svcSongs[dualIdx + 1].imageUrl)
                     ? <div style={{ position:"relative", display:"inline-block", lineHeight:0 }}>
-                        <canvas ref={canvas2Ref} style={{ display:"block" }} />
+                        <canvas ref={canvas2Ref} width={0} height={0} style={{ display:"block" }} />
                         <canvas ref={teamDrawCanvas2Ref} style={{
                           position:"absolute", top:0, left:0, width:"100%", height:"100%",
                           borderRadius:4, pointerEvents:"none",
@@ -5390,7 +5390,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 loadErr
                   ? <div style={{ color:C.red, fontSize:13 }}>{loadErr}</div>
                   : <div style={{ position:"relative", display:"inline-block", lineHeight:0, flexShrink:0 }}>
-                      <canvas ref={canvas1Ref} style={{ display:"block",
+                      <canvas ref={canvas1Ref} width={0} height={0} style={{ display:"block",
                         borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
                       <canvas ref={teamDrawCanvas1Ref} style={{
                         position:"absolute", top:0, left:0, width:"100%", height:"100%",
