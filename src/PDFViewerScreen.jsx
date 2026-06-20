@@ -2324,9 +2324,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // 컨테이너 크기 추적 (ResizeObserver)
   useEffect(() => {
     if (!containerRef.current) return;
-    const ro = new ResizeObserver(([e]) =>
-      setCSize({ w: e.contentRect.width, h: e.contentRect.height })
-    );
+    // 즉시 측정 — 마운트 시 ResizeObserver 첫 콜백보다 먼저 cSize를 확정
+    const rect = containerRef.current.getBoundingClientRect();
+    if (rect.width >= 50 && rect.height >= 50) {
+      setCSize({ w: rect.width, h: rect.height });
+    }
+    const ro = new ResizeObserver(([e]) => {
+      const { width, height } = e.contentRect;
+      // 애니메이션/전환 중 잠깐 작아지는 크기는 무시 (최소 50px)
+      if (width < 50 || height < 50) return;
+      setCSize({ w: width, h: height });
+    });
     ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, []);
@@ -2942,6 +2950,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         const availW = cSize.w - 16;
         const availH = cSize.h - 16;
         await renderWithCrop(canvas1Ref.current, pdfDocRef.current, pageNum, song?.cropBox || null, availW, availH);
+        // 렌더 결과가 너무 작으면 컨테이너가 아직 확정되지 않은 것 — 실제 크기로 재측정 후 재렌더
+        if (canvas1Ref.current && containerRef.current) {
+          const actual = containerRef.current.getBoundingClientRect();
+          if (actual.width >= 50 && Math.abs(actual.width - cSize.w) > 10) {
+            setCSize({ w: actual.width, h: actual.height });
+            return;
+          }
+        }
         if (drawCanvas1Ref.current) {
           drawCanvas1Ref.current.width  = canvas1Ref.current.width;
           drawCanvas1Ref.current.height = canvas1Ref.current.height;
