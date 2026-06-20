@@ -1994,6 +1994,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const saveFohPresets = (list) => { setTeamChatPresets(list); localStorage.setItem("tvpc_foh_chat_presets", JSON.stringify(list)); };
   const [chatLastSeen, setChatLastSeen] = useState(0); // timestamp ms
   const [fohRightTab,  setFohRightTab]  = useState(null); // "alert" | "chat" | null
+  const [fohCardTab,   setFohCardTab]   = useState("alert"); // "alert" | "chat"
   const [fohFollowTarget, setFohFollowTarget] = useState("키보드"); // 예배순서 자동감지 대상 악기
   const teamChatEndRef = useRef(null);
   const autoNavDone  = useRef(false);
@@ -2778,26 +2779,41 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     const latestPanic = allCuesR.filter(c => c.panic === true).sort((a,b) => (b.createdAt?.seconds??0)-(a.createdAt?.seconds??0))[0];
                     const latestChat = [...teamChatMsgs].reverse()[0];
                     return (
-                      <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-                        {/* FOH 알림 정보 카드 */}
-                        <div style={{ flex:1, background:C.surf, borderRadius:12, border:`1.5px solid ${C.red}33`, padding:"10px 12px", position:"relative" }}>
-                          {panicCount > 0 && <div style={{ position:"absolute", top:8, right:10, minWidth:20, height:20, borderRadius:10, padding:"0 5px", background:C.red, color:"#fff", fontSize:11, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center" }}>{panicCount}</div>}
-                          <div style={{ fontSize:12, fontWeight:800, color:C.red, display:"flex", alignItems:"center", gap:5 }}>
-                            <span style={{ width:8, height:8, borderRadius:"50%", background:C.red, display:"inline-block", boxShadow: panicCount>0 ? `0 0 6px ${C.red}` : "none" }} />
-                            FOH 알림
-                          </div>
-                          {latestPanic ? <div style={{ fontSize:11, color:C.txt, marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", paddingRight:panicCount>0?28:0 }}>{latestPanic.userPart||latestPanic.userName}: {latestPanic.text}</div> : <div style={{ fontSize:11, color:C.dim, marginTop:4 }}>대기 중...</div>}
-                          <button onClick={() => setFohRightTab("alert")} style={{ marginTop:6, fontSize:10, fontWeight:700, color:C.red, background:"none", border:`1px solid ${C.red}44`, borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>전체 보기 〉</button>
+                      <div style={{ flexShrink:0, background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}`, overflow:"hidden" }}>
+                        {/* 탭 바 */}
+                        <div style={{ display:"flex", borderBottom:`1px solid ${C.bdr}` }}>
+                          {[
+                            { key:"alert", label:"FOH 알림", color:C.red, badge:panicCount },
+                            { key:"chat",  label:"팀채팅",   color:C.pur, badge:unreadChat },
+                          ].map(t => (
+                            <button key={t.key} onClick={() => setFohCardTab(t.key)} style={{
+                              flex:1, padding:"8px 4px", border:"none", borderBottom:`2px solid ${fohCardTab===t.key ? t.color : "transparent"}`,
+                              background:"none", cursor:"pointer", fontFamily:"inherit",
+                              display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                            }}>
+                              <span style={{ width:7, height:7, borderRadius:"50%", background:t.color, display:"inline-block", boxShadow: t.badge>0?`0 0 5px ${t.color}`:"none" }} />
+                              <span style={{ fontSize:12, fontWeight:800, color:fohCardTab===t.key ? t.color : C.dim }}>{t.label}</span>
+                              {t.badge > 0 && <span style={{ minWidth:18, height:18, borderRadius:9, padding:"0 4px", background:t.color, color:"#fff", fontSize:10, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center" }}>{t.badge}</span>}
+                            </button>
+                          ))}
                         </div>
-                        {/* 팀채팅 정보 카드 */}
-                        <div style={{ flex:1, background:C.surf, borderRadius:12, border:`1.5px solid ${C.pur}33`, padding:"10px 12px", position:"relative" }}>
-                          {unreadChat > 0 && <div style={{ position:"absolute", top:8, right:10, minWidth:20, height:20, borderRadius:10, padding:"0 5px", background:C.pur, color:"#fff", fontSize:11, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center" }}>{unreadChat}</div>}
-                          <div style={{ fontSize:12, fontWeight:800, color:C.pur, display:"flex", alignItems:"center", gap:5 }}>
-                            <span style={{ width:8, height:8, borderRadius:"50%", background:C.pur, display:"inline-block" }} />
-                            팀채팅
-                          </div>
-                          {latestChat ? <div style={{ fontSize:11, color:C.txt, marginTop:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", paddingRight:unreadChat>0?28:0 }}>{latestChat.name?.split(" ")[0]}: {latestChat.text}</div> : <div style={{ fontSize:11, color:C.dim, marginTop:4 }}>메시지 없음</div>}
-                          <button onClick={() => setFohRightTab("chat")} style={{ marginTop:6, fontSize:10, fontWeight:700, color:C.pur, background:"none", border:`1px solid ${C.pur}44`, borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>전체 보기 〉</button>
+                        {/* 탭 콘텐츠 */}
+                        <div style={{ padding:"8px 12px 10px" }}>
+                          {fohCardTab === "alert" ? (
+                            <>
+                              {latestPanic
+                                ? <div style={{ fontSize:11, color:C.txt, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{latestPanic.userPart||latestPanic.userName}: {latestPanic.text}</div>
+                                : <div style={{ fontSize:11, color:C.dim }}>대기 중...</div>}
+                              <button onClick={() => setFohRightTab("alert")} style={{ marginTop:5, fontSize:10, fontWeight:700, color:C.red, background:"none", border:`1px solid ${C.red}44`, borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>전체 보기 〉</button>
+                            </>
+                          ) : (
+                            <>
+                              {latestChat
+                                ? <div style={{ fontSize:11, color:C.txt, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{latestChat.name?.split(" ")[0]}: {latestChat.text}</div>
+                                : <div style={{ fontSize:11, color:C.dim }}>메시지 없음</div>}
+                              <button onClick={() => setFohRightTab("chat")} style={{ marginTop:5, fontSize:10, fontWeight:700, color:C.pur, background:"none", border:`1px solid ${C.pur}44`, borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>전체 보기 〉</button>
+                            </>
+                          )}
                         </div>
                       </div>
                     );
@@ -2842,7 +2858,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     ) : (
                       <div>
                         {/* 수신자 선택 */}
-                        <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:2, scrollbarWidth:"none", marginBottom: fohMsgTo ? 0 : 0 }}>
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:5, paddingBottom:2 }}>
                           {[["밴드","🎶"],["보컬","🎤","보컬그룹"]].map(([label, emoji, groupId = label]) => {
                             const members = teamUsers.filter(u => getUserParts(u).includes(groupId));
                             if (members.length === 0) return null;
