@@ -1629,6 +1629,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const song = songs.find(s => s.id === selectedSongId);
   const isLibraryMode = backTo === "library"; // 라이브러리에서 열린 경우: 예배 컨텍스트 없음
 
+  // selectedSvcId 없을 때 가장 가까운 서비스로 폴백 (팀채팅용)
+  const effectiveSvcId = (() => {
+    if (selectedSvcId) return selectedSvcId;
+    if (isLibraryMode) return null;
+    try {
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const sorted = (services || []).filter(s => s?.date).sort((a, b) => a.date.localeCompare(b.date));
+      return (sorted.find(s => s.date >= today) ?? sorted[sorted.length - 1])?.id ?? null;
+    } catch { return null; }
+  })();
+
   // ── 예배 곡 순서
   const svc      = (!isLibraryMode && selectedSvcId) ? services.find(s => s.id === selectedSvcId) : null;
   // 유효 곡만 포함 — 삭제된 ID 제외, 중복 ID(복사) 허용
@@ -2282,8 +2294,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // 팀 채팅 구독
   useEffect(() => {
-    if (!selectedSvcId) return;
-    const q = query(collection(db, "liveChat", selectedSvcId, "messages"), orderBy("createdAt"), limit(50));
+    if (!effectiveSvcId) return;
+    const q = query(collection(db, "liveChat", effectiveSvcId, "messages"), orderBy("createdAt"), limit(50));
     return onSnapshot(q, snap => {
       const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       setChatMsgs(msgs);
@@ -2299,7 +2311,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       }
       chatMsgsPrevRef.current = msgs;
     });
-  }, [selectedSvcId]);
+  }, [effectiveSvcId]);
   useEffect(() => {
     if (showChat) {
       const now = Date.now();
@@ -5747,10 +5759,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       )}
 
       {/* 팀 채팅 패널 */}
-      {showChat && !isLibraryMode && selectedSvcId && (getUserParts(user).some(p => ["키보드","피아노"].includes(p)) || isFoh(user)) && (() => {
+      {showChat && !isLibraryMode && effectiveSvcId && (getUserParts(user).some(p => ["키보드","피아노"].includes(p)) || isFoh(user)) && (() => {
         const sendMsg = async (text) => {
           if (!text?.trim()) return;
-          await addDoc(collection(db, "liveChat", selectedSvcId, "messages"), {
+          await addDoc(collection(db, "liveChat", effectiveSvcId, "messages"), {
             text: text.trim(), uid: user.uid,
             name: user.name || user.email, role: user.role,
             type:"chat", createdAt: serverTimestamp(),
