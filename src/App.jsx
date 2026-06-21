@@ -7390,8 +7390,9 @@ export default function App() {
     }
   }, []);
 
-  // ── 공유 Gemini 키 + 자동화 설정 구독
+  // ── 공유 Gemini 키 + 자동화 설정 구독 (인증 완료 후에만 시작)
   useEffect(() => {
+    if (!user?.uid) return;
     const unsub = onSnapshot(
       doc(db, "settings", "app"),
       d => {
@@ -7399,10 +7400,10 @@ export default function App() {
         setSharedGeminiKey(data.sharedGeminiKey || "");
         setBgmChannel(data.bgmChannel || "09");
       },
-      err => console.warn("settings/app 읽기 실패 (보안 규칙 확인 필요):", err.code)
+      err => console.warn("settings/app 읽기 실패:", err.code)
     );
     return unsub;
-  }, []);
+  }, [user?.uid]);
 
   // ── Piano ON phase 전체 구독
   useEffect(() => {
