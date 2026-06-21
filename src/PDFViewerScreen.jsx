@@ -5771,11 +5771,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         };
         return (
           <div style={{
-            position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 60px)", left:0, right:0,
-            maxHeight:260, zIndex:3100,
-            background:C.surf, borderTop:`1px solid ${C.bdr}`,
-            borderRadius:"16px 16px 0 0", display:"flex", flexDirection:"column",
-            boxShadow:"0 -4px 24px rgba(0,0,0,0.15)", overflow:"hidden",
+            position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 68px)", right:12,
+            width:270, maxHeight:420, zIndex:3100,
+            background:C.surf, border:`1px solid ${C.bdr}`,
+            borderRadius:14, display:"flex", flexDirection:"column",
+            boxShadow:"0 4px 24px rgba(0,0,0,0.18)", overflow:"hidden",
           }}>
             {/* 헤더 */}
             <div style={{ padding:"8px 12px", borderBottom:`1px solid ${C.bdr}`,
