@@ -1848,6 +1848,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // myNotes / teamNotes / effectiveNoteSongId computed after dualLeftSongId (see below)
   const leader    = isLeader(user.role);
+  const worshipStarted = (() => {
+    const svc = services?.find(s => s.id === selectedSvcId);
+    if (!svc?.time?.includes(":") || !svc?.date) return false;
+    const [h, m] = svc.time.split(":").map(Number);
+    const dt = new Date(svc.date + "T00:00:00");
+    dt.setHours(h, m, 0, 0);
+    return Date.now() >= dt.getTime();
+  })();
 
   // sheetSync 신호 도착 시 1페이지로 이동
   // 태블릿 가로모드 감지 시 자동 듀얼 ON
@@ -6309,8 +6317,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         }}>{metroMsg}</div>
       )}
 
-      {/* 패닉 버튼 — 라이브러리 제외, FOH/어드민 제외 */}
-      {!isLibraryMode && !isFoh(user) && (
+      {/* 패닉 버튼 — 예배 시작 후, 라이브러리 제외, FOH/어드민 제외 */}
+      {!isLibraryMode && !isFoh(user) && worshipStarted && (
         <div style={{ position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 58px)", left:8, zIndex:9990 }}>
           {/* 옵션 목록 */}
           {showPanicMenu && (
