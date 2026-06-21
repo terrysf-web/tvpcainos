@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense, Component } from "react";
 import { C, KEY_CLR, DARK_KEY, keyColor, darkKeyColor } from "./theme.js";
 import { Icon, Btn, Badge, KeyBadge, Input, Divider, Modal, ConfirmModal } from "./ui.jsx";
 import { getVoicings, getDiatonicChords, getEffectiveKey, getChordTones, CHORD_VOICINGS } from "./chordVoicings.js";
@@ -1966,6 +1966,29 @@ function PdfThumb({ pdfUrl, scale = 1.0, fitHeight = false, page = 1 }) {
     }} />
   );
   return <canvas ref={cvRef} style={{ width:"100%", display:"block" }} />;
+}
+
+class FohErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(e) { return { err: e }; }
+  render() {
+    if (!this.state.err) return this.props.children;
+    return (
+      <div style={{ height:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16, background:C.bg, padding:32 }}>
+        <div style={{ fontSize:40 }}>⚠️</div>
+        <div style={{ fontSize:15, fontWeight:700, color:C.txt, textAlign:"center" }}>화면 로드 오류</div>
+        <div style={{ fontSize:12, color:C.dim, textAlign:"center", lineHeight:1.6 }}>캐시가 오래됐을 수 있습니다.<br/>아래 버튼을 눌러 초기화해주세요.</div>
+        <button onClick={() => window.location.replace("/clear-cache.html")}
+          style={{ padding:"12px 24px", borderRadius:12, background:C.pur, color:"#fff", border:"none", fontSize:14, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+          캐시 초기화
+        </button>
+        <button onClick={() => this.setState({ err: null })}
+          style={{ padding:"8px 16px", borderRadius:8, background:"none", color:C.dim, border:`1px solid ${C.bdr}`, fontSize:12, cursor:"pointer", fontFamily:"inherit" }}>
+          다시 시도
+        </button>
+      </div>
+    );
+  }
 }
 
 function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue, deleteCue, sheetLinkEnabled, sheetSyncTrigger, sheetSyncAllowedParts }) {
@@ -8283,7 +8306,7 @@ export default function App() {
       <div style={{ flex:1, overflow:"hidden", position:"relative", display:"flex", flexDirection:"column" }}>
         {view === "home"          && <HomeSplashScreen user={user} />}
         {view === "services"      && <ServicesScreen      {...shared} />}
-        {view === "foh"           && <HomeScreen           {...shared} />}
+        {view === "foh"           && <FohErrorBoundary><HomeScreen {...shared} /></FohErrorBoundary>}
         {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
         {view === "library"       && <SongLibraryScreen   {...shared} />}
         {view === "pdfViewer"     && (
