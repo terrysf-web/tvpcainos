@@ -2154,6 +2154,13 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   useEffect(() => {
     if (!pp7AutoOn || !isFoh(user)) return;
     let timer;
+    // AbortSignal.timeout 미지원 브라우저(구형 Safari) 호환
+    const mkSignal = (ms) => {
+      if (typeof AbortSignal?.timeout === "function") return AbortSignal.timeout(ms);
+      const ac = new AbortController();
+      setTimeout(() => ac.abort(), ms);
+      return ac.signal;
+    };
     const matchSong = (name) => {
       const songs = svcSongsRef.current;
       const nl = name.trim().toLowerCase();
@@ -2176,7 +2183,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
     const fetchPresentationName = async () => {
       for (const ep of ["/v1/presentation/active", "/v1/presentation/focused", "/v1/presentation/current"]) {
         try {
-          const r = await fetch(PP7_BASE + ep, { signal: AbortSignal.timeout(1000) });
+          const r = await fetch(PP7_BASE + ep, { signal: mkSignal(2000) });
           if (!r.ok) continue;
           const d = await r.json();
           const name = d?.presentation?.name || d?.name || d?.presentation_name || "";
@@ -2186,14 +2193,16 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
     };
     const poll = async () => {
       try {
-        const r = await fetch(PP7_BASE + "/v1/status/slide", { signal: AbortSignal.timeout(1500) });
-        if (!r.ok) { setPp7ConnSt("err"); return; }
-        const d = await r.json();
-        const uuid = d?.current?.uuid;
-        setPp7ConnSt("ok");
-        if (uuid && uuid !== pp7UuidRef.current) {
-          pp7UuidRef.current = uuid;
-          await fetchPresentationName();
+        const r = await fetch(PP7_BASE + "/v1/status/slide", { signal: mkSignal(3000) });
+        if (!r.ok) { setPp7ConnSt("err"); }
+        else {
+          const d = await r.json();
+          const uuid = d?.current?.uuid;
+          setPp7ConnSt("ok");
+          if (uuid && uuid !== pp7UuidRef.current) {
+            pp7UuidRef.current = uuid;
+            await fetchPresentationName();
+          }
         }
       } catch { setPp7ConnSt("err"); }
       timer = setTimeout(poll, 2000);
