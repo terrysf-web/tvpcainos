@@ -3442,8 +3442,7 @@ function ServiceStatusBadge({ svc }) {
     type = "countdown";
   }
   else if (secsAfter < 5400)  { label = "예배 진행중";    type = "active"; }
-  else if (secsAfter < 10800) { label = "예배 종료";      type = "ended"; }
-  else                        { label = "다음 예배 준비중"; type = "next"; }
+  else                        { return null; }
 
   const s = {
     preparing: { bg:`${C.dim}18`, color:C.dim, border:`1px solid ${C.bdr}` },
