@@ -2150,7 +2150,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   }, [showTeamChat, fohCardTab, teamChatMsgs.length]);
 
   // PP7 자동감지 폴링
-  const PP7_BASE = "http://192.168.1.21:5004";
+  const PP7_BASE = "https://192.168.1.21:5443";
   useEffect(() => {
     if (!pp7AutoOn || !isFoh(user)) return;
     let timer;
