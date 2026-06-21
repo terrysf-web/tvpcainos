@@ -2003,10 +2003,14 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [fohCardTab,   setFohCardTab]   = useState("chat"); // "chat" | "msg" | "foh"
   const [fohRecentSent, setFohRecentSent] = useState([]); // [{toLabel, text, time}]
   const [fohFollowTarget, setFohFollowTarget] = useState("키보드"); // 예배순서 자동감지 대상 악기
+  const [pp7AutoOn,    setPp7AutoOn]    = useState(false);
+  const [pp7ConnSt,    setPp7ConnSt]    = useState("idle"); // "idle"|"ok"|"err"
   const teamChatEndRef = useRef(null);
   const autoNavDone  = useRef(false);
   const phaseFiredRef = useRef({});
   const svcSongsRef  = useRef([]);
+  const nextSvcIdRef  = useRef(null);
+  const pp7UuidRef    = useRef("");
   const navRef       = useRef(nav);
   const stripRef     = useRef(null);
   navRef.current     = nav;
@@ -2080,6 +2084,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
   // svcSongs ref — 항상 최신 값 유지
   svcSongsRef.current = svcSongs;
+  nextSvcIdRef.current = nextSvc?.id ?? null;
 
   // 서비스 변경 시 초기화
   useEffect(() => {
@@ -2120,6 +2125,61 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       setTimeout(() => teamChatEndRef.current?.scrollIntoView({ behavior:"smooth" }), 60);
     }
   }, [showTeamChat, fohCardTab, teamChatMsgs.length]);
+
+  // PP7 자동감지 폴링
+  const PP7_BASE = "http://192.168.1.21:5004";
+  useEffect(() => {
+    if (!pp7AutoOn || !isFoh(user)) return;
+    let timer;
+    const matchSong = (name) => {
+      const songs = svcSongsRef.current;
+      const nl = name.trim().toLowerCase();
+      const idx = songs.findIndex(s => {
+        const tl = s.title.trim().toLowerCase();
+        return tl === nl || tl.includes(nl) || nl.includes(tl);
+      });
+      if (idx >= 0) {
+        setAdminDispIdx(idx);
+        const svcId = nextSvcIdRef.current;
+        const s = songs[idx];
+        if (svcId && s) {
+          setDoc(doc(db, "liveStatus", "sheetSync"), {
+            svcId, songId: s.id, songIdx: idx,
+            pageNum: 1, linkEnabled: true, updatedAt: serverTimestamp(),
+          }).catch(() => {});
+        }
+      }
+    };
+    const fetchPresentationName = async () => {
+      for (const ep of ["/v1/presentation/active", "/v1/presentation/focused", "/v1/presentation/current"]) {
+        try {
+          const r = await fetch(PP7_BASE + ep, { signal: AbortSignal.timeout(1000) });
+          if (!r.ok) continue;
+          const d = await r.json();
+          const name = d?.presentation?.name || d?.name || d?.presentation_name || "";
+          if (name) { matchSong(name); return; }
+        } catch {}
+      }
+    };
+    const poll = async () => {
+      try {
+        const r = await fetch(PP7_BASE + "/v1/status/slide", { signal: AbortSignal.timeout(1500) });
+        if (!r.ok) { setPp7ConnSt("err"); return; }
+        const d = await r.json();
+        const uuid = d?.current?.uuid;
+        setPp7ConnSt("ok");
+        if (uuid && uuid !== pp7UuidRef.current) {
+          pp7UuidRef.current = uuid;
+          await fetchPresentationName();
+        }
+      } catch { setPp7ConnSt("err"); }
+      timer = setTimeout(poll, 2000);
+    };
+    pp7UuidRef.current = "";
+    setPp7ConnSt("idle");
+    poll();
+    return () => clearTimeout(timer);
+  }, [pp7AutoOn, user?.uid]);
 
   // T-0 도달 시 첫 번째 악보로 자동이동 — tick 내부에서 직접 호출
 
@@ -2603,22 +2663,23 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
                   {/* ── 싱크바 카드 ── */}
                   <div style={{ flexShrink:0, background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}` }}>
-                    {/* 1행: 예배순서 자동감지 */}
+                    {/* 1행: 예배순서 자동감지 (PP7) */}
                     <div style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px 6px", borderBottom:`1px solid ${C.pur}22` }}>
                       <span style={{ fontSize:11, fontWeight:800, color:C.pur, flexShrink:0, whiteSpace:"nowrap" }}>🎹 예배순서 자동감지</span>
-                      <div style={{ display:"flex", gap:4, flex:1, overflowX:"auto", scrollbarWidth:"none" }}>
-                        {SHEET_SYNC_INST_PARTS.map(part => {
-                          const active = fohFollowTarget === part;
-                          return (
-                            <button key={part} onClick={() => setFohFollowTarget(active ? null : part)} style={{
-                              fontSize:11, fontWeight: active ? 700 : 600,
-                              background: active ? C.pur : `${C.pur}18`,
-                              color: active ? "#fff" : C.pur,
-                              border:`1.5px solid ${active ? C.pur : "transparent"}`,
-                              borderRadius:20, padding:"3px 9px", cursor:"pointer", fontFamily:"inherit", flexShrink:0,
-                            }}>{part}</button>
-                          );
-                        })}
+                      <div style={{ display:"flex", gap:6, alignItems:"center", flex:1 }}>
+                        <button onClick={() => setPp7AutoOn(v => !v)} style={{
+                          fontSize:11, fontWeight:700,
+                          background: pp7AutoOn ? C.pur : `${C.pur}18`,
+                          color: pp7AutoOn ? "#fff" : C.pur,
+                          border:`1.5px solid ${pp7AutoOn ? C.pur : "transparent"}`,
+                          borderRadius:20, padding:"3px 10px", cursor:"pointer", fontFamily:"inherit", flexShrink:0,
+                        }}>PP7</button>
+                        {pp7AutoOn && (
+                          <span style={{ fontSize:10, fontWeight:600,
+                            color: pp7ConnSt === "ok" ? "#22c55e" : pp7ConnSt === "err" ? C.red : C.dim }}>
+                            {pp7ConnSt === "ok" ? "● 연결됨" : pp7ConnSt === "err" ? "● 연결 실패" : "● 연결 중..."}
+                          </span>
+                        )}
                       </div>
                     </div>
                     {/* 2행: 악보 싱크 */}
