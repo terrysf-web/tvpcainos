@@ -7392,11 +7392,15 @@ export default function App() {
 
   // ── 공유 Gemini 키 + 자동화 설정 구독
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "settings", "app"), d => {
-      const data = d.exists() ? d.data() : {};
-      setSharedGeminiKey(data.sharedGeminiKey || "");
-      setBgmChannel(data.bgmChannel || "09");
-    });
+    const unsub = onSnapshot(
+      doc(db, "settings", "app"),
+      d => {
+        const data = d.exists() ? d.data() : {};
+        setSharedGeminiKey(data.sharedGeminiKey || "");
+        setBgmChannel(data.bgmChannel || "09");
+      },
+      err => console.warn("settings/app 읽기 실패 (보안 규칙 확인 필요):", err.code)
+    );
     return unsub;
   }, []);
 
