@@ -8304,9 +8304,10 @@ export default function App() {
       )}
       {/* 스크린 영역 — flex:1 로 남은 공간 차지, 각 스크린이 내부 스크롤 담당 */}
       <div style={{ flex:1, overflow:"hidden", position:"relative", display:"flex", flexDirection:"column" }}>
+        <FohErrorBoundary key={view}>
         {view === "home"          && <HomeSplashScreen user={user} />}
         {view === "services"      && <ServicesScreen      {...shared} />}
-        {view === "foh"           && <FohErrorBoundary><HomeScreen {...shared} /></FohErrorBoundary>}
+        {view === "foh"           && <HomeScreen           {...shared} />}
         {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
         {view === "library"       && <SongLibraryScreen   {...shared} />}
         {view === "pdfViewer"     && (
@@ -8336,6 +8337,7 @@ export default function App() {
             onRoleUpdate={() => setUser(u => ({ ...u, role: "leader" }))}
             sharedGeminiKey={sharedGeminiKey} />
         )}
+        </FohErrorBoundary>
       </div>
 
       {/* 하단 탭바 — position:fixed 없이 flex 하단에 자연 배치 */}
