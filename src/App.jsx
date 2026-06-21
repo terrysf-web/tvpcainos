@@ -7216,7 +7216,7 @@ function HomeSplashScreen({ user }) {
    BOTTOM NAV
 ══════════════════════════════════════════════════════════════════ */
 function BottomNav({ view, nav, unread, user, anyLiveActive }) {
-  const isFohUser = getUserParts(user).some(p => p?.toLowerCase() === "foh");
+  const isFohUser = isFoh(user);
   const tabs = [
     { id:"home",                              icon:"home",       label:"홈"     },
     { id: isFohUser ? "foh" : "services",    icon:"calendar",   label:"예배"   },
