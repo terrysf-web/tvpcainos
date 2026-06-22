@@ -4516,7 +4516,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         <div style={{ flexShrink:0, background:`${C.pur}0a`, borderBottom:`1px solid ${C.bdr}`, position:"relative" }}>
           {/* 필기 서브툴바 — 단일 스크롤 행 */}
           <div style={{ display:"flex", alignItems:"center", gap:4, padding:"0 10px", height:44,
-            overflowX:"auto", background: drawTool === "select" && selAnnot ? `${C.pur}0e` : "transparent" }}>
+            overflowX:"auto", background: drawTool === "select" && selAnnot ? `${C.pur}0e` : "transparent", justifyContent:"flex-end" }}>
             {/* 도구 버튼 — 텍스트 */}
             {[
               { id:"pen",         label:"펜"    },
@@ -5596,6 +5596,277 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             </div>
           </div>
         )}
+
+        {/* 메모 패널 */}
+        {showNotePanel && (
+          <div style={{ width:270, flexShrink:0, background:C.surf, borderLeft:`1px solid ${C.bdr}`,
+            display:"flex", flexDirection:"column", overflow:"hidden" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+              padding:"12px 16px 10px", flexShrink:0, borderBottom:`1px solid ${C.bdr}` }}>
+              <div style={{ fontWeight:700 }}>메모</div>
+              <div style={{ display:"flex", gap:6 }}>
+                <button onClick={() => { setNoteInput(true); setShowNotePanel(false); }}
+                  style={{ background:C.acc, border:"none", borderRadius:6, padding:"4px 10px",
+                    cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}>
+                  <Icon n="plus" size={13} color="#111" />
+                  <span style={{ fontSize:11, fontWeight:700, color:"#111" }}>추가</span>
+                </button>
+                <button onClick={() => setShowNotePanel(false)}
+                  style={{ background:"none", border:"none", cursor:"pointer", color:C.dim, display:"flex" }}>
+                  <Icon n="xmark" size={18} />
+                </button>
+              </div>
+            </div>
+            <div style={{ flex:1, overflowY:"auto", padding:16 }}>
+              {dual && dualLeftSongId && dualRightSongId && (
+                <div style={{ display:"flex", gap:5, marginBottom:12 }}>
+                  {[
+                    { id: dualLeftSongId,  label: `⬅ ${svcSongs[dualIdx]?.title || "왼쪽"}` },
+                    { id: dualRightSongId, label: `➡ ${svcSongs[dualIdx+1]?.title || "오른쪽"}` },
+                  ].map(o => (
+                    <button key={o.id} onClick={() => setNoteSongId(o.id)}
+                      style={{ flex:1, padding:"5px 4px", borderRadius:7, cursor:"pointer",
+                        fontFamily:"inherit", fontSize:11, fontWeight:700,
+                        background: effectiveNoteSongId === o.id ? C.acc : C.card,
+                        color: effectiveNoteSongId === o.id ? "#111" : C.dim,
+                        border: `1.5px solid ${effectiveNoteSongId === o.id ? C.acc : C.bdr}`,
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* 팀 메모 */}
+              <div style={{ fontSize:11, fontWeight:800, color:C.acc, letterSpacing:"0.05em", marginBottom:6 }}>👥 팀 메모</div>
+              {teamNotes.length === 0
+                ? <div style={{ color:C.dim, fontSize:12, marginBottom:14, padding:"6px 0" }}>팀 메모가 없습니다</div>
+                : teamNotes.map(n => (
+                  <div key={n.id} style={{ background:`${C.acc}0d`, borderRadius:10, padding:"10px 12px",
+                    marginBottom:8, border:`1px solid ${C.acc}33` }}>
+                    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
+                      <div style={{ flex:1 }}>
+                        {n.page > 0 && <span style={{ fontSize:10, color:C.acc, fontWeight:700 }}>p.{n.page} </span>}
+                        <span style={{ fontSize:13, lineHeight:1.5 }}>{n.text}</span>
+                      </div>
+                      {n.userId === user.uid && <button onClick={() => deleteNote(n.id)}
+                        style={{ background:"none", border:"none", cursor:"pointer", padding:2, display:"flex" }}>
+                        <Icon n="trash" size={14} color={C.red} />
+                      </button>}
+                    </div>
+                  </div>
+                ))
+              }
+              {/* 개인 메모 */}
+              <div style={{ fontSize:11, fontWeight:800, color:C.pur, letterSpacing:"0.05em", margin:"10px 0 6px" }}>🔒 내 메모</div>
+              {myNotes.length === 0
+                ? <div style={{ color:C.dim, fontSize:12, padding:"6px 0" }}>개인 메모가 없습니다</div>
+                : myNotes.map(n => (
+                  <div key={n.id} style={{ background:C.card, borderRadius:10, padding:"10px 12px",
+                    marginBottom:8, border:`1px solid ${C.bdr}` }}>
+                    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
+                      <div style={{ flex:1 }}>
+                        {n.page > 0 && <span style={{ fontSize:10, color:C.pur, fontWeight:700 }}>p.{n.page} </span>}
+                        <span style={{ fontSize:13, lineHeight:1.5 }}>{n.text}</span>
+                      </div>
+                      <button onClick={() => deleteNote(n.id)}
+                        style={{ background:"none", border:"none", cursor:"pointer", padding:2, display:"flex" }}>
+                        <Icon n="trash" size={14} color={C.red} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        )}
+
+        {/* 큐 입력 패널 */}
+        {showCueInput && !isLibraryMode && (
+          <div style={{ width:320, flexShrink:0, background:C.surf, borderLeft:`2px solid #ff6f0044`,
+            display:"flex", flexDirection:"column", overflow:"hidden" }}
+            onClick={e => e.stopPropagation()}
+            onPointerDown={e => e.stopPropagation()}
+            onPointerMove={e => e.stopPropagation()}
+            onPointerUp={e => e.stopPropagation()}
+            onTouchStart={e => e.stopPropagation()}
+            onTouchMove={e => e.stopPropagation()}
+            onTouchEnd={e => e.stopPropagation()}>
+            {/* 헤더 */}
+            <div style={{ padding:"14px 16px 8px", borderBottom:`1px solid ${C.bdr}`, flexShrink:0,
+              display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
+              <div>
+                <div style={{ fontWeight:700, fontSize:13 }}>🎯 큐 노트</div>
+                <div style={{ fontSize:11, color:"#e65c00", marginTop:2 }}>{cueSong?.title}</div>
+                <div style={{ fontSize:10, color:C.dim, marginTop:1 }}>FOH에게 전달하는 요청 / 알림{dual ? " (왼쪽 악보 기준)" : ""}</div>
+              </div>
+              <button onClick={() => { setShowCueInput(false); setCueTxt(""); setCueScr(""); }}
+                style={{ flexShrink:0, background:"transparent", border:`1px solid ${C.bdr}`,
+                  borderRadius:8, padding:"3px 8px", cursor:"pointer", color:C.dim, fontSize:13,
+                  fontFamily:"inherit", fontWeight:700 }}>✕</button>
+            </div>
+            {/* 스크롤 가능 콘텐츠 */}
+            <div style={{ flex:1, overflowY:"auto", padding:"10px 16px", display:"flex", flexDirection:"column", gap:0 }}>
+            <div style={{ width:"100%" }}>
+              {/* 기존 큐 목록 */}
+              {(songCues?.[cueSongId] || []).length > 0 && (
+                <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:10 }}>
+                  {(songCues[cueSongId]).map(cue => {
+                    const isOwn = !!(user?.uid && cue.userId && cue.userId === user.uid);
+                    const isEditing = cueEditId === cue.id;
+                    return (
+                      <div key={cue.id} style={{ padding:"8px 10px", borderRadius:8,
+                        background: isOwn ? "#ff6f0018" : "#ff6f0008",
+                        border:`1px solid ${isOwn ? "#ff6f0055" : "#ff6f0025"}` }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
+                          <span style={{ fontSize:11, fontWeight:800, color:"#e65c00" }}>{cue.userPart || cue.userName}</span>
+                          {isOwn && !isEditing && (
+                            <div style={{ display:"flex", gap:5 }}>
+                              <button onClick={() => { setCueEditId(cue.id); setCueEditTxt(cue.text); }}
+                                style={{ fontSize:11, fontWeight:700, color:"#5c4000",
+                                  background:"#ffe082", border:"1px solid #ffca28",
+                                  borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>
+                                ✏️ 수정
+                              </button>
+                              <button onClick={async () => { await deleteCue?.(cue.id); }}
+                                style={{ fontSize:11, fontWeight:700, color:"#b71c1c",
+                                  background:"#ffebee", border:"1px solid #ef9a9a",
+                                  borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>
+                                🗑️ 삭제
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {isEditing ? (
+                          <div>
+                            <textarea value={cueEditTxt} onChange={e => setCueEditTxt(e.target.value)}
+                              autoFocus
+                              style={{ width:"100%", fontSize:13, color:C.txt,
+                                background:C.card, border:`1px solid #ff6f0055`, borderRadius:6,
+                                padding:"6px 8px", resize:"none", height:72,
+                                fontFamily:"inherit", outline:"none", boxSizing:"border-box" }} />
+                            <div style={{ display:"flex", gap:6, marginTop:5 }}>
+                              <button onClick={async () => { await editCue?.(cue.id, cueEditTxt); setCueEditId(null); }}
+                                style={{ flex:1, fontSize:12, fontWeight:700, background:"#e65c00", color:"#fff",
+                                  border:"none", borderRadius:7, padding:"6px 0", cursor:"pointer", fontFamily:"inherit" }}>
+                                저장
+                              </button>
+                              <button onClick={() => setCueEditId(null)}
+                                style={{ flex:1, fontSize:12, fontWeight:700, background:C.card, color:C.dim,
+                                  border:`1px solid ${C.bdr}`, borderRadius:7, padding:"6px 0", cursor:"pointer", fontFamily:"inherit" }}>
+                                취소
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize:12, color:C.txt }}>{cue.text}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {/* 섹션 선택 */}
+              <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:8, marginTop:4 }}>
+                {CUE_SECTIONS.map(sec => (
+                  <button key={sec} onClick={() => setCueSection(sec)}
+                    style={{ padding:"4px 10px", borderRadius:20, cursor:"pointer",
+                      fontFamily:"inherit", fontSize:11, fontWeight:700,
+                      background: cueSection === sec ? "#ff6f00" : C.card,
+                      color: cueSection === sec ? "#fff" : C.dim,
+                      border:`1.5px solid ${cueSection === sec ? "#ff6f00" : C.bdr}` }}>
+                    {sec}
+                  </button>
+                ))}
+              </div>
+              {/* 글자 표시/편집 영역 — 변환 후 직접 수정 가능 */}
+              <textarea
+                value={cueTxt}
+                onChange={e => setCueTxt(e.target.value)}
+                placeholder="작성된 내용이 여기 표시됩니다"
+                style={{ width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`, borderRadius:10,
+                  padding:"10px 14px", minHeight:44, fontSize:14, color:C.txt,
+                  lineHeight:1.6, resize:"none", outline:"none",
+                  fontFamily:"inherit", boxSizing:"border-box" }}
+              />
+              {/* 입력 모드: 손글씨(캔버스) / 타입 */}
+              <div style={{ display:"flex", gap:6, marginTop:10 }}>
+                {[{ v:true, label:"✍️ 필기" }, { v:false, label:"⌨️ 타입" }].map(o => (
+                  <button key={o.label} onClick={() => setCueInk(o.v)}
+                    style={{ flex:1, padding:"7px 0", borderRadius:8, cursor:"pointer",
+                      fontFamily:"inherit", fontSize:12, fontWeight:700,
+                      background: cueInk === o.v ? "#ff6f00" : C.card,
+                      color: cueInk === o.v ? "#fff" : C.dim,
+                      border:`1.5px solid ${cueInk === o.v ? "#ff6f00" : C.bdr}` }}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              {cueInk ? (
+                <HandwritePad accent="#ff6f00" apiKey={user?.geminiKey || sharedGeminiKey}
+                  onText={t => setCueTxt(p => (p + (p ? " " : "") + t).trim())} />
+              ) : (
+              <>
+              <textarea
+                value={cueScr}
+                onChange={e => {
+                  const v = e.target.value;
+                  setCueScr(v);
+                }}
+                placeholder="여기에 타입하세요"
+                autoFocus
+                style={{ width:"100%", background:`#ff6f0008`, border:`1.5px solid #ff6f0044`,
+                  color:C.txt, padding:"10px 14px", borderRadius:10,
+                  fontSize:14, outline:"none", fontFamily:"inherit",
+                  resize:"none", height:120, marginTop:8 }}
+              />
+              <div style={{ display:"flex", gap:6, marginTop:8 }}>
+                <button onClick={() => { if (cueScr.trim()) { setCueTxt(p => (p + (p ? " " : "") + cueScr.trim()).trim()); setCueScr(""); } }}
+                  disabled={!cueScr.trim()}
+                  style={{ flex:1.3, padding:"9px 0", borderRadius:10, cursor: cueScr.trim() ? "pointer" : "not-allowed",
+                    background: cueScr.trim() ? "#ff6f00" : C.card, border:`1px solid ${cueScr.trim() ? "#ff6f00" : C.bdr}`,
+                    fontFamily:"inherit", fontSize:13, fontWeight:800,
+                    color: cueScr.trim() ? "#fff" : C.dim, opacity: cueScr.trim() ? 1 : 0.4 }}>
+                  ⬆ 올리기
+                </button>
+                <button onClick={() => setCueTxt(p => p + " ")}
+                  style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:"pointer",
+                    background:C.card, border:`1px solid ${C.bdr}`,
+                    fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.txt }}>
+                  ␣ 스페이스
+                </button>
+                <button onClick={() => { setCueScr(""); setCueTxt(p => p.slice(0,-1)); }}
+                  disabled={!cueTxt && !cueScr}
+                  style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:(cueTxt||cueScr) ? "pointer":"not-allowed",
+                    background:C.card, border:`1px solid ${C.bdr}`,
+                    fontFamily:"inherit", fontSize:13, fontWeight:700,
+                    color:(cueTxt||cueScr) ? C.txt : C.dim, opacity:(cueTxt||cueScr) ? 1 : 0.4 }}>
+                  ⌫ 지우기
+                </button>
+                <button onClick={() => { setCueScr(""); setCueTxt(""); }}
+                  disabled={!cueTxt && !cueScr}
+                  style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:(cueTxt||cueScr) ? "pointer":"not-allowed",
+                    background:(cueTxt||cueScr) ? `${C.red}18` : C.card,
+                    border:`1px solid ${(cueTxt||cueScr) ? C.red+"55" : C.bdr}`,
+                    fontFamily:"inherit", fontSize:13, fontWeight:700,
+                    color:(cueTxt||cueScr) ? C.red : C.dim, opacity:(cueTxt||cueScr) ? 1 : 0.4 }}>
+                  ✕ 전체 삭제
+                </button>
+              </div>
+              </>
+              )}
+            </div>{/* /스크롤 콘텐츠 inner */}
+            </div>{/* /스크롤 콘텐츠 */}
+            {/* 하단 전송 버튼 */}
+            <div style={{ padding:"10px 16px", borderTop:`1px solid ${C.bdr}`, flexShrink:0 }}>
+              <Btn label="전송" variant="primary"
+                onClick={() => {
+                  const final = (cueTxt + (cueScr.trim() ? (cueTxt ? " " : "") + cueScr.trim() : "")).trim();
+                  if (final) { sendCue?.(selectedSvcId, cueSongId, final, { section: cueSection }); setCueTxt(""); setCueScr(""); setCueSection("전체"); setShowCueInput(false); }
+                }}
+                full disabled={!cueTxt.trim() && !cueScr.trim()} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 메모 입력 */}
@@ -5892,284 +6163,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           </div>
         );
       })()}
-
-      {/* 메모 패널 */}
-      {showNotePanel && (
-        <div style={{ position:"absolute", right:0, top:"calc(env(safe-area-inset-top) + 52px)", bottom:0,
-          width:270, background:C.surf, borderLeft:`1px solid ${C.bdr}`,
-          zIndex:100, overflowY:"auto", padding:16 }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
-            <div style={{ fontWeight:700 }}>메모</div>
-            <div style={{ display:"flex", gap:6 }}>
-              <button onClick={() => { setNoteInput(true); setShowNotePanel(false); }}
-                style={{ background:C.acc, border:"none", borderRadius:6, padding:"4px 10px",
-                  cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}>
-                <Icon n="plus" size={13} color="#111" />
-                <span style={{ fontSize:11, fontWeight:700, color:"#111" }}>추가</span>
-              </button>
-              <button onClick={() => setShowNotePanel(false)}
-                style={{ background:"none", border:"none", cursor:"pointer", color:C.dim, display:"flex" }}>
-                <Icon n="xmark" size={18} />
-              </button>
-            </div>
-          </div>
-
-          {dual && dualLeftSongId && dualRightSongId && (
-            <div style={{ display:"flex", gap:5, marginBottom:12 }}>
-              {[
-                { id: dualLeftSongId,  label: `⬅ ${svcSongs[dualIdx]?.title || "왼쪽"}` },
-                { id: dualRightSongId, label: `➡ ${svcSongs[dualIdx+1]?.title || "오른쪽"}` },
-              ].map(o => (
-                <button key={o.id} onClick={() => setNoteSongId(o.id)}
-                  style={{ flex:1, padding:"5px 4px", borderRadius:7, cursor:"pointer",
-                    fontFamily:"inherit", fontSize:11, fontWeight:700,
-                    background: effectiveNoteSongId === o.id ? C.acc : C.card,
-                    color: effectiveNoteSongId === o.id ? "#111" : C.dim,
-                    border: `1.5px solid ${effectiveNoteSongId === o.id ? C.acc : C.bdr}`,
-                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* 팀 메모 */}
-          <div style={{ fontSize:11, fontWeight:800, color:C.acc, letterSpacing:"0.05em", marginBottom:6 }}>👥 팀 메모</div>
-          {teamNotes.length === 0
-            ? <div style={{ color:C.dim, fontSize:12, marginBottom:14, padding:"6px 0" }}>팀 메모가 없습니다</div>
-            : teamNotes.map(n => (
-              <div key={n.id} style={{ background:`${C.acc}0d`, borderRadius:10, padding:"10px 12px",
-                marginBottom:8, border:`1px solid ${C.acc}33` }}>
-                <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
-                  <div style={{ flex:1 }}>
-                    {n.page > 0 && <span style={{ fontSize:10, color:C.acc, fontWeight:700 }}>p.{n.page} </span>}
-                    <span style={{ fontSize:13, lineHeight:1.5 }}>{n.text}</span>
-                  </div>
-                  {n.userId === user.uid && <button onClick={() => deleteNote(n.id)}
-                    style={{ background:"none", border:"none", cursor:"pointer", padding:2, display:"flex" }}>
-                    <Icon n="trash" size={14} color={C.red} />
-                  </button>}
-                </div>
-              </div>
-            ))
-          }
-
-          {/* 개인 메모 */}
-          <div style={{ fontSize:11, fontWeight:800, color:C.pur, letterSpacing:"0.05em", margin:"10px 0 6px" }}>🔒 내 메모</div>
-          {myNotes.length === 0
-            ? <div style={{ color:C.dim, fontSize:12, padding:"6px 0" }}>개인 메모가 없습니다</div>
-            : myNotes.map(n => (
-              <div key={n.id} style={{ background:C.card, borderRadius:10, padding:"10px 12px",
-                marginBottom:8, border:`1px solid ${C.bdr}` }}>
-                <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
-                  <div style={{ flex:1 }}>
-                    {n.page > 0 && <span style={{ fontSize:10, color:C.pur, fontWeight:700 }}>p.{n.page} </span>}
-                    <span style={{ fontSize:13, lineHeight:1.5 }}>{n.text}</span>
-                  </div>
-                  <button onClick={() => deleteNote(n.id)}
-                    style={{ background:"none", border:"none", cursor:"pointer", padding:2, display:"flex" }}>
-                    <Icon n="trash" size={14} color={C.red} />
-                  </button>
-                </div>
-              </div>
-            ))
-          }
-        </div>
-      )}
-
-      {/* 큐 입력 패널 — 오른쪽 사이드 패널 (악보 보면서 작성) */}
-      {showCueInput && !isLibraryMode && (
-        <div style={{
-            position:"fixed", top:0, right:0, bottom:0,
-            width:"clamp(300px, 38vw, 420px)",
-            background:C.surf, borderLeft:`2px solid #ff6f0044`,
-            boxShadow:"-6px 0 32px rgba(0,0,0,0.18)",
-            zIndex:200, display:"flex", flexDirection:"column",
-          }}
-          onClick={e => e.stopPropagation()}
-          onPointerDown={e => e.stopPropagation()}
-          onPointerMove={e => e.stopPropagation()}
-          onPointerUp={e => e.stopPropagation()}
-          onTouchStart={e => e.stopPropagation()}
-          onTouchMove={e => e.stopPropagation()}
-          onTouchEnd={e => e.stopPropagation()}>
-          {/* 헤더 — safe-area 아래로 */}
-          <div style={{ paddingTop:"calc(14px + env(safe-area-inset-top, 0px))", paddingLeft:16, paddingRight:16, paddingBottom:8,
-            borderBottom:`1px solid ${C.bdr}`, flexShrink:0,
-            display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
-            <div>
-              <div style={{ fontWeight:700, fontSize:13 }}>🎯 큐 노트</div>
-              <div style={{ fontSize:11, color:"#e65c00", marginTop:2 }}>{cueSong?.title}</div>
-              <div style={{ fontSize:10, color:C.dim, marginTop:1 }}>FOH에게 전달하는 요청 / 알림{dual ? " (왼쪽 악보 기준)" : ""}</div>
-            </div>
-            <button onClick={() => { setShowCueInput(false); setCueTxt(""); setCueScr(""); }}
-              style={{ flexShrink:0, background:"transparent", border:`1px solid ${C.bdr}`,
-                borderRadius:8, padding:"3px 8px", cursor:"pointer", color:C.dim, fontSize:13,
-                fontFamily:"inherit", fontWeight:700, marginTop:"env(safe-area-inset-top, 0px)" }}>✕</button>
-          </div>
-          {/* 스크롤 가능 콘텐츠 */}
-          <div style={{ flex:1, overflowY:"auto", padding:"10px 16px", display:"flex", flexDirection:"column", gap:0 }}>
-          <div style={{ width:"100%" }}>
-            {/* 기존 큐 목록 */}
-            {(songCues?.[cueSongId] || []).length > 0 && (
-              <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:10 }}>
-                {(songCues[cueSongId]).map(cue => {
-                  const isOwn = !!(user?.uid && cue.userId && cue.userId === user.uid);
-                  const isEditing = cueEditId === cue.id;
-                  return (
-                    <div key={cue.id} style={{ padding:"8px 10px", borderRadius:8,
-                      background: isOwn ? "#ff6f0018" : "#ff6f0008",
-                      border:`1px solid ${isOwn ? "#ff6f0055" : "#ff6f0025"}` }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
-                        <span style={{ fontSize:11, fontWeight:800, color:"#e65c00" }}>{cue.userPart || cue.userName}</span>
-                        {isOwn && !isEditing && (
-                          <div style={{ display:"flex", gap:5 }}>
-                            <button onClick={() => { setCueEditId(cue.id); setCueEditTxt(cue.text); }}
-                              style={{ fontSize:11, fontWeight:700, color:"#5c4000",
-                                background:"#ffe082", border:"1px solid #ffca28",
-                                borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>
-                              ✏️ 수정
-                            </button>
-                            <button onClick={async () => { await deleteCue?.(cue.id); }}
-                              style={{ fontSize:11, fontWeight:700, color:"#b71c1c",
-                                background:"#ffebee", border:"1px solid #ef9a9a",
-                                borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>
-                              🗑️ 삭제
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      {isEditing ? (
-                        <div>
-                          <textarea value={cueEditTxt} onChange={e => setCueEditTxt(e.target.value)}
-                            autoFocus
-                            style={{ width:"100%", fontSize:13, color:C.txt,
-                              background:C.card, border:`1px solid #ff6f0055`, borderRadius:6,
-                              padding:"6px 8px", resize:"none", height:72,
-                              fontFamily:"inherit", outline:"none", boxSizing:"border-box" }} />
-                          <div style={{ display:"flex", gap:6, marginTop:5 }}>
-                            <button onClick={async () => { await editCue?.(cue.id, cueEditTxt); setCueEditId(null); }}
-                              style={{ flex:1, fontSize:12, fontWeight:700, background:"#e65c00", color:"#fff",
-                                border:"none", borderRadius:7, padding:"6px 0", cursor:"pointer", fontFamily:"inherit" }}>
-                              저장
-                            </button>
-                            <button onClick={() => setCueEditId(null)}
-                              style={{ flex:1, fontSize:12, fontWeight:700, background:C.card, color:C.dim,
-                                border:`1px solid ${C.bdr}`, borderRadius:7, padding:"6px 0", cursor:"pointer", fontFamily:"inherit" }}>
-                              취소
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <span style={{ fontSize:12, color:C.txt }}>{cue.text}</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {/* 섹션 선택 */}
-            <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:8, marginTop:4 }}>
-              {CUE_SECTIONS.map(sec => (
-                <button key={sec} onClick={() => setCueSection(sec)}
-                  style={{ padding:"4px 10px", borderRadius:20, cursor:"pointer",
-                    fontFamily:"inherit", fontSize:11, fontWeight:700,
-                    background: cueSection === sec ? "#ff6f00" : C.card,
-                    color: cueSection === sec ? "#fff" : C.dim,
-                    border:`1.5px solid ${cueSection === sec ? "#ff6f00" : C.bdr}` }}>
-                  {sec}
-                </button>
-              ))}
-            </div>
-            {/* 글자 표시/편집 영역 — 변환 후 직접 수정 가능 */}
-            <textarea
-              value={cueTxt}
-              onChange={e => setCueTxt(e.target.value)}
-              placeholder="작성된 내용이 여기 표시됩니다"
-              style={{ width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`, borderRadius:10,
-                padding:"10px 14px", minHeight:44, fontSize:14, color:C.txt,
-                lineHeight:1.6, resize:"none", outline:"none",
-                fontFamily:"inherit", boxSizing:"border-box" }}
-            />
-            {/* 입력 모드: 손글씨(캔버스) / 타입 */}
-            <div style={{ display:"flex", gap:6, marginTop:10 }}>
-              {[{ v:true, label:"✍️ 필기" }, { v:false, label:"⌨️ 타입" }].map(o => (
-                <button key={o.label} onClick={() => setCueInk(o.v)}
-                  style={{ flex:1, padding:"7px 0", borderRadius:8, cursor:"pointer",
-                    fontFamily:"inherit", fontSize:12, fontWeight:700,
-                    background: cueInk === o.v ? "#ff6f00" : C.card,
-                    color: cueInk === o.v ? "#fff" : C.dim,
-                    border:`1.5px solid ${cueInk === o.v ? "#ff6f00" : C.bdr}` }}>
-                  {o.label}
-                </button>
-              ))}
-            </div>
-            {cueInk ? (
-              <HandwritePad accent="#ff6f00" apiKey={user?.geminiKey || sharedGeminiKey}
-                onText={t => setCueTxt(p => (p + (p ? " " : "") + t).trim())} />
-            ) : (
-            <>
-            <textarea
-              value={cueScr}
-              onChange={e => {
-                const v = e.target.value;
-                setCueScr(v);
-              }}
-              placeholder="여기에 타입하세요"
-              autoFocus
-              style={{ width:"100%", background:`#ff6f0008`, border:`1.5px solid #ff6f0044`,
-                color:C.txt, padding:"10px 14px", borderRadius:10,
-                fontSize:14, outline:"none", fontFamily:"inherit",
-                resize:"none", height:120, marginTop:8 }}
-            />
-            <div style={{ display:"flex", gap:6, marginTop:8 }}>
-              <button onClick={() => { if (cueScr.trim()) { setCueTxt(p => (p + (p ? " " : "") + cueScr.trim()).trim()); setCueScr(""); } }}
-                disabled={!cueScr.trim()}
-                style={{ flex:1.3, padding:"9px 0", borderRadius:10, cursor: cueScr.trim() ? "pointer" : "not-allowed",
-                  background: cueScr.trim() ? "#ff6f00" : C.card, border:`1px solid ${cueScr.trim() ? "#ff6f00" : C.bdr}`,
-                  fontFamily:"inherit", fontSize:13, fontWeight:800,
-                  color: cueScr.trim() ? "#fff" : C.dim, opacity: cueScr.trim() ? 1 : 0.4 }}>
-                ⬆ 올리기
-              </button>
-              <button onClick={() => setCueTxt(p => p + " ")}
-                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:"pointer",
-                  background:C.card, border:`1px solid ${C.bdr}`,
-                  fontFamily:"inherit", fontSize:13, fontWeight:700, color:C.txt }}>
-                ␣ 스페이스
-              </button>
-              <button onClick={() => { setCueScr(""); setCueTxt(p => p.slice(0,-1)); }}
-                disabled={!cueTxt && !cueScr}
-                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:(cueTxt||cueScr) ? "pointer":"not-allowed",
-                  background:C.card, border:`1px solid ${C.bdr}`,
-                  fontFamily:"inherit", fontSize:13, fontWeight:700,
-                  color:(cueTxt||cueScr) ? C.txt : C.dim, opacity:(cueTxt||cueScr) ? 1 : 0.4 }}>
-                ⌫ 지우기
-              </button>
-              <button onClick={() => { setCueScr(""); setCueTxt(""); }}
-                disabled={!cueTxt && !cueScr}
-                style={{ flex:1, padding:"9px 0", borderRadius:10, cursor:(cueTxt||cueScr) ? "pointer":"not-allowed",
-                  background:(cueTxt||cueScr) ? `${C.red}18` : C.card,
-                  border:`1px solid ${(cueTxt||cueScr) ? C.red+"55" : C.bdr}`,
-                  fontFamily:"inherit", fontSize:13, fontWeight:700,
-                  color:(cueTxt||cueScr) ? C.red : C.dim, opacity:(cueTxt||cueScr) ? 1 : 0.4 }}>
-                ✕ 전체 삭제
-              </button>
-            </div>
-            </>
-            )}
-          </div>{/* /스크롤 콘텐츠 inner */}
-          </div>{/* /스크롤 콘텐츠 */}
-          {/* 하단 전송 버튼 */}
-          <div style={{ padding:"10px 16px", borderTop:`1px solid ${C.bdr}`, flexShrink:0 }}>
-            <Btn label="전송" variant="primary"
-              onClick={() => {
-                const final = (cueTxt + (cueScr.trim() ? (cueTxt ? " " : "") + cueScr.trim() : "")).trim();
-                if (final) { sendCue?.(selectedSvcId, cueSongId, final, { section: cueSection }); setCueTxt(""); setCueScr(""); setCueSection("전체"); setShowCueInput(false); }
-              }}
-              full disabled={!cueTxt.trim() && !cueScr.trim()} />
-          </div>
-        </div>
-      )}
 
       {showMobileHelp && <HelpModal onClose={() => setShowMobileHelp(false)} />}
       {showImprov && <ImprovChordScreen onClose={() => setShowImprov(false)} C={C} />}
