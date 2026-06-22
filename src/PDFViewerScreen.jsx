@@ -4291,11 +4291,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       {/* 그룹 드롭다운 패널 */}
       {activeGroup && (
         <div style={{ flexShrink:0, background:C.surf, borderBottom:`1px solid ${C.bdr}`,
-          padding:"8px 14px", display:"flex", alignItems:"center" }}>
+          padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"flex-end" }}>
 
           {/* 보기: 줌 · FIT · 페이지 · DUAL */}
           {activeGroup === "보기" && (
-            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
+            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap", justifyContent:"flex-end" }}>
               {sqBtn("−", false, () => setZoomMul(z => Math.max(0.5, +(z-0.15).toFixed(2))))}
               <button onClick={resetZoom} style={{
                 height:28, padding:"0 6px", borderRadius:7, cursor:"pointer", flexShrink:0,
@@ -4345,7 +4345,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
           {/* 필기: 필기 · 메모 · 큐노트 */}
           {activeGroup === "필기" && (
-            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
+            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap", justifyContent:"flex-end" }}>
               <button onClick={() => { setDrawMode(p=>!p); if(!drawMode) setDrawTool("pen"); }} style={{
                 height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
                 background: drawMode ? `${C.pur}22` : "transparent",
@@ -4374,7 +4374,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
           {/* 다운로드: 악보 PDF · 멤버 허용 */}
           {activeGroup === "다운로드" && (
-            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
+            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap", justifyContent:"flex-end" }}>
               {canDownload && (
                 <button onClick={downloadAnnotatedScore} style={{
                   height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
@@ -4396,7 +4396,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
           {/* 악보: 전조 · MEDIA */}
           {activeGroup === "악보" && (
-            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
+            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap", justifyContent:"flex-end" }}>
               <button onClick={() => {
                 const next = !transposeMode;
                 setTransposeMode(next);
@@ -4434,7 +4434,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
           {/* 녹음: 악기선택 · 녹음버튼 · 재생 · 연습듣기 */}
           {activeGroup === "녹음" && (
-            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
+            <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap", justifyContent:"flex-end" }}>
               {/* 보컬 */}
               {(() => {
                 const setMode = (id) => { setRecMode(id); recModeRef.current=id; localStorage.setItem("tvpc_recMode",id); };
