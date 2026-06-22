@@ -6606,6 +6606,14 @@ function ImprovChordScreen({ onClose, C }) {
   const audioCtxRef = useRef(null);
   const playAllRef  = useRef(false);
 
+  // 저장된 진행
+  const [saved, setSaved] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tvpc_improv_saved") || "[]"); }
+    catch { return []; }
+  });
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const [saveName,      setSaveName]      = useState("");
+
   // 가로/세로 감지
   const [isLandscape, setIsLandscape] = useState(
     () => typeof window !== "undefined" && window.innerWidth > window.innerHeight
@@ -6663,6 +6671,30 @@ function ImprovChordScreen({ onClose, C }) {
     setResult(generateProgression(key, mode, mood, result?.patternIdx ?? -1));
   };
 
+  const _persistSaved = (list) => {
+    setSaved(list);
+    try { localStorage.setItem("tvpc_improv_saved", JSON.stringify(list)); } catch {}
+  };
+  const handleSave = () => {
+    if (!result) return;
+    setSaveName(`${result.keyEng} · ${result.moodLabel}`);
+    setShowSaveInput(true);
+  };
+  const confirmSave = () => {
+    const name = saveName.trim() || `${result.keyEng} · ${result.moodLabel}`;
+    _persistSaved([{ id: Date.now(), name, result }, ...saved].slice(0, 20));
+    setShowSaveInput(false);
+  };
+  const deleteSaved = (id) => _persistSaved(saved.filter(s => s.id !== id));
+  const loadSaved = (item) => {
+    stopAll();
+    setKey(item.result.key);
+    setMode(item.result.mode);
+    setMood(item.result.mood);
+    setResult(item.result);
+    setShowSaveInput(false);
+  };
+
   const fl = { fontSize:10, fontWeight:700, color:C.dim, letterSpacing:0.8,
     textTransform:"uppercase", marginBottom:6 };
 
@@ -6677,6 +6709,29 @@ function ImprovChordScreen({ onClose, C }) {
   // ── 선택 패널 JSX
   const selectorJSX = (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+      {saved.length > 0 && (
+        <div>
+          <div style={fl}>저장된 진행</div>
+          <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:4 }}>
+            {saved.map(s => (
+              <div key={s.id} style={{ display:"flex", alignItems:"center", gap:0, flexShrink:0,
+                background:`${C.pur}15`, border:`1px solid ${C.pur}44`, borderRadius:20 }}>
+                <button onClick={() => loadSaved(s)} style={{
+                  background:"none", border:"none", cursor:"pointer",
+                  padding:"5px 8px 5px 12px",
+                  fontSize:11, fontWeight:700, color:C.pur,
+                  fontFamily:"inherit", whiteSpace:"nowrap",
+                }}>{s.name}</button>
+                <button onClick={() => deleteSaved(s.id)} style={{
+                  background:"none", border:"none", cursor:"pointer",
+                  padding:"5px 10px 5px 4px",
+                  fontSize:13, color:C.dim, lineHeight:1,
+                }}>×</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div>
         <div style={fl}>조성</div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
@@ -6738,7 +6793,7 @@ function ImprovChordScreen({ onClose, C }) {
           <div style={{ fontSize:14, fontWeight:900, color:C.pur }}>{result.keyEng}</div>
           <div style={{ fontSize:10, color:C.dim }}>♩= {result.bpm} · {result.direction}</div>
         </div>
-        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+        <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
           <span style={{ fontSize:10, fontWeight:700, color:C.pur,
             background:`${C.pur}18`, border:`1px solid ${C.pur}44`,
             borderRadius:20, padding:"3px 10px" }}>{result.moodEmoji} {result.moodLabel}</span>
@@ -6755,6 +6810,29 @@ function ImprovChordScreen({ onClose, C }) {
               fontSize:11, fontWeight:800, cursor:"pointer", fontFamily:"inherit",
             }}>▶ 전체 재생</button>
           )}
+          {showSaveInput ? (
+            <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+              <input value={saveName} onChange={e => setSaveName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") confirmSave(); if (e.key === "Escape") setShowSaveInput(false); }}
+                autoFocus
+                style={{ padding:"4px 9px", borderRadius:8, border:`1px solid ${C.pur}`,
+                  background:C.bg, color:C.txt, fontSize:11, fontFamily:"inherit",
+                  outline:"none", width:130 }} />
+              <button onClick={confirmSave} style={{
+                padding:"4px 10px", borderRadius:8, border:"none",
+                background:C.pur, color:"#fff", fontSize:11, fontWeight:700,
+                cursor:"pointer", fontFamily:"inherit" }}>저장</button>
+              <button onClick={() => setShowSaveInput(false)} style={{
+                background:"none", border:"none", cursor:"pointer",
+                fontSize:15, color:C.dim, padding:"0 2px", lineHeight:1 }}>✕</button>
+            </div>
+          ) : (
+            <button onClick={handleSave} style={{
+              padding:"5px 11px", borderRadius:20, border:`1px solid ${C.grn}55`,
+              background:`${C.grn}12`, color:C.grn,
+              fontSize:11, fontWeight:800, cursor:"pointer", fontFamily:"inherit",
+            }}>💾</button>
+          )}
         </div>
       </div>
 
@@ -6766,6 +6844,8 @@ function ImprovChordScreen({ onClose, C }) {
       }}>
         {result.bars.map((b, i) => {
           const isNow = playingBar === i;
+          const sec = i < 4 ? "A" : "B";
+          const barInSec = i < 4 ? i + 1 : i - 3;
           return (
             <div key={i} style={{
               background: isNow ? `${C.pur}12` : C.surf,
@@ -6775,7 +6855,13 @@ function ImprovChordScreen({ onClose, C }) {
             }}>
               {/* 코드 이름 행 */}
               <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                <span style={{ fontSize:9, fontWeight:700, color: isNow ? C.pur : C.dim }}>{b.bar}마디</span>
+                <span style={{ display:"flex", alignItems:"center", gap:3 }}>
+                  <span style={{ fontSize:8, fontWeight:800, borderRadius:3, padding:"1px 5px",
+                    background: sec === "A" ? `${C.pur}22` : `${C.grn}22`,
+                    color: sec === "A" ? C.pur : C.grn,
+                  }}>{sec}</span>
+                  <span style={{ fontSize:9, fontWeight:700, color: isNow ? C.pur : C.dim }}>{barInSec}마디</span>
+                </span>
                 <span style={{ fontSize: isLandscape ? 20 : 24, fontWeight:900, color:C.txt, letterSpacing:-0.5 }}>{b.name}</span>
                 <span style={{ marginLeft:"auto", fontSize:9, color:C.dim, fontWeight:600 }}>{b.beats}</span>
                 <button onClick={() => handlePlayBar(b, i)} style={{
