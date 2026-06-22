@@ -6616,26 +6616,22 @@ function ImprovChordScreen({ onClose, C }) {
     return () => window.removeEventListener("resize", fn);
   }, []);
 
-  const getCtx = useCallback(() => {
+  const playBar = useCallback(async (bar, isArp, bpm) => {
     if (!audioCtxRef.current)
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtxRef.current.state === "suspended") audioCtxRef.current.resume();
-    return audioCtxRef.current;
-  }, []);
-
-  const playBar = useCallback((bar, isArp, bpm) => {
-    const ctx = getCtx();
+    const ctx = audioCtxRef.current;
+    if (ctx.state === "suspended") await ctx.resume();
     const now = ctx.currentTime;
     const dur = 60 / bpm * 4;
     const notes = [...bar.lhLabels, ...bar.rhLabels]
       .map(n => _noteToFreq(n.label)).filter(Boolean);
     notes.forEach((freq, i) => _playNote(ctx, freq, isArp ? now + i*0.11 : now, dur - 0.15));
     return dur;
-  }, [getCtx]);
+  }, []);
 
-  const handlePlayBar = useCallback((bar, idx) => {
+  const handlePlayBar = useCallback(async (bar, idx) => {
     if (!result) return;
-    const dur = playBar(bar, mood === "calm", result.bpm);
+    const dur = await playBar(bar, mood === "calm", result.bpm);
     setPlayingBar(idx);
     setTimeout(() => setPlayingBar(p => p === idx ? null : p), dur * 1000);
   }, [mood, playBar, result]);
@@ -6654,7 +6650,7 @@ function ImprovChordScreen({ onClose, C }) {
     for (let i = 0; i < result.bars.length; i++) {
       if (!playAllRef.current) break;
       setPlayingBar(i);
-      const dur = playBar(result.bars[i], isArp, result.bpm);
+      const dur = await playBar(result.bars[i], isArp, result.bpm);
       await new Promise(r => setTimeout(r, dur * 1000));
     }
     setPlayingBar(null);
