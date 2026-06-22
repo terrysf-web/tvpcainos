@@ -8,6 +8,7 @@ import {
 import { Icon, Btn, Modal, ConfirmModal } from "./ui.jsx";
 import { getVoicings, getDiatonicChords, getEffectiveKey, CHORD_VOICINGS, getChordTones } from "./chordVoicings.js";
 import { generateProgression, KEYS as IMPROV_KEYS, MOODS as IMPROV_MOODS } from "./improvChords.js";
+import { HelpModal } from "./HelpModal.jsx";
 import { db, storage } from "./firebase.js";
 import {
   collection, doc, onSnapshot, addDoc, updateDoc, setDoc, getDoc,
@@ -1057,8 +1058,10 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
 
   const partInfo = (p) => PARTS.find(x => x.id === p) || { emoji: "🎵", label: p || "전체" };
   const fmtDate = (ts) => {
-    if (!ts?.toDate) return "";
-    return ts.toDate().toLocaleDateString("ko-KR", { month:"short", day:"numeric" });
+    if (!ts) return "";
+    if (ts?.toDate) return ts.toDate().toLocaleDateString("ko-KR", { month:"short", day:"numeric" });
+    try { return new Date(ts).toLocaleDateString("ko-KR", { month:"short", day:"numeric" }); }
+    catch { return ""; }
   };
 
   // 보컬 여부 — "밴드" 파트 접근 불가
@@ -3906,14 +3909,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const restored = pRef.current;
       pRef.current = null;
       sRef.current = restored;
-      await saveFn(songId, dual ? 1 : pageNum, restored);
+      await saveFn(songId, dual ? (side === 2 ? (svcSongs[dualIdx + 1]?.pdfPage || 1) : (svcSongs[dualIdx]?.pdfPage || 1)) : pageNum, restored);
       if (dcRef.current) drawStrokes(dcRef.current, restored);
       return;
     }
     if (sRef.current.length === 0) return;
     const next = sRef.current.slice(0, -1);
     sRef.current = next;
-    await saveFn(songId, dual ? 1 : pageNum, next);
+    await saveFn(songId, dual ? (side === 2 ? (svcSongs[dualIdx + 1]?.pdfPage || 1) : (svcSongs[dualIdx]?.pdfPage || 1)) : pageNum, next);
     if (dcRef.current) drawStrokes(dcRef.current, next);
   };
 
@@ -5397,7 +5400,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 }}
                                   onPointerDown={canMove ? e => handleChordPointerDown(e, 2, i) : undefined}
                                   onTouchStart={canMove ? e => e.stopPropagation() : undefined}>
-                                  {transposeChord(item.chord, transposeSteps2 - capoFret2, useFlats(song.key, transposeSteps2 - capoFret2))}
+                                  {transposeChord(item.chord, transposeSteps2 - capoFret2, useFlats(songs?.find(s => s.id === dualRightSongId)?.key || song?.key, transposeSteps2 - capoFret2))}
                                 </span>
                                 );
                               })}

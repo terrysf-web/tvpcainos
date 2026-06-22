@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { C, keyColor } from "./theme.js";
 import { Icon, Input } from "./ui.jsx";
+
+const localDateStr = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 import { db } from "./firebase.js";
 import {
   collection, doc, onSnapshot, setDoc, addDoc, deleteDoc,

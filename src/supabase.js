@@ -109,7 +109,7 @@ export async function sendFcmPush(title, body) {
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_ANON}` },
       body: JSON.stringify({ title, body }),
     });
-    return res.json();
+    return await res.json();
   } catch (e) {
     console.warn("FCM 푸시 실패:", e);
     return null;

@@ -174,6 +174,7 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
   const saveYtId = async () => {
     const id = parseYtId(ytInput);
     if (!id) { setYtErr("올바른 YouTube URL을 입력하세요."); return; }
+    if (!song?.id) { setYtErr("악보가 선택되지 않았습니다."); return; }
     try {
       await updateDoc(doc(db, "songs", song.id), { youtubeId: id });
       setYtId(id);
@@ -184,6 +185,7 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
   };
 
   const removeYtId = async () => {
+    if (!song?.id) return;
     try {
       await updateDoc(doc(db, "songs", song.id), { youtubeId: null });
       setYtId(null);
@@ -306,7 +308,8 @@ BPM: ${song.bpm || "미상"}
           ? "서버가 혼잡합니다. 잠시 후 다시 시도해주세요."
           : data.error.message);
       }
-      const text = data.candidates[0].content.parts[0].text;
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new Error("AI 응답을 받지 못했습니다. 다시 시도해주세요.");
       setAnalysis(text);
       setUsedImage(!!imageB64);
       setAiErr("");
