@@ -31,7 +31,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.692";
+const APP_VERSION = "3.693";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -4001,6 +4001,493 @@ function SongPickerModal({ songs, currentIds, onClose, onSave, addSong, user }) 
       <Btn label={`${selected.length}곡 저장`} icon="check"
         onClick={() => onSave(selected)} full disabled={selected.length === 0} />
     </Modal>
+  );
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   WORSHIP RECORDINGS MODAL (팀 공유 예배 녹음 — 파트별)
+══════════════════════════════════════════════════════════════════ */
+function extractDriveId(url) {
+  if (!url) return null;
+  const m1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (m1) return m1[1];
+  const m2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  return m2 ? m2[1] : null;
+}
+
+function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
+  const leader = isLeader(user?.role);
+  const myParts = getUserParts(user);
+  const canSeeAll = leader;
+  const [firestoreRecs, setFirestoreRecs] = useState([]);
+  const [supaDoc,      setSupaDoc]       = useState(null);
+  const [refreshKey,   setRefreshKey]    = useState(0);
+  const [partFilter,   setPartFilter]    = useState("전체");
+  const [expandedId,   setExpandedId]    = useState(null);
+  const [showAdd,      setShowAdd]       = useState(false);
+  const [partLinks,    setPartLinks]     = useState({});
+  const [addTitle,     setAddTitle]      = useState("");
+  const [saving,       setSaving]        = useState(false);
+  const [saveProgress, setSaveProgress]  = useState("");
+  const [confirmDel,   setConfirmDel]    = useState(null);
+  const [editingId,    setEditingId]     = useState(null);
+  const [editData,     setEditData]      = useState({});
+  const [bulkText,     setBulkText]      = useState("");
+
+  const sessionDocId = `${songId}_${svc?.id || "nosvc"}`;
+
+  useEffect(() => {
+    const q = query(collection(db, "worshipRecordings"), where("songId", "==", songId));
+    return onSnapshot(q, snap => {
+      setFirestoreRecs(snap.docs
+        .filter(d => !d.data()._session)
+        .map(d => ({ id: d.id, ...d.data() }))
+      );
+    }, err => console.error("worshipRecordings 읽기 오류:", err));
+  }, [songId]);
+
+  useEffect(() => {
+    loadWorshipRecording(sessionDocId)
+      .then(d => setSupaDoc(d || null))
+      .catch(() => setSupaDoc(null));
+  }, [sessionDocId, refreshKey]);
+
+  const recs = useMemo(() => {
+    const supaRecs = [];
+    if (supaDoc?.parts) {
+      for (const [part, driveId] of Object.entries(supaDoc.parts)) {
+        if (driveId) supaRecs.push({
+          id: `supa:${sessionDocId}:${part}`, _supabase: true, _docId: sessionDocId,
+          part, driveId,
+          songId: supaDoc.songId, songTitle: supaDoc.songTitle,
+          serviceId: supaDoc.serviceId, serviceTitle: supaDoc.serviceTitle,
+          title: supaDoc.title, uploaderName: supaDoc.uploaderName,
+          createdAt: supaDoc.updatedAt,
+        });
+      }
+    }
+    const all = [...firestoreRecs, ...supaRecs];
+    all.sort((a, b) => {
+      if (a._supabase && b._supabase) return PARTS.findIndex(p => p.id === a.part) - PARTS.findIndex(p => p.id === b.part);
+      const ta = typeof a.createdAt === "string" ? new Date(a.createdAt).getTime() / 1000 : (a.createdAt?.seconds ?? 0);
+      const tb = typeof b.createdAt === "string" ? new Date(b.createdAt).getTime() / 1000 : (b.createdAt?.seconds ?? 0);
+      return tb - ta;
+    });
+    return all;
+  }, [firestoreRecs, supaDoc, sessionDocId]);
+
+  useEffect(() => {
+    if (!showAdd) return;
+    if (supaDoc?.parts) {
+      const links = {};
+      for (const [part, driveId] of Object.entries(supaDoc.parts)) {
+        if (driveId) links[part] = `https://drive.google.com/file/d/${driveId}/view`;
+      }
+      setPartLinks(links);
+      if (supaDoc.title) setAddTitle(supaDoc.title);
+    }
+  }, [showAdd]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const del = async (rec) => { setConfirmDel(rec); };
+
+  const _doDel = async (rec) => {
+    setConfirmDel(null);
+    if (expandedId === rec.id) setExpandedId(null);
+    try {
+      if (rec._supabase) {
+        await deleteWorshipRecordingPart(rec._docId, rec.part);
+        setRefreshKey(k => k + 1);
+      } else if (rec._session) {
+        await updateDoc(doc(db, "worshipRecordings", rec._docId), {
+          [`parts.${rec.part}`]: deleteField(),
+        });
+      } else {
+        if (rec.storagePath) { try { await deleteObject(storageRef(storage, rec.storagePath)); } catch {} }
+        await deleteDoc(doc(db, "worshipRecordings", rec.id));
+      }
+    } catch (e) { alert("삭제 실패: " + (e.message || e)); }
+  };
+
+  const startEdit = (rec) => {
+    setEditingId(rec.id);
+    setExpandedId(null);
+    setEditData({
+      title: rec.title || "",
+      url:   rec.driveId ? `https://drive.google.com/file/d/${rec.driveId}/view` : "",
+      part:  rec.part || "전체",
+    });
+  };
+
+  const saveEdit = async (rec) => {
+    const newDriveId = extractDriveId(editData.url.trim());
+    if (editData.url.trim() && !newDriveId) { alert("올바른 Google Drive 링크를 입력하세요."); return; }
+    try {
+      if (rec._supabase) {
+        const current = (await loadWorshipRecording(rec._docId)) || { parts: {} };
+        current.parts = current.parts || {};
+        if (editData.part !== rec.part) delete current.parts[rec.part];
+        current.parts[editData.part] = newDriveId || rec.driveId || null;
+        if (editData.title.trim()) current.title = editData.title.trim();
+        current.updatedAt = new Date().toISOString();
+        await saveWorshipRecording(rec._docId, current);
+        setRefreshKey(k => k + 1);
+      } else if (rec._session) {
+        const updates = { title: editData.title.trim() || null, [`parts.${editData.part}`]: newDriveId || rec.driveId || null };
+        if (editData.part !== rec.part) updates[`parts.${rec.part}`] = deleteField();
+        await updateDoc(doc(db, "worshipRecordings", rec._docId), updates);
+      } else {
+        await updateDoc(doc(db, "worshipRecordings", rec.id), {
+          title: editData.title.trim() || null,
+          driveId: newDriveId || rec.driveId || null,
+          part: editData.part,
+        });
+      }
+      setEditingId(null);
+    } catch (e) { alert("수정 실패: " + (e.message || e)); }
+  };
+
+  const saveAllLinks = async () => {
+    const entries = PARTS
+      .map(p => ({ part: p.id, url: (partLinks[p.id] || "").trim() }))
+      .filter(e => e.url);
+    if (!entries.length) return;
+    const invalid = entries.filter(e => !extractDriveId(e.url));
+    if (invalid.length) {
+      alert(`올바르지 않은 링크:\n${invalid.map(e => e.part).join(", ")}\nGoogle Drive 공유 링크를 붙여넣으세요.`);
+      return;
+    }
+    setSaving(true); setSaveProgress("저장 중...");
+    try {
+      const partsData = {};
+      for (const { part, url } of entries) partsData[part] = extractDriveId(url);
+      await saveWorshipRecording(sessionDocId, {
+        songId, songTitle,
+        serviceId:    svc?.id || null,
+        serviceTitle: svc?.title || null,
+        serviceDate:  svc?.date || null,
+        title:        addTitle.trim() || null,
+        uploaderName: user?.name || user?.email || "리더",
+        uploaderUid:  user?.uid || null,
+        updatedAt:    new Date().toISOString(),
+        parts:        partsData,
+      });
+      if (svc?.id) updateDoc(doc(db, "services", svc.id), { hasRecordings: true }).catch(() => {});
+      setPartLinks({}); setAddTitle(""); setShowAdd(false);
+      setRefreshKey(k => k + 1);
+    } catch (e) {
+      alert(`저장 실패\n${e.message || e}`);
+    } finally {
+      setSaving(false); setSaveProgress("");
+    }
+  };
+
+  const applyBulkLinks = () => {
+    const ids = [...bulkText.matchAll(/\/file\/d\/([a-zA-Z0-9_-]+)/g)].map(m => m[1]);
+    if (!ids.length) { alert("Drive 링크를 찾을 수 없습니다."); return; }
+    const newLinks = {};
+    ids.forEach((id, idx) => {
+      if (idx < PARTS.length) newLinks[PARTS[idx].id] = `https://drive.google.com/file/d/${id}/view`;
+    });
+    setPartLinks(prev => ({ ...prev, ...newLinks }));
+    setBulkText("");
+  };
+
+  const partInfo = (p) => PARTS.find(x => x.id === p) || { emoji: "🎵", label: p || "전체" };
+  const fmtDate = (ts) => {
+    if (!ts?.toDate) return "";
+    return ts.toDate().toLocaleDateString("ko-KR", { month:"short", day:"numeric" });
+  };
+
+  const isVocalist = myParts.some(p => VOCALIST_PART_IDS.has(p));
+  const accessibleParts = canSeeAll ? PARTS.map(p => p.id) : ["전체", ...myParts].filter(Boolean);
+  const accessibleRecs = recs.filter(r => {
+    if (canSeeAll) return true;
+    return r.part === "전체" || myParts.includes(r.part);
+  });
+  const filteredRecs = partFilter === "전체" ? accessibleRecs : accessibleRecs.filter(r => r.part === partFilter);
+  const visibleTabs = PARTS.filter(p => accessibleParts.includes(p.id));
+
+  return (
+    <>
+    {confirmDel && (
+      <ConfirmModal
+        title="녹음 항목 삭제"
+        message="이 항목을 삭제하시겠습니까? 삭제 후 복구할 수 없습니다."
+        confirmLabel="삭제"
+        danger
+        onConfirm={() => _doDel(confirmDel)}
+        onClose={() => setConfirmDel(null)}
+      />
+    )}
+    <Modal title={`예배 녹음 — ${songTitle}`} onClose={onClose} noBackdrop>
+      <div style={{ display:"flex", overflowX:"auto", gap:5, marginBottom:10, paddingBottom:2 }}>
+        {visibleTabs.map(p => {
+          const count = p.id === "전체" ? accessibleRecs.length : accessibleRecs.filter(r => r.part === p.id).length;
+          const isActive = partFilter === p.id;
+          const isMine   = p.id !== "전체" && myParts.includes(p.id);
+          return (
+            <button key={p.id} onClick={() => setPartFilter(p.id)} style={{
+              flexShrink:0, padding:"4px 10px", borderRadius:20,
+              background: isActive ? C.pur : (isMine ? `${C.acc}20` : C.card),
+              border:`1px solid ${isActive ? C.pur : (isMine ? C.acc+"55" : C.bdr)}`,
+              color: isActive ? "#fff" : (isMine ? C.acc : C.dim),
+              fontSize:12, fontWeight: isActive || isMine ? 700 : 500, cursor:"pointer",
+              fontFamily:"inherit",
+            }}>
+              {p.emoji} {p.label}{count > 0 ? ` ${count}` : ""}
+            </button>
+          );
+        })}
+      </div>
+
+      {!canSeeAll && myParts.length > 0 && (
+        <div style={{ fontSize:11, color:C.dim, marginBottom:8,
+          background:`${C.acc}10`, borderRadius:7, padding:"5px 9px",
+          display:"flex", alignItems:"center", gap:5 }}>
+          <span>🎵</span>
+          <span>전체 믹스{myParts.map(p => <> · <strong key={p} style={{ color:C.acc }}>{p}</strong></>)}{" "}파트 녹음을 들을 수 있습니다</span>
+        </div>
+      )}
+
+      <div style={{ maxHeight:"52vh", overflowY:"auto" }}>
+        {filteredRecs.length === 0 ? (
+          <div style={{ textAlign:"center", color:C.dim, padding:"28px 0", fontSize:14 }}>
+            {partFilter !== "전체" ? `${partFilter} 파트 녹음이 없습니다` : "등록된 녹음이 없습니다"}
+          </div>
+        ) : filteredRecs.map(rec => {
+          const pi = partInfo(rec.part);
+          const isMine    = myParts.includes(rec.part);
+          const isOpen    = expandedId === rec.id;
+          const isEditing = editingId === rec.id;
+          const embedSrc  = rec.driveId ? `https://drive.google.com/file/d/${rec.driveId}/preview` : null;
+          return (
+            <div key={rec.id} style={{
+              borderRadius:10, marginBottom:8, overflow:"hidden",
+              background: isEditing ? `${C.pur}08` : (isMine ? `${C.acc}09` : C.card),
+              border:`1px solid ${isEditing ? C.pur+"55" : (isMine ? C.acc+"44" : C.bdr)}`,
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px" }}>
+                {!isEditing && (
+                  <button onClick={() => setExpandedId(isOpen ? null : rec.id)} style={{
+                    width:38, height:38, borderRadius:"50%", border:"none", cursor:"pointer", flexShrink:0,
+                    background: isOpen ? "#ff6b35" : C.grn,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    <Icon n={isOpen ? "stop" : "play"} size={14} color="#fff" />
+                  </button>
+                )}
+                <div style={{ flex:1, minWidth:0 }}>
+                  {!isEditing ? (<>
+                    <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:2 }}>
+                      <span style={{
+                        fontSize:11, fontWeight:700, padding:"1px 7px", borderRadius:5,
+                        background: isMine ? `${C.acc}20` : `${C.pur}15`,
+                        color: isMine ? C.acc : C.pur,
+                      }}>{pi.emoji} {pi.label}</span>
+                      {rec.title && <span style={{ fontSize:12, fontWeight:600, color:C.txt,
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{rec.title}</span>}
+                      {rec.serviceTitle && !rec.title && (
+                        <span style={{ fontSize:10, color:C.dim, overflow:"hidden",
+                          textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{rec.serviceTitle}</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize:11, color:C.dim }}>
+                      {rec.uploaderName} · {fmtDate(rec.createdAt)}{rec.driveId ? " · Google Drive" : ""}
+                    </div>
+                  </>) : (
+                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                        {PARTS.map(p => (
+                          <button key={p.id} onClick={() => setEditData(d => ({ ...d, part: p.id }))}
+                            style={{
+                              padding:"2px 8px", borderRadius:12, fontSize:11, fontWeight:700,
+                              cursor:"pointer", fontFamily:"inherit",
+                              background: editData.part === p.id ? C.pur : C.bg,
+                              color:      editData.part === p.id ? "#fff" : C.dim,
+                              border:`1px solid ${editData.part === p.id ? C.pur : C.bdr}`,
+                            }}>
+                            {p.emoji} {p.label}
+                          </button>
+                        ))}
+                      </div>
+                      <input value={editData.title} onChange={e => setEditData(d => ({ ...d, title: e.target.value }))}
+                        placeholder="제목 (선택)"
+                        style={{ width:"100%", boxSizing:"border-box", padding:"6px 8px",
+                          borderRadius:7, border:`1px solid ${C.bdr}`, background:C.bg,
+                          fontSize:12, color:C.txt, fontFamily:"inherit", outline:"none" }} />
+                      <input value={editData.url} onChange={e => setEditData(d => ({ ...d, url: e.target.value }))}
+                        placeholder="Google Drive 링크"
+                        style={{ width:"100%", boxSizing:"border-box", padding:"6px 8px",
+                          borderRadius:7, border:`1px solid ${C.bdr}`, background:C.bg,
+                          fontSize:11, color:C.txt, fontFamily:"inherit", outline:"none" }} />
+                      <div style={{ display:"flex", gap:6 }}>
+                        <button onClick={() => saveEdit(rec)} style={{
+                          flex:1, padding:"7px", borderRadius:8, border:"none",
+                          background:C.grn, color:"#fff", fontSize:12, fontWeight:700,
+                          cursor:"pointer", fontFamily:"inherit" }}>저장</button>
+                        <button onClick={() => setEditingId(null)} style={{
+                          padding:"7px 12px", borderRadius:8,
+                          border:`1px solid ${C.bdr}`, background:C.card,
+                          color:C.dim, fontSize:12, cursor:"pointer", fontFamily:"inherit" }}>취소</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {leader && !isEditing && (
+                  <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
+                    <button onClick={() => startEdit(rec)} style={{
+                      background:"none", border:`1px solid ${C.pur}44`, borderRadius:7,
+                      cursor:"pointer", padding:"6px 8px",
+                      display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      <Icon n="pencil" size={13} color={C.pur} />
+                    </button>
+                    <button onClick={() => del(rec)} style={{
+                      background:"none", border:`1px solid ${C.red}44`, borderRadius:7,
+                      cursor:"pointer", padding:"6px 8px",
+                      display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      <Icon n="trash" size={13} color={C.red} />
+                    </button>
+                  </div>
+                )}
+              </div>
+              {isOpen && !isEditing && embedSrc && (
+                <div style={{ borderTop:`1px solid ${C.bdr}` }}>
+                  <iframe src={embedSrc} width="100%" height="80" allow="autoplay"
+                    style={{ display:"block", border:"none" }} title={rec.title || songTitle} />
+                </div>
+              )}
+              {isOpen && !isEditing && !embedSrc && (
+                <div style={{ padding:"8px 12px", borderTop:`1px solid ${C.bdr}`, fontSize:12, color:C.dim }}>
+                  재생 링크 없음
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {leader && (
+        <div style={{ marginTop:12, borderTop:`1px solid ${C.bdr}`, paddingTop:12 }}>
+          {!showAdd ? (
+            <button onClick={() => setShowAdd(true)} style={{
+              width:"100%", padding:"10px", borderRadius:10,
+              border:`1.5px dashed ${C.grn}66`,
+              background:`${C.grn}08`, cursor:"pointer",
+              display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+              fontSize:13, fontWeight:700, color:C.grn, fontFamily:"inherit",
+            }}>
+              <Icon n="plus" size={16} color={C.grn} />
+              Google Drive 링크 일괄 등록
+            </button>
+          ) : (
+            <div style={{ background:C.card, borderRadius:10, padding:12, border:`1px solid ${C.bdr}` }}>
+              <div style={{ fontSize:12, fontWeight:700, color:C.txt, marginBottom:4 }}>
+                파트별 Google Drive 링크 붙여넣기
+              </div>
+              <button onClick={async () => {
+                try {
+                  await openDrivePicker((docs) => {
+                    const newLinks = {};
+                    docs.forEach((doc, idx) => {
+                      if (idx < PARTS.length) newLinks[PARTS[idx].id] = `https://drive.google.com/file/d/${doc.id}/view`;
+                    });
+                    setPartLinks(prev => ({ ...prev, ...newLinks }));
+                  });
+                } catch (e) { alert("Drive 오류: " + (e.message || e)); }
+              }} style={{
+                width:"100%", padding:"11px", borderRadius:10, marginBottom:12,
+                background:"#1a73e8", border:"none", color:"#fff",
+                fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+              }}>
+                <svg width="18" height="18" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
+                  <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+                  <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/>
+                  <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
+                  <path d="m43.65 25 13.75-23.8c-1.35-.8-2.95-1.2-4.5-1.2h-18.5c-1.55 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+                  <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.95 1.2 4.5 1.2h50.8c1.55 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
+                  <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 27h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+                </svg>
+                Google Drive에서 파일 선택
+              </button>
+              <div style={{ background:`${C.acc}10`, borderRadius:8, padding:10,
+                border:`1px solid ${C.acc}33`, marginBottom:12 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:C.acc, marginBottom:4 }}>⚡ 한꺼번에 붙여넣기</div>
+                <div style={{ fontSize:10, color:C.dim, marginBottom:6, lineHeight:1.6 }}>
+                  Drive 링크 여러 개를 한꺼번에 붙여넣으면 아래 순서로 자동 배분됩니다:<br/>
+                  {PARTS.map(p => p.label).join(" → ")}
+                </div>
+                <textarea value={bulkText} onChange={e => setBulkText(e.target.value)}
+                  placeholder={"링크 1 (전체)\n링크 2 (밴드)\n링크 3 (리드 보컬)\n..."}
+                  rows={3}
+                  style={{ width:"100%", boxSizing:"border-box", resize:"vertical",
+                    padding:"7px 9px", borderRadius:7, border:`1px solid ${C.bdr}`,
+                    background:C.bg, color:C.txt, fontSize:12,
+                    fontFamily:"inherit", outline:"none", marginBottom:6 }} />
+                <button onClick={applyBulkLinks} style={{
+                  width:"100%", padding:"7px", borderRadius:8,
+                  background:C.acc, border:"none", color:"#fff",
+                  fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                }}>자동 배분</button>
+              </div>
+              <div style={{ fontSize:11, color:C.dim, marginBottom:10 }}>
+                또는 파트별로 직접 입력하세요. 없는 파트는 비워두세요.
+              </div>
+              <input placeholder="제목 (선택) — 예: 6월 7일 주일예배"
+                value={addTitle} onChange={e => setAddTitle(e.target.value)}
+                style={{ width:"100%", boxSizing:"border-box", padding:"8px 10px", borderRadius:8,
+                  border:`1px solid ${C.bdr}`, background:C.bg, fontSize:12, color:C.txt,
+                  fontFamily:"inherit", outline:"none", marginBottom:10 }} />
+              {PARTS.map(p => {
+                const val = partLinks[p.id] || "";
+                const ok  = val.trim() && !!extractDriveId(val.trim());
+                const err = val.trim() && !ok;
+                return (
+                  <div key={p.id} style={{ marginBottom:7 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:3 }}>{p.emoji} {p.label}</div>
+                    <input placeholder="https://drive.google.com/file/d/..."
+                      value={val} onChange={e => setPartLinks(prev => ({ ...prev, [p.id]: e.target.value }))}
+                      style={{
+                        width:"100%", boxSizing:"border-box", padding:"7px 10px", borderRadius:8,
+                        border:`1px solid ${ok ? C.grn+"88" : err ? C.red+"88" : C.bdr}`,
+                        background: ok ? `${C.grn}06` : C.bg,
+                        fontSize:12, color:C.txt, fontFamily:"inherit", outline:"none",
+                      }} />
+                  </div>
+                );
+              })}
+              {(() => {
+                const filled = PARTS.filter(p => (partLinks[p.id] || "").trim()).length;
+                return (
+                  <div style={{ fontSize:11, color:C.dim, marginTop:8, marginBottom:10 }}>
+                    {filled > 0 ? `${filled}개 파트 입력됨` : "링크를 하나 이상 입력하세요"}
+                  </div>
+                );
+              })()}
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={saveAllLinks}
+                  disabled={saving || !PARTS.some(p => (partLinks[p.id] || "").trim())}
+                  style={{
+                    flex:1, padding:"10px", borderRadius:9, border:"none",
+                    background: saving || !PARTS.some(p => (partLinks[p.id] || "").trim()) ? C.bdr : C.grn,
+                    color:"#fff", fontSize:13, fontWeight:700,
+                    cursor: saving || !PARTS.some(p => (partLinks[p.id] || "").trim()) ? "default" : "pointer",
+                    fontFamily:"inherit",
+                  }}>
+                  {saving ? (saveProgress || "저장 중...") : "전체 저장"}
+                </button>
+                <button onClick={() => { setShowAdd(false); setPartLinks({}); setAddTitle(""); }} style={{
+                  padding:"10px 14px", borderRadius:9, border:`1px solid ${C.bdr}`,
+                  background:"transparent", color:C.dim, fontSize:13, cursor:"pointer", fontFamily:"inherit",
+                }}>취소</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
+    </>
   );
 }
 
