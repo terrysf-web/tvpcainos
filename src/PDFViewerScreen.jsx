@@ -7,6 +7,7 @@ import {
 } from "./appUtils.js";
 import { Icon, Btn, Modal, ConfirmModal } from "./ui.jsx";
 import { getVoicings, getDiatonicChords, getEffectiveKey, CHORD_VOICINGS, getChordTones } from "./chordVoicings.js";
+import { generateProgression, KEYS as IMPROV_KEYS, MOODS as IMPROV_MOODS } from "./improvChords.js";
 import { db, storage } from "./firebase.js";
 import {
   collection, doc, onSnapshot, addDoc, updateDoc, setDoc, getDoc,
@@ -1927,6 +1928,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [showMetroPanel,  setShowMetroPanel]  = useState(false);
   const [activeGroup,     setActiveGroup]     = useState(null); // 그룹 드롭다운
   const [showMobileHelp,  setShowMobileHelp]  = useState(false);
+  const [showImprov,      setShowImprov]      = useState(false); // 즉흥 코드 생성기
   const [metroBeat,      setMetroBeat]      = useState(0);
   const [metroBpmEdit,   setMetroBpmEdit]   = useState(null);
   const [metroMsg,       setMetroMsg]       = useState("");
@@ -4251,6 +4253,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     </button>
                   );
                 })()}
+                {(getUserParts(user).some(p => ["키보드","피아노"].includes(p)) || isFoh(user) || user?.role === "admin") && (
+                  <button
+                    onClick={() => { setShowImprov(true); setActiveGroup(null); }}
+                    title="즉흥 코드 생성"
+                    style={{
+                      flexShrink:0, height:28,
+                      padding: tbNarrow ? "0 6px" : "0 8px",
+                      borderRadius:7, cursor:"pointer",
+                      background: showImprov ? `${C.pur}22` : "transparent",
+                      border:`1px solid ${showImprov ? C.pur : C.bdr}`,
+                      color: showImprov ? C.pur : C.dim, fontWeight:700,
+                      fontSize: tbNarrow ? 10 : 11, fontFamily:"inherit",
+                      display:"flex", alignItems:"center", gap:2,
+                    }}>
+                    🎹 코드
+                  </button>
+                )}
                 {mkGrp("녹음", recActive, recording ? C.red : C.acc, 0, !isLibraryMode && !!svcPracticeUrl)}
                 {dlActive && mkGrp("다운로드", false, C.acc, 0)}
                 <button onClick={() => setShowMobileHelp(true)} style={{
@@ -6150,6 +6169,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       )}
 
       {showMobileHelp && <HelpModal onClose={() => setShowMobileHelp(false)} />}
+      {showImprov && <ImprovChordScreen onClose={() => setShowImprov(false)} C={C} />}
       {showRecModal && (
         <RecordingsModal
           songId={selectedSongId}
@@ -6547,6 +6567,206 @@ function PianoChordDiagram({ chordName, C }) {
         );
       })}
     </svg>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   IMPROV CHORD GENERATOR — 예배 전 즉흥 연주용 코드 진행 생성기
+══════════════════════════════════════════════════════════════════ */
+function ImprovChordScreen({ onClose, C }) {
+  const [key, setKey]   = useState("C");
+  const [mode, setMode] = useState("major"); // major | minor
+  const [mood, setMood] = useState("calm");
+  const [result, setResult] = useState(null);
+
+  const handleGen = () => {
+    setResult(generateProgression(key, mode, mood, result?.patternIdx ?? -1));
+  };
+
+  const NoteChip = ({ label, role }) => (
+    <span style={{
+      background: role === "bass" ? `${C.pur}33` : role === "tension" ? C.pur : `${C.dim}22`,
+      color: role === "tension" ? "#fff" : role === "bass" ? C.pur : C.txt,
+      borderRadius:7, padding:"4px 9px", fontSize:13, fontWeight:800,
+      fontVariantNumeric:"tabular-nums",
+    }}>{label}</span>
+  );
+
+  const fieldLabel = { fontSize:10, fontWeight:700, color:C.dim, letterSpacing:0.8,
+    textTransform:"uppercase", marginBottom:6 };
+
+  return (
+    <div style={{
+      position:"fixed", inset:0, zIndex:6000, background:C.bg,
+      display:"flex", flexDirection:"column",
+      paddingTop:"env(safe-area-inset-top)", paddingBottom:"env(safe-area-inset-bottom)",
+    }}>
+      {/* 헤더 */}
+      <div style={{ flexShrink:0, display:"flex", alignItems:"center", gap:10,
+        padding:"12px 16px", borderBottom:`1px solid ${C.bdr}`, background:C.surf }}>
+        <div style={{ fontSize:15, fontWeight:900, color:C.txt }}>🎹 즉흥 코드 생성</div>
+        <div style={{ fontSize:10, color:C.dim, fontWeight:600 }}>예배 전 잔잔한 연주용</div>
+        <button onClick={onClose} style={{
+          marginLeft:"auto", width:30, height:30, borderRadius:15,
+          background:`${C.dim}22`, border:"none", color:C.txt,
+          fontSize:15, cursor:"pointer", fontFamily:"inherit", lineHeight:1,
+        }}>✕</button>
+      </div>
+
+      <div style={{ flex:1, overflowY:"auto", padding:16, display:"flex",
+        flexDirection:"column", gap:16 }}>
+
+        {/* 조성 */}
+        <div>
+          <div style={fieldLabel}>조성</div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:5 }}>
+            {IMPROV_KEYS.map(k => (
+              <button key={k} onClick={() => setKey(k)} style={{
+                padding:"9px 0", borderRadius:8, fontSize:14, fontWeight:800,
+                cursor:"pointer", fontFamily:"inherit",
+                background: key === k ? C.pur : `${C.dim}18`,
+                color: key === k ? "#fff" : C.txt,
+                border:`1px solid ${key === k ? C.pur : "transparent"}`,
+              }}>{k}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* 장·단조 */}
+        <div>
+          <div style={fieldLabel}>장·단조</div>
+          <div style={{ display:"flex", gap:6 }}>
+            {[["major","장조 (Major)"],["minor","단조 (Minor)"]].map(([m,lbl]) => (
+              <button key={m} onClick={() => setMode(m)} style={{
+                flex:1, padding:"9px 0", borderRadius:9, fontSize:12, fontWeight:700,
+                cursor:"pointer", fontFamily:"inherit",
+                background: mode === m ? `${C.pur}18` : "transparent",
+                color: mode === m ? C.pur : C.dim,
+                border:`1.5px solid ${mode === m ? C.pur : C.bdr}`,
+              }}>{lbl}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* 분위기 */}
+        <div>
+          <div style={fieldLabel}>분위기</div>
+          <div style={{ display:"flex", gap:6 }}>
+            {IMPROV_MOODS.map(m => (
+              <button key={m.id} onClick={() => setMood(m.id)} style={{
+                flex:1, padding:"10px 4px", borderRadius:10, cursor:"pointer",
+                fontFamily:"inherit", display:"flex", flexDirection:"column",
+                alignItems:"center", gap:3, fontSize:11, fontWeight:700,
+                background: mood === m.id ? `${C.pur}18` : `${C.dim}18`,
+                color: mood === m.id ? C.pur : C.dim,
+                border:`1.5px solid ${mood === m.id ? C.pur : "transparent"}`,
+              }}>
+                <span style={{ fontSize:18 }}>{m.emoji}</span>
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 생성 버튼 */}
+        <button onClick={handleGen} style={{
+          width:"100%", padding:14, borderRadius:13, background:C.pur, color:"#fff",
+          fontSize:15, fontWeight:900, border:"none", cursor:"pointer",
+          fontFamily:"inherit", letterSpacing:0.5,
+        }}>{result ? "🔀 다시 생성" : "✨ 코드 생성"}</button>
+
+        {/* 결과 */}
+        {result && (
+          <>
+            <div style={{ height:1, background:C.bdr }} />
+
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <div style={{ fontSize:15, fontWeight:900, color:C.pur }}>{result.keyEng}</div>
+                <div style={{ fontSize:10, color:C.dim, marginTop:1 }}>♩= {result.bpm} · {result.direction}</div>
+              </div>
+              <div style={{ fontSize:10, fontWeight:700, color:C.pur,
+                background:`${C.pur}18`, border:`1px solid ${C.pur}44`,
+                borderRadius:20, padding:"3px 10px" }}>
+                {result.moodEmoji} {result.moodLabel}
+              </div>
+            </div>
+
+            {/* 마디별 코드 */}
+            <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
+              {result.bars.map((b, i) => (
+                <div key={i} style={{
+                  background:C.surf, border:`1.5px solid ${C.bdr}`,
+                  borderRadius:14, padding:12,
+                }}>
+                  <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:10 }}>
+                    <span style={{ fontSize:10, fontWeight:700, color:C.dim }}>{b.bar}마디</span>
+                    <span style={{ fontSize:24, fontWeight:900, color:C.txt, letterSpacing:-0.5 }}>{b.name}</span>
+                    <span style={{ marginLeft:"auto", fontSize:10, color:C.dim, fontWeight:600 }}>{b.beats}</span>
+                  </div>
+
+                  <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ fontSize:9, fontWeight:800, color:C.dim, width:42, flexShrink:0 }}>왼손 L</span>
+                      <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+                        {b.lhLabels.map((n, j) => <NoteChip key={j} {...n} />)}
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ fontSize:9, fontWeight:800, color:C.dim, width:42, flexShrink:0 }}>오른손 R</span>
+                      <div style={{ display:"flex", gap:4, flexWrap:"wrap", alignItems:"center" }}>
+                        {b.rhLabels.map((n, j) => <NoteChip key={j} {...n} />)}
+                        {b.resolveLabel && (
+                          <>
+                            <span style={{ fontSize:11, color:C.dim }}>→</span>
+                            <NoteChip {...b.resolveLabel} />
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 미니 건반 */}
+                  <div style={{ marginTop:10, overflowX:"auto" }}>
+                    <PianoChordDiagram chordName={b.diagramName} C={C} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 범례 */}
+            <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+              {[["베이스",`${C.pur}33`],["코드톤",`${C.dim}22`],["텐션",C.pur]].map(([t,bg]) => (
+                <div key={t} style={{ display:"flex", alignItems:"center", gap:5,
+                  fontSize:9, color:C.dim, fontWeight:600 }}>
+                  <span style={{ width:10, height:10, borderRadius:3, background:bg }} />{t}
+                </div>
+              ))}
+            </div>
+
+            {/* 연주 힌트 */}
+            <div>
+              <div style={fieldLabel}>연주 힌트</div>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                {result.hints.map((h, i) => (
+                  <span key={i} style={{ background:C.surf, border:`1px solid ${C.bdr}`,
+                    borderRadius:20, padding:"4px 10px", fontSize:10, color:C.dim, fontWeight:600 }}>{h}</span>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* 하단 고정: 악보로 돌아가기 */}
+      <div style={{ flexShrink:0, padding:"10px 16px", borderTop:`1px solid ${C.bdr}`, background:C.surf }}>
+        <button onClick={onClose} style={{
+          width:"100%", padding:12, borderRadius:11, background:"transparent",
+          border:`1.5px solid ${C.pur}`, color:C.pur, fontSize:13, fontWeight:800,
+          cursor:"pointer", fontFamily:"inherit",
+        }}>← 악보로 돌아가기</button>
+      </div>
+    </div>
   );
 }
 
