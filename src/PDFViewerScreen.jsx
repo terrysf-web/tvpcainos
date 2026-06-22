@@ -6613,6 +6613,8 @@ function ImprovChordScreen({ onClose, C }) {
   });
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveName,      setSaveName]      = useState("");
+  const [activeTab,     setActiveTab]     = useState("generate");
+  const [libFilter,     setLibFilter]     = useState("all");
 
   // 가로/세로 감지
   const [isLandscape, setIsLandscape] = useState(
@@ -6682,7 +6684,7 @@ function ImprovChordScreen({ onClose, C }) {
   };
   const confirmSave = () => {
     const name = saveName.trim() || `${result.keyEng} · ${result.moodLabel}`;
-    _persistSaved([{ id: Date.now(), name, result }, ...saved].slice(0, 20));
+    _persistSaved([{ id: Date.now(), name, result }, ...saved].slice(0, 50));
     setShowSaveInput(false);
   };
   const deleteSaved = (id) => _persistSaved(saved.filter(s => s.id !== id));
@@ -6706,32 +6708,75 @@ function ImprovChordScreen({ onClose, C }) {
     fontSize: isLandscape ? 11 : 13, fontWeight:800,
   });
 
+  // ── 라이브러리 JSX
+  const filteredSaved = libFilter === "all" ? saved : saved.filter(s => s.result?.mood === libFilter);
+  const libraryJSX = (
+    <div style={{ display:"flex", flexDirection:"column", gap:12, padding:16 }}>
+      {/* 분위기 필터 */}
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+        {[{ id:"all", label:"전체", emoji:"🎼" }, ...IMPROV_MOODS].map(m => (
+          <button key={m.id} onClick={() => setLibFilter(m.id)} style={{
+            padding:"5px 12px", borderRadius:20, fontSize:11, fontWeight:700,
+            cursor:"pointer", fontFamily:"inherit",
+            background: libFilter === m.id ? C.pur : `${C.dim}18`,
+            color: libFilter === m.id ? "#fff" : C.dim,
+            border:`1.5px solid ${libFilter === m.id ? C.pur : "transparent"}`,
+          }}>{m.emoji} {m.label}</button>
+        ))}
+      </div>
+      {/* 카드 그리드 */}
+      {filteredSaved.length === 0 ? (
+        <div style={{ padding:"40px 0", textAlign:"center", color:C.dim, fontSize:12, fontWeight:600 }}>
+          {saved.length === 0 ? "저장된 코드 진행이 없어요\n생성 탭에서 진행을 저장해보세요 💾" : "해당 분위기의 저장 항목이 없어요"}
+        </div>
+      ) : (
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+          {filteredSaved.map(s => {
+            const moodMeta = IMPROV_MOODS.find(m => m.id === s.result?.mood);
+            const savedDate = new Date(s.id);
+            const dateStr = `${savedDate.getMonth()+1}/${savedDate.getDate()}`;
+            return (
+              <div key={s.id} style={{
+                background:C.surf, border:`1.5px solid ${C.bdr}`,
+                borderRadius:14, padding:12, display:"flex", flexDirection:"column", gap:8,
+              }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:11, fontWeight:900, color:C.txt,
+                      whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{s.name}</div>
+                    <div style={{ fontSize:10, color:C.dim, marginTop:2 }}>
+                      {s.result?.keyEng} · {dateStr}
+                    </div>
+                  </div>
+                  <button onClick={() => deleteSaved(s.id)} style={{
+                    background:"none", border:"none", cursor:"pointer",
+                    fontSize:14, color:C.dim, padding:"0 0 0 6px", lineHeight:1, flexShrink:0,
+                  }}>×</button>
+                </div>
+                {moodMeta && (
+                  <span style={{ fontSize:9, fontWeight:700, color:C.pur,
+                    background:`${C.pur}18`, border:`1px solid ${C.pur}33`,
+                    borderRadius:20, padding:"2px 8px", alignSelf:"flex-start" }}>
+                    {moodMeta.emoji} {moodMeta.label}
+                  </span>
+                )}
+                <button onClick={() => { loadSaved(s); setActiveTab("generate"); }} style={{
+                  width:"100%", padding:"7px 0", borderRadius:9,
+                  background:`${C.pur}18`, border:`1px solid ${C.pur}44`,
+                  color:C.pur, fontSize:11, fontWeight:800,
+                  cursor:"pointer", fontFamily:"inherit",
+                }}>불러오기 →</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   // ── 선택 패널 JSX
   const selectorJSX = (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-      {saved.length > 0 && (
-        <div>
-          <div style={fl}>저장된 진행</div>
-          <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:4 }}>
-            {saved.map(s => (
-              <div key={s.id} style={{ display:"flex", alignItems:"center", gap:0, flexShrink:0,
-                background:`${C.pur}15`, border:`1px solid ${C.pur}44`, borderRadius:20 }}>
-                <button onClick={() => loadSaved(s)} style={{
-                  background:"none", border:"none", cursor:"pointer",
-                  padding:"5px 8px 5px 12px",
-                  fontSize:11, fontWeight:700, color:C.pur,
-                  fontFamily:"inherit", whiteSpace:"nowrap",
-                }}>{s.name}</button>
-                <button onClick={() => deleteSaved(s.id)} style={{
-                  background:"none", border:"none", cursor:"pointer",
-                  padding:"5px 10px 5px 4px",
-                  fontSize:13, color:C.dim, lineHeight:1,
-                }}>×</button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
       <div>
         <div style={fl}>조성</div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
@@ -6934,7 +6979,26 @@ function ImprovChordScreen({ onClose, C }) {
         }}>✕</button>
       </div>
 
-      {isLandscape ? (
+      {/* 탭 바 */}
+      <div style={{ flexShrink:0, display:"flex", borderBottom:`1px solid ${C.bdr}`, background:C.surf }}>
+        {[
+          { id:"generate", label:"🎹 생성" },
+          { id:"library",  label:`📂 라이브러리${saved.length > 0 ? ` (${saved.length})` : ""}` },
+        ].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+            flex:1, padding:"9px 0", background:"none", border:"none", cursor:"pointer",
+            fontFamily:"inherit", fontSize:12, fontWeight:700,
+            color: activeTab === tab.id ? C.pur : C.dim,
+            borderBottom:`2px solid ${activeTab === tab.id ? C.pur : "transparent"}`,
+          }}>{tab.label}</button>
+        ))}
+      </div>
+
+      {activeTab === "library" ? (
+        <div style={{ flex:1, overflowY:"auto" }}>
+          {libraryJSX}
+        </div>
+      ) : isLandscape ? (
         /* ── 가로모드: 좌=선택 | 우=결과 */
         <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
           <div style={{ width:300, flexShrink:0, overflowY:"auto",
