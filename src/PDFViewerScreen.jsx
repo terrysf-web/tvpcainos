@@ -4340,31 +4340,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         </div>
       </div>}
 
-      {isLiteMode && (
-        <button
-          onClick={() => nav("lite")}
-          style={{
-            position:"fixed",
-            top:"calc(env(safe-area-inset-top,0px) + 10px)",
-            left:14,
-            zIndex:200,
-            background:"rgba(0,0,0,0.48)",
-            color:"#fff",
-            border:"none",
-            borderRadius:20,
-            padding:"7px 16px 7px 12px",
-            fontSize:13,
-            fontWeight:700,
-            cursor:"pointer",
-            display:"flex",
-            alignItems:"center",
-            gap:6,
-            backdropFilter:"blur(6px)",
-            WebkitBackdropFilter:"blur(6px)",
-          }}
-        >‹ 목록</button>
-      )}
-
       {/* 그룹 드롭다운 패널 */}
       {activeGroup && (
         <div style={{ flexShrink:0, background:C.surf, borderBottom:`1px solid ${C.bdr}`,
