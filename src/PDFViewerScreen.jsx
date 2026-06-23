@@ -1901,17 +1901,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   }, [sheetSyncTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 결단 자동 전환 — 외부(App)에서 selectedSvcSongIdx가 바뀌면 듀얼 모드도 갱신
-  // 듀얼 모드: Closing이 항상 오른쪽에 오도록 (결단이 여러 곡일 때 대응)
   const prevExternalSvcSongIdxRef = useRef(selectedSvcSongIdx);
   useEffect(() => {
     const prev = prevExternalSvcSongIdxRef.current;
     prevExternalSvcSongIdxRef.current = selectedSvcSongIdx;
     if (!dual || selectedSvcSongIdx < 0 || selectedSvcSongIdx === prev) return;
-    const closingFi = svcSongs.findIndex((_, fi) =>
-      svc?.partsEnabled && (svc.songPartIds?.[rawSvcIdxs[fi]] || null) === "Closing"
-    );
-    const targetIdx = closingFi > 0 ? closingFi - 1 : selectedSvcSongIdx;
-    setDualIdx(targetIdx);
+    setDualIdx(selectedSvcSongIdx);
     setPageNum(1);
     setPanOffset({ x: 0, y: 0 });
   }, [selectedSvcSongIdx]); // eslint-disable-line react-hooks/exhaustive-deps
