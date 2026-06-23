@@ -32,7 +32,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.700";
+const APP_VERSION = "3.701";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -7867,6 +7867,8 @@ export default function App() {
     parseInt(localStorage.getItem("tvpc_pianoOverlay_dismissed_ts") || "0")
   );
   const autoLiveTriggeredRef = useRef(null);
+  const keolDanFiredRef      = useRef(false);
+  const [keolDanToast,       setKeolDanToast]       = useState(false);
   const [sheetLinkEnabled,      setSheetLinkEnabled]      = useState(false);
   const [sheetSyncAllowedParts, setSheetSyncAllowedParts] = useState(null);
   const [sheetSyncTrigger,      setSheetSyncTrigger]      = useState(0);
@@ -8392,6 +8394,55 @@ export default function App() {
     return () => clearInterval(id);
   }, [user?.role, user?.uid, services, view]);
 
+  // ── 예배 시작 1시간 후 결단 악보 자동 전환 (FOH·어드민 제외)
+  useEffect(() => {
+    if (!user?.uid || !songs.length || !services.length) return;
+    if (isFoh(user) || user?.role === "admin") return;
+    if (keolDanFiredRef.current) return;
+
+    const today = localDateStr();
+    const todaySvc = services.find(s =>
+      s.date === today && s.partsEnabled && s.time &&
+      Array.isArray(s.songPartIds) && s.songPartIds.includes("결단")
+    );
+    if (!todaySvc) return;
+
+    const rawSongs = (todaySvc.songIds || []).map(id => songs.find(s => s.id === id));
+    const keolRawIdx = (todaySvc.songPartIds || []).indexOf("결단");
+    if (keolRawIdx < 0 || !rawSongs[keolRawIdx]) return;
+
+    // filter(Boolean)로 만들어지는 svcSongs에서의 인덱스 계산
+    let fi = 0, keolFilteredIdx = -1;
+    for (let ri = 0; ri < rawSongs.length; ri++) {
+      if (rawSongs[ri]) {
+        if (ri === keolRawIdx) keolFilteredIdx = fi;
+        fi++;
+      }
+    }
+    if (keolFilteredIdx < 0) return;
+
+    const [h, m] = todaySvc.time.split(":").map(Number);
+    const svcStart = new Date(todaySvc.date + "T00:00:00");
+    svcStart.setHours(h, m, 0, 0);
+    const msUntil = svcStart.getTime() + 60 * 60 * 1000 - Date.now();
+    if (msUntil <= 0) return; // 이미 지났으면 소급 발동 안 함
+
+    const keolSong = rawSongs[keolRawIdx];
+    const timer = setTimeout(() => {
+      keolDanFiredRef.current = true;
+      setKeolDanToast(true);
+      setTimeout(() => setKeolDanToast(false), 4000);
+      navRef.current("pdfViewer", {
+        songId:     keolSong.id,
+        svcId:      todaySvc.id,
+        svcSongIdx: keolFilteredIdx,
+        backTo:     "services",
+      });
+    }, msUntil);
+
+    return () => clearTimeout(timer);
+  }, [user?.uid, user?.role, services, songs]);
+
   // ── CRUD helpers
   const addSong = async (data) => {
     const docRef = await addDoc(collection(db, "songs"), {
@@ -8811,6 +8862,24 @@ export default function App() {
       {/* FOH → 멤버 메시지 배너 */}
       {fohMsgBanner && (
         <FohMsgToast message={fohMsgBanner.message} fromName={fohMsgBanner.fromName} onDismiss={() => setFohMsgBanner(null)} />
+      )}
+
+      {/* 결단 자동 전환 토스트 */}
+      {keolDanToast && (
+        <div style={{
+          position:"fixed", top:0, left:0, right:0, zIndex:9850,
+          background:"linear-gradient(135deg,#e07a60,#c0554a)",
+          color:"#fff",
+          paddingTop:"env(safe-area-inset-top, 0px)",
+          boxShadow:"0 4px 24px rgba(224,122,96,0.5)",
+          animation:"pianoToastSlide 0.35s cubic-bezier(0.22,1,0.36,1)",
+        }}>
+          <style>{`@keyframes pianoToastSlide{from{transform:translateY(-110%)}to{transform:translateY(0)}}`}</style>
+          <div style={{ display:"flex", alignItems:"center", gap:14, padding:"14px 20px" }}>
+            <span style={{ fontSize:28, lineHeight:1 }}>🙏</span>
+            <div style={{ fontWeight:800, fontSize:15 }}>결단 찬양 준비중입니다</div>
+          </div>
+        </div>
       )}
 
       {/* What's New 모달 */}

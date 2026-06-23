@@ -1900,6 +1900,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setZoomMul(1.0);
   }, [sheetSyncTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 결단 자동 전환 — 외부(App)에서 selectedSvcSongIdx가 바뀌면 듀얼 모드도 갱신
+  const prevExternalSvcSongIdxRef = useRef(selectedSvcSongIdx);
+  useEffect(() => {
+    const prev = prevExternalSvcSongIdxRef.current;
+    prevExternalSvcSongIdxRef.current = selectedSvcSongIdx;
+    if (!dual || selectedSvcSongIdx < 0 || selectedSvcSongIdx === prev) return;
+    setDualIdx(selectedSvcSongIdx);
+    setPageNum(1);
+    setPanOffset({ x: 0, y: 0 });
+  }, [selectedSvcSongIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── 블루투스 리모컨 / 키보드 페이지 넘김
   useEffect(() => {
     const handler = (e) => {
