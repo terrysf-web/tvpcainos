@@ -7627,31 +7627,53 @@ function HomeSplashScreen({ user }) {
         onAdd={() => setSchedModal("band")}
       />
 
-      {/* YouTube — centered above 악보 tab (3rd of 5 flex tabs; version btn ~60px shifts center by -30px) */}
-      <a
-        href="https://m.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ"
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          position:"fixed",
-          bottom:"calc(72px + env(safe-area-inset-bottom))",
-          left:"calc(50% - 30px)", transform:"translateX(-50%)",
-          display:"flex", alignItems:"center", gap:6,
-          background:"transparent",
-          border:"1.5px solid rgba(80,80,110,0.35)",
-          color:"#333", textDecoration:"none",
-          borderRadius:20, padding:"5px 13px",
-          fontSize:12, fontWeight:700, letterSpacing:"0.01em",
-          zIndex:10,
-          whiteSpace:"nowrap",
-        }}
-      >
-        <svg width="18" height="13" viewBox="0 0 18 13" fill="none">
-          <rect width="18" height="13" rx="3" fill="#FF0000"/>
-          <path d="M7 9.5V3.5L13 6.5L7 9.5Z" fill="white"/>
-        </svg>
-        TVPC
-      </a>
+      {/* YouTube + Lite — centered above 악보 tab */}
+      <div style={{
+        position:"fixed",
+        bottom:"calc(72px + env(safe-area-inset-bottom))",
+        left:"calc(50% - 30px)", transform:"translateX(-50%)",
+        display:"flex", alignItems:"center", gap:6,
+        zIndex:10,
+      }}>
+        <a
+          href="https://m.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ"
+          target="_blank" rel="noopener noreferrer"
+          style={{
+            display:"flex", alignItems:"center", gap:6,
+            background:"transparent",
+            border:"1.5px solid rgba(80,80,110,0.35)",
+            color:"#333", textDecoration:"none",
+            borderRadius:20, padding:"5px 13px",
+            fontSize:12, fontWeight:700, letterSpacing:"0.01em",
+            whiteSpace:"nowrap",
+          }}
+        >
+          <svg width="18" height="13" viewBox="0 0 18 13" fill="none">
+            <rect width="18" height="13" rx="3" fill="#FF0000"/>
+            <path d="M7 9.5V3.5L13 6.5L7 9.5Z" fill="white"/>
+          </svg>
+          TVPC
+        </a>
+        <a
+          href="?lite=1" target="_blank" rel="noopener noreferrer"
+          style={{
+            display:"flex", alignItems:"center", gap:5,
+            background:"transparent",
+            border:"1.5px solid rgba(107,93,231,0.5)",
+            color:"#6b5de7", textDecoration:"none",
+            borderRadius:20, padding:"5px 13px",
+            fontSize:12, fontWeight:700, letterSpacing:"0.01em",
+            whiteSpace:"nowrap",
+          }}
+        >
+          <svg width="14" height="12" viewBox="0 0 14 12" fill="none">
+            <rect width="14" height="2" rx="1" fill="#6b5de7"/>
+            <rect y="5" width="14" height="2" rx="1" fill="#6b5de7"/>
+            <rect y="10" width="14" height="2" rx="1" fill="#6b5de7"/>
+          </svg>
+          Lite
+        </a>
+      </div>
 
       {/* Schedule edit modal */}
       {schedModal && (
@@ -7826,7 +7848,8 @@ function WhatsNewModal({ items, version, onClose, C }) {
 }
 
 export default function App() {
-  const [liteMode] = useState(() => new URLSearchParams(window.location.search).has("lite"));
+  const [liteMode]   = useState(() => new URLSearchParams(window.location.search).has("lite"));
+  const [liteSong,    setLiteSong]    = useState(null); // { songId, svcId, svcSongIdx }
   const [user,        setUser]        = useState(undefined); // undefined = loading
   const [loginErr,        setLoginErr]        = useState("");
   const [loginBlockedUser,setLoginBlockedUser] = useState(null); // { email, name } 미등록 로그인 시도
@@ -8685,7 +8708,38 @@ export default function App() {
   if (!user) return <LoginScreen loginErr={loginErr} blockedUser={loginBlockedUser}
     onClearErr={() => { setLoginErr(""); setLoginBlockedUser(null); }} />;
 
-  if (liteMode) return <LiteScreen user={user} services={services} songs={songs} />;
+  if (liteMode) {
+    const liteNav = (view, params) => {
+      if (view === "pdfViewer" && params?.songId) {
+        setLiteSong({ songId: params.songId, svcId: params.svcId ?? null, svcSongIdx: params.svcSongIdx ?? -1 });
+      } else {
+        setLiteSong(null);
+      }
+    };
+    if (liteSong) {
+      return (
+        <Suspense fallback={<div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:"100dvh",background:C.bg }}><div style={{ color:C.dim, fontSize:14 }}>불러오는 중...</div></div>}>
+          <PDFViewerScreen
+            user={user} songs={songs} services={services}
+            annotations={annotations} teamAnnotations={teamAnnotations}
+            onAddAnnotation={addAnnotation} onDeleteAnnotation={deleteAnnotation}
+            nav={liteNav}
+            selectedSongId={liteSong.songId} selectedSvcId={liteSong.svcId}
+            selectedSvcSongIdx={liteSong.svcSongIdx} backTo="lite"
+            pdfjsReady={pdfjsReady} sharedGeminiKey={sharedGeminiKey}
+            songCues={songCues} sendCue={sendCue} deleteCue={deleteCue} editCue={editCue}
+            sheetLinkEnabled={sheetLinkEnabled} sheetSyncTrigger={sheetSyncTrigger}
+          />
+        </Suspense>
+      );
+    }
+    return (
+      <LiteScreen
+        user={user} services={services} songs={songs}
+        onOpenSong={(songId, svcId, idx) => setLiteSong({ songId, svcId, svcSongIdx: idx })}
+      />
+    );
+  }
 
   const nav = (newView, params = {}) => {
     if (params.svcId       !== undefined) { setSelSvcId(params.svcId);           localStorage.setItem("tvpc_selSvcId", params.svcId ?? ""); }
