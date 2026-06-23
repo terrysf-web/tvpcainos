@@ -1,14 +1,14 @@
 {
-  "build": "3.701",
-  "buildTime": "2026-06-23T15:00:00Z",
+  "build": "3.702",
+  "buildTime": "2026-06-23T16:00:00Z",
   "showWhatsNew": true,
   "whatsNew": [
     {
-      "tag": "예배",
-      "tagColor": "#e07a60",
-      "icon": "🙏",
-      "title": "결단 악보 자동 전환",
-      "desc": "예배 시작 1시간 후 결단 악보로 자동 이동합니다. 듀얼 모드는 왼쪽 결단·오른쪽 Closing. FOH·어드민 제외."
+      "tag": "신기능",
+      "tagColor": "#1a73e8",
+      "icon": "📋",
+      "title": "아이노스 Lite",
+      "desc": "?lite=1 URL로 접속하면 당일 예배 순서만 빠르게 확인. 결단·Closing 구분 강조. 방송팀·전화기 최적화. 예배 2시간 후엔 다음 예배로 자동 전환."
     }
   ]
 }

@@ -9,6 +9,7 @@ import { getToken, onMessage } from "firebase/messaging";
 import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart, saveServiceSettings, loadServiceSettings, listWorshipRecordingServiceIds } from "./supabase.js";
 import { openDrivePicker } from "./drivePicker.js";
 import AIPanel from "./AIPanel.jsx";
+import LiteScreen from "./LiteScreen.jsx";
 import {
   PARTS, VOCALIST_PART_IDS, SHEET_SYNC_INST_PARTS, DEFAULT_SHEET_PARTS,
   GROUP_PART_IDS, CUE_SECTIONS, INST_MODES,
@@ -32,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.701";
+const APP_VERSION = "3.702";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -7825,6 +7826,7 @@ function WhatsNewModal({ items, version, onClose, C }) {
 }
 
 export default function App() {
+  const [liteMode] = useState(() => new URLSearchParams(window.location.search).has("lite"));
   const [user,        setUser]        = useState(undefined); // undefined = loading
   const [loginErr,        setLoginErr]        = useState("");
   const [loginBlockedUser,setLoginBlockedUser] = useState(null); // { email, name } 미등록 로그인 시도
@@ -8682,6 +8684,8 @@ export default function App() {
 
   if (!user) return <LoginScreen loginErr={loginErr} blockedUser={loginBlockedUser}
     onClearErr={() => { setLoginErr(""); setLoginBlockedUser(null); }} />;
+
+  if (liteMode) return <LiteScreen user={user} services={services} songs={songs} />;
 
   const nav = (newView, params = {}) => {
     if (params.svcId       !== undefined) { setSelSvcId(params.svcId);           localStorage.setItem("tvpc_selSvcId", params.svcId ?? ""); }
