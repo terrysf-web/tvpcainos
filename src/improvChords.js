@@ -227,7 +227,7 @@ export function generateProgression(key, mode, mood, avoidIdx = -1) {
   };
 }
 
-export const KEYS = ["C", "D", "E", "F", "G", "A", "B"];
+export const KEYS = ["C", "D", "Eb", "E", "F", "G", "Ab", "A", "Bb", "B"];
 export const MOODS = [
   { id: "calm",      label: "잔잔함", emoji: "🕊️" },
   { id: "adoration", label: "경배",   emoji: "🙏" },

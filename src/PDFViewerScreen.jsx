@@ -6775,7 +6775,7 @@ function ImprovChordScreen({ onClose, C }) {
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
       <div>
         <div style={fl}>조성</div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:4 }}>
           {IMPROV_KEYS.map(k => (
             <button key={k} onClick={() => setKey(k)} style={{
               padding:"8px 0", borderRadius:8, fontSize:14, fontWeight:800,

@@ -1,14 +1,14 @@
 {
-  "build": "3.696",
-  "buildTime": "2026-06-23T09:00:00Z",
+  "build": "3.697",
+  "buildTime": "2026-06-23T10:00:00Z",
   "showWhatsNew": true,
   "whatsNew": [
     {
-      "tag": "예배",
+      "tag": "코드 생성",
       "tagColor": "#6b5de7",
-      "icon": "🗂",
-      "title": "예배 파트 구성",
-      "desc": "찬양·결단·Closing 파트로 예배 곡을 구분할 수 있어요. 기존 예배는 편집 화면에서 '파트 구성' 버튼으로 활성화하세요."
+      "icon": "🎹",
+      "title": "Eb·Ab·Bb 조성 추가",
+      "desc": "즉흥 코드 생성기에 Eb, Ab, Bb 조성이 추가되었습니다."
     }
   ]
 }
