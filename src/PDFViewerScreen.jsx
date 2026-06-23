@@ -1663,8 +1663,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // 파트 레이블 (결단·Closing만 표시)
   const PART_LABEL_COLORS = { "결단": "#e07a60", "Closing": "#34c759" };
   const curSongPart = svc?.partsEnabled && songIdx >= 0 ? (svc.songPartIds?.[songIdx] || null) : null;
-  const dualLeftPart  = svc?.partsEnabled ? (svc.songPartIds?.[dualIdx]     || null) : null;
-  const dualRightPart = svc?.partsEnabled ? (svc.songPartIds?.[dualIdx + 1] || null) : null;
 
   // ── PDF.js refs / state
   const canvas1Ref   = useRef(null);
@@ -1686,6 +1684,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   useEffect(() => { try { localStorage.setItem("tvpc_pageNum", pageNum); } catch {} }, [pageNum]);
   const [cSize,    setCSize]    = useState({ w: 0, h: 0 });
   const [dualIdx,  setDualIdx]  = useState(Math.max(0, songIdx));
+  const dualLeftPart  = svc?.partsEnabled ? (svc.songPartIds?.[dualIdx]     || null) : null;
+  const dualRightPart = svc?.partsEnabled ? (svc.songPartIds?.[dualIdx + 1] || null) : null;
   const dualPdf1Ref = useRef(null);  // dual left song PDF doc
   const dualPdf2Ref = useRef(null);  // dual right song PDF doc
   const dualImg1Ref = useRef(null);  // dual left song image
