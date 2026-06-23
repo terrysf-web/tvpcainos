@@ -1660,6 +1660,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     nav("pdfViewer", { songId: svcSongs[idx].id, svcSongIdx: idx, backTo });
   };
 
+  // 파트 레이블 (결단·Closing만 표시)
+  const PART_LABEL_COLORS = { "결단": "#e07a60", "Closing": "#34c759" };
+  const curSongPart = svc?.partsEnabled && songIdx >= 0 ? (svc.songPartIds?.[songIdx] || null) : null;
+  const dualLeftPart  = svc?.partsEnabled ? (svc.songPartIds?.[dualIdx]     || null) : null;
+  const dualRightPart = svc?.partsEnabled ? (svc.songPartIds?.[dualIdx + 1] || null) : null;
+
   // ── PDF.js refs / state
   const canvas1Ref   = useRef(null);
   const canvas2Ref   = useRef(null);
@@ -5512,6 +5518,33 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 </div>
               )}
             </div>
+          )}
+
+          {/* 파트 레이블 (결단·Closing만 표시) */}
+          {!dual && curSongPart && PART_LABEL_COLORS[curSongPart] && (
+            <div style={{
+              position:"absolute", top:10, left:10, zIndex:30, pointerEvents:"none",
+              background: PART_LABEL_COLORS[curSongPart] + "cc",
+              color:"#fff", fontSize:11, fontWeight:800,
+              padding:"3px 10px", borderRadius:12,
+              letterSpacing:"0.04em",
+            }}>{curSongPart}</div>
+          )}
+          {dual && dualLeftPart && PART_LABEL_COLORS[dualLeftPart] && (
+            <div style={{
+              position:"absolute", top:10, left:10, zIndex:30, pointerEvents:"none",
+              background: PART_LABEL_COLORS[dualLeftPart] + "cc",
+              color:"#fff", fontSize:11, fontWeight:800,
+              padding:"3px 10px", borderRadius:12, letterSpacing:"0.04em",
+            }}>{dualLeftPart}</div>
+          )}
+          {dual && dualRightPart && PART_LABEL_COLORS[dualRightPart] && (
+            <div style={{
+              position:"absolute", top:10, left:"calc(50% + 10px)", zIndex:30, pointerEvents:"none",
+              background: PART_LABEL_COLORS[dualRightPart] + "cc",
+              color:"#fff", fontSize:11, fontWeight:800,
+              padding:"3px 10px", borderRadius:12, letterSpacing:"0.04em",
+            }}>{dualRightPart}</div>
           )}
 
           {/* 토스트 메시지 (싱글/듀얼 공통) */}

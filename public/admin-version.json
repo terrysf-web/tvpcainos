@@ -1,14 +1,14 @@
 {
-  "build": "3.697",
-  "buildTime": "2026-06-23T10:00:00Z",
+  "build": "3.698",
+  "buildTime": "2026-06-23T11:00:00Z",
   "showWhatsNew": true,
   "whatsNew": [
     {
-      "tag": "코드 생성",
-      "tagColor": "#6b5de7",
-      "icon": "🎹",
-      "title": "Eb·Ab·Bb 조성 추가",
-      "desc": "즉흥 코드 생성기에 Eb, Ab, Bb 조성이 추가되었습니다."
+      "tag": "예배",
+      "tagColor": "#e07a60",
+      "icon": "🏷️",
+      "title": "결단·Closing 파트 레이블",
+      "desc": "악보 좌상단에 파트명(결단 / Closing)이 표시됩니다. 듀얼 모드도 각 사이드에 개별 표시."
     }
   ]
 }
