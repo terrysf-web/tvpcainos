@@ -783,7 +783,7 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
   const handleCreate = async () => {
     if (!title || !selected.length) return;
     setSaving(true);
-    await onCreate({ title, date, time, songIds: selected });
+    await onCreate({ title, date, time, songIds: selected, partsEnabled: true, songPartIds: selected.map(() => "찬양"), closingSongId: null });
     setSaving(false);
     onClose();
   };
@@ -4352,6 +4352,9 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [removeSongConfirm,     setRemoveSongConfirm]     = useState(null); // { idx, songTitle }
   const [showKakaoFormatPicker, setShowKakaoFormatPicker] = useState(false);
   const [landscape, setLandscape] = useState(() => window.innerWidth > window.innerHeight);
+  const partsEnabled = !!svc?.partsEnabled;
+  const songPartIds = svc?.songPartIds || [];
+  const closingSongId = svc?.closingSongId || null;
   useEffect(() => {
     const onResize = () => setLandscape(window.innerWidth > window.innerHeight);
     window.addEventListener("resize", onResize);
@@ -4543,7 +4546,13 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     const newIds = (svc.songIds || []).filter((_, i) => i !== idx);
     const newAddedAt = { ...(svc.songAddedAt || {}) };
     if (song) delete newAddedAt[song.id];
-    await updateDoc(doc(db, "services", svc.id), { songIds: newIds, songAddedAt: newAddedAt });
+    const updates = { songIds: newIds, songAddedAt: newAddedAt };
+    if (svc.partsEnabled) {
+      updates.songPartIds = (svc.songPartIds || []).filter((_, i) => i !== idx);
+      // If removed song was the Closing source, clear closingSongId
+      if (svc.songPartIds?.[idx] === "Closing") updates.closingSongId = null;
+    }
+    await updateDoc(doc(db, "services", svc.id), updates);
   };
 
   const removeSong = (idx) => {
@@ -4568,7 +4577,13 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const duplicateSong = async (idx) => {
     const ids = [...(svc.songIds || [])];
     ids.splice(idx + 1, 0, ids[idx]); // insert copy right after
-    await updateDoc(doc(db, "services", svc.id), { songIds: ids });
+    const updates = { songIds: ids };
+    if (svc.partsEnabled && svc.songPartIds?.length) {
+      const partIds = [...svc.songPartIds];
+      partIds.splice(idx + 1, 0, partIds[idx] === "Closing" ? "결단" : partIds[idx]);
+      updates.songPartIds = partIds;
+    }
+    await updateDoc(doc(db, "services", svc.id), updates);
   };
 
   const reorder = async (fromIdx, toIdx) => {
@@ -4576,7 +4591,14 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     const ids = [...(svc.songIds || [])];
     const [item] = ids.splice(fromIdx, 1);
     ids.splice(toIdx, 0, item);
-    await updateDoc(doc(db, "services", svc.id), { songIds: ids });
+    const updates = { songIds: ids };
+    if (svc.partsEnabled && svc.songPartIds?.length) {
+      const partIds = [...svc.songPartIds];
+      const [pItem] = partIds.splice(fromIdx, 1);
+      partIds.splice(toIdx, 0, pItem);
+      updates.songPartIds = partIds;
+    }
+    await updateDoc(doc(db, "services", svc.id), updates);
   };
 
   const saveSongs = async (ids) => {
@@ -4591,8 +4613,47 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     Object.keys(newAddedAt).forEach(id => {
       if (!ids.includes(id)) delete newAddedAt[id];
     });
-    await updateDoc(doc(db, "services", svc.id), { songIds: ids, songAddedAt: newAddedAt });
+    const updates = { songIds: ids, songAddedAt: newAddedAt };
+    if (svc.partsEnabled) {
+      const prevPartMap = {};
+      (svc.songIds || []).forEach((id, i) => {
+        const p = svc.songPartIds?.[i];
+        if (p && p !== "Closing") prevPartMap[id] = p;
+      });
+      updates.songPartIds = ids.map(id => prevPartMap[id] || "찬양");
+      updates.closingSongId = null;
+    }
+    await updateDoc(doc(db, "services", svc.id), updates);
     setShowPicker(false);
+  };
+
+  const activateParts = async () => {
+    const partIds = (svc.songIds || []).map(() => "찬양");
+    await updateDoc(doc(db, "services", svc.id), { partsEnabled: true, songPartIds: partIds, closingSongId: null });
+  };
+
+  const setSongPart = async (songIdx, partName) => {
+    const newPartIds = [...(svc.songPartIds || [])];
+    newPartIds[songIdx] = partName;
+    await updateDoc(doc(db, "services", svc.id), { songPartIds: newPartIds });
+  };
+
+  const setClosingSong = async (songId) => {
+    const prevIds = svc.songIds || [];
+    const prevPartIds = svc.songPartIds || [];
+    const filteredIds = prevIds.filter((_, i) => prevPartIds[i] !== "Closing");
+    const filteredPartIds = prevPartIds.filter(p => p !== "Closing");
+    const newIds = [...filteredIds, songId];
+    const newPartIds = [...filteredPartIds, "Closing"];
+    await updateDoc(doc(db, "services", svc.id), { songIds: newIds, songPartIds: newPartIds, closingSongId: songId });
+  };
+
+  const removeClosing = async () => {
+    const prevIds = svc.songIds || [];
+    const prevPartIds = svc.songPartIds || [];
+    const newIds = prevIds.filter((_, i) => prevPartIds[i] !== "Closing");
+    const newPartIds = prevPartIds.filter(p => p !== "Closing");
+    await updateDoc(doc(db, "services", svc.id), { songIds: newIds, songPartIds: newPartIds, closingSongId: null });
   };
 
   // ── Drag handlers
@@ -4784,6 +4845,13 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             {leader && <span style={{ fontSize:10, color:C.dim, fontWeight:500,
               marginLeft:6, textTransform:"none" }}>≡ 드래그로 순서 변경</span>}
           </div>
+          {leader && !partsEnabled && totalCount > 0 && (
+            <button onClick={activateParts} style={{
+              fontSize:11, fontWeight:700, color:"#6b5de7",
+              background:"#6b5de71a", border:"1px solid #6b5de744",
+              borderRadius:8, padding:"4px 10px", cursor:"pointer", fontFamily:"inherit",
+            }}>🗂 파트 구성</button>
+          )}
         </div>
 
         {totalCount === 0 && (
@@ -4796,6 +4864,11 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
         {entries.map(({ id, song, i }) => {
           if (!song) return null;
+          const curPart = partsEnabled ? (songPartIds[i] || "찬양") : null;
+          const prevPart = partsEnabled && i > 0 ? (songPartIds[i - 1] || "찬양") : null;
+          const isFirstOfPart = partsEnabled && curPart !== prevPart;
+          const PART_COLORS = { "찬양": "#6b5de7", "결단": "#e07a60", "Closing": "#34c759" };
+          const partColor = PART_COLORS[curPart] || C.acc;
           const teamNotes = (teamAnnotations || {})[song.id] || [];
           const isDragging = drag?.fromIdx === i;
           const dy = isDragging ? drag.curY - drag.startY : 0;
@@ -4931,33 +5004,73 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           );
 
           return (
-            <div key={`${id}_${i}`} ref={el => cardRefs.current[i] = el}
-              style={{ position:"relative" }}>
-              {isDropTarget && (
-                <div style={{ height:3, borderRadius:2, background:C.acc, margin:"0 0 4px", transition:"none" }} />
-              )}
-              <div className="wFadeIn" style={{
-                background:C.surf, borderRadius:14,
-                padding: landscape ? "10px 12px" : "14px 16px",
-                marginBottom:8, border:`1px solid ${isDragging ? C.acc : C.bdr}`,
-                boxShadow: isDragging ? "0 8px 24px rgba(0,0,0,.18)" : "0 1px 4px rgba(0,0,0,.05)",
-                transform: isDragging ? `translateY(${dy}px)` : "none",
-                transition: isDragging ? "none" : "transform 0.15s",
-                opacity: isDragging ? 0.88 : 1, zIndex: isDragging ? 20 : 1,
-                position:"relative", touchAction:"none",
-              }}>
-                <>
-                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    {numEl}
-                    {infoEl(landscape)}
-                    {btnEl}
-                  </div>
-                  {hasNotes && (
-                    <div style={{ marginTop: landscape ? 6 : 10 }}>{notesEl}</div>
+            <React.Fragment key={`${id}-${i}`}>
+              {isFirstOfPart && (
+                <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 0 4px",
+                  marginTop: i > 0 ? 6 : 0 }}>
+                  <div style={{ width:8, height:8, borderRadius:"50%", background:partColor, flexShrink:0 }} />
+                  <span style={{ fontSize:11, fontWeight:800, color:partColor, letterSpacing:"0.06em" }}>{curPart}</span>
+                  <div style={{ flex:1, height:1, background:partColor, opacity:0.25 }} />
+                  {curPart === "Closing" && closingSongId === id && (
+                    <span style={{ fontSize:10, color:partColor, opacity:0.7 }}>결단에서 자동 연동</span>
                   )}
-                </>
+                </div>
+              )}
+              <div ref={el => cardRefs.current[i] = el}
+                style={{ position:"relative" }}>
+                {isDropTarget && (
+                  <div style={{ height:3, borderRadius:2, background:C.acc, margin:"0 0 4px", transition:"none" }} />
+                )}
+                <div className="wFadeIn" style={{
+                  background:C.surf, borderRadius:14,
+                  padding: landscape ? "10px 12px" : "14px 16px",
+                  marginBottom:8, border:`1px solid ${isDragging ? C.acc : C.bdr}`,
+                  boxShadow: isDragging ? "0 8px 24px rgba(0,0,0,.18)" : "0 1px 4px rgba(0,0,0,.05)",
+                  transform: isDragging ? `translateY(${dy}px)` : "none",
+                  transition: isDragging ? "none" : "transform 0.15s",
+                  opacity: isDragging ? 0.88 : 1, zIndex: isDragging ? 20 : 1,
+                  position:"relative", touchAction:"none",
+                }}>
+                  <>
+                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      {numEl}
+                      {infoEl(landscape)}
+                      {btnEl}
+                    </div>
+                    {hasNotes && (
+                      <div style={{ marginTop: landscape ? 6 : 10 }}>{notesEl}</div>
+                    )}
+                  </>
+                </div>
               </div>
-            </div>
+              {partsEnabled && leader && curPart !== "Closing" && (
+                <div style={{ display:"flex", gap:4, padding:"4px 12px 8px", alignItems:"center" }}>
+                  {["찬양", "결단"].map(p => (
+                    <button key={p} onClick={async (e) => { e.stopPropagation(); await setSongPart(i, p); }}
+                      style={{
+                        fontSize:10, fontWeight:700, padding:"2px 9px", borderRadius:6, cursor:"pointer",
+                        fontFamily:"inherit",
+                        background: curPart === p ? `${PART_COLORS[p]}22` : "transparent",
+                        color: curPart === p ? PART_COLORS[p] : C.dim,
+                        border: `1px solid ${curPart === p ? PART_COLORS[p] + "66" : C.bdr}`,
+                      }}>{p}</button>
+                  ))}
+                  {curPart === "결단" && (
+                    <button onClick={async (e) => {
+                      e.stopPropagation();
+                      if (closingSongId === id) { await removeClosing(); }
+                      else { await setClosingSong(id); }
+                    }} style={{
+                      fontSize:10, fontWeight:700, padding:"2px 9px", borderRadius:6, cursor:"pointer",
+                      fontFamily:"inherit", marginLeft:4,
+                      background: closingSongId === id ? "#34c75922" : "transparent",
+                      color: closingSongId === id ? "#34c759" : C.dim,
+                      border: `1px solid ${closingSongId === id ? "#34c75966" : C.bdr}`,
+                    }}>{closingSongId === id ? "🔁 Closing 지정됨" : "Closing 지정"}</button>
+                  )}
+                </div>
+              )}
+            </React.Fragment>
           );
         })}
       </div>
