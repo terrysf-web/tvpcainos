@@ -4100,7 +4100,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     </button>
   );
 
-  if (!song) return null;
+  if (!song) return (
+    <div style={{ position:"fixed", inset:0, background:C.bg, display:"flex",
+      flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16 }}>
+      <div style={{ fontSize:40 }}>🎵</div>
+      <div style={{ fontSize:15, fontWeight:700, color:C.txt }}>악보를 찾을 수 없습니다</div>
+      <button onClick={() => nav(backTo || "library")}
+        style={{ padding:"10px 20px", borderRadius:10, background:C.acc, color:"#fff",
+          border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:700 }}>
+        ← 돌아가기
+      </button>
+    </div>
+  );
 
   return (
     <div style={{ position:"fixed", inset:0, background:C.bg, display:"flex",
@@ -5279,6 +5290,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}>
+
+          {/* 로딩 중 표시 — numPages=0이고 컨텐츠 있을 때 */}
+          {!dual && !loadErr && numPages === 0 && (song?.pdfUrl || song?.imageUrl) && (
+            <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
+              justifyContent:"center", zIndex:10, pointerEvents:"none" }}>
+              <div style={{ color:C.dim, fontSize:14 }}>불러오는 중...</div>
+            </div>
+          )}
 
           {dual ? (
             // ── 듀얼 모드: Piascore 스타일 — 패딩 없이 슬롯 상단부터 꽉 채움

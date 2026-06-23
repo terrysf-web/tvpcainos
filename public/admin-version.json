@@ -1,14 +1,6 @@
 {
-  "build": "3.699",
-  "buildTime": "2026-06-23T12:00:00Z",
-  "showWhatsNew": true,
-  "whatsNew": [
-    {
-      "tag": "예배",
-      "tagColor": "#e07a60",
-      "icon": "🔧",
-      "title": "파트 레이블 표시 오류 수정",
-      "desc": "삭제된 곡이 포함된 예배에서 결단·Closing 레이블이 잘못 표시되던 문제를 수정했습니다. 곡 순서 변경 시 Closing 파트가 보존됩니다."
-    }
-  ]
+  "build": "3.700",
+  "buildTime": "2026-06-23T13:00:00Z",
+  "showWhatsNew": false,
+  "whatsNew": []
 }
