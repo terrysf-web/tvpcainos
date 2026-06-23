@@ -68,7 +68,15 @@ export default function LiteScreen({ user, services, songs, onOpenSong }) {
               ● LIVE
             </span>
           )}
-          <span style={{ marginLeft:"auto", fontSize:10, color:"rgba(255,255,255,0.6)", fontWeight:600 }}>실시간</span>
+          <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:10, color:"rgba(255,255,255,0.6)", fontWeight:600 }}>실시간</span>
+            <a href={window.location.pathname} style={{
+              fontSize:10, fontWeight:800, color:"rgba(255,255,255,0.9)",
+              background:"rgba(255,255,255,0.14)", border:"1px solid rgba(255,255,255,0.22)",
+              borderRadius:12, padding:"3px 10px", textDecoration:"none",
+              letterSpacing:"-0.01em",
+            }}>아이노스 앱 →</a>
+          </div>
         </div>
 
         {svc ? (
