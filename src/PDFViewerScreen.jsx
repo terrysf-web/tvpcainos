@@ -4340,6 +4340,38 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         </div>
       </div>}
 
+      {isLiteMode && (
+        <button
+          onClick={() => nav("lite")}
+          style={{
+            position:"fixed",
+            bottom:"calc(env(safe-area-inset-bottom,0px) + 18px)",
+            left:"50%",
+            transform:"translateX(-50%)",
+            zIndex:200,
+            background:"rgba(0,0,0,0.42)",
+            color:"#fff",
+            border:"none",
+            borderRadius:24,
+            padding:"10px 22px",
+            fontSize:14,
+            fontWeight:700,
+            cursor:"pointer",
+            display:"flex",
+            alignItems:"center",
+            gap:8,
+            backdropFilter:"blur(8px)",
+            WebkitBackdropFilter:"blur(8px)",
+            letterSpacing:"-0.01em",
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 6.5L8 2L14 6.5V14H10V10H6V14H2V6.5Z" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round"/>
+          </svg>
+          홈
+        </button>
+      )}
+
       {/* 그룹 드롭다운 패널 */}
       {activeGroup && (
         <div style={{ flexShrink:0, background:C.surf, borderBottom:`1px solid ${C.bdr}`,
