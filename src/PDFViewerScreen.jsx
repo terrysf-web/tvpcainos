@@ -1651,6 +1651,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const svcSongs = svc
     ? (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean)
     : [];
+  // filter(Boolean) shifts indices — track which raw svc.songIds indices survived
+  const rawSvcIdxs = svc
+    ? (svc.songIds || []).reduce((acc, id, ri) => {
+        if (songs.find(s => s.id === id)) acc.push(ri);
+        return acc;
+      }, [])
+    : [];
   // 전달된 인덱스 우선(복사 곡 정확한 위치), 없으면 findIndex fallback
   const songIdx  = (selectedSvcSongIdx >= 0 && selectedSvcSongIdx < svcSongs.length)
     ? selectedSvcSongIdx
@@ -1662,7 +1669,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // 파트 레이블 (결단·Closing만 표시)
   const PART_LABEL_COLORS = { "결단": "#e07a60", "Closing": "#34c759" };
-  const curSongPart = svc?.partsEnabled && songIdx >= 0 ? (svc.songPartIds?.[songIdx] || null) : null;
+  const curSongPart = svc?.partsEnabled && songIdx >= 0 ? (svc.songPartIds?.[rawSvcIdxs[songIdx] ?? songIdx] || null) : null;
 
   // ── PDF.js refs / state
   const canvas1Ref   = useRef(null);
@@ -1684,8 +1691,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   useEffect(() => { try { localStorage.setItem("tvpc_pageNum", pageNum); } catch {} }, [pageNum]);
   const [cSize,    setCSize]    = useState({ w: 0, h: 0 });
   const [dualIdx,  setDualIdx]  = useState(Math.max(0, songIdx));
-  const dualLeftPart  = svc?.partsEnabled ? (svc.songPartIds?.[dualIdx]     || null) : null;
-  const dualRightPart = svc?.partsEnabled ? (svc.songPartIds?.[dualIdx + 1] || null) : null;
+  const dualLeftPart  = svc?.partsEnabled ? (svc.songPartIds?.[rawSvcIdxs[dualIdx]     ?? dualIdx]       || null) : null;
+  const dualRightPart = svc?.partsEnabled ? (svc.songPartIds?.[rawSvcIdxs[dualIdx + 1] ?? (dualIdx + 1)] || null) : null;
   const dualPdf1Ref = useRef(null);  // dual left song PDF doc
   const dualPdf2Ref = useRef(null);  // dual right song PDF doc
   const dualImg1Ref = useRef(null);  // dual left song image

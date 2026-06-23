@@ -32,7 +32,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.698";
+const APP_VERSION = "3.699";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -4615,13 +4615,16 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     });
     const updates = { songIds: ids, songAddedAt: newAddedAt };
     if (svc.partsEnabled) {
-      const prevPartMap = {};
-      (svc.songIds || []).forEach((id, i) => {
-        const p = svc.songPartIds?.[i];
-        if (p && p !== "Closing") prevPartMap[id] = p;
+      const oldIds = svc.songIds || [];
+      const oldParts = svc.songPartIds || [];
+      const used = new Array(oldIds.length).fill(false);
+      updates.songPartIds = ids.map(id => {
+        const ri = oldIds.findIndex((oid, i) => oid === id && !used[i]);
+        if (ri >= 0) { used[ri] = true; return oldParts[ri] || "찬양"; }
+        return "찬양";
       });
-      updates.songPartIds = ids.map(id => prevPartMap[id] || "찬양");
-      updates.closingSongId = null;
+      const closingPos = updates.songPartIds.indexOf("Closing");
+      updates.closingSongId = closingPos >= 0 ? ids[closingPos] : null;
     }
     await updateDoc(doc(db, "services", svc.id), updates);
     setShowPicker(false);
