@@ -62,7 +62,21 @@ export default function LiteScreen({ user, services, songs, onOpenSong }) {
         paddingTop:"calc(env(safe-area-inset-top,0px) + 16px)",
       }}>
         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-          <span style={{ fontSize:16, fontWeight:900, letterSpacing:"-0.02em", opacity:0.9 }}>🎵 아이노스 Lite</span>
+          {/* 아이노스 로고 — 검정 배경을 screen 블렌드로 투명화, Ainos 스크립트만 크롭 */}
+          <div style={{ height:28, overflow:"hidden", flexShrink:0 }}>
+            <img
+              src="/ainos-logo.jpg"
+              alt="Ainos"
+              style={{
+                height:46,
+                width:"auto",
+                display:"block",
+                filter:"brightness(9)",
+                mixBlendMode:"screen",
+              }}
+            />
+          </div>
+          <span style={{ fontSize:13, fontWeight:900, color:"rgba(255,255,255,0.85)", letterSpacing:"0.04em" }}>Lite</span>
           {live && (
             <span style={{ fontSize:10, fontWeight:800, color:"#fff", background:"rgba(229,57,53,0.9)", borderRadius:6, padding:"2px 8px", lineHeight:1.5 }}>
               ● LIVE
