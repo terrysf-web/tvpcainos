@@ -5004,7 +5004,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           );
 
           return (
-            <React.Fragment key={`${id}-${i}`}>
+            <div key={`${id}-${i}`}>
               {isFirstOfPart && (
                 <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 0 4px",
                   marginTop: i > 0 ? 6 : 0 }}>
@@ -5070,7 +5070,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                   )}
                 </div>
               )}
-            </React.Fragment>
+            </div>
           );
         })}
       </div>
