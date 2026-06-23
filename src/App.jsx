@@ -7934,22 +7934,16 @@ export default function App() {
   const autoLiveTriggeredRef = useRef(null);
   const keolDanFiredRef      = useRef(false);
 
-  // Lite 모드: 페이지 리로드 없이 history.pushState로 전환
+  // Lite 모드 진입: pushState로 React 상태만 전환 (리로드 없음)
   const enterLite = () => {
     window.history.pushState({}, "", "?lite=1");
     setLiteMode(true);
     setLiteSong(null);
   };
+  // Lite 모드 탈출: SW 캐시 리로드 (인증·데이터 캐시됨 → ~0.5초)
   const exitLite = () => {
-    window.history.pushState({}, "", window.location.pathname);
-    setLiteMode(false);
-    setLiteSong(null);
+    window.location.replace(window.location.pathname);
   };
-  useEffect(() => {
-    const onPop = () => setLiteMode(new URLSearchParams(window.location.search).has("lite"));
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
   const [keolDanToast,       setKeolDanToast]       = useState(false);
   const [sheetLinkEnabled,      setSheetLinkEnabled]      = useState(false);
   const [sheetSyncAllowedParts, setSheetSyncAllowedParts] = useState(null);
