@@ -1833,7 +1833,7 @@ class FohErrorBoundary extends Component {
   }
 }
 
-function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue, deleteCue, sheetLinkEnabled, sheetSyncTrigger, sheetSyncAllowedParts }) {
+function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, nav, createService, bgmChannel, songCues, acknowledgeCue, deleteCue, sheetLinkEnabled, sheetSyncTrigger, sheetSyncAllowedParts, onEnterLite }) {
   const [countdown,    setCountdown]    = useState("");
   const [inHour,       setInHour]       = useState(false);
   const [worshipReady, setWorshipReady] = useState(false);
@@ -7655,7 +7655,7 @@ function HomeSplashScreen({ user }) {
           TVPC
         </a>
         <button
-          onClick={enterLite}
+          onClick={onEnterLite}
           style={{
             display:"flex", alignItems:"center", gap:5,
             background:"transparent",
@@ -8931,7 +8931,7 @@ export default function App() {
         <FohErrorBoundary key={view}>
         {view === "home"          && <HomeSplashScreen user={user} />}
         {view === "services"      && <ServicesScreen      {...shared} />}
-        {view === "foh"           && <HomeScreen           {...shared} />}
+        {view === "foh"           && <HomeScreen           {...shared} onEnterLite={enterLite} />}
         {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
         {view === "library"       && <SongLibraryScreen   {...shared} />}
         {view === "pdfViewer"     && (
