@@ -5551,8 +5551,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             <div style={{
               position:"absolute", top:10, left:10, zIndex:30, pointerEvents:"none",
               background: PART_LABEL_COLORS[curSongPart] + "cc",
-              color:"#fff", fontSize:11, fontWeight:800,
-              padding:"3px 10px", borderRadius:12,
+              color:"#fff", fontSize:14, fontWeight:800,
+              padding:"5px 14px", borderRadius:14,
               letterSpacing:"0.04em",
             }}>{curSongPart}</div>
           )}
@@ -5560,16 +5560,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             <div style={{
               position:"absolute", top:10, left:10, zIndex:30, pointerEvents:"none",
               background: PART_LABEL_COLORS[dualLeftPart] + "cc",
-              color:"#fff", fontSize:11, fontWeight:800,
-              padding:"3px 10px", borderRadius:12, letterSpacing:"0.04em",
+              color:"#fff", fontSize:14, fontWeight:800,
+              padding:"5px 14px", borderRadius:14, letterSpacing:"0.04em",
             }}>{dualLeftPart}</div>
           )}
           {dual && dualRightPart && PART_LABEL_COLORS[dualRightPart] && (
             <div style={{
               position:"absolute", top:10, left:"calc(50% + 10px)", zIndex:30, pointerEvents:"none",
               background: PART_LABEL_COLORS[dualRightPart] + "cc",
-              color:"#fff", fontSize:11, fontWeight:800,
-              padding:"3px 10px", borderRadius:12, letterSpacing:"0.04em",
+              color:"#fff", fontSize:14, fontWeight:800,
+              padding:"5px 14px", borderRadius:14, letterSpacing:"0.04em",
             }}>{dualRightPart}</div>
           )}
 

@@ -5011,8 +5011,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
               {isFirstOfPart && (
                 <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 0 4px",
                   marginTop: i > 0 ? 6 : 0 }}>
-                  <div style={{ width:8, height:8, borderRadius:"50%", background:partColor, flexShrink:0 }} />
-                  <span style={{ fontSize:11, fontWeight:800, color:partColor, letterSpacing:"0.06em" }}>{curPart}</span>
+                  <div style={{ width:10, height:10, borderRadius:"50%", background:partColor, flexShrink:0 }} />
+                  <span style={{ fontSize:15, fontWeight:800, color:partColor, letterSpacing:"0.06em" }}>{curPart}</span>
                   <div style={{ flex:1, height:1, background:partColor, opacity:0.25 }} />
                   {curPart === "Closing" && closingSongId === id && (
                     <span style={{ fontSize:10, color:partColor, opacity:0.7 }}>결단에서 자동 연동</span>
