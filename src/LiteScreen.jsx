@@ -23,7 +23,7 @@ function fmtDate(dateStr) {
     .toLocaleDateString("ko-KR", { month:"long", day:"numeric", weekday:"short" });
 }
 
-export default function LiteScreen({ user, services, songs, onOpenSong }) {
+export default function LiteScreen({ user, services, songs, onOpenSong, onGoToApp }) {
   const [, tick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => tick(n => n+1), 30000);
@@ -84,12 +84,12 @@ export default function LiteScreen({ user, services, songs, onOpenSong }) {
           )}
           <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:8 }}>
             <span style={{ fontSize:10, color:"rgba(255,255,255,0.6)", fontWeight:600 }}>실시간</span>
-            <a href={window.location.pathname} style={{
+            <button onClick={onGoToApp} style={{
               fontSize:10, fontWeight:800, color:"rgba(255,255,255,0.9)",
               background:"rgba(255,255,255,0.14)", border:"1px solid rgba(255,255,255,0.22)",
-              borderRadius:12, padding:"3px 10px", textDecoration:"none",
-              letterSpacing:"-0.01em",
-            }}>아이노스 앱 →</a>
+              borderRadius:12, padding:"3px 10px",
+              letterSpacing:"-0.01em", cursor:"pointer", fontFamily:"inherit",
+            }}>아이노스 앱 →</button>
           </div>
         </div>
 

@@ -7654,16 +7654,16 @@ function HomeSplashScreen({ user }) {
           </svg>
           TVPC
         </a>
-        <a
-          href="?lite=1" target="_blank" rel="noopener noreferrer"
+        <button
+          onClick={enterLite}
           style={{
             display:"flex", alignItems:"center", gap:5,
             background:"transparent",
             border:"1.5px solid rgba(107,93,231,0.5)",
-            color:"#6b5de7", textDecoration:"none",
+            color:"#6b5de7",
             borderRadius:20, padding:"5px 13px",
             fontSize:12, fontWeight:700, letterSpacing:"0.01em",
-            whiteSpace:"nowrap",
+            whiteSpace:"nowrap", cursor:"pointer", fontFamily:"inherit",
           }}
         >
           <svg width="14" height="12" viewBox="0 0 14 12" fill="none">
@@ -7672,7 +7672,7 @@ function HomeSplashScreen({ user }) {
             <rect y="10" width="14" height="2" rx="1" fill="#6b5de7"/>
           </svg>
           Lite
-        </a>
+        </button>
       </div>
 
       {/* Schedule edit modal */}
@@ -7888,7 +7888,7 @@ function LiteImageViewer({ song, onHome }) {
 }
 
 export default function App() {
-  const [liteMode]   = useState(() => new URLSearchParams(window.location.search).has("lite"));
+  const [liteMode, setLiteMode] = useState(() => new URLSearchParams(window.location.search).has("lite"));
   const [liteSong,    setLiteSong]    = useState(null); // { songId, svcId, svcSongIdx }
   const [user,        setUser]        = useState(undefined); // undefined = loading
   const [loginErr,        setLoginErr]        = useState("");
@@ -7933,6 +7933,23 @@ export default function App() {
   );
   const autoLiveTriggeredRef = useRef(null);
   const keolDanFiredRef      = useRef(false);
+
+  // Lite 모드: 페이지 리로드 없이 history.pushState로 전환
+  const enterLite = () => {
+    window.history.pushState({}, "", "?lite=1");
+    setLiteMode(true);
+    setLiteSong(null);
+  };
+  const exitLite = () => {
+    window.history.pushState({}, "", window.location.pathname);
+    setLiteMode(false);
+    setLiteSong(null);
+  };
+  useEffect(() => {
+    const onPop = () => setLiteMode(new URLSearchParams(window.location.search).has("lite"));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   const [keolDanToast,       setKeolDanToast]       = useState(false);
   const [sheetLinkEnabled,      setSheetLinkEnabled]      = useState(false);
   const [sheetSyncAllowedParts, setSheetSyncAllowedParts] = useState(null);
@@ -8782,6 +8799,7 @@ export default function App() {
       <LiteScreen
         user={user} services={services} songs={songs}
         onOpenSong={(songId, svcId, idx) => setLiteSong({ songId, svcId, svcSongIdx: idx })}
+        onGoToApp={exitLite}
       />
     );
   }
