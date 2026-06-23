@@ -1,8 +1,15 @@
 {
-  "build": "3.702",
-  "buildTime": "2026-06-23T16:00:00Z",
+  "build": "3.703",
+  "buildTime": "2026-06-23T17:00:00Z",
   "showWhatsNew": true,
   "whatsNew": [
+    {
+      "tag": "개선",
+      "tagColor": "#6b5de7",
+      "icon": "🎵",
+      "title": "Lite 악보 전체화면",
+      "desc": "Lite 뷰어에서 악보를 탭하면 메뉴 없이 전체화면으로 표시. 왼쪽 상단 '‹ 목록' 버튼으로 돌아가기."
+    },
     {
       "tag": "신기능",
       "tagColor": "#1a73e8",

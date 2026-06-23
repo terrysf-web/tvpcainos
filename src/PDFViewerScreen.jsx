@@ -1632,6 +1632,7 @@ function HandwritePad({ accent, apiKey, onText }) {
 function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue, deleteCue, editCue, sheetLinkEnabled, sheetSyncTrigger }) {
   const song = songs.find(s => s.id === selectedSongId);
   const isLibraryMode = backTo === "library"; // 라이브러리에서 열린 경우: 예배 컨텍스트 없음
+  const isLiteMode    = backTo === "lite";    // Lite 뷰어: 메뉴 없음, 전체화면 악보만
 
   // selectedSvcId 없을 때 가장 가까운 서비스로 폴백 (팀채팅용)
   const effectiveSvcId = (() => {
@@ -4145,7 +4146,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       flexDirection:"column", overflow:"hidden" }}>
 
       {/* 상단 툴바 */}
-      <div style={{
+      {!isLiteMode && <div style={{
         background:C.surf, borderBottom:`1px solid ${C.bdr}`,
         flexShrink:0, boxShadow:"0 1px 0 rgba(0,0,0,.06)",
       }}>
@@ -4337,7 +4338,32 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             );
           })()}
         </div>
-      </div>
+      </div>}
+
+      {isLiteMode && (
+        <button
+          onClick={() => nav("lite")}
+          style={{
+            position:"fixed",
+            top:"calc(env(safe-area-inset-top,0px) + 10px)",
+            left:14,
+            zIndex:200,
+            background:"rgba(0,0,0,0.48)",
+            color:"#fff",
+            border:"none",
+            borderRadius:20,
+            padding:"7px 16px 7px 12px",
+            fontSize:13,
+            fontWeight:700,
+            cursor:"pointer",
+            display:"flex",
+            alignItems:"center",
+            gap:6,
+            backdropFilter:"blur(6px)",
+            WebkitBackdropFilter:"blur(6px)",
+          }}
+        >‹ 목록</button>
+      )}
 
       {/* 그룹 드롭다운 패널 */}
       {activeGroup && (
