@@ -7505,7 +7505,7 @@ function ScheduleEditModal({ group, schedules, onClose }) {
 /* ══════════════════════════════════════════════════════════════════
    HOME SPLASH SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function HomeSplashScreen({ user }) {
+function HomeSplashScreen({ user, onEnterLite }) {
   const [portrait, setPortrait] = useState(
     () => window.matchMedia("(orientation: portrait)").matches
   );
@@ -8923,7 +8923,7 @@ export default function App() {
       {/* 스크린 영역 — flex:1 로 남은 공간 차지, 각 스크린이 내부 스크롤 담당 */}
       <div style={{ flex:1, overflow:"hidden", position:"relative", display:"flex", flexDirection:"column" }}>
         <FohErrorBoundary key={view}>
-        {view === "home"          && <HomeSplashScreen user={user} />}
+        {view === "home"          && <HomeSplashScreen user={user} onEnterLite={enterLite} />}
         {view === "services"      && <ServicesScreen      {...shared} />}
         {view === "foh"           && <HomeScreen           {...shared} onEnterLite={enterLite} />}
         {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
