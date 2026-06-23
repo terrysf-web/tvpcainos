@@ -1911,6 +1911,22 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setPanOffset({ x: 0, y: 0 });
   }, [selectedSvcSongIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── 화면 자동 잠금 방지 (Wake Lock) — PDF 뷰어 열린 동안 유지
+  useEffect(() => {
+    if (!("wakeLock" in navigator)) return;
+    let sentinel = null;
+    const acquire = async () => {
+      try { sentinel = await navigator.wakeLock.request("screen"); } catch {}
+    };
+    acquire();
+    const onVisible = () => { if (document.visibilityState === "visible") acquire(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      sentinel?.release().catch(() => {});
+    };
+  }, []);
+
   // ── 블루투스 리모컨 / 키보드 페이지 넘김
   useEffect(() => {
     const handler = (e) => {
