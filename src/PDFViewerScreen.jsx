@@ -4373,7 +4373,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
           {/* 펜 버튼 (드로잉 모드 토글) */}
           {liteBtn(() => {
-            if (!drawMode) { setDrawMode(true); setDrawTool("pen"); setDrawWidth(2); }
+            if (!drawMode) { setDrawMode(true); setDrawTool("pen"); setDrawWidth(2); setDrawColor("#1a6fe8"); }
             else { setDrawMode(false); }
           }, (<>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
