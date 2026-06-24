@@ -1,14 +1,14 @@
 {
-  "build": "3.704",
-  "buildTime": "2026-06-23T18:00:00Z",
+  "build": "3.705",
+  "buildTime": "2026-06-24T04:00:00Z",
   "showWhatsNew": true,
   "whatsNew": [
     {
-      "tag": "신기능",
-      "tagColor": "#6b5de7",
-      "icon": "📋",
-      "title": "아이노스 Lite",
-      "desc": "홈 화면 하단 Lite 버튼으로 당일 예배 순서를 빠르게 확인. 결단·Closing 구분 강조. 전화기 최적화. 예배 2시간 후엔 다음 예배로 자동 전환."
+      "tag": "버그수정",
+      "tagColor": "#34c759",
+      "icon": "🎵",
+      "title": "Lite 악보 스와이프 수정",
+      "desc": "Lite 모드에서 예배 4곡 전체를 좌우 스와이프로 이동. 스와이프 후 악보가 부분만 보이던 문제 해결."
     }
   ]
 }

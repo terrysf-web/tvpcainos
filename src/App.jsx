@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.704";
+const APP_VERSION = "3.705";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -8762,17 +8762,17 @@ export default function App() {
   if (liteMode) {
     const liteNav = (view, params) => {
       if (view === "pdfViewer" && params?.songId) {
-        setLiteSong({ songId: params.songId, svcId: params.svcId ?? null, svcSongIdx: params.svcSongIdx ?? -1 });
+        // svcId가 명시되지 않으면 기존 값 유지 (스와이프 중에도 서비스 컨텍스트 보존)
+        setLiteSong(prev => ({
+          songId: params.songId,
+          svcId: params.svcId !== undefined ? params.svcId : (prev?.svcId ?? null),
+          svcSongIdx: params.svcSongIdx ?? -1,
+        }));
       } else {
         setLiteSong(null);
       }
     };
     if (liteSong) {
-      const liteSongObj = songs.find(s => s.id === liteSong.songId);
-      // imageUrl이 있으면 PDF.js 없이 즉시 표시 (훨씬 빠름)
-      if (liteSongObj?.imageUrl) {
-        return <LiteImageViewer song={liteSongObj} onHome={() => setLiteSong(null)} />;
-      }
       return (
         <Suspense fallback={<div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:"100dvh",background:C.bg }}><div style={{ color:C.dim, fontSize:14 }}>불러오는 중...</div></div>}>
           <PDFViewerScreen
