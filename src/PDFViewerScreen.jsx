@@ -3503,7 +3503,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // ── Canvas 1 handlers (single mode + dual left)
   const handleDraw1Down = (e) => {
-    if (e.pointerType === "touch" && !["text","stamp","select"].includes(drawTool)) return;
+    if (e.pointerType === "touch" && !isLiteMode && !["text","stamp","select"].includes(drawTool)) return;
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
     e.preventDefault(); e.stopPropagation();
@@ -3583,7 +3583,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       drawStrokes(rc, teamDrawMode ? teamStrokes1Ref.current : strokes1Ref.current, curStroke1Ref.current); }
   };
   const handleDraw1Move = (e) => {
-    if (e.pointerType === "touch" && drawTool !== "select" && !(drawTool === "stamp" && selDragRef.current)) return;
+    if (e.pointerType === "touch" && !isLiteMode && drawTool !== "select" && !(drawTool === "stamp" && selDragRef.current)) return;
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
     e.preventDefault();
@@ -4340,37 +4340,58 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         </div>
       </div>}
 
-      {isLiteMode && (
-        <button
-          onClick={() => nav("lite")}
-          style={{
+      {isLiteMode && (() => {
+        const liteBtn = (onClick, children, active, right) => (
+          <button onClick={onClick} style={{
             position:"fixed",
             bottom:"calc(env(safe-area-inset-bottom,0px) + 18px)",
-            left:"50%",
-            transform:"translateX(-50%)",
+            ...(right != null ? { right } : { left:"50%", transform:"translateX(-50%)" }),
             zIndex:200,
-            background:"rgba(0,0,0,0.42)",
+            background: active ? "rgba(107,93,231,0.88)" : "rgba(0,0,0,0.42)",
             color:"#fff",
-            border:"none",
+            border: active ? "1.5px solid rgba(107,93,231,0.6)" : "none",
             borderRadius:24,
-            padding:"10px 22px",
+            padding:"10px 16px",
             fontSize:14,
             fontWeight:700,
             cursor:"pointer",
             display:"flex",
             alignItems:"center",
-            gap:8,
+            gap:7,
             backdropFilter:"blur(8px)",
             WebkitBackdropFilter:"blur(8px)",
             letterSpacing:"-0.01em",
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M2 6.5L8 2L14 6.5V14H10V10H6V14H2V6.5Z" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round"/>
-          </svg>
-          홈
-        </button>
-      )}
+          }}>{children}</button>
+        );
+        return (<>
+          {/* 홈 버튼 */}
+          {liteBtn(() => { setDrawMode(false); nav("lite"); }, (<>
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+              <path d="M2 6.5L8 2L14 6.5V14H10V10H6V14H2V6.5Z" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round"/>
+            </svg>홈
+          </>), false, undefined)}
+
+          {/* 펜 버튼 (드로잉 모드 토글) */}
+          {liteBtn(() => {
+            if (!drawMode) { setDrawMode(true); setDrawTool("pen"); setDrawWidth(2); }
+            else { setDrawMode(false); }
+          }, (<>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="#fff" strokeWidth="2" strokeLinejoin="round"/>
+            </svg>
+            {drawMode ? "완료" : "필기"}
+          </>), drawMode, 16)}
+
+          {/* 지우개 버튼 — 필기 모드 ON일 때만 */}
+          {drawMode && liteBtn(() => setDrawTool(t => t === "eraser" ? "pen" : "eraser"), (<>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+              <path d="M20 20H7L3 16l11-11 6 6-3.5 3.5" stroke="#fff" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
+              <path d="M6.5 17.5l4-4" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            {drawTool === "eraser" ? "펜" : "지우개"}
+          </>), drawTool === "eraser", 88)}
+        </>);
+      })()}
 
       {/* 그룹 드롭다운 패널 */}
       {activeGroup && (
