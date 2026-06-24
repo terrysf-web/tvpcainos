@@ -4617,7 +4617,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
 
       {/* 필기 서브툴바 */}
-      {drawMode && (
+      {drawMode && !isLiteMode && (
         <div style={{ flexShrink:0, background:`${C.pur}0a`, borderBottom:`1px solid ${C.bdr}`, position:"relative" }}>
           {/* 필기 서브툴바 — 단일 스크롤 행 */}
           <div style={{ display:"flex", alignItems:"center", gap:4, padding:"0 10px", height:44,
