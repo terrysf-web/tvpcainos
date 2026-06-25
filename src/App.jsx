@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.706";
+const APP_VERSION = "3.707";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -4689,40 +4689,39 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   return (
     <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.bg, overflow:"hidden" }}>
       {/* 헤더 — 고정 */}
-      <div style={{ flexShrink:0, background:C.surf, padding:"18px 16px",
+      <div style={{ flexShrink:0, background:"linear-gradient(135deg,#0a1530 0%,#1a3060 50%,#2a5898 100%)", padding:"18px 16px",
         paddingTop:"calc(18px + env(safe-area-inset-top))",
-        borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", gap:12 }}>
         <button onClick={() => nav("services")}
-          style={{ background:"none", border:"none", color:C.acc, cursor:"pointer",
+          style={{ background:"none", border:"none", color:"rgba(255,255,255,0.9)", cursor:"pointer",
             padding:4, display:"flex", alignItems:"center", gap:4 }}>
-          <Icon n="back" size={18} color={C.acc} />
+          <Icon n="back" size={18} color="rgba(255,255,255,0.9)" />
         </button>
         <div style={{ flex:1 }}>
-          <div style={{ fontWeight:700, fontSize:17 }}>
+          <div style={{ fontWeight:700, fontSize:17, color:"#fff" }}>
             {new Date(svc.date + "T00:00:00").toLocaleDateString("ko-KR",
               { month:"long", day:"numeric", weekday:"short" })}
           </div>
-          <div style={{ fontSize:12, color:C.dim, marginTop:1 }}>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", marginTop:1 }}>
             {svc.title}{svc.time ? ` · ${svc.time}` : ""}
           </div>
         </div>
         {leader && (
           <button onClick={() => setShowPicker(true)} title="곡 추가" style={{
             width:36, height:36, borderRadius:9, cursor:"pointer",
-            background:`${C.acc}18`, border:`1px solid ${C.acc}66`,
+            background:"rgba(255,255,255,0.18)", border:"1px solid rgba(255,255,255,0.35)",
             display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
           }}>
-            <Icon n="plus" size={18} color={C.acc} />
+            <Icon n="plus" size={18} color="#fff" />
           </button>
         )}
         {leader && (
           <button onClick={() => setShowEdit(true)} title="예배 수정" style={{
             width:36, height:36, borderRadius:9, cursor:"pointer",
-            background:C.card, border:`1px solid ${C.bdr}`,
+            background:"rgba(255,255,255,0.18)", border:"1px solid rgba(255,255,255,0.35)",
             display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
           }}>
-            <Icon n="pen" size={18} color={C.dim} />
+            <Icon n="pen" size={18} color="#fff" />
           </button>
         )}
         {leader && (
@@ -5029,6 +5028,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                   background:C.surf, borderRadius:14,
                   padding: landscape ? "10px 12px" : "14px 16px",
                   marginBottom:8, border:`1px solid ${isDragging ? C.acc : C.bdr}`,
+                  borderLeft:`4px solid ${partsEnabled ? partColor : keyColor(song.key)}`,
                   boxShadow: isDragging ? "0 8px 24px rgba(0,0,0,.18)" : "0 1px 4px rgba(0,0,0,.05)",
                   transform: isDragging ? `translateY(${dy}px)` : "none",
                   transition: isDragging ? "none" : "transform 0.15s",
