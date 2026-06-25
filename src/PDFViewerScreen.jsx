@@ -4190,7 +4190,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               /* 세로모드: 점만 표시해서 공간 절약 */
               <span style={{
                 width:8, height:8, borderRadius:"50%", flexShrink:0,
-                background: sheetLinkEnabled ? C.grn : `${C.dim}44`,
+                background: sheetLinkEnabled ? C.grn : "rgba(255,255,255,0.35)",
                 boxShadow: sheetLinkEnabled ? `0 0 5px ${C.grn}` : "none",
                 transition:"background 0.3s, box-shadow 0.3s",
               }} />
@@ -4198,18 +4198,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               <div style={{
                 display:"flex", alignItems:"center", gap:4, flexShrink:0,
                 padding:"4px 9px", borderRadius:8,
-                border:`1px solid ${sheetLinkEnabled ? C.grn : C.bdr}`,
-                background: sheetLinkEnabled ? `${C.grn}22` : "transparent",
+                border:`1px solid ${sheetLinkEnabled ? C.grn : "rgba(255,255,255,0.3)"}`,
+                background: sheetLinkEnabled ? `${C.grn}22` : "rgba(255,255,255,0.1)",
                 transition:"background 0.3s, border-color 0.3s",
               }}>
                 <span style={{
                   fontSize:11, fontWeight:700, letterSpacing:0.2,
-                  color: sheetLinkEnabled ? C.grn : C.dim,
+                  color: sheetLinkEnabled ? C.grn : "rgba(255,255,255,0.85)",
                   transition:"color 0.3s",
                 }}>악보 Sync</span>
                 <span style={{
                   width:7, height:7, borderRadius:"50%", flexShrink:0,
-                  background: sheetLinkEnabled ? C.grn : `${C.dim}66`,
+                  background: sheetLinkEnabled ? C.grn : "rgba(255,255,255,0.35)",
                   boxShadow: sheetLinkEnabled ? `0 0 4px ${C.grn}` : "none",
                   transition:"background 0.3s, box-shadow 0.3s",
                 }} />

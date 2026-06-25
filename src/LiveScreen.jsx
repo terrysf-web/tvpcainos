@@ -957,7 +957,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
       paddingBottom:"calc(70px + env(safe-area-inset-bottom))" }}>
 
       {/* ── Header */}
-      <div style={{ padding:"calc(12px + env(safe-area-inset-top)) 16px 0",
+      <div style={{ padding:"calc(16px + env(safe-area-inset-top)) 20px 0",
         background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
           <button onClick={() => setShowSvcPicker(p => !p)} style={{

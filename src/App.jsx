@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.708";
+const APP_VERSION = "3.709";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -2145,14 +2145,12 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
       {/* 헤더 */}
       <div style={{
         background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", flexShrink:0,
-        padding:"14px 20px 12px",
-        paddingTop:"calc(14px + env(safe-area-inset-top))",
+        padding:"16px 20px 16px",
+        paddingTop:"calc(16px + env(safe-area-inset-top))",
         display:"flex", alignItems:"center", justifyContent:"space-between",
       }}>
         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-          <div style={{ height:32, overflow:"hidden", display:"flex", alignItems:"center" }}>
-            <img src="/icon-192.png" alt="ainos" style={{ height:90, width:"auto", objectFit:"contain", marginTop:-2 }} />
-          </div>
+          <span style={{ fontSize:22, fontWeight:900, color:"#fff", letterSpacing:"-0.03em" }}>Ainos</span>
           <span style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.6)", letterSpacing:"0.03em" }}>v{APP_VERSION}</span>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
@@ -3439,8 +3437,8 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
   return (
     <div style={{ height:"100%", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* 헤더 */}
-      <div style={{ background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", padding:"20px 20px 16px", flexShrink:0,
-        paddingTop:"calc(20px + env(safe-area-inset-top))",
+      <div style={{ background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", padding:"16px 20px 16px", flexShrink:0,
+        paddingTop:"calc(16px + env(safe-area-inset-top))",
         display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div>
           <div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", marginBottom:2 }}>TVPC Worship</div>
@@ -4687,8 +4685,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   return (
     <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.bg, overflow:"hidden" }}>
       {/* 헤더 — 고정 */}
-      <div style={{ flexShrink:0, background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", padding:"18px 16px",
-        paddingTop:"calc(18px + env(safe-area-inset-top))",
+      <div style={{ flexShrink:0, background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", padding:"16px 20px 16px",
+        paddingTop:"calc(16px + env(safe-area-inset-top))",
         display:"flex", alignItems:"center", gap:12 }}>
         <button onClick={() => nav("services")}
           style={{ background:"none", border:"none", color:"rgba(255,255,255,0.9)", cursor:"pointer",
@@ -5544,8 +5542,8 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
     <div style={{ height:"100%", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* 고정 헤더 */}
       <div style={{ background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", flexShrink:0,
-        paddingTop:"calc(18px + env(safe-area-inset-top))" }}>
-        <div style={{ padding:"0 16px 10px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        paddingTop:"calc(16px + env(safe-area-inset-top))" }}>
+        <div style={{ padding:"0 20px 10px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em", color:"#fff" }}>악보 라이브러리</div>
           <div style={{ display:"flex", gap:6, alignItems:"center" }}>
             {isLeader(user.role) && (
@@ -6009,7 +6007,7 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
       {/* header */}
       <div style={{ background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", flexShrink:0,
         paddingTop:"env(safe-area-inset-top)" }}>
-        <div style={{ padding:"18px 16px 0",
+        <div style={{ padding:"16px 20px 0",
           display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em", color:"#fff" }}>알림</div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -6875,8 +6873,8 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
   return (
     <div style={{ height:"100%", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* 헤더 */}
-      <div style={{ background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", padding:"18px 20px", flexShrink:0,
-        paddingTop:"calc(18px + env(safe-area-inset-top))" }}>
+      <div style={{ background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", padding:"16px 20px 16px", flexShrink:0,
+        paddingTop:"calc(16px + env(safe-area-inset-top))" }}>
         <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em", color:"#fff" }}>내 정보</div>
       </div>
       <div style={{ flex:1, overflowY:"auto", padding:20, paddingBottom:"calc(80px + env(safe-area-inset-bottom))" }}>
