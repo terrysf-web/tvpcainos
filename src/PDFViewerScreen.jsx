@@ -4147,33 +4147,33 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
       {/* 상단 툴바 */}
       {!isLiteMode && <div style={{
-        background:C.surf, borderBottom:`1px solid ${C.bdr}`,
-        flexShrink:0, boxShadow:"0 1px 0 rgba(0,0,0,.06)",
+        background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)",
+        flexShrink:0,
       }}>
         {/* iOS safe area spacer */}
-        <div style={{ height:"env(safe-area-inset-top)", background:C.surf }} />
+        <div style={{ height:"env(safe-area-inset-top)", background:"transparent" }} />
 
         <div style={{
           height:52, display:"flex", alignItems:"center", gap:6,
           padding:"0 12px",
         }}>
           <button onClick={() => nav(backTo || "library")}
-            style={{ background:"none", border:"none", color:C.acc, cursor:"pointer",
+            style={{ background:"none", border:"none", color:"rgba(255,255,255,0.9)", cursor:"pointer",
               padding:"4px 8px 4px 0", display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
-            <Icon n="back" size={18} color={C.acc} />
-            <span style={{ fontSize:15, fontWeight:500, color:C.acc }}>Back</span>
+            <Icon n="back" size={18} color="rgba(255,255,255,0.9)" />
+            <span style={{ fontSize:15, fontWeight:500, color:"rgba(255,255,255,0.9)" }}>Back</span>
           </button>
           {/* 메트로놈 버튼 — 항상 보이는 고정 위치 */}
           <button data-metro-panel onClick={() => setShowMetroPanel(p => !p)} title="메트로놈"
             style={{
               position:"relative", flexShrink:0,
-              background: metroOn ? `${C.acc}22` : "transparent",
-              border:`1px solid ${metroOn ? C.acc : C.bdr}`,
+              background: metroOn ? `${C.acc}22` : "rgba(255,255,255,0.12)",
+              border:`1px solid ${metroOn ? C.acc : "rgba(255,255,255,0.3)"}`,
               borderRadius:8, padding:"4px 7px", cursor:"pointer",
               display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:1,
             }}>
             <span style={{ fontSize:16, lineHeight:1 }}>🎵</span>
-            <span style={{ fontSize:8, fontWeight:700, color: metroOn ? C.acc : C.dim, lineHeight:1 }}>메트로놈</span>
+            <span style={{ fontSize:8, fontWeight:700, color: metroOn ? C.acc : "rgba(255,255,255,0.75)", lineHeight:1 }}>메트로놈</span>
             {metroOn && (
               <span style={{
                 position:"absolute", top:2, right:2,
@@ -4220,9 +4220,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           {/* 제목/키 — 항상 중앙 표시 (좁은 화면은 1줄로) */}
           <div style={{ flex:1, minWidth:0, textAlign:"center", overflow:"hidden" }}>
             <div style={{ fontWeight:700, fontSize:tbNarrow?12:15, overflow:"hidden",
-              textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
+              textOverflow:"ellipsis", whiteSpace:"nowrap", color:"#fff" }}>{song.title}</div>
             {!tbNarrow && (
-              <div style={{ fontSize:11, color:C.dim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              <div style={{ fontSize:11, color:"rgba(255,255,255,0.65)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                 Key {transposeMode && transposeSteps !== 0
                   ? `${song.key} → ${keyName(song.key, transposeSteps)}`
                   : song.key}
@@ -4251,9 +4251,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     position:"relative", flexShrink:0, height:28,
                     padding: tbNarrow ? "0 6px" : "0 8px",
                     borderRadius:7, cursor:"pointer",
-                    background:(isOpen || itemActive) ? `${c}22` : "transparent",
-                    border:`1px solid ${(isOpen || itemActive) ? c : C.bdr}`,
-                    color:c, fontWeight:700, fontSize: tbNarrow ? 10 : 11,
+                    background:(isOpen || itemActive) ? `${c}22` : "rgba(255,255,255,0.12)",
+                    border:`1px solid ${(isOpen || itemActive) ? c : "rgba(255,255,255,0.3)"}`,
+                    color:(isOpen || itemActive) ? c : "rgba(255,255,255,0.85)", fontWeight:700, fontSize: tbNarrow ? 10 : 11,
                     fontFamily:"inherit", display:"flex", alignItems:"center", gap:2,
                   }}>
                   {name}

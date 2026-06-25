@@ -958,22 +958,22 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
 
       {/* ── Header */}
       <div style={{ padding:"calc(12px + env(safe-area-inset-top)) 16px 0",
-        background:C.surf, borderBottom:`1px solid ${C.bdr}` }}>
+        background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
           <button onClick={() => setShowSvcPicker(p => !p)} style={{
             display:"flex", alignItems:"center", gap:6, background:"none",
             border:"none", cursor:"pointer", padding:0, minWidth:0,
           }}>
             <div style={{ minWidth:0 }}>
-              <div style={{ fontSize:16, fontWeight:800, color:C.txt, textAlign:"left",
+              <div style={{ fontSize:16, fontWeight:800, color:"#fff", textAlign:"left",
                 fontFamily:"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:220 }}>
                 {selSvc
                   ? `${new Date(selSvc.date+"T00:00:00").toLocaleDateString("ko-KR",{month:"numeric",day:"numeric",weekday:"short"})} ${selSvc.title||""}`
                   : "예배 선택"}
               </div>
-              <div style={{ fontSize:10, color:C.dim, textAlign:"left" }}>탭하여 예배 변경</div>
+              <div style={{ fontSize:10, color:"rgba(255,255,255,0.65)", textAlign:"left" }}>탭하여 예배 변경</div>
             </div>
-            <Icon n="chevD" size={12} color={C.dim} />
+            <Icon n="chevD" size={12} color="rgba(255,255,255,0.65)" />
           </button>
           <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
             {session?.timerRunning && (
@@ -981,12 +981,12 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
                 borderRadius:6, padding:"2px 8px", fontWeight:700, letterSpacing:"0.06em" }}>● LIVE</span>
             )}
             <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-              <div style={{ width:8, height:8, borderRadius:"50%", background: ppConnected ? C.grn : C.bdr }} />
-              <span style={{ fontSize:10, color: ppConnected ? C.grn : C.dim }}>PP</span>
+              <div style={{ width:8, height:8, borderRadius:"50%", background: ppConnected ? C.grn : "rgba(255,255,255,0.3)" }} />
+              <span style={{ fontSize:10, color: ppConnected ? C.grn : "rgba(255,255,255,0.5)" }}>PP</span>
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-              <div style={{ width:8, height:8, borderRadius:"50%", background: bridgeOnline ? C.grn : C.bdr }} />
-              <span style={{ fontSize:10, color: bridgeOnline ? C.grn : C.dim }}>Bridge</span>
+              <div style={{ width:8, height:8, borderRadius:"50%", background: bridgeOnline ? C.grn : "rgba(255,255,255,0.3)" }} />
+              <span style={{ fontSize:10, color: bridgeOnline ? C.grn : "rgba(255,255,255,0.5)" }}>Bridge</span>
             </div>
           </div>
         </div>

@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.707";
+const APP_VERSION = "3.708";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -2144,36 +2144,35 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
     <div style={{ height:"100%", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* 헤더 */}
       <div style={{
-        background:C.surf, flexShrink:0,
+        background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", flexShrink:0,
         padding:"14px 20px 12px",
         paddingTop:"calc(14px + env(safe-area-inset-top))",
-        borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", justifyContent:"space-between",
       }}>
         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
           <div style={{ height:32, overflow:"hidden", display:"flex", alignItems:"center" }}>
             <img src="/icon-192.png" alt="ainos" style={{ height:90, width:"auto", objectFit:"contain", marginTop:-2 }} />
           </div>
-          <span style={{ fontSize:10, fontWeight:700, color:C.dim, letterSpacing:"0.03em" }}>v{APP_VERSION}</span>
+          <span style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.6)", letterSpacing:"0.03em" }}>v{APP_VERSION}</span>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           {isLeader(user.role) && (
             <button onClick={() => nav("services")}
               style={{ height:34, padding:"0 12px", borderRadius:9, cursor:"pointer",
-                background:`${C.pur}18`, border:`1px solid ${C.pur}44`,
+                background:"rgba(255,255,255,0.18)", border:"1px solid rgba(255,255,255,0.35)",
                 display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
-              <Icon n="calendar" size={14} color={C.pur} />
-              <span style={{ fontSize:12, fontWeight:700, color:C.pur }}>예배일정</span>
+              <Icon n="calendar" size={14} color="#fff" />
+              <span style={{ fontSize:12, fontWeight:700, color:"#fff" }}>예배일정</span>
             </button>
           )}
           <button onClick={() => nav("notifications")}
             style={{ width:34, height:34, borderRadius:9, cursor:"pointer", position:"relative",
-              background:C.card, border:`1px solid ${unread > 0 ? C.acc : C.bdr}`,
+              background:"rgba(255,255,255,0.18)", border:"1px solid rgba(255,255,255,0.35)",
               display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-            <Icon n="bell" size={17} color={unread > 0 ? C.acc : C.dim} />
+            <Icon n="bell" size={17} color="#fff" />
             {unread > 0 && (
               <span style={{ position:"absolute", top:-4, right:-4, minWidth:15, height:15,
-                padding:"0 3px", background:C.red, borderRadius:8, border:`2px solid ${C.surf}`,
+                padding:"0 3px", background:C.red, borderRadius:8, border:"2px solid rgba(56,120,224,0.8)",
                 fontSize:9, fontWeight:800, color:"#fff",
                 display:"flex", alignItems:"center", justifyContent:"center",
                 lineHeight:1, boxSizing:"border-box" }}>
@@ -3440,35 +3439,34 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
   return (
     <div style={{ height:"100%", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* 헤더 */}
-      <div style={{ background:C.surf, padding:"20px 20px 16px", flexShrink:0,
+      <div style={{ background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", padding:"20px 20px 16px", flexShrink:0,
         paddingTop:"calc(20px + env(safe-area-inset-top))",
-        borderBottom:`1px solid ${C.bdr}`,
         display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div>
-          <div style={{ fontSize:12, color:C.dim, marginBottom:2 }}>TVPC Worship</div>
-          <div style={{ fontWeight:800, fontSize:20 }}>예배 일정</div>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", marginBottom:2 }}>TVPC Worship</div>
+          <div style={{ fontWeight:800, fontSize:20, color:"#fff" }}>예배 일정</div>
         </div>
         <div style={{ display:"flex", gap:6, alignItems:"center" }}>
           {isLeader(user.role) && (
             <button onClick={() => setShowCreate(true)} title="새 예배 만들기" style={{
               width:36, height:36, borderRadius:9, cursor:"pointer",
-              background:`${C.acc}18`, border:`1px solid ${C.acc}66`,
+              background:"rgba(255,255,255,0.18)", border:"1px solid rgba(255,255,255,0.35)",
               display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
             }}>
-              <Icon n="plus" size={18} color={C.acc} />
+              <Icon n="plus" size={18} color="#fff" />
             </button>
           )}
           <button onClick={() => nav("notifications")} title="알림" style={{
             width:36, height:36, borderRadius:9, cursor:"pointer", position:"relative",
-            background:C.card, border:`1px solid ${unread > 0 ? C.acc : C.bdr}`,
+            background:"rgba(255,255,255,0.18)", border:"1px solid rgba(255,255,255,0.35)",
             display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
           }}>
-            <Icon n="bell" size={18} color={unread > 0 ? C.acc : C.dim} />
+            <Icon n="bell" size={18} color="#fff" />
             {unread > 0 && (
               <span style={{
                 position:"absolute", top:-5, right:-5,
                 minWidth:15, height:15, padding:"0 3px",
-                background:C.red, borderRadius:8, border:`2px solid ${C.surf}`,
+                background:C.red, borderRadius:8, border:"2px solid rgba(56,120,224,0.8)",
                 fontSize:9, fontWeight:700, color:"#fff",
                 display:"flex", alignItems:"center", justifyContent:"center",
                 lineHeight:1, boxSizing:"border-box",
@@ -4689,7 +4687,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   return (
     <div style={{ height:"100%", display:"flex", flexDirection:"column", background:C.bg, overflow:"hidden" }}>
       {/* 헤더 — 고정 */}
-      <div style={{ flexShrink:0, background:"linear-gradient(135deg,#0a1530 0%,#1a3060 50%,#2a5898 100%)", padding:"18px 16px",
+      <div style={{ flexShrink:0, background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", padding:"18px 16px",
         paddingTop:"calc(18px + env(safe-area-inset-top))",
         display:"flex", alignItems:"center", gap:12 }}>
         <button onClick={() => nav("services")}
@@ -5545,33 +5543,32 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
   return (
     <div style={{ height:"100%", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* 고정 헤더 */}
-      <div style={{ background:C.surf, flexShrink:0,
-        paddingTop:"calc(18px + env(safe-area-inset-top))",
-        borderBottom:`1px solid ${C.bdr}` }}>
+      <div style={{ background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", flexShrink:0,
+        paddingTop:"calc(18px + env(safe-area-inset-top))" }}>
         <div style={{ padding:"0 16px 10px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>악보 라이브러리</div>
+          <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em", color:"#fff" }}>악보 라이브러리</div>
           <div style={{ display:"flex", gap:6, alignItems:"center" }}>
             {isLeader(user.role) && (
               <button onClick={() => setShowAdd(true)} title="곡 추가" style={{
                 width:36, height:36, borderRadius:9, cursor:"pointer",
-                background:`${C.acc}18`, border:`1px solid ${C.acc}66`,
+                background:"rgba(255,255,255,0.18)", border:"1px solid rgba(255,255,255,0.35)",
                 display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
               }}>
-                <Icon n="plus" size={18} color={C.acc} />
+                <Icon n="plus" size={18} color="#fff" />
               </button>
             )}
           </div>
         </div>
         <div style={{ padding:"0 16px 12px", position:"relative" }}>
           <div style={{ position:"absolute", left:28, top:"50%", transform:"translateY(-50%)" }}>
-            <Icon n="search" size={16} color={C.dim} />
+            <Icon n="search" size={16} color="rgba(255,255,255,0.6)" />
           </div>
           <input value={query} onChange={e => { setQuery(e.target.value); setConsonant(""); }}
             placeholder="곡명, 아티스트, 키 검색..."
             autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
             style={{
-              width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
-              color:C.txt, padding:"9px 14px 9px 38px", borderRadius:10,
+              width:"100%", background:"rgba(255,255,255,0.15)", border:"1.5px solid rgba(255,255,255,0.3)",
+              color:"#fff", padding:"9px 14px 9px 38px", borderRadius:10,
               fontSize:14, outline:"none", fontFamily:"inherit", boxSizing:"border-box",
             }} />
         </div>
@@ -6001,8 +5998,8 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
     flex:1, padding:"10px 0", border:"none", cursor:"pointer",
     fontFamily:"inherit", fontWeight: active ? 700 : 500,
     fontSize:14, background:"none",
-    color: active ? C.acc : C.dim,
-    borderBottom: active ? `2px solid ${C.acc}` : "2px solid transparent",
+    color: active ? "#fff" : "rgba(255,255,255,0.55)",
+    borderBottom: active ? "2px solid rgba(255,255,255,0.9)" : "2px solid rgba(255,255,255,0.15)",
     transition:"color 0.15s, border-color 0.15s",
     position:"relative",
   });
@@ -6010,12 +6007,11 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
   return (
     <div style={{ height:"100%", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* header */}
-      <div style={{ background:C.surf, flexShrink:0,
-        paddingTop:"env(safe-area-inset-top)",
-        borderBottom:`1px solid ${C.bdr}` }}>
+      <div style={{ background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", flexShrink:0,
+        paddingTop:"env(safe-area-inset-top)" }}>
         <div style={{ padding:"18px 16px 0",
           display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>알림</div>
+          <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em", color:"#fff" }}>알림</div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             {isAdmin && tab === "admin" && (
               <button onClick={() => setShowCompose(true)}
@@ -6026,7 +6022,7 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
               </button>
             )}
             <button onClick={markAllNotifRead}
-              style={{ background:"none", border:"none", color:C.acc, fontSize:13,
+              style={{ background:"none", border:"none", color:"rgba(255,255,255,0.85)", fontSize:13,
                 cursor:"pointer", fontWeight:600, fontFamily:"inherit" }}>
               모두 읽음
             </button>
@@ -6879,10 +6875,9 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
   return (
     <div style={{ height:"100%", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
       {/* 헤더 */}
-      <div style={{ background:C.surf, padding:"18px 20px", flexShrink:0,
-        paddingTop:"calc(18px + env(safe-area-inset-top))",
-        borderBottom:`1px solid ${C.bdr}` }}>
-        <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em" }}>내 정보</div>
+      <div style={{ background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", padding:"18px 20px", flexShrink:0,
+        paddingTop:"calc(18px + env(safe-area-inset-top))" }}>
+        <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em", color:"#fff" }}>내 정보</div>
       </div>
       <div style={{ flex:1, overflowY:"auto", padding:20, paddingBottom:"calc(80px + env(safe-area-inset-bottom))" }}>
 
