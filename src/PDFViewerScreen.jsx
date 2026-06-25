@@ -4283,7 +4283,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 {mkGrp("악보", scoreActive, transposeMode ? C.grn : C.acc, 0)}
                 {!isLibraryMode && (getUserParts(user).some(p => ["키보드","피아노"].includes(p)) || isFoh(user)) && (() => {
                   const isOpen = activeGroup === "팀채팅";
-                  const c = (isOpen || showChat) ? C.acc : C.dim;
                   return (
                     <button
                       onClick={() => { setShowChat(p => !p); setActiveGroup(null); }}
@@ -4291,9 +4290,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         position:"relative", flexShrink:0, height:28,
                         padding: tbNarrow ? "0 6px" : "0 8px",
                         borderRadius:7, cursor:"pointer",
-                        background: showChat ? `${C.acc}22` : "transparent",
-                        border:`1px solid ${showChat ? C.acc : C.bdr}`,
-                        color:c, fontWeight:700, fontSize: tbNarrow ? 10 : 11,
+                        background: (isOpen || showChat) ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.12)",
+                        border:`1px solid ${(isOpen || showChat) ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.3)"}`,
+                        color:"#fff", fontWeight: (isOpen || showChat) ? 800 : 700, fontSize: tbNarrow ? 10 : 11,
                         fontFamily:"inherit", display:"flex", alignItems:"center", gap:2,
                       }}>
                       팀채팅
@@ -4316,9 +4315,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       flexShrink:0, height:28,
                       padding: tbNarrow ? "0 6px" : "0 8px",
                       borderRadius:7, cursor:"pointer",
-                      background: showImprov ? `${C.pur}22` : "transparent",
-                      border:`1px solid ${showImprov ? C.pur : C.bdr}`,
-                      color: showImprov ? C.pur : C.dim, fontWeight:700,
+                      background: showImprov ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.12)",
+                      border:`1px solid ${showImprov ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.3)"}`,
+                      color:"#fff", fontWeight: showImprov ? 800 : 700,
                       fontSize: tbNarrow ? 10 : 11, fontFamily:"inherit",
                       display:"flex", alignItems:"center", gap:2,
                     }}>
@@ -4330,8 +4329,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 <button onClick={() => setShowMobileHelp(true)} style={{
                   flexShrink:0, height:28, width:28,
                   borderRadius:7, cursor:"pointer",
-                  background:"transparent", border:`1px solid ${C.bdr}`,
-                  color:C.dim, fontWeight:700, fontSize:13, fontFamily:"inherit",
+                  background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.3)",
+                  color:"#fff", fontWeight:700, fontSize:13, fontFamily:"inherit",
                   display:"flex", alignItems:"center", justifyContent:"center",
                 }}>?</button>
               </div>
