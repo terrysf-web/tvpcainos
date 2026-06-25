@@ -965,7 +965,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
             border:"none", cursor:"pointer", padding:0, minWidth:0,
           }}>
             <div style={{ minWidth:0 }}>
-              <div style={{ fontSize:16, fontWeight:800, color:"#fff", textAlign:"left",
+              <div style={{ fontSize:16, fontWeight:900, color:"#fff", textAlign:"left",
                 fontFamily:"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:220 }}>
                 {selSvc
                   ? `${new Date(selSvc.date+"T00:00:00").toLocaleDateString("ko-KR",{month:"numeric",day:"numeric",weekday:"short"})} ${selSvc.title||""}`

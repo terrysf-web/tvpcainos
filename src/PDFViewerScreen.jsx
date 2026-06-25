@@ -4219,7 +4219,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
           {/* 제목/키 — 항상 중앙 표시 (좁은 화면은 1줄로) */}
           <div style={{ flex:1, minWidth:0, textAlign:"center", overflow:"hidden" }}>
-            <div style={{ fontWeight:700, fontSize:tbNarrow?12:15, overflow:"hidden",
+            <div style={{ fontWeight:800, fontSize:tbNarrow?12:15, overflow:"hidden",
               textOverflow:"ellipsis", whiteSpace:"nowrap", color:"#fff" }}>{song.title}</div>
             {!tbNarrow && (
               <div style={{ fontSize:11, color:"rgba(255,255,255,0.65)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
@@ -4251,9 +4251,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     position:"relative", flexShrink:0, height:28,
                     padding: tbNarrow ? "0 6px" : "0 8px",
                     borderRadius:7, cursor:"pointer",
-                    background:(isOpen || itemActive) ? `${c}22` : "rgba(255,255,255,0.12)",
-                    border:`1px solid ${(isOpen || itemActive) ? c : "rgba(255,255,255,0.3)"}`,
-                    color:(isOpen || itemActive) ? c : "rgba(255,255,255,0.85)", fontWeight:700, fontSize: tbNarrow ? 10 : 11,
+                    background:(isOpen || itemActive) ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.12)",
+                    border:`1px solid ${(isOpen || itemActive) ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.3)"}`,
+                    color:"#fff", fontWeight: (isOpen || itemActive) ? 800 : 700, fontSize: tbNarrow ? 10 : 11,
                     fontFamily:"inherit", display:"flex", alignItems:"center", gap:2,
                   }}>
                   {name}

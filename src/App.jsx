@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.709";
+const APP_VERSION = "3.710";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -2150,7 +2150,10 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         display:"flex", alignItems:"center", justifyContent:"space-between",
       }}>
         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-          <span style={{ fontSize:22, fontWeight:900, color:"#fff", letterSpacing:"-0.03em" }}>Ainos</span>
+          <div style={{ height:28, overflow:"hidden", flexShrink:0 }}>
+            <img src="/ainos-logo.jpg" alt="Ainos"
+              style={{ height:46, width:"auto", display:"block", filter:"brightness(9)", mixBlendMode:"screen" }} />
+          </div>
           <span style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.6)", letterSpacing:"0.03em" }}>v{APP_VERSION}</span>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
@@ -3441,8 +3444,8 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
         paddingTop:"calc(16px + env(safe-area-inset-top))",
         display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div>
-          <div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", marginBottom:2 }}>TVPC Worship</div>
-          <div style={{ fontWeight:800, fontSize:20, color:"#fff" }}>예배 일정</div>
+          <div style={{ fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.75)", marginBottom:2 }}>TVPC Worship</div>
+          <div style={{ fontWeight:900, fontSize:20, color:"#fff" }}>예배 일정</div>
         </div>
         <div style={{ display:"flex", gap:6, alignItems:"center" }}>
           {isLeader(user.role) && (
@@ -4694,7 +4697,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           <Icon n="back" size={18} color="rgba(255,255,255,0.9)" />
         </button>
         <div style={{ flex:1 }}>
-          <div style={{ fontWeight:700, fontSize:17, color:"#fff" }}>
+          <div style={{ fontWeight:900, fontSize:17, color:"#fff" }}>
             {new Date(svc.date + "T00:00:00").toLocaleDateString("ko-KR",
               { month:"long", day:"numeric", weekday:"short" })}
           </div>
@@ -5544,7 +5547,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
       <div style={{ background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", flexShrink:0,
         paddingTop:"calc(16px + env(safe-area-inset-top))" }}>
         <div style={{ padding:"0 20px 10px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em", color:"#fff" }}>악보 라이브러리</div>
+          <div style={{ fontWeight:900, fontSize:18, letterSpacing:"-0.02em", color:"#fff" }}>악보 라이브러리</div>
           <div style={{ display:"flex", gap:6, alignItems:"center" }}>
             {isLeader(user.role) && (
               <button onClick={() => setShowAdd(true)} title="곡 추가" style={{
@@ -6009,7 +6012,7 @@ function NotificationsScreen({ notifs, services, markNotifRead, markAllNotifRead
         paddingTop:"env(safe-area-inset-top)" }}>
         <div style={{ padding:"16px 20px 0",
           display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em", color:"#fff" }}>알림</div>
+          <div style={{ fontWeight:900, fontSize:18, letterSpacing:"-0.02em", color:"#fff" }}>알림</div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             {isAdmin && tab === "admin" && (
               <button onClick={() => setShowCompose(true)}
@@ -6875,7 +6878,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
       {/* 헤더 */}
       <div style={{ background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)", padding:"16px 20px 16px", flexShrink:0,
         paddingTop:"calc(16px + env(safe-area-inset-top))" }}>
-        <div style={{ fontWeight:700, fontSize:18, letterSpacing:"-0.02em", color:"#fff" }}>내 정보</div>
+        <div style={{ fontWeight:900, fontSize:18, letterSpacing:"-0.02em", color:"#fff" }}>내 정보</div>
       </div>
       <div style={{ flex:1, overflowY:"auto", padding:20, paddingBottom:"calc(80px + env(safe-area-inset-bottom))" }}>
 
