@@ -4166,19 +4166,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           {/* 메트로놈 버튼 — 항상 보이는 고정 위치 */}
           <button data-metro-panel onClick={() => setShowMetroPanel(p => !p)} title="메트로놈"
             style={{
-              position:"relative", flexShrink:0,
-              background: metroOn ? `${C.acc}22` : "rgba(255,255,255,0.12)",
-              border:`1px solid ${metroOn ? C.acc : "rgba(255,255,255,0.3)"}`,
-              borderRadius:8, padding:"4px 7px", cursor:"pointer",
-              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:1,
+              position:"relative", flexShrink:0, height:28,
+              padding: tbNarrow ? "0 6px" : "0 8px",
+              background: (showMetroPanel || metroOn) ? "#fff" : "rgba(255,255,255,0.12)",
+              border:`1px solid ${(showMetroPanel || metroOn) ? "#fff" : "rgba(255,255,255,0.3)"}`,
+              borderRadius:7, cursor:"pointer",
+              display:"flex", alignItems:"center", gap:2,
+              color:(showMetroPanel || metroOn) ? "#1c3c88" : "#fff",
+              fontWeight:(showMetroPanel || metroOn) ? 800 : 700,
+              fontSize: tbNarrow ? 10 : 11, fontFamily:"inherit",
             }}>
-            <span style={{ fontSize:16, lineHeight:1 }}>🎵</span>
-            <span style={{ fontSize:8, fontWeight:700, color: metroOn ? C.acc : "rgba(255,255,255,0.75)", lineHeight:1 }}>메트로놈</span>
+            메트로놈
+            <span style={{ fontSize:7, lineHeight:1 }}>▾</span>
             {metroOn && (
               <span style={{
                 position:"absolute", top:2, right:2,
-                width:7, height:7, borderRadius:"50%",
-                background: metroBeat % 4 === 0 ? C.acc : "#aaa",
+                width:6, height:6, borderRadius:"50%",
+                background: metroBeat % 4 === 0 ? "#1c3c88" : "rgba(28,60,136,0.4)",
                 transition:"background 0.06s",
               }} />
             )}
