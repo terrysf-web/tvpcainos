@@ -4155,7 +4155,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
         <div style={{
           height:52, display:"flex", alignItems:"center", gap:6,
-          padding:"0 12px",
+          padding:"0 12px", overflow:"hidden",
         }}>
           <button onClick={() => nav(backTo || "library")}
             style={{ background:"none", border:"none", color:"rgba(255,255,255,0.9)", cursor:"pointer",
@@ -4281,7 +4281,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             };
             const dlActive = canDownload || (!isLibraryMode && leader && !!svc);
             return (
-              <div style={{ display:"flex", gap:3, alignItems:"center", flexShrink:0 }}>
+              <div className="pdf-toolbar-btns" style={{ display:"flex", gap:3, alignItems:"center", flexShrink:1, minWidth:0,
+                overflowX:"auto", overflowY:"hidden", WebkitOverflowScrolling:"touch",
+                scrollbarWidth:"none", msOverflowStyle:"none" }}>
                 {mkGrp("보기", viewActive, C.acc, 0)}
                 {mkGrp("필기", writeActive, drawMode ? C.pur : C.acc, 0)}
                 {mkGrp("악보", scoreActive, transposeMode ? C.grn : C.acc, 0)}

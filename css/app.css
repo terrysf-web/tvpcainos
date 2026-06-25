@@ -20,3 +20,6 @@ h2{margin:0 0 12px;font-size:30px}.hint{color:#66758b;margin-top:0}
 .pdf-pane iframe{width:100%;height:100%;border:0;display:block;background:#f8fafc}
 #notesCanvas{width:100%;height:70vh;border:1px dashed #cbd6e6;border-radius:14px}
 @media(max-width:900px){.topbar{align-items:flex-start;flex-direction:column}.form-grid{grid-template-columns:1fr}.dual-grid{grid-template-columns:1fr}.pdf-pane{height:62vh}}
+
+/* PDF viewer toolbar scrollable button row */
+.pdf-toolbar-btns::-webkit-scrollbar { display: none; }
