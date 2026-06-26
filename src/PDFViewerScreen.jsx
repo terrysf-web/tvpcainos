@@ -2144,20 +2144,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       pointerStrokesRef.current = [];
     }
     pointerActiveSideRef.current = newSide;
-    // 듀얼 오른쪽 사이드로 전환 시: useEffect는 selectedSongId(왼쪽)만 추적하므로 여기서 오른쪽 곡 sheetSync 처리
-    if (newSide === 2 && newSongId && newSongId !== pointerActiveSongRef.current) {
+    // 듀얼 오른쪽 사이드로 전환: 팀원(듀얼)은 이미 같은 쌍 [N, N+1]을 보고 있으므로
+    // 악보를 이동시키면 안 됨 (sheetSync 쓰면 dualIdx가 N+1로 밀려 엉뚱한 악보에 표시됨).
+    // songId만 dualRightSongId로 바꿔서 팀원이 오른쪽 패널(canvas2)에 렌더하도록 함.
+    if (newSide === 2 && newSongId) {
       pointerActiveSongRef.current = newSongId;
       pointerStrokesRef.current = [];
       if (pointerCanvas1Ref.current) drawPointerStrokes(pointerCanvas1Ref.current, [], null);
-      if (selectedSvcId && svc?.id) {
-        const songIdx = svcSongs.findIndex(s => s?.id === newSongId);
-        setDoc(doc(db, "liveStatus", "sheetSync"), {
-          svcId: selectedSvcId, songId: newSongId,
-          songIdx: songIdx >= 0 ? songIdx : 0,
-          allowedParts: pointerParts.includes("밴드") ? null : pointerParts,
-          pointerSync: true, linkEnabled: true,
-          updatedAt: serverTimestamp(),
-        }).catch(() => {});
+      if (svc?.id) {
         updateDoc(doc(db, "services", svc.id), {
           "teamPointer.songId": newSongId,
           "teamPointer.strokes": [], "teamPointer.live": null,
@@ -2165,6 +2159,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       }
     } else if (newSide === 1) {
       pointerActiveSongRef.current = (dual && dualLeftSongId) ? dualLeftSongId : selectedSongId;
+      if (svc?.id) {
+        updateDoc(doc(db, "services", svc.id), {
+          "teamPointer.songId": pointerActiveSongRef.current,
+          "teamPointer.strokes": [], "teamPointer.live": null,
+        }).catch(() => {});
+      }
     }
     const pt = getCanvasPt(e, canvasRef.current);
     pointerCurPtsRef.current = [pt];
@@ -2232,8 +2232,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const visibleSongs = dual ? [dualLeftSongId, dualRightSongId] : [selectedSongId];
       if (!visibleSongs.includes(tp.songId)) return;
     }
-    // 페이지 동기화 (같은 곡 내)
-    if (tp.page && tp.page !== pageNum) {
+    // 페이지 동기화 (싱글 모드에서만 — 듀얼은 dualLeftPage/dualRightPage로 렌더됨)
+    if (!dual && tp.page && tp.page !== pageNum) {
       setPageNum(tp.page);
       return;
     }
@@ -4433,7 +4433,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
           {/* 악보 Sync 표시 — 비라이브러리 모드에서만 */}
           {!isLibraryMode && (() => {
-            const syncOn = sheetLinkEnabled || pointerOn;
+            const syncOn = sheetLinkEnabled || pointerOn || svc?.teamPointer?.on;
             return tbNarrow ? (
               /* 세로모드: 점만 표시해서 공간 절약 */
               <span style={{
