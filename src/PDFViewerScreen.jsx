@@ -2199,8 +2199,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => {
       if (r.current) drawPointerStrokes(r.current, strokes, live);
     });
+  // selectedSongId 포함: nav() 후 re-render 시 스트로크 렌더링이 실행되도록
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [svc?.teamPointer?.strokes, svc?.teamPointer?.live, svc?.teamPointer?.on, svc?.teamPointer?.songId, svc?.teamPointer?.page, leader]);
+  }, [svc?.teamPointer?.strokes, svc?.teamPointer?.live, svc?.teamPointer?.on, svc?.teamPointer?.songId, svc?.teamPointer?.page, leader, selectedSongId]);
 
   // keep drawModeRef in sync for non-reactive listeners
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
