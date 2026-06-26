@@ -1839,7 +1839,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const pointerCurPtsRef     = useRef([]);
   const pointerClearTimerRef = useRef(null);
   const pointerWriteTimerRef = useRef(null);
-  const pointerPrevSheetLink = useRef(false); // 포인터 켜기 전 sheetLink 상태 저장
+  const pointerPrevSheetLink  = useRef(false); // 포인터 켜기 전 sheetLink 상태 저장
+  const pointerActiveSideRef  = useRef(1);     // 현재 그리는 쪽: 1=왼쪽, 2=오른쪽
 
   // ── Stamp + loupe
   const [stampSymbol, setStampSymbol] = useState("f");
@@ -2129,6 +2130,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (!pointerOn || !canvasRef.current) return;
     if (e.pointerType !== "pen") return;
     e.preventDefault();
+    pointerActiveSideRef.current = canvasRef === pointerCanvas2Ref ? 2 : 1;
     const pt = getCanvasPt(e, canvasRef.current);
     pointerCurPtsRef.current = [pt];
     pointerDownRef.current = true;
@@ -2157,14 +2159,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (pts.length === 0) return;
     const stroke = { pts, ts: Date.now() };
     pointerStrokesRef.current = [...pointerStrokesRef.current, stroke].slice(-15);
-    [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => {
-      if (r.current) drawPointerStrokes(r.current, pointerStrokesRef.current, null);
-    });
+    // 그린 쪽 캔버스에만 표시 (듀얼에서 반대쪽에 중복 표시 방지)
+    const activeCanvas = pointerActiveSideRef.current === 2 ? pointerCanvas2Ref : pointerCanvas1Ref;
+    if (activeCanvas.current) drawPointerStrokes(activeCanvas.current, pointerStrokesRef.current, null);
+    // 듀얼에서 오른쪽에 그린 경우 dualRightSongId 사용
+    const activeSongId = pointerActiveSideRef.current === 2 ? (dualRightSongId || selectedSongId) : selectedSongId;
     // songId + page를 매번 써서 팀원들이 리더 위치로 동기화
     if (svc?.id) updateDoc(doc(db, "services", svc.id), {
       "teamPointer.strokes": pointerStrokesRef.current,
       "teamPointer.live": null,
-      "teamPointer.songId": selectedSongId,
+      "teamPointer.songId": activeSongId,
       "teamPointer.page": pageNum,
       "teamPointer.updatedAt": Date.now(),
     }).catch(() => {});
@@ -2183,23 +2187,33 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     // 곡 동기화: 리더와 다른 곡이면 이동
+    // 듀얼 모드에서 포인터 곡이 오른쪽 슬롯이면 이미 보이는 중 — 이동 없이 스트로크만 렌더링
     if (tp.songId && tp.songId !== selectedSongId) {
-      const idx = svcSongs.findIndex(s => s?.id === tp.songId);
-      nav("pdfViewer", { songId: tp.songId, svcId: selectedSvcId, svcSongIdx: idx >= 0 ? idx : undefined });
-      return; // nav 후 re-render되면서 다시 실행됨
+      if (dual && (tp.songId === dualLeftSongId || tp.songId === dualRightSongId)) {
+        // 듀얼 모드에서 이미 보이는 곡 → 아래 렌더링 단계로 계속
+      } else {
+        const idx = svcSongs.findIndex(s => s?.id === tp.songId);
+        nav("pdfViewer", { songId: tp.songId, svcId: selectedSvcId, svcSongIdx: idx >= 0 ? idx : undefined });
+        return; // nav 후 re-render되면서 다시 실행됨
+      }
     }
     // 페이지 동기화: 리더와 다른 페이지면 이동
     if (tp.page && tp.page !== pageNum) {
       setPageNum(tp.page);
       return;
     }
-    // 스트로크 렌더링
+    // 스트로크 렌더링 — 듀얼 모드에서는 songId가 일치하는 쪽 캔버스에만 그림
     const strokes = tp.strokes || [];
     const live    = tp.live   || null;
     pointerStrokesRef.current = strokes;
-    [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => {
-      if (r.current) drawPointerStrokes(r.current, strokes, live);
-    });
+    if (dual) {
+      if (tp.songId === dualLeftSongId && pointerCanvas1Ref.current)
+        drawPointerStrokes(pointerCanvas1Ref.current, strokes, live);
+      else if (tp.songId === dualRightSongId && pointerCanvas2Ref.current)
+        drawPointerStrokes(pointerCanvas2Ref.current, strokes, live);
+    } else {
+      if (pointerCanvas1Ref.current) drawPointerStrokes(pointerCanvas1Ref.current, strokes, live);
+    }
   // selectedSongId 포함: nav() 후 re-render 시 스트로크 렌더링이 실행되도록
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [svc?.teamPointer?.strokes, svc?.teamPointer?.live, svc?.teamPointer?.on, svc?.teamPointer?.songId, svc?.teamPointer?.page, leader, selectedSongId]);
