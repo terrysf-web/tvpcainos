@@ -2216,8 +2216,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
 
   // 팀원: svc.teamPointer 변경 시 악보/페이지 동기화 + 캔버스 렌더링
+  // 포인터를 직접 켠 본인(pointerOn)만 제외 — 리더/어드민이라도 그리는 사람이 아니면 받아서 봐야 함
+  // (예: 키보드 담당자가 리더인데 어드민이 포인터를 쓰는 경우)
   useEffect(() => {
-    if (leader || user?.role === "admin") return;
+    if (pointerOn) return;
     const tp = svc?.teamPointer;
     if (!tp?.on) {
       pointerStrokesRef.current = [];
@@ -2254,7 +2256,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }
   // selectedSongId 포함: nav() 후 re-render 시 스트로크 렌더링이 실행되도록
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [svc?.teamPointer?.strokes, svc?.teamPointer?.live, svc?.teamPointer?.on, svc?.teamPointer?.songId, svc?.teamPointer?.page, leader, selectedSongId]);
+  }, [svc?.teamPointer?.strokes, svc?.teamPointer?.live, svc?.teamPointer?.on, svc?.teamPointer?.songId, svc?.teamPointer?.page, pointerOn, selectedSongId]);
 
   // keep drawModeRef in sync for non-reactive listeners
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
