@@ -7962,9 +7962,13 @@ export default function App() {
   const allowedPartsRef = useRef(null);
   const userPartsRef    = useRef([]);
   const sheetSyncTsRef  = useRef(null);
+  const liteModeRef     = useRef(false); // Lite 모드 여부 (sheetSync 가드용)
+  const liteSongRef     = useRef(null);  // Lite 현재 곡 id (sheetSync 중복 이동 방지)
   useEffect(() => { userRoleRef.current  = user?.role;      }, [user?.role]);
   useEffect(() => { selSongIdRef.current = selSongId;       }, [selSongId]);
   useEffect(() => { viewRef.current      = view;            }, [view]);
+  useEffect(() => { liteModeRef.current  = liteMode;        }, [liteMode]);
+  useEffect(() => { liteSongRef.current  = liteSong?.songId ?? null; }, [liteSong]);
   useEffect(() => { userPartsRef.current = getUserParts(user); }, [user]);
   useEffect(() => { userIsFohRef.current  = isFoh(user);           }, [user]);
 
@@ -8075,7 +8079,12 @@ export default function App() {
       const { svcId, songId, songIdx } = data;
       if (!svcId || !songId) return;
       setSheetSyncTrigger(n => n + 1);
-      if (viewRef.current === "pdfViewer" && selSongIdRef.current === songId) return;
+      // Lite 모드: liteNav로 라우팅됨 — 같은 곡 이미 보고 있으면 중복 이동 방지
+      if (liteModeRef.current) {
+        if (liteSongRef.current === songId) return;
+      } else {
+        if (viewRef.current === "pdfViewer" && selSongIdRef.current === songId) return;
+      }
       navRef.current?.("pdfViewer", { songId, svcId, svcSongIdx: songIdx ?? 0, backTo: "home" });
     }, () => {});
     return unsub;
@@ -8769,6 +8778,9 @@ export default function App() {
         setLiteSong(null);
       }
     };
+    // sheetSync 리스너가 Lite 화면도 이동시키도록 navRef를 liteNav로 연결
+    // (메인 navRef 할당은 line ~8806에 있는데 Lite는 그 전에 return하므로 여기서 직접 설정)
+    navRef.current = liteNav;
     if (liteSong) {
       return (
         <Suspense fallback={<div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:"100dvh",background:C.bg }}><div style={{ color:C.dim, fontSize:14 }}>불러오는 중...</div></div>}>
