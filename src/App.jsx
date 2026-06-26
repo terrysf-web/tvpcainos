@@ -8064,7 +8064,8 @@ export default function App() {
       sheetSyncTsRef.current = ts;
       if (userIsFohRef.current) return;
       if (!sheetLinkEnabledRef.current && !data.linkEnabled) return;
-      const allowedParts = allowedPartsRef.current ?? data.allowedParts ?? null;
+      // pointerSync=true면 포인터가 직접 지정한 allowedParts 사용 (sheetLink 설정 무시)
+      const allowedParts = data.pointerSync ? data.allowedParts : (allowedPartsRef.current ?? data.allowedParts ?? null);
       if (allowedParts !== null) {
         const myParts = userPartsRef.current;
         if (myParts.length > 0 && !myParts.some(p => allowedParts.includes(p) || p === "전체")) return;

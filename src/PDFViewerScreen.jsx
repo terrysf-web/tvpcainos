@@ -6547,7 +6547,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           if (sheetLinkEnabled) {
             updateDoc(doc(db, "liveStatus", "sheetLink"), { enabled: false }).catch(() => {});
           }
-          // 기존 sheetSync 채널로 팀원들을 현재 악보로 즉시 이동 (검증된 경로)
+          // 기존 sheetSync 채널로 팀원들을 현재 악보로 즉시 이동
+          // pointerSync:true → App.jsx에서 allowedPartsRef 무시하고 포인터 파트만 적용
           if (selectedSvcId && selectedSongId) {
             const songIdx = svcSongs.findIndex(s => s?.id === selectedSongId);
             setDoc(doc(db, "liveStatus", "sheetSync"), {
@@ -6555,6 +6556,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               songId: selectedSongId,
               songIdx: songIdx >= 0 ? songIdx : 0,
               allowedParts: pointerParts.includes("밴드") ? null : pointerParts,
+              pointerSync: true,
               linkEnabled: true,
               updatedAt: serverTimestamp(),
             }).catch(() => {});
