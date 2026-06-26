@@ -5803,19 +5803,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                             if (drawTool === "stamp") { stampPressed2Ref.current = false; setLoupePos(null); }
                           }}
                         />
-                        {/* 포인터 입력 오버레이 (리더/어드민 전용) — 오른쪽 */}
-                        {(leader || user?.role === "admin") && pointerOn && (
-                          <canvas style={{
-                            position:"absolute", top:0, left:0, width:"100%", height:"100%",
-                            borderRadius:4, touchAction:"auto", pointerEvents:"auto",
-                            cursor:"crosshair",
-                          }}
-                            onPointerDown={e => handlePointerPenDown(e, pointerCanvas2Ref)}
-                            onPointerMove={e => handlePointerPenMove(e, pointerCanvas2Ref)}
-                            onPointerUp={e => handlePointerPenUp(e, pointerCanvas2Ref)}
-                            onPointerCancel={e => handlePointerPenUp(e, pointerCanvas2Ref)}
-                          />
-                        )}
+                        {/* 듀얼 오른쪽 포인터 입력 비활성화 —
+                            오른쪽에 포인팅하면 싱글 모드 팀원에게 표시되지 않으므로
+                            포인터는 왼쪽 패널에서만 사용 (악보를 왼쪽으로 넘겨서 포인팅) */}
                         {transposeMode && chordData2.length > 0 && (() => {
                           const cw = canvas2Ref.current?.offsetWidth  || 400;
                           const fs = Math.round(Math.max(8, Math.min(14, cw / 50)) * chordFontScale);
