@@ -613,11 +613,11 @@ function drawPointerStrokes(canvas, strokes, live = null) {
     const pts = (s.pts || []).map(p => [p.x * canvas.width, p.y * canvas.height]);
     if (pts.length < 1) continue;
     ctx.save();
-    ctx.shadowColor = "rgba(231,76,60,0.7)";
-    ctx.shadowBlur = 14;
+    ctx.shadowColor = "rgba(231,76,60,0.6)";
+    ctx.shadowBlur = 7;
     ctx.strokeStyle = "#e74c3c";
     ctx.fillStyle   = "#e74c3c";
-    ctx.lineWidth   = Math.max(3.5, canvas.width / 100);
+    ctx.lineWidth   = Math.max(2, canvas.width / 160);
     ctx.lineCap  = "round";
     ctx.lineJoin = "round";
     ctx.globalAlpha = s.alpha ?? 1;
