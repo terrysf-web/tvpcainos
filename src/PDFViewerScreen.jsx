@@ -3118,6 +3118,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         };
         await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, teamDrawCanvas1Ref, teamStrokes1Ref, dualPdf1Ref.current, dualImg1Ref.current, dualLeftPage,  dualLeftCrop);
         await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, teamDrawCanvas2Ref, teamStrokes2Ref, dualPdf2Ref.current, dualImg2Ref.current, dualRightPage, dualRightCrop);
+        // 듀얼 모드 포인터 캔버스 크기 동기화
+        if (pointerCanvas1Ref.current && canvas1Ref.current?.width) {
+          pointerCanvas1Ref.current.width  = canvas1Ref.current.width;
+          pointerCanvas1Ref.current.height = canvas1Ref.current.height;
+          if (pointerStrokesRef.current.length > 0) drawPointerStrokes(pointerCanvas1Ref.current, pointerStrokesRef.current, pointerLiveRef.current);
+        }
+        if (pointerCanvas2Ref.current && canvas2Ref.current?.width) {
+          pointerCanvas2Ref.current.width  = canvas2Ref.current.width;
+          pointerCanvas2Ref.current.height = canvas2Ref.current.height;
+          if (pointerStrokesRef.current.length > 0) drawPointerStrokes(pointerCanvas2Ref.current, pointerStrokesRef.current, pointerLiveRef.current);
+        }
         // 듀얼 FIT 모드: 새 곡 쌍이 렌더된 직후 좌/우 양쪽 분석 후 재적용
         if (needsFitRef.current) {
           needsFitRef.current = false;
@@ -5665,6 +5676,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           position:"absolute", top:0, left:0, width:"100%", height:"100%",
                           borderRadius:4, pointerEvents:"none",
                         }} />
+                        <canvas ref={pointerCanvas2Ref} style={{
+                          position:"absolute", top:0, left:0, width:"100%", height:"100%",
+                          borderRadius:4, pointerEvents:"none",
+                        }} />
                         <canvas ref={drawCanvas2Ref} style={{
                           position:"absolute", top:0, left:0, width:"100%", height:"100%",
                           borderRadius:4, touchAction:"none",
@@ -5680,6 +5695,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                             if (drawTool === "stamp") { stampPressed2Ref.current = false; setLoupePos(null); }
                           }}
                         />
+                        {/* 포인터 입력 오버레이 (리더/어드민 전용) — 오른쪽 */}
+                        {(leader || user?.role === "admin") && pointerOn && (
+                          <canvas style={{
+                            position:"absolute", top:0, left:0, width:"100%", height:"100%",
+                            borderRadius:4, touchAction:"auto", pointerEvents:"auto",
+                            cursor:"crosshair",
+                          }}
+                            onPointerDown={e => handlePointerPenDown(e, pointerCanvas2Ref)}
+                            onPointerMove={e => handlePointerPenMove(e, pointerCanvas2Ref)}
+                            onPointerUp={e => handlePointerPenUp(e, pointerCanvas2Ref)}
+                            onPointerCancel={e => handlePointerPenUp(e, pointerCanvas2Ref)}
+                          />
+                        )}
                         {transposeMode && chordData2.length > 0 && (() => {
                           const cw = canvas2Ref.current?.offsetWidth  || 400;
                           const fs = Math.round(Math.max(8, Math.min(14, cw / 50)) * chordFontScale);
