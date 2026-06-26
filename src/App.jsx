@@ -8066,13 +8066,19 @@ export default function App() {
       }
       if (ts === sheetSyncTsRef.current) return;
       sheetSyncTsRef.current = ts;
-      if (userIsFohRef.current) return;
+      // FOH는 평소 악보 싱크를 제어하는 쪽이라 제외하지만,
+      // 리더가 포인터로 FOH 파트를 명시 지정한 경우(pointerSync)에는 FOH도 따라가야 함
+      const fohTargeted = data.pointerSync && Array.isArray(data.allowedParts) &&
+        data.allowedParts.some(p => p === "FOH" || p === "foh");
+      if (userIsFohRef.current && !fohTargeted) return;
       if (!sheetLinkEnabledRef.current && !data.linkEnabled) return;
       // pointerSync=true면 포인터가 직접 지정한 allowedParts 사용 (sheetLink 설정 무시)
       const allowedParts = data.pointerSync ? data.allowedParts : (allowedPartsRef.current ?? data.allowedParts ?? null);
       if (allowedParts !== null) {
         const myParts = userPartsRef.current;
-        if (myParts.length > 0 && !myParts.some(p => allowedParts.includes(p) || p === "전체")) return;
+        // FOH 타겟이면 FOH 사용자는 parts에 "FOH"가 없어도 통과 (role 기반 FOH 대응)
+        const matchesFoh = fohTargeted && userIsFohRef.current;
+        if (!matchesFoh && myParts.length > 0 && !myParts.some(p => allowedParts.includes(p) || p === "전체")) return;
       } else {
         if (isVocalistUser({ parts: userPartsRef.current })) return;
       }
