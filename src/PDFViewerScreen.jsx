@@ -1841,6 +1841,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const pointerWriteTimerRef = useRef(null);
   const pointerPrevSheetLink  = useRef(false); // 포인터 켜기 전 sheetLink 상태 저장
   const pointerActiveSideRef  = useRef(1);     // 현재 그리는 쪽: 1=왼쪽, 2=오른쪽
+  const pointerActiveSongRef  = useRef(null);  // 현재 그리는 쪽의 songId (interval 클로저용)
 
   // ── Stamp + loupe
   const [stampSymbol, setStampSymbol] = useState("f");
@@ -2106,7 +2107,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // ── 포인터 헬퍼
   const pointerWriteStrokes = (strokes, live = null) => {
     if (!svc?.id) return;
-    const payload = { "teamPointer.strokes": strokes, "teamPointer.updatedAt": Date.now() };
+    const payload = {
+      "teamPointer.strokes": strokes,
+      "teamPointer.updatedAt": Date.now(),
+      "teamPointer.songId": pointerActiveSongRef.current,
+    };
     if (live !== undefined) payload["teamPointer.live"] = live;
     updateDoc(doc(db, "services", svc.id), payload).catch(() => {});
   };
@@ -2130,7 +2135,29 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (!pointerOn || !canvasRef.current) return;
     if (e.pointerType !== "pen") return;
     e.preventDefault();
-    pointerActiveSideRef.current = canvasRef === pointerCanvas2Ref ? 2 : 1;
+    const newSide = canvasRef === pointerCanvas2Ref ? 2 : 1;
+    const newSongId = newSide === 2 ? (dualRightSongId || selectedSongId) : selectedSongId;
+    // 사이드 전환 시 반대쪽 스트로크 clear (혼합 방지)
+    if (newSide !== pointerActiveSideRef.current) {
+      const prevCanvas = pointerActiveSideRef.current === 2 ? pointerCanvas2Ref : pointerCanvas1Ref;
+      if (prevCanvas.current) drawPointerStrokes(prevCanvas.current, [], null);
+      pointerStrokesRef.current = [];
+    }
+    pointerActiveSideRef.current = newSide;
+    // 그리는 곡이 바뀌면 sheetSync로 팀원 악보 이동 (teamPointer useEffect 대신 sheetSync가 navigation 담당)
+    if (newSongId && newSongId !== pointerActiveSongRef.current) {
+      pointerActiveSongRef.current = newSongId;
+      if (selectedSvcId) {
+        const songIdx = svcSongs.findIndex(s => s?.id === newSongId);
+        setDoc(doc(db, "liveStatus", "sheetSync"), {
+          svcId: selectedSvcId, songId: newSongId,
+          songIdx: songIdx >= 0 ? songIdx : 0,
+          allowedParts: pointerParts.includes("밴드") ? null : pointerParts,
+          pointerSync: true, linkEnabled: true,
+          updatedAt: serverTimestamp(),
+        }).catch(() => {});
+      }
+    }
     const pt = getCanvasPt(e, canvasRef.current);
     pointerCurPtsRef.current = [pt];
     pointerDownRef.current = true;
@@ -2186,21 +2213,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       });
       return;
     }
-    // 곡 동기화: 리더와 다른 곡이면 이동
-    // 듀얼 모드에서 포인터 곡이 오른쪽 슬롯이면 이미 보이는 중 — 이동 없이 스트로크만 렌더링
-    if (tp.songId && tp.songId !== selectedSongId) {
-      if (dual && (tp.songId === dualLeftSongId || tp.songId === dualRightSongId)) {
-        // 듀얼 모드에서 이미 보이는 곡 → 아래 렌더링 단계로 계속
-      } else {
-        const idx = svcSongs.findIndex(s => s?.id === tp.songId);
-        nav("pdfViewer", { songId: tp.songId, svcId: selectedSvcId, svcSongIdx: idx >= 0 ? idx : undefined });
-        return; // nav 후 re-render되면서 다시 실행됨
-      }
-    }
-    // 페이지 동기화: 리더와 다른 페이지면 이동
-    if (tp.page && tp.page !== pageNum) {
-      setPageNum(tp.page);
-      return;
+    // 곡 이동은 sheetSync가 담당 — teamPointer는 스트로크만 렌더링
+    // 단, 현재 보이는 곡이 포인터 곡과 다르면 아직 이동 중이므로 스트로크 렌더 건너뜀
+    if (tp.songId) {
+      const visibleSongs = dual ? [dualLeftSongId, dualRightSongId] : [selectedSongId];
+      if (!visibleSongs.includes(tp.songId)) return;
     }
     // 스트로크 렌더링 — 듀얼 모드에서는 songId가 일치하는 쪽 캔버스에만 그림
     const strokes = tp.strokes || [];
@@ -6577,6 +6594,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           setPointerOn(true);
           setShowPointerPanel(false);
           pointerStrokesRef.current = [];
+          pointerActiveSideRef.current = 1;
+          pointerActiveSongRef.current = selectedSongId;
           [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => { if (r.current) drawPointerStrokes(r.current, [], null); });
           if (svc?.id) updateDoc(doc(db, "services", svc.id), {
             "teamPointer.on": true,
