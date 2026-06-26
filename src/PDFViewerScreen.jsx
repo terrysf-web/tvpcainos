@@ -3464,6 +3464,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
 
   const triggerSwipe = (delta) => {
+    // 포인터 세션 중: 포인터를 켠 본인이 아니고 타겟 파트에 포함되면 악보 이동 잠금
+    // (포인터를 켠 사람만 악보를 넘길 수 있고, 나머지 타겟은 따라가기만 — 리더/어드민 포함)
+    const tp = svc?.teamPointer;
+    if (tp?.on && !pointerOn) {
+      const parts = tp.parts || [];
+      const allowed = parts.includes("밴드") ? null : parts; // 밴드 = 전체
+      const mine = getUserParts(user);
+      let targeted;
+      if (allowed === null) targeted = !isVocalistUser(user);
+      else targeted = mine.some(p => allowed.includes(p) || p === "전체") ||
+        (isFoh(user) && allowed.some(p => p === "FOH" || p === "foh"));
+      if (targeted) { showToast("포인터 사용 중 — 리더 악보를 따라갑니다"); return; }
+    }
     if (dual) {
       if (delta < 0) dualNext(); else dualPrev();
     } else if (svcSongs.length > 1 && songIdx >= 0) {
