@@ -2159,11 +2159,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => {
       if (r.current) drawPointerStrokes(r.current, pointerStrokesRef.current, null);
     });
-    pointerWriteStrokes(pointerStrokesRef.current, null);
+    // songId + page를 매번 써서 팀원들이 리더 위치로 동기화
+    if (svc?.id) updateDoc(doc(db, "services", svc.id), {
+      "teamPointer.strokes": pointerStrokesRef.current,
+      "teamPointer.live": null,
+      "teamPointer.songId": selectedSongId,
+      "teamPointer.page": pageNum,
+      "teamPointer.updatedAt": Date.now(),
+    }).catch(() => {});
     schedulePointerClear();
   };
 
-  // 팀원: svc.teamPointer 변경 시 악보 동기화 + 캔버스 렌더링
+  // 팀원: svc.teamPointer 변경 시 악보/페이지 동기화 + 캔버스 렌더링
   useEffect(() => {
     if (leader || user?.role === "admin") return;
     const tp = svc?.teamPointer;
@@ -2174,10 +2181,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       });
       return;
     }
-    // 악보 동기화: 리더가 보는 곡으로 이동
+    // 곡 동기화: 리더와 다른 곡이면 이동
     if (tp.songId && tp.songId !== selectedSongId) {
       const idx = svcSongs.findIndex(s => s?.id === tp.songId);
       nav("pdfViewer", { songId: tp.songId, svcId: selectedSvcId, svcSongIdx: idx >= 0 ? idx : undefined });
+      return; // nav 후 re-render되면서 다시 실행됨
+    }
+    // 페이지 동기화: 리더와 다른 페이지면 이동
+    if (tp.page && tp.page !== pageNum) {
+      setPageNum(tp.page);
+      return;
     }
     // 스트로크 렌더링
     const strokes = tp.strokes || [];
@@ -2187,7 +2200,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       if (r.current) drawPointerStrokes(r.current, strokes, live);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [svc?.teamPointer?.strokes, svc?.teamPointer?.live, svc?.teamPointer?.on, svc?.teamPointer?.songId, leader]);
+  }, [svc?.teamPointer?.strokes, svc?.teamPointer?.live, svc?.teamPointer?.on, svc?.teamPointer?.songId, svc?.teamPointer?.page, leader]);
 
   // keep drawModeRef in sync for non-reactive listeners
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
