@@ -1839,6 +1839,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const pointerCurPtsRef     = useRef([]);
   const pointerClearTimerRef = useRef(null);
   const pointerWriteTimerRef = useRef(null);
+  const pointerPrevSheetLink = useRef(false); // 포인터 켜기 전 sheetLink 상태 저장
 
   // ── Stamp + loupe
   const [stampSymbol, setStampSymbol] = useState("f");
@@ -6541,6 +6542,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             "teamPointer.songId": selectedSongId,
             "teamPointer.strokes": [], "teamPointer.live": null,
           }).catch(() => {});
+          // FOH 악보 동기화 비활성화 (포인터가 악보 이동을 제어)
+          pointerPrevSheetLink.current = sheetLinkEnabled;
+          if (sheetLinkEnabled) {
+            updateDoc(doc(db, "liveStatus", "sheetLink"), { enabled: false }).catch(() => {});
+          }
           // 기존 sheetSync 채널로 팀원들을 현재 악보로 즉시 이동 (검증된 경로)
           if (selectedSvcId && selectedSongId) {
             const songIdx = svcSongs.findIndex(s => s?.id === selectedSongId);
@@ -6594,6 +6600,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   pointerStrokesRef.current = [];
                   [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => { if (r.current) drawPointerStrokes(r.current, [], null); });
                   if (svc?.id) updateDoc(doc(db, "services", svc.id), { "teamPointer.on": false, "teamPointer.strokes": [], "teamPointer.live": null }).catch(() => {});
+                  // 포인터 끄면 FOH 악보 동기화 원래 상태로 복원
+                  if (pointerPrevSheetLink.current) {
+                    updateDoc(doc(db, "liveStatus", "sheetLink"), { enabled: true }).catch(() => {});
+                  }
                 }} style={{
                   flex:1, padding:"8px 0", borderRadius:8, border:`1px solid ${C.bdr}`,
                   background:"transparent", color:C.red, fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"inherit",
