@@ -2144,10 +2144,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       pointerStrokesRef.current = [];
     }
     pointerActiveSideRef.current = newSide;
-    // 그리는 곡이 바뀌면 sheetSync로 팀원 악보 이동 (teamPointer useEffect 대신 sheetSync가 navigation 담당)
-    if (newSongId && newSongId !== pointerActiveSongRef.current) {
+    // 듀얼 오른쪽 사이드로 전환 시: useEffect는 selectedSongId(왼쪽)만 추적하므로 여기서 오른쪽 곡 sheetSync 처리
+    if (newSide === 2 && newSongId && newSongId !== pointerActiveSongRef.current) {
       pointerActiveSongRef.current = newSongId;
-      if (selectedSvcId) {
+      pointerStrokesRef.current = [];
+      if (pointerCanvas1Ref.current) drawPointerStrokes(pointerCanvas1Ref.current, [], null);
+      if (selectedSvcId && svc?.id) {
         const songIdx = svcSongs.findIndex(s => s?.id === newSongId);
         setDoc(doc(db, "liveStatus", "sheetSync"), {
           svcId: selectedSvcId, songId: newSongId,
@@ -2156,7 +2158,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           pointerSync: true, linkEnabled: true,
           updatedAt: serverTimestamp(),
         }).catch(() => {});
+        updateDoc(doc(db, "services", svc.id), {
+          "teamPointer.songId": newSongId,
+          "teamPointer.strokes": [], "teamPointer.live": null,
+        }).catch(() => {});
       }
+    } else if (newSide === 1) {
+      pointerActiveSongRef.current = selectedSongId;
     }
     const pt = getCanvasPt(e, canvasRef.current);
     pointerCurPtsRef.current = [pt];
@@ -2213,11 +2221,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       });
       return;
     }
-    // 곡 이동은 sheetSync가 담당 — teamPointer는 스트로크만 렌더링
-    // 단, 현재 보이는 곡이 포인터 곡과 다르면 아직 이동 중이므로 스트로크 렌더 건너뜀
+    // 곡 이동은 sheetSync가 담당 — teamPointer는 스트로크 + 페이지만 담당
+    // 현재 보이는 곡이 포인터 곡과 다르면 아직 이동 중이므로 스트로크 렌더 건너뜀
     if (tp.songId) {
       const visibleSongs = dual ? [dualLeftSongId, dualRightSongId] : [selectedSongId];
       if (!visibleSongs.includes(tp.songId)) return;
+    }
+    // 페이지 동기화 (같은 곡 내)
+    if (tp.page && tp.page !== pageNum) {
+      setPageNum(tp.page);
+      return;
     }
     // 스트로크 렌더링 — 듀얼 모드에서는 songId가 일치하는 쪽 캔버스에만 그림
     const strokes = tp.strokes || [];
@@ -2234,6 +2247,29 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // selectedSongId 포함: nav() 후 re-render 시 스트로크 렌더링이 실행되도록
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [svc?.teamPointer?.strokes, svc?.teamPointer?.live, svc?.teamPointer?.on, svc?.teamPointer?.songId, svc?.teamPointer?.page, leader, selectedSongId]);
+
+  // 포인터 켜진 동안 리더 악보 이동 → 즉시 sheetSync로 팀원 동기화
+  useEffect(() => {
+    if (!pointerOn || (!leader && user?.role !== "admin")) return;
+    if (!selectedSvcId || !selectedSongId || !svc?.id) return;
+    pointerActiveSongRef.current = selectedSongId;
+    pointerActiveSideRef.current = 1;
+    pointerStrokesRef.current = []; // 곡 바뀌면 이전 스트로크 초기화
+    [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => { if (r?.current) drawPointerStrokes(r.current, [], null); });
+    const songIdx = svcSongs.findIndex(s => s?.id === selectedSongId);
+    setDoc(doc(db, "liveStatus", "sheetSync"), {
+      svcId: selectedSvcId, songId: selectedSongId,
+      songIdx: songIdx >= 0 ? songIdx : 0,
+      allowedParts: pointerParts.includes("밴드") ? null : pointerParts,
+      pointerSync: true, linkEnabled: true,
+      updatedAt: serverTimestamp(),
+    }).catch(() => {});
+    updateDoc(doc(db, "services", svc.id), {
+      "teamPointer.songId": selectedSongId,
+      "teamPointer.strokes": [], "teamPointer.live": null,
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSongId, pointerOn]);
 
   // keep drawModeRef in sync for non-reactive listeners
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
