@@ -604,6 +604,41 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
   }
 }
 
+function drawPointerStrokes(canvas, strokes, live = null) {
+  if (!canvas || !canvas.width || !canvas.height) return;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const all = live ? [...strokes, live] : strokes;
+  for (const s of all) {
+    const pts = (s.pts || []).map(p => [p.x * canvas.width, p.y * canvas.height]);
+    if (pts.length < 1) continue;
+    ctx.save();
+    ctx.shadowColor = "rgba(231,76,60,0.7)";
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = "#e74c3c";
+    ctx.fillStyle   = "#e74c3c";
+    ctx.lineWidth   = Math.max(3.5, canvas.width / 100);
+    ctx.lineCap  = "round";
+    ctx.lineJoin = "round";
+    ctx.globalAlpha = s.alpha ?? 1;
+    ctx.beginPath();
+    if (pts.length === 1) {
+      ctx.arc(pts[0][0], pts[0][1], ctx.lineWidth, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i][0] + pts[i+1][0]) / 2;
+        const my = (pts[i][1] + pts[i+1][1]) / 2;
+        ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+      }
+      ctx.lineTo(pts[pts.length-1][0], pts[pts.length-1][1]);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
 /* ══════════════════════════════════════════════════════════════════
    YOUTUBE HELPERS
 ══════════════════════════════════════════════════════════════════ */
@@ -1792,6 +1827,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const selDragRef   = useRef(null);
   const [stampPanel, setStampPanel] = useState(null); // { x, y } screen coords of selected stamp
 
+  // ── 레이저 포인터 (리더 전용)
+  const [pointerOn,          setPointerOn]          = useState(false);
+  const [showPointerPanel,   setShowPointerPanel]   = useState(false);
+  const [pointerPart,        setPointerPart]        = useState(null);
+  const pointerCanvas1Ref    = useRef(null);
+  const pointerCanvas2Ref    = useRef(null);
+  const pointerStrokesRef    = useRef([]);   // 완성된 획들
+  const pointerLiveRef       = useRef(null); // 그리는 중인 획
+  const pointerDownRef       = useRef(false);
+  const pointerCurPtsRef     = useRef([]);
+  const pointerClearTimerRef = useRef(null);
+  const pointerWriteTimerRef = useRef(null);
+
   // ── Stamp + loupe
   const [stampSymbol, setStampSymbol] = useState("f");
   const [stampItalic, setStampItalic] = useState(true);
@@ -2052,6 +2100,86 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setMetroBpmEdit(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [svc?.teamMetro?.bpm]);
+
+  // ── 포인터 헬퍼
+  const pointerWriteStrokes = (strokes, live = null) => {
+    if (!svc?.id) return;
+    const payload = { "teamPointer.strokes": strokes, "teamPointer.updatedAt": Date.now() };
+    if (live !== undefined) payload["teamPointer.live"] = live;
+    updateDoc(doc(db, "services", svc.id), payload).catch(() => {});
+  };
+
+  const schedulePointerClear = () => {
+    clearTimeout(pointerClearTimerRef.current);
+    pointerClearTimerRef.current = setTimeout(() => {
+      pointerStrokesRef.current = [];
+      pointerLiveRef.current = null;
+      [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => {
+        if (r.current) drawPointerStrokes(r.current, [], null);
+      });
+      if (svc?.id) updateDoc(doc(db, "services", svc.id), {
+        "teamPointer.strokes": [], "teamPointer.live": null
+      }).catch(() => {});
+    }, 4500);
+  };
+
+  const handlePointerPenDown = (e, canvasRef) => {
+    if (!pointerOn || !canvasRef.current) return;
+    e.preventDefault();
+    const pt = getCanvasPt(e, canvasRef.current);
+    pointerCurPtsRef.current = [pt];
+    pointerDownRef.current = true;
+    clearTimeout(pointerClearTimerRef.current);
+    clearInterval(pointerWriteTimerRef.current);
+    pointerWriteTimerRef.current = setInterval(() => {
+      if (pointerCurPtsRef.current.length > 0)
+        pointerWriteStrokes(pointerStrokesRef.current, { pts: pointerCurPtsRef.current });
+    }, 150);
+  };
+
+  const handlePointerPenMove = (e, canvasRef) => {
+    if (!pointerDownRef.current || !canvasRef.current) return;
+    e.preventDefault();
+    const pt = getCanvasPt(e, canvasRef.current);
+    pointerCurPtsRef.current.push(pt);
+    drawPointerStrokes(canvasRef.current, pointerStrokesRef.current, { pts: pointerCurPtsRef.current });
+  };
+
+  const handlePointerPenUp = (e, canvasRef) => {
+    if (!pointerDownRef.current) return;
+    clearInterval(pointerWriteTimerRef.current);
+    pointerDownRef.current = false;
+    const pts = pointerCurPtsRef.current;
+    pointerCurPtsRef.current = [];
+    if (pts.length === 0) return;
+    const stroke = { pts, ts: Date.now() };
+    pointerStrokesRef.current = [...pointerStrokesRef.current, stroke].slice(-15);
+    [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => {
+      if (r.current) drawPointerStrokes(r.current, pointerStrokesRef.current, null);
+    });
+    pointerWriteStrokes(pointerStrokesRef.current, null);
+    schedulePointerClear();
+  };
+
+  // 팀원: svc.teamPointer 변경 시 캔버스에 렌더링
+  useEffect(() => {
+    if (leader) return;
+    const tp = svc?.teamPointer;
+    if (!tp?.on) {
+      pointerStrokesRef.current = [];
+      [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => {
+        if (r.current) drawPointerStrokes(r.current, [], null);
+      });
+      return;
+    }
+    const strokes = tp.strokes || [];
+    const live    = tp.live   || null;
+    pointerStrokesRef.current = strokes;
+    [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => {
+      if (r.current) drawPointerStrokes(r.current, strokes, live);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [svc?.teamPointer?.strokes, svc?.teamPointer?.live, svc?.teamPointer?.on, leader]);
 
   // keep drawModeRef in sync for non-reactive listeners
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
@@ -3033,6 +3161,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           teamDrawCanvas1Ref.current.width  = canvas1Ref.current.width;
           teamDrawCanvas1Ref.current.height = canvas1Ref.current.height;
           if (teamStrokes1Ref.current.length > 0) drawStrokes(teamDrawCanvas1Ref.current, teamStrokes1Ref.current);
+        }
+        if (pointerCanvas1Ref.current) {
+          pointerCanvas1Ref.current.width  = canvas1Ref.current.width;
+          pointerCanvas1Ref.current.height = canvas1Ref.current.height;
+          if (pointerStrokesRef.current.length > 0) drawPointerStrokes(pointerCanvas1Ref.current, pointerStrokesRef.current, pointerLiveRef.current);
         }
         // 싱글 FIT 모드: 새 페이지/곡 렌더 직후 콘텐츠 자동 맞춤
         if (singleNeedsFitRef.current) {
@@ -4332,6 +4465,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 )}
                 {mkGrp("녹음", recActive, recording ? C.red : C.acc, 0, !isLibraryMode && !!svcPracticeUrl)}
                 {dlActive && mkGrp("다운로드", false, C.acc, 0)}
+                {(leader || user?.role === "admin") && !isLibraryMode && (
+                  <button onClick={() => setShowPointerPanel(p => !p)} style={{
+                    position:"relative", flexShrink:0, height:28,
+                    padding: tbNarrow ? "0 6px" : "0 8px",
+                    background:(showPointerPanel || pointerOn) ? "#fff" : "rgba(255,255,255,0.12)",
+                    border:`1px solid ${(showPointerPanel || pointerOn) ? "#fff" : "rgba(255,255,255,0.3)"}`,
+                    borderRadius:7, cursor:"pointer",
+                    display:"flex", alignItems:"center", gap:3,
+                    color:(showPointerPanel || pointerOn) ? "#c0392b" : "#fff",
+                    fontWeight:(showPointerPanel || pointerOn) ? 800 : 700,
+                    fontSize: tbNarrow ? 10 : 11, fontFamily:"inherit",
+                  }}>
+                    {pointerOn && <span style={{
+                      width:7, height:7, borderRadius:"50%", flexShrink:0,
+                      background:"#e74c3c", boxShadow:"0 0 6px #e74c3c",
+                    }} />}
+                    포인터 <span style={{ fontSize:7 }}>▾</span>
+                  </button>
+                )}
                 <button onClick={() => setShowMobileHelp(true)} style={{
                   flexShrink:0, height:28, width:28,
                   borderRadius:7, cursor:"pointer",
@@ -5400,6 +5552,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         position:"absolute", top:0, left:0, width:"100%", height:"100%",
                         borderRadius:4, pointerEvents:"none",
                       }} />
+                      <canvas ref={pointerCanvas1Ref} style={{
+                        position:"absolute", top:0, left:0, width:"100%", height:"100%",
+                        borderRadius:4, pointerEvents:"none",
+                      }} />
                       <canvas ref={drawCanvas1Ref} style={{
                         position:"absolute", top:0, left:0, width:"100%", height:"100%",
                         borderRadius:4, touchAction:"none",
@@ -5415,6 +5571,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           if (drawTool === "stamp") { stampPressed1Ref.current = false; setLoupePos(null); }
                         }}
                       />
+                      {/* 포인터 입력 오버레이 (리더 전용) */}
+                      {leader && pointerOn && (
+                        <canvas style={{
+                          position:"absolute", top:0, left:0, width:"100%", height:"100%",
+                          borderRadius:4, touchAction:"none", pointerEvents:"auto",
+                          cursor:"crosshair",
+                        }}
+                          onPointerDown={e => handlePointerPenDown(e, pointerCanvas1Ref)}
+                          onPointerMove={e => handlePointerPenMove(e, pointerCanvas1Ref)}
+                          onPointerUp={e => handlePointerPenUp(e, pointerCanvas1Ref)}
+                          onPointerCancel={e => handlePointerPenUp(e, pointerCanvas1Ref)}
+                        />
+                      )}
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 400;
                         const fs = Math.round(Math.max(8, Math.min(14, cw / 50)) * chordFontScale);
@@ -5556,6 +5725,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         position:"absolute", top:0, left:0, width:"100%", height:"100%",
                         borderRadius:4, pointerEvents:"none",
                       }} />
+                      <canvas ref={pointerCanvas1Ref} style={{
+                        position:"absolute", top:0, left:0, width:"100%", height:"100%",
+                        borderRadius:4, pointerEvents:"none",
+                      }} />
                       <canvas ref={drawCanvas1Ref} style={{
                         position:"absolute", top:0, left:0, width:"100%", height:"100%",
                         borderRadius:4,
@@ -5572,6 +5745,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           if (drawTool === "stamp") { stampPressed1Ref.current = false; setLoupePos(null); }
                         }}
                       />
+                      {leader && pointerOn && (
+                        <canvas style={{
+                          position:"absolute", top:0, left:0, width:"100%", height:"100%",
+                          borderRadius:4, touchAction:"none", pointerEvents:"auto",
+                          cursor:"crosshair",
+                        }}
+                          onPointerDown={e => handlePointerPenDown(e, pointerCanvas1Ref)}
+                          onPointerMove={e => handlePointerPenMove(e, pointerCanvas1Ref)}
+                          onPointerUp={e => handlePointerPenUp(e, pointerCanvas1Ref)}
+                          onPointerCancel={e => handlePointerPenUp(e, pointerCanvas1Ref)}
+                        />
+                      )}
                       {/* 전조 코드 오버레이 */}
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 600;
@@ -6310,6 +6495,82 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       })()}
 
       {showMobileHelp && <HelpModal onClose={() => setShowMobileHelp(false)} />}
+
+      {/* 레이저 포인터 파트 선택 드롭다운 */}
+      {showPointerPanel && (leader || user?.role === "admin") && !isLibraryMode && (() => {
+        const POINTER_PARTS = PARTS.filter(p => ["밴드","보컬그룹","기타","베이스","드럼","키보드","일렉기타","FOH"].includes(p.id));
+        const PART_COLORS = { 밴드:"#6b5de7", 보컬그룹:"#ff2d55", 기타:"#ff9500", 베이스:"#34c759", 드럼:"#e07a60", 키보드:"#3878e0", 일렉기타:"#ffcc00", FOH:"#6e6e73" };
+        return (
+          <div style={{
+            position:"fixed", zIndex:9999,
+            top:"calc(env(safe-area-inset-top) + 56px)", right:12,
+            background:C.surf, border:`1px solid ${C.bdr}`, borderRadius:16,
+            width:240, overflow:"hidden",
+            boxShadow:"0 8px 32px rgba(0,0,0,.18)",
+          }}>
+            <div style={{ padding:"12px 16px 8px", borderBottom:`1px solid ${C.bdr}` }}>
+              <div style={{ fontSize:13, fontWeight:700, color:C.txt }}>🎯 레이저 포인터</div>
+              <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>파트 악보로 전체 동기화</div>
+            </div>
+            {POINTER_PARTS.map(p => (
+              <div key={p.id} onClick={() => {
+                const nextOn = !pointerOn || pointerPart !== p.id;
+                setPointerPart(p.id);
+                setPointerOn(nextOn);
+                setShowPointerPanel(false);
+                if (!nextOn) {
+                  pointerStrokesRef.current = [];
+                  [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => { if (r.current) drawPointerStrokes(r.current, [], null); });
+                }
+                if (svc?.id) updateDoc(doc(db, "services", svc.id), {
+                  "teamPointer.on": nextOn, "teamPointer.part": p.id,
+                  "teamPointer.strokes": [], "teamPointer.live": null,
+                }).catch(() => {});
+              }} style={{
+                display:"flex", alignItems:"center", gap:10,
+                padding:"10px 16px", cursor:"pointer",
+                background:(pointerOn && pointerPart === p.id) ? "#eef2ff" : "transparent",
+                borderBottom:`1px solid ${C.bdr}`,
+              }}>
+                <span style={{ fontSize:14 }}>{p.emoji}</span>
+                <span style={{ flex:1, fontSize:14, fontWeight:600, color:C.txt }}>{p.label}</span>
+                {pointerOn && pointerPart === p.id && (
+                  <span style={{ color:"#c0392b", fontSize:16 }}>●</span>
+                )}
+              </div>
+            ))}
+            {pointerOn && (
+              <div onClick={() => {
+                setPointerOn(false);
+                setShowPointerPanel(false);
+                pointerStrokesRef.current = [];
+                [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => { if (r.current) drawPointerStrokes(r.current, [], null); });
+                if (svc?.id) updateDoc(doc(db, "services", svc.id), { "teamPointer.on": false, "teamPointer.strokes": [], "teamPointer.live": null }).catch(() => {});
+              }} style={{
+                padding:"10px 16px", cursor:"pointer",
+                fontSize:13, fontWeight:700, color:C.red,
+                textAlign:"center",
+              }}>
+                포인터 끄기
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* 팀원 — 포인터 활성 배너 */}
+      {!leader && user?.role !== "admin" && svc?.teamPointer?.on && (
+        <div style={{
+          position:"fixed", top:"calc(env(safe-area-inset-top) + 60px)",
+          left:"50%", transform:"translateX(-50%)",
+          background:"rgba(28,60,136,0.88)", color:"#fff",
+          padding:"5px 14px", borderRadius:20,
+          fontSize:11, fontWeight:700, zIndex:500, pointerEvents:"none",
+          whiteSpace:"nowrap",
+        }}>
+          🎯 리더 포인터 활성
+        </div>
+      )}
       {showImprov && <ImprovChordScreen onClose={() => setShowImprov(false)} C={C} />}
       {showRecModal && (
         <RecordingsModal
