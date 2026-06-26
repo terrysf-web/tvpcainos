@@ -5594,7 +5594,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         }}
                       />
                       {/* 포인터 입력 오버레이 (리더 전용) */}
-                      {leader && pointerOn && (
+                      {(leader || user?.role === "admin") && pointerOn && (
                         <canvas style={{
                           position:"absolute", top:0, left:0, width:"100%", height:"100%",
                           borderRadius:4, touchAction:"auto", pointerEvents:"auto",
@@ -5767,7 +5767,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           if (drawTool === "stamp") { stampPressed1Ref.current = false; setLoupePos(null); }
                         }}
                       />
-                      {leader && pointerOn && (
+                      {(leader || user?.role === "admin") && pointerOn && (
                         <canvas style={{
                           position:"absolute", top:0, left:0, width:"100%", height:"100%",
                           borderRadius:4, touchAction:"auto", pointerEvents:"auto",
