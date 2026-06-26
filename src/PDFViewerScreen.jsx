@@ -3266,6 +3266,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             teamDrawCanvas1Ref.current.height = dH;
             if (teamStrokes1Ref.current.length > 0) drawStrokes(teamDrawCanvas1Ref.current, teamStrokes1Ref.current);
           }
+          if (pointerCanvas1Ref.current) {
+            pointerCanvas1Ref.current.width  = dW;
+            pointerCanvas1Ref.current.height = dH;
+            if (pointerStrokesRef.current.length > 0) drawPointerStrokes(pointerCanvas1Ref.current, pointerStrokesRef.current, pointerLiveRef.current);
+          }
           return;
         }
         // 싱글: PDF 한 페이지 꽉 맞춤
