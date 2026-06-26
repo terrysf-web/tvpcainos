@@ -32,7 +32,7 @@ service cloud.firestore {
 
     match /services/{id} {
       allow read: if isAuthed();
-      allow create, update, delete: if isLeader();
+      allow create, update, delete: if isLeader() || isAdmin();
       allow update: if isAuthed() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasRecordings']) &&
         request.resource.data.hasRecordings == true;
