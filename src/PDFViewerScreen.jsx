@@ -3210,9 +3210,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         }
         // 스트로크는 활성 곡과 일치하는 한쪽 패널에만 렌더 (양쪽 중복 표시 방지)
         if (pointerStrokesRef.current.length > 0) {
-          const isLeaderLike = leader || user?.role === "admin";
-          // 리더: 그리는 사이드(pointerActiveSideRef) / 팀원: teamPointer.songId 기준
-          const activeSong = isLeaderLike ? pointerActiveSongRef.current : svc?.teamPointer?.songId;
+          // 포인터를 직접 켠 본인(pointerOn)만 pointerActiveSongRef 사용,
+          // 그 외(리더/어드민 포함 모든 수신자)는 svc.teamPointer.songId 기준 — 안 그러면
+          // 비소스 리더는 ref가 null이라 renderPage가 클리어만 하고 팀 포인터가 지워짐
+          const activeSong = pointerOn ? pointerActiveSongRef.current : svc?.teamPointer?.songId;
           if (activeSong === dualLeftSongId && pointerCanvas1Ref.current)
             drawPointerStrokes(pointerCanvas1Ref.current, pointerStrokesRef.current, pointerLiveRef.current);
           else if (activeSong === dualRightSongId && pointerCanvas2Ref.current)
