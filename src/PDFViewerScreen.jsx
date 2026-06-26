@@ -2242,10 +2242,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const live    = tp.live   || null;
     pointerStrokesRef.current = strokes;
     if (dual) {
-      if (tp.songId === dualLeftSongId && pointerCanvas1Ref.current)
+      if (tp.songId === dualLeftSongId && pointerCanvas1Ref.current) {
+        if (pointerCanvas2Ref.current) drawPointerStrokes(pointerCanvas2Ref.current, [], null); // 반대쪽 클리어
         drawPointerStrokes(pointerCanvas1Ref.current, strokes, live);
-      else if (tp.songId === dualRightSongId && pointerCanvas2Ref.current)
+      } else if (tp.songId === dualRightSongId && pointerCanvas2Ref.current) {
+        if (pointerCanvas1Ref.current) drawPointerStrokes(pointerCanvas1Ref.current, [], null); // 반대쪽 클리어
         drawPointerStrokes(pointerCanvas2Ref.current, strokes, live);
+      }
     } else {
       if (pointerCanvas1Ref.current) drawPointerStrokes(pointerCanvas1Ref.current, strokes, live);
     }
@@ -3194,16 +3197,24 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         };
         await renderTo(canvas1Ref, drawCanvas1Ref, strokes1Ref, teamDrawCanvas1Ref, teamStrokes1Ref, dualPdf1Ref.current, dualImg1Ref.current, dualLeftPage,  dualLeftCrop);
         await renderTo(canvas2Ref, drawCanvas2Ref, strokes2Ref, teamDrawCanvas2Ref, teamStrokes2Ref, dualPdf2Ref.current, dualImg2Ref.current, dualRightPage, dualRightCrop);
-        // 듀얼 모드 포인터 캔버스 크기 동기화
+        // 듀얼 모드 포인터 캔버스 크기 동기화 (width 설정 시 캔버스 자동 클리어)
         if (pointerCanvas1Ref.current && canvas1Ref.current?.width) {
           pointerCanvas1Ref.current.width  = canvas1Ref.current.width;
           pointerCanvas1Ref.current.height = canvas1Ref.current.height;
-          if (pointerStrokesRef.current.length > 0) drawPointerStrokes(pointerCanvas1Ref.current, pointerStrokesRef.current, pointerLiveRef.current);
         }
         if (pointerCanvas2Ref.current && canvas2Ref.current?.width) {
           pointerCanvas2Ref.current.width  = canvas2Ref.current.width;
           pointerCanvas2Ref.current.height = canvas2Ref.current.height;
-          if (pointerStrokesRef.current.length > 0) drawPointerStrokes(pointerCanvas2Ref.current, pointerStrokesRef.current, pointerLiveRef.current);
+        }
+        // 스트로크는 활성 곡과 일치하는 한쪽 패널에만 렌더 (양쪽 중복 표시 방지)
+        if (pointerStrokesRef.current.length > 0) {
+          const isLeaderLike = leader || user?.role === "admin";
+          // 리더: 그리는 사이드(pointerActiveSideRef) / 팀원: teamPointer.songId 기준
+          const activeSong = isLeaderLike ? pointerActiveSongRef.current : svc?.teamPointer?.songId;
+          if (activeSong === dualLeftSongId && pointerCanvas1Ref.current)
+            drawPointerStrokes(pointerCanvas1Ref.current, pointerStrokesRef.current, pointerLiveRef.current);
+          else if (activeSong === dualRightSongId && pointerCanvas2Ref.current)
+            drawPointerStrokes(pointerCanvas2Ref.current, pointerStrokesRef.current, pointerLiveRef.current);
         }
         // 듀얼 FIT 모드: 새 곡 쌍이 렌더된 직후 좌/우 양쪽 분석 후 재적용
         if (needsFitRef.current) {
