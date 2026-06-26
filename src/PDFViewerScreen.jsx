@@ -6508,7 +6508,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       {showPointerPanel && (leader || user?.role === "admin") && !isLibraryMode && (() => {
         const POINTER_PARTS = PARTS.filter(p => ["밴드","보컬그룹","기타","베이스","드럼","키보드","일렉기타","FOH"].includes(p.id));
         const togglePart = (pid) => {
-          setPointerParts(prev => prev.includes(pid) ? prev.filter(x => x !== pid) : [...prev, pid]);
+          setPointerParts(prev => {
+            if (prev.includes(pid)) return prev.filter(x => x !== pid);
+            // 밴드 선택 시 개별 모두 해제, 개별 선택 시 밴드 해제
+            if (pid === "밴드") return ["밴드"];
+            return [...prev.filter(x => x !== "밴드"), pid];
+          });
         };
         const startPointer = () => {
           if (pointerParts.length === 0) return;
