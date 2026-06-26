@@ -4427,37 +4427,38 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           </button>
 
           {/* 악보 Sync 표시 — 비라이브러리 모드에서만 */}
-          {!isLibraryMode && (
-            tbNarrow ? (
+          {!isLibraryMode && (() => {
+            const syncOn = sheetLinkEnabled || pointerOn;
+            return tbNarrow ? (
               /* 세로모드: 점만 표시해서 공간 절약 */
               <span style={{
                 width:8, height:8, borderRadius:"50%", flexShrink:0,
-                background: sheetLinkEnabled ? C.grn : "rgba(255,255,255,0.35)",
-                boxShadow: sheetLinkEnabled ? `0 0 5px ${C.grn}` : "none",
+                background: syncOn ? C.grn : "rgba(255,255,255,0.35)",
+                boxShadow: syncOn ? `0 0 5px ${C.grn}` : "none",
                 transition:"background 0.3s, box-shadow 0.3s",
               }} />
             ) : (
               <div style={{
                 display:"flex", alignItems:"center", gap:4, flexShrink:0,
                 padding:"4px 9px", borderRadius:8,
-                border:`1px solid ${sheetLinkEnabled ? C.grn : "rgba(255,255,255,0.3)"}`,
-                background: sheetLinkEnabled ? `${C.grn}22` : "rgba(255,255,255,0.1)",
+                border:`1px solid ${syncOn ? C.grn : "rgba(255,255,255,0.3)"}`,
+                background: syncOn ? `${C.grn}22` : "rgba(255,255,255,0.1)",
                 transition:"background 0.3s, border-color 0.3s",
               }}>
                 <span style={{
                   fontSize:11, fontWeight:700, letterSpacing:0.2,
-                  color: sheetLinkEnabled ? C.grn : "rgba(255,255,255,0.85)",
+                  color: syncOn ? C.grn : "rgba(255,255,255,0.85)",
                   transition:"color 0.3s",
                 }}>악보 Sync</span>
                 <span style={{
                   width:7, height:7, borderRadius:"50%", flexShrink:0,
-                  background: sheetLinkEnabled ? C.grn : "rgba(255,255,255,0.35)",
-                  boxShadow: sheetLinkEnabled ? `0 0 4px ${C.grn}` : "none",
+                  background: syncOn ? C.grn : "rgba(255,255,255,0.35)",
+                  boxShadow: syncOn ? `0 0 4px ${C.grn}` : "none",
                   transition:"background 0.3s, box-shadow 0.3s",
                 }} />
               </div>
-            )
-          )}
+            );
+          })()}
 
           {/* 제목/키 — 항상 중앙 표시 (좁은 화면은 1줄로) */}
           <div style={{ flex:1, minWidth:0, textAlign:"center", overflow:"hidden" }}>
