@@ -6541,6 +6541,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             "teamPointer.songId": selectedSongId,
             "teamPointer.strokes": [], "teamPointer.live": null,
           }).catch(() => {});
+          // 기존 sheetSync 채널로 팀원들을 현재 악보로 즉시 이동 (검증된 경로)
+          if (selectedSvcId && selectedSongId) {
+            const songIdx = svcSongs.findIndex(s => s?.id === selectedSongId);
+            setDoc(doc(db, "liveStatus", "sheetSync"), {
+              svcId: selectedSvcId,
+              songId: selectedSongId,
+              songIdx: songIdx >= 0 ? songIdx : 0,
+              allowedParts: pointerParts.includes("밴드") ? null : pointerParts,
+              linkEnabled: true,
+              updatedAt: serverTimestamp(),
+            }).catch(() => {});
+          }
         };
         return (
           <div style={{
