@@ -2249,27 +2249,31 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   }, [svc?.teamPointer?.strokes, svc?.teamPointer?.live, svc?.teamPointer?.on, svc?.teamPointer?.songId, svc?.teamPointer?.page, leader, selectedSongId]);
 
   // 포인터 켜진 동안 리더 악보 이동 → 즉시 sheetSync로 팀원 동기화
+  // 듀얼 모드에서는 selectedSongId가 고정되므로 dualLeftSongId(dualIdx 연동)도 감시
   useEffect(() => {
     if (!pointerOn || (!leader && user?.role !== "admin")) return;
-    if (!selectedSvcId || !selectedSongId || !svc?.id) return;
-    pointerActiveSongRef.current = selectedSongId;
+    // 듀얼 모드: dualLeftSongId(=svcSongs[dualIdx]?.id) 우선 사용
+    const currentSongId = (dual && dualLeftSongId) ? dualLeftSongId : selectedSongId;
+    if (!selectedSvcId || !currentSongId || !svc?.id) return;
+    pointerActiveSongRef.current = currentSongId;
     pointerActiveSideRef.current = 1;
-    pointerStrokesRef.current = []; // 곡 바뀌면 이전 스트로크 초기화
+    pointerStrokesRef.current = [];
     [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => { if (r?.current) drawPointerStrokes(r.current, [], null); });
-    const songIdx = svcSongs.findIndex(s => s?.id === selectedSongId);
+    const songIdx = svcSongs.findIndex(s => s?.id === currentSongId);
     setDoc(doc(db, "liveStatus", "sheetSync"), {
-      svcId: selectedSvcId, songId: selectedSongId,
+      svcId: selectedSvcId, songId: currentSongId,
       songIdx: songIdx >= 0 ? songIdx : 0,
       allowedParts: pointerParts.includes("밴드") ? null : pointerParts,
       pointerSync: true, linkEnabled: true,
       updatedAt: serverTimestamp(),
     }).catch(() => {});
     updateDoc(doc(db, "services", svc.id), {
-      "teamPointer.songId": selectedSongId,
+      "teamPointer.songId": currentSongId,
       "teamPointer.strokes": [], "teamPointer.live": null,
     }).catch(() => {});
+  // dualLeftSongId: dualIdx 바뀔 때마다 변경됨 → 듀얼 모드 곡 이동 감지
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSongId, pointerOn]);
+  }, [dualLeftSongId, selectedSongId, pointerOn]);
 
   // keep drawModeRef in sync for non-reactive listeners
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
