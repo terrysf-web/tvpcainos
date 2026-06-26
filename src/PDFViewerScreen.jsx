@@ -2164,7 +2164,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         }).catch(() => {});
       }
     } else if (newSide === 1) {
-      pointerActiveSongRef.current = selectedSongId;
+      pointerActiveSongRef.current = (dual && dualLeftSongId) ? dualLeftSongId : selectedSongId;
     }
     const pt = getCanvasPt(e, canvasRef.current);
     pointerCurPtsRef.current = [pt];
@@ -2197,14 +2197,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     // 그린 쪽 캔버스에만 표시 (듀얼에서 반대쪽에 중복 표시 방지)
     const activeCanvas = pointerActiveSideRef.current === 2 ? pointerCanvas2Ref : pointerCanvas1Ref;
     if (activeCanvas.current) drawPointerStrokes(activeCanvas.current, pointerStrokesRef.current, null);
-    // 듀얼에서 오른쪽에 그린 경우 dualRightSongId 사용
-    const activeSongId = pointerActiveSideRef.current === 2 ? (dualRightSongId || selectedSongId) : selectedSongId;
+    // pointerActiveSongRef: useEffect(좌)/penDown(우 전환)에서 항상 현재 그리는 곡으로 유지됨
+    // 듀얼에서 selectedSongId는 진입 시 고정이라 사용 불가 → ref가 정답
+    const activeSongId = pointerActiveSongRef.current || selectedSongId;
+    // 듀얼에서는 활성 사이드의 실제 PDF 페이지, 싱글에서는 현재 pageNum
+    const activePage = dual
+      ? (pointerActiveSideRef.current === 2 ? dualRightPage : dualLeftPage)
+      : pageNum;
     // songId + page를 매번 써서 팀원들이 리더 위치로 동기화
     if (svc?.id) updateDoc(doc(db, "services", svc.id), {
       "teamPointer.strokes": pointerStrokesRef.current,
       "teamPointer.live": null,
       "teamPointer.songId": activeSongId,
-      "teamPointer.page": pageNum,
+      "teamPointer.page": activePage,
       "teamPointer.updatedAt": Date.now(),
     }).catch(() => {});
     schedulePointerClear();
