@@ -2116,8 +2116,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     updateDoc(doc(db, "services", svc.id), payload).catch(() => {});
   };
 
-  // 각 획은 그려진 시점(ts)부터 3초 후 개별 소멸 (전체 동시 삭제 X)
-  const PTR_STROKE_LIFE = 3000;
+  // 각 획은 그려진 시점(ts)부터 1.5초 후 개별 소멸 (전체 동시 삭제 X)
+  const PTR_STROKE_LIFE = 1500;
   const schedulePointerClear = () => {
     if (pointerClearTimerRef.current) return; // 이미 가동 중
     pointerClearTimerRef.current = setInterval(() => {
