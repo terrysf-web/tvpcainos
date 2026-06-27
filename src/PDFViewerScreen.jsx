@@ -6765,6 +6765,26 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         );
       })()}
 
+      {/* 소스 — 포인터 켠 동안 곡 이동 버튼 (손가락 스와이프가 그리기와 충돌하므로 버튼으로 이동) */}
+      {(leader || user?.role === "admin") && pointerOn && !isLibraryMode && (
+        <>
+          <button onClick={() => triggerSwipe(1)} aria-label="이전 곡" style={{
+            position:"fixed", top:"50%", left:6, transform:"translateY(-50%)",
+            width:44, height:44, borderRadius:"50%", zIndex:600,
+            background:"rgba(28,60,136,0.82)", color:"#fff", border:"none",
+            fontSize:20, fontWeight:800, cursor:"pointer", fontFamily:"inherit",
+            boxShadow:"0 2px 10px rgba(0,0,0,.3)",
+          }}>‹</button>
+          <button onClick={() => triggerSwipe(-1)} aria-label="다음 곡" style={{
+            position:"fixed", top:"50%", right:6, transform:"translateY(-50%)",
+            width:44, height:44, borderRadius:"50%", zIndex:600,
+            background:"rgba(28,60,136,0.82)", color:"#fff", border:"none",
+            fontSize:20, fontWeight:800, cursor:"pointer", fontFamily:"inherit",
+            boxShadow:"0 2px 10px rgba(0,0,0,.3)",
+          }}>›</button>
+        </>
+      )}
+
       {/* 팀원 — 포인터 활성 배너 */}
       {!leader && user?.role !== "admin" && svc?.teamPointer?.on && (
         <div style={{
