@@ -1831,6 +1831,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [pointerOn,          setPointerOn]          = useState(false);
   const [showPointerPanel,   setShowPointerPanel]   = useState(false);
   const [pointerParts,       setPointerParts]       = useState([]);
+  const [pointerDbg,         setPointerDbg]         = useState(""); // 임시 디버그 HUD
   const pointerCanvas1Ref    = useRef(null);
   const pointerCanvas2Ref    = useRef(null);
   const pointerStrokesRef    = useRef([]);   // 완성된 획들
@@ -2132,6 +2133,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // Apple Pencil(pen) + 마우스(노트북) 허용 — 손가락 터치만 무시해 스와이프 네비게이션 유지
   const handlePointerPenDown = (e, canvasRef) => {
+    setPointerDbg(`DOWN type=${e.pointerType} on=${pointerOn} ref=${!!canvasRef.current} w=${canvasRef.current?.width||0} dual=${dual}`);
     if (!pointerOn || !canvasRef.current) return;
     if (e.pointerType === "touch") return;
     e.preventDefault();
@@ -6761,6 +6763,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           </div>
         );
       })()}
+
+      {/* 임시 디버그 HUD — 포인터 입력 진단용 */}
+      {(leader || user?.role === "admin") && pointerOn && (
+        <div style={{
+          position:"fixed", bottom:"calc(env(safe-area-inset-bottom) + 8px)", left:8,
+          background:"rgba(0,0,0,0.8)", color:"#0f0", padding:"4px 8px", borderRadius:6,
+          fontSize:10, fontFamily:"monospace", zIndex:99999, pointerEvents:"none", maxWidth:"90vw",
+        }}>
+          PTR: {pointerDbg || "(펜을 대보세요)"}
+        </div>
+      )}
 
       {/* 팀원 — 포인터 활성 배너 */}
       {!leader && user?.role !== "admin" && svc?.teamPointer?.on && (
