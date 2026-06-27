@@ -2130,10 +2130,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }, 3000);
   };
 
-  // Apple Pencil(pen)만 처리 — 손가락 터치는 무시해서 스와이프 네비게이션 유지
+  // Apple Pencil(pen) + 마우스(노트북) 허용 — 손가락 터치만 무시해 스와이프 네비게이션 유지
   const handlePointerPenDown = (e, canvasRef) => {
     if (!pointerOn || !canvasRef.current) return;
-    if (e.pointerType !== "pen") return;
+    if (e.pointerType === "touch") return;
     e.preventDefault();
     const newSide = canvasRef === pointerCanvas2Ref ? 2 : 1;
     const newSongId = newSide === 2 ? (dualRightSongId || selectedSongId) : selectedSongId;
@@ -2178,7 +2178,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
 
   const handlePointerPenMove = (e, canvasRef) => {
-    if (e.pointerType !== "pen" || !pointerDownRef.current || !canvasRef.current) return;
+    if (e.pointerType === "touch" || !pointerDownRef.current || !canvasRef.current) return;
     e.preventDefault();
     const pt = getCanvasPt(e, canvasRef.current);
     pointerCurPtsRef.current.push(pt);
@@ -2186,7 +2186,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
 
   const handlePointerPenUp = (e, canvasRef) => {
-    if (e.pointerType !== "pen" || !pointerDownRef.current) return;
+    if (e.pointerType === "touch" || !pointerDownRef.current) return;
     clearInterval(pointerWriteTimerRef.current);
     pointerDownRef.current = false;
     const pts = pointerCurPtsRef.current;
