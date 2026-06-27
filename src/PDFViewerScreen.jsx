@@ -2116,18 +2116,28 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     updateDoc(doc(db, "services", svc.id), payload).catch(() => {});
   };
 
+  // 각 획은 그려진 시점(ts)부터 3초 후 개별 소멸 (전체 동시 삭제 X)
+  const PTR_STROKE_LIFE = 3000;
   const schedulePointerClear = () => {
-    clearTimeout(pointerClearTimerRef.current);
-    pointerClearTimerRef.current = setTimeout(() => {
-      pointerStrokesRef.current = [];
-      pointerLiveRef.current = null;
-      [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => {
-        if (r.current) drawPointerStrokes(r.current, [], null);
-      });
-      if (svc?.id) updateDoc(doc(db, "services", svc.id), {
-        "teamPointer.strokes": [], "teamPointer.live": null
-      }).catch(() => {});
-    }, 3000);
+    if (pointerClearTimerRef.current) return; // 이미 가동 중
+    pointerClearTimerRef.current = setInterval(() => {
+      const now = Date.now();
+      const before = pointerStrokesRef.current.length;
+      pointerStrokesRef.current = pointerStrokesRef.current.filter(s => now - (s.ts || 0) < PTR_STROKE_LIFE);
+      if (pointerStrokesRef.current.length !== before) {
+        const c = pointerActiveSideRef.current === 2 ? pointerCanvas2Ref : pointerCanvas1Ref;
+        const live = pointerDownRef.current ? { pts: pointerCurPtsRef.current } : null;
+        if (c.current) drawPointerStrokes(c.current, pointerStrokesRef.current, live);
+        if (svc?.id) updateDoc(doc(db, "services", svc.id), {
+          "teamPointer.strokes": pointerStrokesRef.current
+        }).catch(() => {});
+      }
+      // 더 지울 게 없고 그리는 중도 아니면 인터벌 정지
+      if (pointerStrokesRef.current.length === 0 && !pointerDownRef.current) {
+        clearInterval(pointerClearTimerRef.current);
+        pointerClearTimerRef.current = null;
+      }
+    }, 250);
   };
 
   // Apple Pencil(pen) + 마우스만 허용 — 손가락 터치는 무시해 스와이프 네비게이션 유지
@@ -2175,7 +2185,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const pt = getCanvasPt(e, canvasRef.current);
     pointerCurPtsRef.current = [pt];
     pointerDownRef.current = true;
-    clearTimeout(pointerClearTimerRef.current);
     clearInterval(pointerWriteTimerRef.current);
     pointerWriteTimerRef.current = setInterval(() => {
       if (pointerCurPtsRef.current.length > 0)
