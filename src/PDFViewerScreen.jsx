@@ -2136,6 +2136,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (e.pointerType === "touch") return;
     e.preventDefault();
     const newSide = canvasRef === pointerCanvas2Ref ? 2 : 1;
+    // 안전장치: 표시 캔버스가 아직 크기 0이면 PDF 캔버스 크기로 맞춤 (안 그러면 drawPointerStrokes가 무시됨)
+    const baseCanvas = newSide === 2 ? canvas2Ref.current : canvas1Ref.current;
+    if (canvasRef.current && baseCanvas?.width && !canvasRef.current.width) {
+      canvasRef.current.width  = baseCanvas.width;
+      canvasRef.current.height = baseCanvas.height;
+    }
     const newSongId = newSide === 2 ? (dualRightSongId || selectedSongId) : selectedSongId;
     // 사이드 전환 시 반대쪽 스트로크 clear (혼합 방지)
     if (newSide !== pointerActiveSideRef.current) {
@@ -5718,7 +5724,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       {(leader || user?.role === "admin") && pointerOn && (
                         <canvas style={{
                           position:"absolute", top:0, left:0, width:"100%", height:"100%",
-                          borderRadius:4, touchAction:"auto", pointerEvents:"auto",
+                          borderRadius:4, touchAction:"none", pointerEvents:"auto",
                           cursor:"crosshair",
                         }}
                           onPointerDown={e => handlePointerPenDown(e, pointerCanvas1Ref)}
@@ -5898,7 +5904,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       {(leader || user?.role === "admin") && pointerOn && (
                         <canvas style={{
                           position:"absolute", top:0, left:0, width:"100%", height:"100%",
-                          borderRadius:4, touchAction:"auto", pointerEvents:"auto",
+                          borderRadius:4, touchAction:"none", pointerEvents:"auto",
                           cursor:"crosshair",
                         }}
                           onPointerDown={e => handlePointerPenDown(e, pointerCanvas1Ref)}
