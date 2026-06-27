@@ -3214,16 +3214,20 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           pointerCanvas2Ref.current.width  = canvas2Ref.current.width;
           pointerCanvas2Ref.current.height = canvas2Ref.current.height;
         }
-        // 스트로크는 활성 곡과 일치하는 한쪽 패널에만 렌더 (양쪽 중복 표시 방지)
+        // 스트로크 렌더 (양쪽 중복 표시 방지)
         if (pointerStrokesRef.current.length > 0) {
-          // 포인터를 직접 켠 본인(pointerOn)만 pointerActiveSongRef 사용,
-          // 그 외(리더/어드민 포함 모든 수신자)는 svc.teamPointer.songId 기준 — 안 그러면
-          // 비소스 리더는 ref가 null이라 renderPage가 클리어만 하고 팀 포인터가 지워짐
-          const activeSong = pointerOn ? pointerActiveSongRef.current : svc?.teamPointer?.songId;
-          if (activeSong === dualLeftSongId && pointerCanvas1Ref.current)
-            drawPointerStrokes(pointerCanvas1Ref.current, pointerStrokesRef.current, pointerLiveRef.current);
-          else if (activeSong === dualRightSongId && pointerCanvas2Ref.current)
-            drawPointerStrokes(pointerCanvas2Ref.current, pointerStrokesRef.current, pointerLiveRef.current);
+          if (pointerOn) {
+            // 소스(그리는 본인): songId 매칭 대신 그리는 사이드 기준 — 항상 그려짐
+            const c = pointerActiveSideRef.current === 2 ? pointerCanvas2Ref : pointerCanvas1Ref;
+            if (c.current) drawPointerStrokes(c.current, pointerStrokesRef.current, pointerLiveRef.current);
+          } else {
+            // 수신자: teamPointer.songId가 일치하는 쪽에만
+            const activeSong = svc?.teamPointer?.songId;
+            if (activeSong === dualLeftSongId && pointerCanvas1Ref.current)
+              drawPointerStrokes(pointerCanvas1Ref.current, pointerStrokesRef.current, pointerLiveRef.current);
+            else if (activeSong === dualRightSongId && pointerCanvas2Ref.current)
+              drawPointerStrokes(pointerCanvas2Ref.current, pointerStrokesRef.current, pointerLiveRef.current);
+          }
         }
         // 듀얼 FIT 모드: 새 곡 쌍이 렌더된 직후 좌/우 양쪽 분석 후 재적용
         if (needsFitRef.current) {
@@ -6669,7 +6673,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           setShowPointerPanel(false);
           pointerStrokesRef.current = [];
           pointerActiveSideRef.current = 1;
-          pointerActiveSongRef.current = selectedSongId;
+          pointerActiveSongRef.current = (dual && dualLeftSongId) ? dualLeftSongId : selectedSongId;
           [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => { if (r.current) drawPointerStrokes(r.current, [], null); });
           if (svc?.id) updateDoc(doc(db, "services", svc.id), {
             "teamPointer.on": true,
