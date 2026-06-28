@@ -386,6 +386,9 @@ function roundedRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+/* 지우개 크기: 화면(캔버스) 너비 대비 비율 — S/M/L 간격을 크게 벌림 */
+const eraserFrac = (w) => (w >= 4 ? 0.12 : w >= 2 ? 0.06 : 0.028);
+
 /* ── Canvas drawing utility (module-level, pure) */
 function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
   if (!canvas || !canvas.width || !canvas.height) return;
@@ -523,7 +526,7 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
       ctx.globalCompositeOperation = "destination-out";
       ctx.strokeStyle = "rgba(0,0,0,1)";
       ctx.fillStyle   = "rgba(0,0,0,1)";
-      ctx.lineWidth   = Math.max(4, s.width * canvas.width / 90);
+      ctx.lineWidth   = Math.max(10, canvas.width * eraserFrac(s.width));
       ctx.lineCap     = "round";
       ctx.lineJoin    = "round";
     } else if (isHighlight) {
@@ -2310,6 +2313,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
   const cropDown = (e, side) => {
     e.preventDefault(); e.stopPropagation();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
     const p = cropPt(e, side); if (!p) return;
     cropStartRef.current = p; cropSideRef.current = side;
     setCropRect({ x0:p.x, y0:p.y, x1:p.x, y1:p.y });
@@ -3894,7 +3898,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (drawTool !== "eraser" || !canvasEl) { setEraserCursor(c => c ? null : c); return; }
     const r = canvasEl.getBoundingClientRect();
     if (!r.width) return;
-    const d = Math.max(12, drawWidth * r.width / 90); // drawStrokes의 지우개 폭과 동일 비율
+    const d = Math.max(14, r.width * eraserFrac(drawWidth)); // drawStrokes의 지우개 폭과 동일 비율
     setEraserCursor({ x: e.clientX, y: e.clientY, d });
   };
   const clearEraserCursor = () => setEraserCursor(c => c ? null : c);
@@ -6838,6 +6842,20 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
       {showMobileHelp && <HelpModal onClose={() => setShowMobileHelp(false)} />}
 
+
+      {/* 크롭 모드 안내 배너 */}
+      {cropMode && (
+        <div style={{
+          position:"fixed", top:"calc(env(safe-area-inset-top) + 60px)",
+          left:"50%", transform:"translateX(-50%)",
+          background:"rgba(28,60,136,0.92)", color:"#fff",
+          padding:"6px 16px", borderRadius:20,
+          fontSize:12, fontWeight:700, zIndex:99999, pointerEvents:"none",
+          whiteSpace:"nowrap", boxShadow:"0 2px 10px rgba(0,0,0,.3)",
+        }}>
+          ✂️ 복사할 영역을 드래그하세요 (취소: 크롭복사 다시 누르기)
+        </div>
+      )}
 
       {/* Goodnotes 스타일 지우개 원형 표시 */}
       {eraserCursor && drawMode && drawTool === "eraser" && (
