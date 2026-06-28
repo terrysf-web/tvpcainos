@@ -2521,7 +2521,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                           display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
                                         }}>×</button>
                                       </div>
-                                      <div style={{ fontSize:12, fontWeight:700, color:"#3c3c43", lineHeight:1.5, overflowWrap:"break-word", wordBreak:"keep-all" }}>{cue.text}</div>
+                                      <div style={{ fontSize:12, fontWeight:700, color:"#3c3c43", lineHeight:1.5, overflowWrap:"anywhere", whiteSpace:"pre-wrap" }}>{cue.text}</div>
                                     </div>
                                   ))}
                                 </div>
