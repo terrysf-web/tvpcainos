@@ -5031,7 +5031,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                   transform: isDragging ? `translateY(${dy}px)` : "none",
                   transition: isDragging ? "none" : "transform 0.15s",
                   opacity: isDragging ? 0.88 : 1, zIndex: isDragging ? 20 : 1,
-                  position:"relative", touchAction:"none",
+                  position:"relative", touchAction:"pan-y",
                 }}>
                   <>
                     <div style={{ display:"flex", alignItems:"center", gap:10 }}>
