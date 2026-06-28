@@ -612,30 +612,40 @@ function drawPointerStrokes(canvas, strokes, live = null) {
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const all = live ? [...strokes, live] : strokes;
+  const baseW = Math.max(2, canvas.width / 150);
   for (const s of all) {
-    const pts = (s.pts || []).map(p => [p.x * canvas.width, p.y * canvas.height]);
-    if (pts.length < 1) continue;
+    const raw = s.pts || [];
+    if (raw.length < 1) continue;
+    const pts = raw.map(p => ({ x: p.x * canvas.width, y: p.y * canvas.height, p: p.p ?? 0 }));
     ctx.save();
-    ctx.shadowColor = "rgba(231,76,60,0.6)";
-    ctx.shadowBlur = 7;
+    ctx.shadowColor = "rgba(231,76,60,0.5)";
+    ctx.shadowBlur = 5;
     ctx.strokeStyle = "#e74c3c";
     ctx.fillStyle   = "#e74c3c";
-    ctx.lineWidth   = Math.max(2, canvas.width / 160);
     ctx.lineCap  = "round";
     ctx.lineJoin = "round";
     ctx.globalAlpha = s.alpha ?? 1;
-    ctx.beginPath();
     if (pts.length === 1) {
-      ctx.arc(pts[0][0], pts[0][1], ctx.lineWidth, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      for (let i = 1; i < pts.length - 1; i++) {
-        const mx = (pts[i][0] + pts[i+1][0]) / 2;
-        const my = (pts[i][1] + pts[i+1][1]) / 2;
-        ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
-      }
-      ctx.lineTo(pts[pts.length-1][0], pts[pts.length-1][1]);
+      const w = baseW * (pts[0].p > 0 ? (0.5 + pts[0].p) : 1);
+      ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, Math.max(1.5, w/2), 0, Math.PI*2); ctx.fill();
+      ctx.restore(); continue;
+    }
+    // 만년필 스타일: 점별 폭 (필압 우선, 없으면 속도 — 빠르면 얇고 느리면 두껍게)
+    const widths = pts.map((pt, i) => {
+      if (pt.p > 0) return baseW * (0.35 + pt.p * 1.4);
+      const prev = pts[i-1] || pt;
+      const d = Math.hypot(pt.x - prev.x, pt.y - prev.y);
+      const sp = d / (canvas.width * 0.03);
+      return baseW * Math.max(0.45, Math.min(1.5, 1.4 - sp));
+    });
+    // 폭 스무딩 (이웃 가중 평균)
+    const sw = widths.map((w, i) => ((widths[i-1] ?? w) + w*2 + (widths[i+1] ?? w)) / 4);
+    // 세그먼트별 가변 폭
+    for (let i = 1; i < pts.length; i++) {
+      ctx.beginPath();
+      ctx.lineWidth = Math.max(1, (sw[i-1] + sw[i]) / 2);
+      ctx.moveTo(pts[i-1].x, pts[i-1].y);
+      ctx.lineTo(pts[i].x, pts[i].y);
       ctx.stroke();
     }
     ctx.restore();
@@ -2212,7 +2222,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         }).catch(() => {});
       }
     }
-    const pt = getCanvasPt(e, canvasRef.current);
+    const pt = { ...getCanvasPt(e, canvasRef.current), p: e.pointerType === "pen" ? (e.pressure || 0) : 0 };
     pointerCurPtsRef.current = [pt];
     pointerDownRef.current = true;
     clearTimeout(pointerClearTimerRef.current); // 새 획 시작 시 일괄 삭제 타이머 리셋
@@ -2226,7 +2236,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const handlePointerPenMove = (e, canvasRef) => {
     if (e.pointerType === "touch" || !pointerDownRef.current || !canvasRef.current) return;
     e.preventDefault();
-    const pt = getCanvasPt(e, canvasRef.current);
+    const pt = { ...getCanvasPt(e, canvasRef.current), p: e.pointerType === "pen" ? (e.pressure || 0) : 0 };
     pointerCurPtsRef.current.push(pt);
     drawPointerStrokes(canvasRef.current, pointerStrokesRef.current, { pts: pointerCurPtsRef.current });
   };
