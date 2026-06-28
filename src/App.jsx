@@ -1870,6 +1870,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [fohFollowTarget, setFohFollowTarget] = useState("키보드"); // 예배순서 자동감지 대상 악기
   const [pp7AutoOn,    setPp7AutoOn]    = useState(false);
   const [pp7ConnSt,    setPp7ConnSt]    = useState("idle"); // "idle"|"ok"|"err"
+  // ProPresenter IP:포트 — 교회/네트워크마다 달라 설정에서 변경 (기본 192.168.1.21:5443)
+  const [pp7Host,      setPp7Host]      = useState(() => localStorage.getItem("tvpc_pp7Host") || "192.168.1.21:5443");
   const teamChatEndRef = useRef(null);
   const autoNavDone  = useRef(false);
   const phaseFiredRef = useRef({});
@@ -1992,7 +1994,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   }, [showTeamChat, fohCardTab, teamChatMsgs.length]);
 
   // PP7 자동감지 폴링
-  const PP7_BASE = "https://192.168.1.21:5443";
+  const PP7_BASE = `https://${pp7Host}`;
   useEffect(() => {
     if (!pp7AutoOn || !isFoh(user)) return;
     let timer;
@@ -2053,7 +2055,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
     setPp7ConnSt("idle");
     poll();
     return () => clearTimeout(timer);
-  }, [pp7AutoOn, user?.uid]);
+  }, [pp7AutoOn, user?.uid, pp7Host]); // pp7Host 바뀌면 새 주소로 재연결
 
   // T-0 도달 시 첫 번째 악보로 자동이동 — tick 내부에서 직접 호출
 
@@ -2547,11 +2549,26 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           border:`1.5px solid ${pp7AutoOn ? C.pur : "transparent"}`,
                           borderRadius:20, padding:"3px 10px", cursor:"pointer", fontFamily:"inherit", flexShrink:0,
                         }}>PP7</button>
+                        <input
+                          value={pp7Host}
+                          onChange={e => { const v = e.target.value.trim(); setPp7Host(v); localStorage.setItem("tvpc_pp7Host", v); }}
+                          placeholder="192.168.1.21:5443"
+                          spellCheck={false} autoCapitalize="off" autoCorrect="off"
+                          style={{ width:130, flexShrink:0, fontSize:10, fontFamily:"monospace",
+                            padding:"3px 7px", borderRadius:7, border:`1px solid ${C.pur}44`,
+                            background:C.card, color:C.txt, outline:"none" }}
+                        />
                         {pp7AutoOn && (
                           <span style={{ fontSize:10, fontWeight:600,
                             color: pp7ConnSt === "ok" ? "#22c55e" : pp7ConnSt === "err" ? C.red : C.dim }}>
                             {pp7ConnSt === "ok" ? "● 연결됨" : pp7ConnSt === "err" ? "● 연결 실패" : "● 연결 중..."}
                           </span>
+                        )}
+                        {pp7ConnSt === "err" && (
+                          <a href={`https://${pp7Host}/v1/status/slide`} target="_blank" rel="noreferrer"
+                            style={{ fontSize:10, fontWeight:700, color:C.pur, textDecoration:"underline", flexShrink:0, whiteSpace:"nowrap" }}>
+                            인증서 허용
+                          </a>
                         )}
                       </div>
                     </div>
