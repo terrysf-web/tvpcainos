@@ -8473,30 +8473,9 @@ export default function App() {
     return () => { try { document.head.removeChild(el); } catch(_) {} };
   }, []);
 
-  // ── 예배 시작 10분 전 자동 라이브 모드 활성화
-  useEffect(() => {
-    if (!user || !services.length) return;
-    if (user.role !== "admin" && !isLeader(user.role)) return;
-    if (view === "pdfViewer") return;
-    const check = () => {
-      const now = new Date();
-      const today = localDateStr(now);
-      const nowMin = now.getHours() * 60 + now.getMinutes();
-      const upcoming = services.find(svc => {
-        if (svc.date !== today || !svc.time) return false;
-        const [h, m] = svc.time.split(":").map(Number);
-        const svcMin = h * 60 + m;
-        return nowMin >= svcMin - 10 && nowMin <= svcMin + 120;
-      });
-      if (!upcoming || autoLiveTriggeredRef.current === upcoming.id) return;
-      autoLiveTriggeredRef.current = upcoming.id;
-      setView("live");
-      localStorage.setItem("tvpc_view", "live");
-    };
-    check();
-    const id = setInterval(check, 60000);
-    return () => clearInterval(id);
-  }, [user?.role, user?.uid, services, view]);
+  // ── 예배 시간 자동 LIVE 화면 전환 — 비활성화 (요청: 11시 등 예배 시간에 자동으로 뜨지 않게)
+  // FOH/어드민은 예배 대시보드(foh)에서 모두 처리하므로 별도 LIVE 화면 자동 전환 불필요.
+  // (필요 시 수동 진입 버튼을 추가할 수 있음)
 
   // ── 예배 시작 1시간 후 결단 악보 자동 전환 (FOH·어드민 제외)
   useEffect(() => {
