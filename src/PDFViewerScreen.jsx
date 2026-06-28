@@ -555,19 +555,40 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
       ctx.lineJoin    = "round";
     }
     const pts = s.points.map(p => [p.x * canvas.width, p.y * canvas.height]);
-    ctx.beginPath();
-    if (pts.length === 1) {
-      ctx.arc(pts[0][0], pts[0][1], ctx.lineWidth / 2, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      for (let i = 1; i < pts.length - 1; i++) {
-        const mx = (pts[i][0] + pts[i + 1][0]) / 2;
-        const my = (pts[i][1] + pts[i + 1][1]) / 2;
-        ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+    const isPen = s.tool === "pen" || s.tool == null;
+    if (isPen && pts.length > 1) {
+      // 만년필 스타일: 필압 우선, 없으면 속도 기반 가변 폭 (세그먼트별)
+      const widths = pts.map((pt, i) => {
+        const pr = s.points[i]?.p ?? 0;
+        if (pr > 0) return lw * (0.4 + pr * 1.6);
+        const prev = pts[i-1] || pt;
+        const d = Math.hypot(pt[0]-prev[0], pt[1]-prev[1]);
+        const sp = d / (canvas.width * 0.022);
+        return lw * Math.max(0.4, Math.min(1.7, 1.45 - sp));
+      });
+      const sw = widths.map((w, i) => ((widths[i-1] ?? w) + w*2 + (widths[i+1] ?? w)) / 4);
+      for (let i = 1; i < pts.length; i++) {
+        ctx.beginPath();
+        ctx.lineWidth = Math.max(0.4, (sw[i-1] + sw[i]) / 2);
+        ctx.moveTo(pts[i-1][0], pts[i-1][1]);
+        ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.stroke();
       }
-      ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
-      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      if (pts.length === 1) {
+        ctx.arc(pts[0][0], pts[0][1], ctx.lineWidth / 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length - 1; i++) {
+          const mx = (pts[i][0] + pts[i + 1][0]) / 2;
+          const my = (pts[i][1] + pts[i + 1][1]) / 2;
+          ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+        }
+        ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+        ctx.stroke();
+      }
     }
     ctx.restore();
   }
@@ -1935,6 +1956,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const strokes2Ref     = useRef([]);
   const curStroke1Ref   = useRef(null);
   const curStroke2Ref   = useRef(null);
+  const drawRafRef      = useRef(0); // 필기 라이브 렌더 rAF 스로틀
   const lastSideRef     = useRef(1);     // last drawn side for undo
   const drawModeRef     = useRef(false);
   const preClearRef1    = useRef(null);  // snapshot before 필기 삭제 (side 1)
@@ -3968,6 +3990,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (!r.width || !r.height) return { x: 0, y: 0 };
     return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
   };
+  // 만년필용 — 필압 포함 점 (펜이면 e.pressure, 아니면 0 → 렌더에서 속도 기반)
+  const getDrawPt = (e, canvas) => ({ ...getCanvasPt(e, canvas), p: e.pointerType === "pen" ? (e.pressure || 0) : 0 });
 
   const TEAM_COLOR = "#347C17";
   const activeColor = teamDrawMode ? TEAM_COLOR : drawColor;
@@ -4062,7 +4086,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     isDrawing1Ref.current = true;
-    curStroke1Ref.current = { ...makeStroke(), points: [getCanvasPt(e, canvas)] };
+    curStroke1Ref.current = { ...makeStroke(), points: [getDrawPt(e, canvas)] };
     { const rc = teamDrawMode && teamDrawCanvas1Ref.current ? teamDrawCanvas1Ref.current : canvas;
       drawStrokes(rc, teamDrawMode ? teamStrokes1Ref.current : strokes1Ref.current, curStroke1Ref.current); }
   };
@@ -4110,9 +4134,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (!isDrawing1Ref.current || !curStroke1Ref.current) return;
-    curStroke1Ref.current.points.push(getCanvasPt(e, canvas));
-    { const rc = teamDrawMode && teamDrawCanvas1Ref.current ? teamDrawCanvas1Ref.current : canvas;
-      drawStrokes(rc, teamDrawMode ? teamStrokes1Ref.current : strokes1Ref.current, curStroke1Ref.current); }
+    curStroke1Ref.current.points.push(getDrawPt(e, canvas));
+    if (!drawRafRef.current) {
+      drawRafRef.current = requestAnimationFrame(() => {
+        drawRafRef.current = 0;
+        const rc = teamDrawMode && teamDrawCanvas1Ref.current ? teamDrawCanvas1Ref.current : canvas;
+        drawStrokes(rc, teamDrawMode ? teamStrokes1Ref.current : strokes1Ref.current, curStroke1Ref.current);
+      });
+    }
   };
   const handleDraw1Up = async (e) => {
     if (drawTool === "eraser") clearEraserCursor();
@@ -4284,7 +4313,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     isDrawing2Ref.current = true;
-    curStroke2Ref.current = { ...makeStroke(), points: [getCanvasPt(e, canvas)] };
+    curStroke2Ref.current = { ...makeStroke(), points: [getDrawPt(e, canvas)] };
     { const rc = teamDrawMode && teamDrawCanvas2Ref.current ? teamDrawCanvas2Ref.current : canvas;
       drawStrokes(rc, teamDrawMode ? teamStrokes2Ref.current : strokes2Ref.current, curStroke2Ref.current); }
   };
@@ -4332,9 +4361,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (!isDrawing2Ref.current || !curStroke2Ref.current) return;
-    curStroke2Ref.current.points.push(getCanvasPt(e, canvas));
-    { const rc = teamDrawMode && teamDrawCanvas2Ref.current ? teamDrawCanvas2Ref.current : canvas;
-      drawStrokes(rc, teamDrawMode ? teamStrokes2Ref.current : strokes2Ref.current, curStroke2Ref.current); }
+    curStroke2Ref.current.points.push(getDrawPt(e, canvas));
+    if (!drawRafRef.current) {
+      drawRafRef.current = requestAnimationFrame(() => {
+        drawRafRef.current = 0;
+        const rc = teamDrawMode && teamDrawCanvas2Ref.current ? teamDrawCanvas2Ref.current : canvas;
+        drawStrokes(rc, teamDrawMode ? teamStrokes2Ref.current : strokes2Ref.current, curStroke2Ref.current);
+      });
+    }
   };
   const handleDraw2Up = async (e) => {
     if (drawTool === "eraser") clearEraserCursor();
