@@ -2248,7 +2248,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     pointerWriteTimerRef.current = setInterval(() => {
       if (pointerCurPtsRef.current.length > 0)
         pointerWriteStrokes(pointerStrokesRef.current, { pts: pointerCurPtsRef.current });
-    }, 150);
+    }, 250); // 비용 절감: 라이브 전송 150ms→250ms (수신자 체감 차이 거의 없음)
   };
 
   const handlePointerPenMove = (e, canvasRef) => {
