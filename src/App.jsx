@@ -2402,14 +2402,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   </div>
                   )}
 
-                  {/* 예배종료 카드 */}
-                  {worshipEnded && (
-                    <div style={{ flexShrink:0, borderRadius:12, padding:"10px 16px", textAlign:"center",
-                      background:`linear-gradient(135deg, ${C.dim}12, ${C.dim}06)`, border:`2px solid ${C.dim}33` }}>
-                      <div style={{ fontSize:16, marginBottom:2 }}>🙏</div>
-                      <div style={{ fontSize:12, fontWeight:800, color:C.dim }}>예배종료</div>
-                    </div>
-                  )}
+                  {/* 예배종료 카드 제거 — worshipEnded가 예배 시작 시각에 켜져 예배 중에도 잘못 표시됨 */}
 
                   {/* X32 상태 카드 */}
                   <div style={{ flexShrink:0 }}>
