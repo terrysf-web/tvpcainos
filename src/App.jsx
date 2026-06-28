@@ -2503,7 +2503,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                           return Object.entries(grouped).map(([sec, list]) => {
                             const st = SEC_STYLES[sec] || { bg:"#fffde7", border:"#ffe082", title:"#bf360c" };
                             return (
-                              <div key={sec} style={{ background:st.bg, border:`1px solid ${st.border}`, borderRadius:10, overflow:"hidden" }}>
+                              <div key={sec} style={{ flexShrink:0, background:st.bg, border:`1px solid ${st.border}`, borderRadius:10, overflow:"hidden" }}>
                                 <div style={{ padding:"3px 10px", fontSize:10, fontWeight:800,
                                   color:st.title, letterSpacing:"0.05em", borderBottom:`1px solid ${st.border}`,
                                   background:`${st.title}10` }}>
