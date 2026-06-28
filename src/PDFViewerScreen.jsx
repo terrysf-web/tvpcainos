@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { C } from "./theme.js";
 import {
-  PARTS, VOCALIST_PART_IDS, INST_MODES, CUE_SECTIONS,
+  PARTS, VOCALIST_PART_IDS, INST_MODES,
   getUserParts, isVocalistUser,
   isLeader, isFoh,
 } from "./appUtils.js";
@@ -1782,7 +1782,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [showCueInput,  setShowCueInput]  = useState(false);
   const [cueTxt,        setCueTxt]        = useState("");
   const [cueScr,        setCueScr]        = useState("");
-  const [cueSection,    setCueSection]    = useState("전체");
+  const [cueSection,    setCueSection]    = useState("");
   const [cueEditId,     setCueEditId]     = useState(null);
   const [cueEditTxt,    setCueEditTxt]    = useState("");
   const [showPanicMenu, setShowPanicMenu] = useState(false);
@@ -2140,6 +2140,29 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }, 250);
   };
 
+  // 포인터 아이콘 토글 — 파트 선택/악보 동기화 없음.
+  // 켜면 어드민·FOH를 제외한 모든 파트가 자동으로 포인터를 봄(렌더 useEffect에서 제외 처리).
+  const togglePointer = () => {
+    const turningOn = !pointerOn;
+    setPointerOn(turningOn);
+    pointerStrokesRef.current = [];
+    pointerLiveRef.current = null;
+    [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => { if (r.current) drawPointerStrokes(r.current, [], null); });
+    if (turningOn) {
+      pointerActiveSideRef.current = 1;
+      pointerActiveSongRef.current = (dual && dualLeftSongId) ? dualLeftSongId : selectedSongId;
+      if (svc?.id) updateDoc(doc(db, "services", svc.id), {
+        "teamPointer.on": true,
+        "teamPointer.songId": pointerActiveSongRef.current,
+        "teamPointer.strokes": [], "teamPointer.live": null,
+      }).catch(() => {});
+    } else {
+      if (svc?.id) updateDoc(doc(db, "services", svc.id), {
+        "teamPointer.on": false, "teamPointer.strokes": [], "teamPointer.live": null,
+      }).catch(() => {});
+    }
+  };
+
   // Apple Pencil(pen) + 마우스만 허용 — 손가락 터치는 무시해 스와이프 네비게이션 유지
   const handlePointerPenDown = (e, canvasRef) => {
     if (!pointerOn || !canvasRef.current) return;
@@ -2230,11 +2253,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     schedulePointerClear();
   };
 
-  // 팀원: svc.teamPointer 변경 시 악보/페이지 동기화 + 캔버스 렌더링
-  // 포인터를 직접 켠 본인(pointerOn)만 제외 — 리더/어드민이라도 그리는 사람이 아니면 받아서 봐야 함
-  // (예: 키보드 담당자가 리더인데 어드민이 포인터를 쓰는 경우)
+  // 팀원: svc.teamPointer 변경 시 캔버스 렌더링
+  // 포인터를 직접 켠 본인(pointerOn) 제외 + 어드민·FOH 제외(그 외 모든 파트가 포인터를 봄)
   useEffect(() => {
     if (pointerOn) return;
+    if (user?.role === "admin" || isFoh(user)) return;
     const tp = svc?.teamPointer;
     if (!tp?.on) {
       pointerStrokesRef.current = [];
@@ -2372,24 +2395,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const dualLeftSongId  = svcSongs[dualIdx]?.id     || null;
   const dualRightSongId = svcSongs[dualIdx + 1]?.id || null;
 
-  // 포인터 켜진 동안 리더 악보 이동 → 즉시 sheetSync로 팀원 동기화
-  // 듀얼 모드에서는 selectedSongId가 고정되므로 dualLeftSongId(dualIdx 연동)도 감시
+  // 포인터 켜진 동안 소스가 악보를 넘기면 teamPointer.songId만 갱신 (악보 동기화 없음 —
+  // 같은 곡을 보고 있는 팀원에게만 포인터가 보임). 듀얼은 dualLeftSongId(dualIdx 연동)도 감시.
   useEffect(() => {
     if (!pointerOn || (!leader && user?.role !== "admin")) return;
     const currentSongId = (dual && dualLeftSongId) ? dualLeftSongId : selectedSongId;
-    if (!selectedSvcId || !currentSongId || !svc?.id) return;
+    if (!currentSongId || !svc?.id) return;
     pointerActiveSongRef.current = currentSongId;
     pointerActiveSideRef.current = 1;
     pointerStrokesRef.current = [];
     [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => { if (r?.current) drawPointerStrokes(r.current, [], null); });
-    const songIdx = svcSongs.findIndex(s => s?.id === currentSongId);
-    setDoc(doc(db, "liveStatus", "sheetSync"), {
-      svcId: selectedSvcId, songId: currentSongId,
-      songIdx: songIdx >= 0 ? songIdx : 0,
-      allowedParts: pointerParts.includes("밴드") ? null : pointerParts,
-      pointerSync: true, linkEnabled: true,
-      updatedAt: serverTimestamp(),
-    }).catch(() => {});
     updateDoc(doc(db, "services", svc.id), {
       "teamPointer.songId": currentSongId,
       "teamPointer.strokes": [], "teamPointer.live": null,
@@ -3484,19 +3499,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
 
   const triggerSwipe = (delta) => {
-    // 포인터 세션 중: 포인터를 켠 본인이 아니고 타겟 파트에 포함되면 악보 이동 잠금
-    // (포인터를 켠 사람만 악보를 넘길 수 있고, 나머지 타겟은 따라가기만 — 리더/어드민 포함)
-    const tp = svc?.teamPointer;
-    if (tp?.on && !pointerOn) {
-      const parts = tp.parts || [];
-      const allowed = parts.includes("밴드") ? null : parts; // 밴드 = 전체
-      const mine = getUserParts(user);
-      let targeted;
-      if (allowed === null) targeted = !isVocalistUser(user);
-      else targeted = mine.some(p => allowed.includes(p) || p === "전체") ||
-        (isFoh(user) && allowed.some(p => p === "FOH" || p === "foh"));
-      if (targeted) { showToast("포인터 사용 중 — 리더 악보를 따라갑니다"); return; }
-    }
     if (dual) {
       if (delta < 0) dualNext(); else dualPrev();
     } else if (svcSongs.length > 1 && songIdx >= 0) {
@@ -4545,7 +4547,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               const c = isOpen ? C.acc : (itemActive ? (color || C.acc) : C.dim);
               return (
                 <button key={name}
-                  onClick={() => setActiveGroup(g => g === name ? null : name)}
+                  onClick={() => setActiveGroup(g => {
+                    const next = g === name ? null : name;
+                    // 필기 그룹을 닫거나 다른 그룹으로 전환 시 필기 관련 툴 모두 끔
+                    // → 화면 넘기기 잠금 해제 (필기 툴바만 사라지고 잠긴 채 남는 문제 수정)
+                    if (g === "필기" && next !== "필기") {
+                      setDrawMode(false);
+                      setShowNotePanel(false);
+                      setShowCueInput(false);
+                    }
+                    return next;
+                  })}
                   style={{
                     position:"relative", flexShrink:0, height:28,
                     padding: tbNarrow ? "0 6px" : "0 8px",
@@ -4628,22 +4640,22 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 {mkGrp("녹음", recActive, recording ? C.red : C.acc, 0, !isLibraryMode && !!svcPracticeUrl)}
                 {dlActive && mkGrp("다운로드", false, C.acc, 0)}
                 {(leader || user?.role === "admin") && !isLibraryMode && (
-                  <button onClick={() => setShowPointerPanel(p => !p)} style={{
+                  <button onClick={togglePointer} style={{
                     position:"relative", flexShrink:0, height:28,
                     padding: tbNarrow ? "0 6px" : "0 8px",
-                    background:(showPointerPanel || pointerOn) ? "#fff" : "rgba(255,255,255,0.12)",
-                    border:`1px solid ${(showPointerPanel || pointerOn) ? "#fff" : "rgba(255,255,255,0.3)"}`,
+                    background: pointerOn ? "#fff" : "rgba(255,255,255,0.12)",
+                    border:`1px solid ${pointerOn ? "#fff" : "rgba(255,255,255,0.3)"}`,
                     borderRadius:7, cursor:"pointer",
                     display:"flex", alignItems:"center", gap:3,
-                    color:(showPointerPanel || pointerOn) ? "#c0392b" : "#fff",
-                    fontWeight:(showPointerPanel || pointerOn) ? 800 : 700,
+                    color: pointerOn ? "#c0392b" : "#fff",
+                    fontWeight: pointerOn ? 800 : 700,
                     fontSize: tbNarrow ? 10 : 11, fontFamily:"inherit",
                   }}>
                     {pointerOn && <span style={{
                       width:7, height:7, borderRadius:"50%", flexShrink:0,
                       background:"#e74c3c", boxShadow:"0 0 6px #e74c3c",
                     }} />}
-                    포인터 <span style={{ fontSize:7 }}>▾</span>
+                    포인터
                   </button>
                 )}
                 <button onClick={() => setShowMobileHelp(true)} style={{
@@ -6217,7 +6229,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         background: isOwn ? "#ff6f0018" : "#ff6f0008",
                         border:`1px solid ${isOwn ? "#ff6f0055" : "#ff6f0025"}` }}>
                         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
-                          <span style={{ fontSize:11, fontWeight:800, color:"#e65c00" }}>{cue.userPart || cue.userName}</span>
+                          <span style={{ fontSize:11, fontWeight:800, color:"#e65c00", display:"flex", alignItems:"center", gap:5 }}>
+                            {cue.userPart || cue.userName}
+                            {cue.section && cue.section.trim() && (
+                              <span style={{ fontSize:10, fontWeight:700, color:"#fff", background:"#ff6f00",
+                                borderRadius:10, padding:"1px 7px" }}>{cue.section}</span>
+                            )}
+                          </span>
                           {isOwn && !isEditing && (
                             <div style={{ display:"flex", gap:5 }}>
                               <button onClick={() => { setCueEditId(cue.id); setCueEditTxt(cue.text); }}
@@ -6264,19 +6282,38 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   })}
                 </div>
               )}
-              {/* 섹션 선택 */}
-              <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:8, marginTop:4 }}>
-                {CUE_SECTIONS.map(sec => (
-                  <button key={sec} onClick={() => setCueSection(sec)}
-                    style={{ padding:"4px 10px", borderRadius:20, cursor:"pointer",
-                      fontFamily:"inherit", fontSize:11, fontWeight:700,
-                      background: cueSection === sec ? "#ff6f00" : C.card,
-                      color: cueSection === sec ? "#fff" : C.dim,
-                      border:`1.5px solid ${cueSection === sec ? "#ff6f00" : C.bdr}` }}>
-                    {sec}
-                  </button>
-                ))}
-              </div>
+              {/* 섹션 직접 입력 + 이 곡에서 이미 쓴 섹션 빠른 선택 */}
+              {(() => {
+                const usedSections = [...new Set(
+                  (songCues?.[cueSongId] || []).map(c => c.section).filter(s => s && s.trim())
+                )];
+                return (
+                  <div style={{ marginBottom:8, marginTop:4 }}>
+                    <input
+                      value={cueSection}
+                      onChange={e => setCueSection(e.target.value)}
+                      placeholder="섹션 이름 직접 입력 (예: 1절, 후렴, 간주)"
+                      style={{ width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
+                        borderRadius:8, padding:"7px 10px", fontSize:12, color:C.txt,
+                        fontFamily:"inherit", outline:"none", boxSizing:"border-box" }}
+                    />
+                    {usedSections.length > 0 && (
+                      <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:6 }}>
+                        {usedSections.map(sec => (
+                          <button key={sec} onClick={() => setCueSection(sec)}
+                            style={{ padding:"4px 10px", borderRadius:20, cursor:"pointer",
+                              fontFamily:"inherit", fontSize:11, fontWeight:700,
+                              background: cueSection === sec ? "#ff6f00" : C.card,
+                              color: cueSection === sec ? "#fff" : C.dim,
+                              border:`1.5px solid ${cueSection === sec ? "#ff6f00" : C.bdr}` }}>
+                            {sec}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               {/* 글자 표시/편집 영역 — 변환 후 직접 수정 가능 */}
               <textarea
                 value={cueTxt}
@@ -6360,7 +6397,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               <Btn label="전송" variant="primary"
                 onClick={() => {
                   const final = (cueTxt + (cueScr.trim() ? (cueTxt ? " " : "") + cueScr.trim() : "")).trim();
-                  if (final) { sendCue?.(selectedSvcId, cueSongId, final, { section: cueSection }); setCueTxt(""); setCueScr(""); setCueSection("전체"); setShowCueInput(false); }
+                  if (final) { sendCue?.(selectedSvcId, cueSongId, final, { section: cueSection.trim() }); setCueTxt(""); setCueScr(""); setCueSection(""); setShowCueInput(false); }
                 }}
                 full disabled={!cueTxt.trim() && !cueScr.trim()} />
             </div>
@@ -6665,111 +6702,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
       {showMobileHelp && <HelpModal onClose={() => setShowMobileHelp(false)} />}
 
-      {/* 레이저 포인터 파트 선택 드롭다운 */}
-      {showPointerPanel && (leader || user?.role === "admin") && !isLibraryMode && (() => {
-        const POINTER_PARTS = PARTS.filter(p => ["밴드","보컬그룹","기타","베이스","드럼","키보드","일렉기타","FOH"].includes(p.id));
-        const togglePart = (pid) => {
-          setPointerParts(prev => {
-            if (prev.includes(pid)) return prev.filter(x => x !== pid);
-            // 밴드 선택 시 개별 모두 해제, 개별 선택 시 밴드 해제
-            if (pid === "밴드") return ["밴드"];
-            return [...prev.filter(x => x !== "밴드"), pid];
-          });
-        };
-        const startPointer = () => {
-          if (pointerParts.length === 0) return;
-          setPointerOn(true);
-          setShowPointerPanel(false);
-          pointerStrokesRef.current = [];
-          pointerActiveSideRef.current = 1;
-          pointerActiveSongRef.current = (dual && dualLeftSongId) ? dualLeftSongId : selectedSongId;
-          [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => { if (r.current) drawPointerStrokes(r.current, [], null); });
-          if (svc?.id) updateDoc(doc(db, "services", svc.id), {
-            "teamPointer.on": true,
-            "teamPointer.parts": pointerParts,
-            "teamPointer.songId": selectedSongId,
-            "teamPointer.strokes": [], "teamPointer.live": null,
-          }).catch(() => {});
-          // FOH 악보 동기화 비활성화 (포인터가 악보 이동을 제어)
-          pointerPrevSheetLink.current = sheetLinkEnabled;
-          if (sheetLinkEnabled) {
-            updateDoc(doc(db, "liveStatus", "sheetLink"), { enabled: false }).catch(() => {});
-          }
-          // 기존 sheetSync 채널로 팀원들을 현재 악보로 즉시 이동
-          // pointerSync:true → App.jsx에서 allowedPartsRef 무시하고 포인터 파트만 적용
-          if (selectedSvcId && selectedSongId) {
-            const songIdx = svcSongs.findIndex(s => s?.id === selectedSongId);
-            setDoc(doc(db, "liveStatus", "sheetSync"), {
-              svcId: selectedSvcId,
-              songId: selectedSongId,
-              songIdx: songIdx >= 0 ? songIdx : 0,
-              allowedParts: pointerParts.includes("밴드") ? null : pointerParts,
-              pointerSync: true,
-              linkEnabled: true,
-              updatedAt: serverTimestamp(),
-            }).catch(() => {});
-          }
-        };
-        return (
-          <div style={{
-            position:"fixed", zIndex:9999,
-            top:"calc(env(safe-area-inset-top) + 56px)", right:12,
-            background:C.surf, border:`1px solid ${C.bdr}`, borderRadius:16,
-            width:248, overflow:"hidden",
-            boxShadow:"0 8px 32px rgba(0,0,0,.18)",
-          }}>
-            <div style={{ padding:"12px 16px 8px", borderBottom:`1px solid ${C.bdr}` }}>
-              <div style={{ fontSize:13, fontWeight:700, color:C.txt }}>🎯 레이저 포인터</div>
-              <div style={{ fontSize:11, color:C.dim, marginTop:2 }}>파트 선택 후 시작 (복수 선택 가능)</div>
-            </div>
-            {POINTER_PARTS.map(p => {
-              const selected = pointerParts.includes(p.id);
-              return (
-                <div key={p.id} onClick={() => togglePart(p.id)} style={{
-                  display:"flex", alignItems:"center", gap:10,
-                  padding:"10px 16px", cursor:"pointer",
-                  background: selected ? "#eef2ff" : "transparent",
-                  borderBottom:`1px solid ${C.bdr}`,
-                }}>
-                  <span style={{ fontSize:14 }}>{p.emoji}</span>
-                  <span style={{ flex:1, fontSize:14, fontWeight:600, color:C.txt }}>{p.label}</span>
-                  <span style={{
-                    width:20, height:20, borderRadius:5, flexShrink:0,
-                    border:`2px solid ${selected ? "#1c3c88" : C.bdr}`,
-                    background: selected ? "#1c3c88" : "transparent",
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    color:"#fff", fontSize:12, fontWeight:700,
-                  }}>{selected ? "✓" : ""}</span>
-                </div>
-              );
-            })}
-            <div style={{ padding:"10px 12px", display:"flex", gap:8, borderTop:`1px solid ${C.bdr}` }}>
-              {pointerOn && (
-                <button onClick={() => {
-                  setPointerOn(false); setPointerParts([]); setShowPointerPanel(false);
-                  pointerStrokesRef.current = [];
-                  [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => { if (r.current) drawPointerStrokes(r.current, [], null); });
-                  if (svc?.id) updateDoc(doc(db, "services", svc.id), { "teamPointer.on": false, "teamPointer.strokes": [], "teamPointer.live": null }).catch(() => {});
-                  // 포인터 끄면 FOH 악보 동기화 원래 상태로 복원
-                  if (pointerPrevSheetLink.current) {
-                    updateDoc(doc(db, "liveStatus", "sheetLink"), { enabled: true }).catch(() => {});
-                  }
-                }} style={{
-                  flex:1, padding:"8px 0", borderRadius:8, border:`1px solid ${C.bdr}`,
-                  background:"transparent", color:C.red, fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"inherit",
-                }}>끄기</button>
-              )}
-              <button onClick={startPointer} disabled={pointerParts.length === 0} style={{
-                flex:2, padding:"8px 0", borderRadius:8, border:"none",
-                background: pointerParts.length > 0 ? "#1c3c88" : C.bdr,
-                color:"#fff", fontWeight:700, fontSize:13, cursor: pointerParts.length > 0 ? "pointer" : "default", fontFamily:"inherit",
-              }}>
-                {pointerOn ? "재설정" : "포인터 시작"}
-              </button>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* 팀원 — 포인터 활성 배너 */}
       {!leader && user?.role !== "admin" && svc?.teamPointer?.on && (

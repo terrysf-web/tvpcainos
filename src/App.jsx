@@ -12,7 +12,7 @@ import AIPanel from "./AIPanel.jsx";
 import LiteScreen from "./LiteScreen.jsx";
 import {
   PARTS, VOCALIST_PART_IDS, SHEET_SYNC_INST_PARTS, DEFAULT_SHEET_PARTS,
-  GROUP_PART_IDS, CUE_SECTIONS, INST_MODES,
+  GROUP_PART_IDS, INST_MODES,
   getUserParts, isVocalistUser, getUserDisplayPart,
   isLeader, isBroadcast, isFoh,
 } from "./appUtils.js";
@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.718";
+const APP_VERSION = "3.719";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -2494,13 +2494,12 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                             "FOH 주의사항": { bg:"#fff0f0", border:"#f0c0c0", title:"#cc2200" },
                             "기타":         { bg:"#f5f5fa", border:"#e0e0ea", title:"#555566" },
                           };
-                          const grouped = CUE_SECTIONS.reduce((acc, sec) => {
-                            const list = notes.filter(c => (c.section || "전체") === sec);
-                            if (list.length > 0) acc[sec] = list;
-                            return acc;
-                          }, {});
-                          const unknownSec = notes.filter(c => !CUE_SECTIONS.includes(c.section || "전체"));
-                          if (unknownSec.length > 0) grouped["기타"] = unknownSec;
+                          // 노트에 실제로 존재하는 섹션값 기준으로 그룹화 (사용자 커스텀 섹션 지원)
+                          const grouped = {};
+                          for (const c of notes) {
+                            const sec = (c.section && c.section.trim()) ? c.section.trim() : "기타";
+                            (grouped[sec] = grouped[sec] || []).push(c);
+                          }
                           return Object.entries(grouped).map(([sec, list]) => {
                             const st = SEC_STYLES[sec] || { bg:"#fffde7", border:"#ffe082", title:"#bf360c" };
                             return (
@@ -8599,7 +8598,7 @@ export default function App() {
       userName: user.displayName || user.name || user.email || "팀원",
       userPart,
       text: text.trim(),
-      section: opts.section || "전체",
+      section: opts.section || "",
       createdAt: serverTimestamp(),
       acknowledged: false,
       panic: opts.panic ?? false,
