@@ -628,7 +628,7 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
   }
 }
 
-function drawPointerStrokes(canvas, strokes, live = null) {
+function drawPointerStrokes(canvas, strokes, live = null, fast = false) {
   if (!canvas || !canvas.width || !canvas.height) return;
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -654,10 +654,9 @@ function drawPointerStrokes(canvas, strokes, live = null) {
     };
     ctx.save();
     ctx.globalAlpha = s.alpha ?? 1;
-    // 1) 빨강 + 네온 글로우 (shadow 1회)
+    // 1) 빨강 (그리는 중 fast=true면 글로우 생략 → 렉 방지, 손 떼면 네온 글로우)
     ctx.strokeStyle = "#ff2424"; ctx.fillStyle = "#ff2424";
-    ctx.shadowColor = "rgba(255,30,30,0.95)";
-    ctx.shadowBlur  = W * 1.1;
+    if (!fast) { ctx.shadowColor = "rgba(255,30,30,0.95)"; ctx.shadowBlur = W * 1.1; }
     ctx.lineWidth   = W;
     if (trace()) ctx.fill(); else ctx.stroke();
     // 2) 흰색 코어 (shadow 제거)
@@ -2163,7 +2162,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     updateDoc(doc(db, "services", svc.id), payload).catch(() => {});
   };
 
-  // 마지막 획 후 1.5초가 지나면 전체 획을 한꺼번에 삭제 (원래 스타일)
+  // 마지막 획 후 1초가 지나면 전체 획을 한꺼번에 삭제 (원래 스타일)
   const schedulePointerClear = () => {
     clearTimeout(pointerClearTimerRef.current);
     pointerClearTimerRef.current = setTimeout(() => {
@@ -2173,7 +2172,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       if (svc?.id) updateDoc(doc(db, "services", svc.id), {
         "teamPointer.strokes": [], "teamPointer.live": null
       }).catch(() => {});
-    }, 1500);
+    }, 1000);
   };
 
   // 포인터 아이콘 토글 — 파트 선택/악보 동기화 없음.
@@ -2257,11 +2256,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     e.preventDefault();
     const pt = { ...getCanvasPt(e, canvasRef.current), p: e.pointerType === "pen" ? (e.pressure || 0) : 0 };
     pointerCurPtsRef.current.push(pt);
-    // rAF 스로틀: 여러 pointermove를 프레임당 1회 렌더로 합쳐 렉 방지
+    // rAF 스로틀 + fast(글로우 생략): 그리는 중 렉 방지
     if (!pointerRafRef.current) {
       pointerRafRef.current = requestAnimationFrame(() => {
         pointerRafRef.current = 0;
-        if (canvasRef.current) drawPointerStrokes(canvasRef.current, pointerStrokesRef.current, { pts: pointerCurPtsRef.current });
+        if (canvasRef.current) drawPointerStrokes(canvasRef.current, pointerStrokesRef.current, { pts: pointerCurPtsRef.current }, true);
       });
     }
   };
