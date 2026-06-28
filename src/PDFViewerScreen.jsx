@@ -1827,6 +1827,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const cropStartRef = useRef(null);
   const cropSideRef  = useRef(1);
   const cropModeRef  = useRef(false);
+  // ── 붙여넣기(크롭한 필기/스탬프를 같은 악보로 복제 후 드래그 배치)
+  const [pasteMode,   setPasteMode]   = useState(false);
+  const [pasteOffset, setPasteOffset] = useState({ dx:0, dy:0 });
+  const pasteRef     = useRef(null);   // { side, strokes:[...복사본] }
+  const pasteDragRef = useRef(null);   // { sx, sy, ox, oy }
+  const pasteModeRef = useRef(false);
   // ── Goodnotes 스타일 지우개 원형 표시 {x,y,d} (clientX/Y, 지름 CSS px)
   const [eraserCursor, setEraserCursor] = useState(null);
 
@@ -2301,6 +2307,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // keep drawModeRef in sync for non-reactive listeners
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
   useEffect(() => { cropModeRef.current = cropMode; }, [cropMode]);
+  useEffect(() => { pasteModeRef.current = pasteMode; }, [pasteMode]);
 
   // ── 크롭 복사: 선택 영역(악보+필기+스탬프)을 이미지로 클립보드 복사 (실패 시 다운로드)
   const cropPt = (e, side) => {
@@ -2333,41 +2340,101 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const x0 = Math.min(start.x, end.x), x1 = Math.max(start.x, end.x);
     const y0 = Math.min(start.y, end.y), y1 = Math.max(start.y, end.y);
     if (x1 - x0 < 0.015 || y1 - y0 < 0.015) { showToast("영역이 너무 작습니다"); return; }
-    captureCrop(side, x0, y0, x1, y1);
+    startPasteFromCrop(side, x0, y0, x1, y1);
+  };
+  // 저장 파라미터 (사이드별 songId/page)
+  const sideSaveParams = (side) => side === 2
+    ? { songId: dualRightSongId, page: svcSongs[dualIdx + 1]?.pdfPage || 1 }
+    : (dual ? { songId: dualLeftSongId, page: svcSongs[dualIdx]?.pdfPage || 1 }
+            : { songId: selectedSongId, page: pageNum });
+  const translateStrokes = (list, dx, dy) => list.map(s => ({
+    ...s,
+    points: (s.points || []).map(p => ({ ...p, x: Math.max(0, Math.min(1, p.x + dx)), y: Math.max(0, Math.min(1, p.y + dy)) })),
+  }));
+  // 크롭 영역 안의 내 필기/스탬프/텍스트를 복사 → 붙여넣기(드래그 배치) 모드로
+  const startPasteFromCrop = (side, x0, y0, x1, y1) => {
+    const sRef = side === 2 ? strokes2Ref : strokes1Ref;
+    const list = sRef.current || [];
+    const inRect = (s) => {
+      const pts = s.points || []; if (!pts.length) return false;
+      let cx = 0, cy = 0; for (const p of pts) { cx += p.x; cy += p.y; }
+      cx /= pts.length; cy /= pts.length;
+      return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
+    };
+    const picked = list.filter(s => s.tool !== "eraser" && inRect(s));
+    if (picked.length === 0) { showToast("선택 영역에 필기·스탬프가 없습니다"); setCropMode(false); return; }
+    // 깊은 복사
+    const copies = picked.map(s => ({ ...s, points: (s.points || []).map(p => ({ ...p })) }));
+    pasteRef.current = { side, strokes: copies };
+    cropSideRef.current = side;
     setCropMode(false);
+    setPasteOffset({ dx: 0.05, dy: 0.05 }); // 초깃값: 살짝 아래/오른쪽
+    setPasteMode(true);
+    setTimeout(() => renderPastePreview(side, 0.05, 0.05), 0);
   };
-  const captureCrop = (side, x0, y0, x1, y1) => {
-    const base = side === 2 ? canvas2Ref.current : canvas1Ref.current;
-    const team = side === 2 ? teamDrawCanvas2Ref.current : teamDrawCanvas1Ref.current;
+  const renderPastePreview = (side, dx, dy) => {
+    if (!pasteRef.current) return;
     const draw = side === 2 ? drawCanvas2Ref.current : drawCanvas1Ref.current;
-    if (!base?.width) return;
-    const sx = Math.round(x0 * base.width), sy = Math.round(y0 * base.height);
-    const sw = Math.round((x1 - x0) * base.width), sh = Math.round((y1 - y0) * base.height);
-    if (sw < 4 || sh < 4) return;
-    const off = document.createElement("canvas");
-    off.width = sw; off.height = sh;
-    const ctx = off.getContext("2d");
-    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, sw, sh);
-    for (const c of [base, team, draw]) {
-      if (c && c.width) { try { ctx.drawImage(c, sx, sy, sw, sh, 0, 0, sw, sh); } catch {} }
-    }
-    off.toBlob(async (blob) => {
-      if (!blob) return;
-      try {
-        if (navigator.clipboard && window.ClipboardItem) {
-          await navigator.clipboard.write([new window.ClipboardItem({ "image/png": blob })]);
-          showToast("✅ 크롭 이미지를 클립보드에 복사했습니다");
-          return;
-        }
-      } catch { /* 클립보드 차단 → 다운로드 폴백 */ }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = `crop_${selectedSongId || "score"}.png`;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      showToast("✅ 크롭 이미지를 저장했습니다");
-    }, "image/png");
+    const sRef = side === 2 ? strokes2Ref : strokes1Ref;
+    if (!draw) return;
+    const floating = translateStrokes(pasteRef.current.strokes, dx, dy);
+    drawStrokes(draw, [...sRef.current, ...floating]);
   };
+  const pasteDown = (e) => {
+    if (!pasteRef.current) return;
+    e.preventDefault(); e.stopPropagation();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    const p = cropPt(e, pasteRef.current.side); if (!p) return;
+    pasteDragRef.current = { sx:p.x, sy:p.y, ox:pasteOffset.dx, oy:pasteOffset.dy };
+  };
+  const pasteMoveH = (e) => {
+    if (!pasteDragRef.current || !pasteRef.current) return;
+    e.preventDefault(); e.stopPropagation();
+    const p = cropPt(e, pasteRef.current.side); if (!p) return;
+    const dx = pasteDragRef.current.ox + (p.x - pasteDragRef.current.sx);
+    const dy = pasteDragRef.current.oy + (p.y - pasteDragRef.current.sy);
+    setPasteOffset({ dx, dy });
+    renderPastePreview(pasteRef.current.side, dx, dy);
+  };
+  const pasteUpH = (e) => {
+    if (!pasteDragRef.current) return;
+    e.preventDefault(); e.stopPropagation();
+    pasteDragRef.current = null;
+  };
+  const confirmPaste = async () => {
+    const pr = pasteRef.current;
+    if (!pr) { setPasteMode(false); return; }
+    const side = pr.side;
+    const sRef = side === 2 ? strokes2Ref : strokes1Ref;
+    const draw = side === 2 ? drawCanvas2Ref.current : drawCanvas1Ref.current;
+    const floating = translateStrokes(pr.strokes, pasteOffset.dx, pasteOffset.dy);
+    const next = [...sRef.current, ...floating];
+    sRef.current = next;
+    if (draw) drawStrokes(draw, next);
+    const { songId, page } = sideSaveParams(side);
+    await saveDrawing(songId, page, next);
+    pasteRef.current = null;
+    setPasteMode(false);
+    showToast(`✅ ${floating.length}개 붙여넣기 완료`);
+  };
+  const cancelPaste = () => {
+    const pr = pasteRef.current;
+    if (pr) {
+      const draw = pr.side === 2 ? drawCanvas2Ref.current : drawCanvas1Ref.current;
+      const sRef = pr.side === 2 ? strokes2Ref : strokes1Ref;
+      if (draw) drawStrokes(draw, sRef.current); // 미리보기 제거
+    }
+    pasteRef.current = null;
+    setPasteMode(false);
+  };
+  const pasteOverlay = (side) => (
+    <div style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%",
+      zIndex:30, cursor:"move", touchAction:"none" }}
+      onPointerDown={pasteDown}
+      onPointerMove={pasteMoveH}
+      onPointerUp={pasteUpH}
+      onPointerCancel={() => { pasteDragRef.current = null; }} />
+  );
   // 크롭 선택 박스 (정규화 좌표 → %)
   const renderCropBox = (side) => {
     if (!cropRect || cropSideRef.current !== side) return null;
@@ -3576,7 +3643,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (drawModeRef.current) return;
-    if (cropModeRef.current) return;
+    if (cropModeRef.current || pasteModeRef.current) return;
     if (penDownRef.current) return;
     if (e.touches.length > 1) { touchStartX.current = null; return; }
     if (zoomMul > 1.01) {
@@ -3652,7 +3719,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (drawModeRef.current) return;
-    if (cropModeRef.current) return;
+    if (cropModeRef.current || pasteModeRef.current) return;
     if (!swipeNav) return;
     if (e.touches.length > 1) { touchStartX.current = null; return; }
     if (touchStartX.current === null || touchFired.current) return;
@@ -3674,7 +3741,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (drawModeRef.current) return;
-    if (cropModeRef.current) return;
+    if (cropModeRef.current || pasteModeRef.current) return;
     // 확대 상태: 더블탭 → 원래화면 복귀 / 아니면 패닝 종료
     if (zoomMul > 1.01) {
       const now = Date.now();
@@ -4919,13 +4986,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   fontWeight:700, fontSize:11, fontFamily:"inherit",
                 }}>큐노트</button>
               )}
-              <button onClick={() => { const n = !cropMode; setCropMode(n); if (n) { setDrawMode(false); showToast("복사할 영역을 드래그하세요"); } }} style={{
+              <button onClick={() => { const n = !cropMode; setCropMode(n); if (n) { setDrawMode(false); cancelPaste(); showToast("복사할 필기·스탬프 영역을 드래그하세요"); } }} style={{
                 height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
-                background: cropMode ? `${C.acc}22` : "transparent",
-                border:`1px solid ${cropMode ? C.acc : C.bdr}`,
-                color: cropMode ? C.acc : C.dim,
+                background: (cropMode || pasteMode) ? `${C.acc}22` : "transparent",
+                border:`1px solid ${(cropMode || pasteMode) ? C.acc : C.bdr}`,
+                color: (cropMode || pasteMode) ? C.acc : C.dim,
                 fontWeight:700, fontSize:11, fontFamily:"inherit",
-              }}>✂️ 크롭복사</button>
+              }}>✂️ 복사붙이기</button>
             </div>
           )}
 
@@ -5881,6 +5948,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         />
                       )}
                       {cropMode && cropOverlay(1)}
+                      {pasteMode && pasteRef.current?.side === 1 && pasteOverlay(1)}
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 400;
                         const fs = Math.round(Math.max(8, Math.min(14, cw / 50)) * chordFontScale);
@@ -5963,6 +6031,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                             오른쪽에 포인팅하면 싱글 모드 팀원에게 표시되지 않으므로
                             포인터는 왼쪽 패널에서만 사용 (악보를 왼쪽으로 넘겨서 포인팅) */}
                         {cropMode && cropOverlay(2)}
+                        {pasteMode && pasteRef.current?.side === 2 && pasteOverlay(2)}
                         {transposeMode && chordData2.length > 0 && (() => {
                           const cw = canvas2Ref.current?.offsetWidth  || 400;
                           const fs = Math.round(Math.max(8, Math.min(14, cw / 50)) * chordFontScale);
@@ -6065,6 +6134,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         />
                       )}
                       {cropMode && cropOverlay(1)}
+                      {pasteMode && pasteRef.current?.side === 1 && pasteOverlay(1)}
                       {/* 전조 코드 오버레이 */}
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 600;
@@ -6854,7 +6924,27 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           fontSize:12, fontWeight:700, zIndex:99999, pointerEvents:"none",
           whiteSpace:"nowrap", boxShadow:"0 2px 10px rgba(0,0,0,.3)",
         }}>
-          ✂️ 복사할 영역을 드래그하세요 (취소: 크롭복사 다시 누르기)
+          ✂️ 복사할 필기·스탬프 영역을 드래그하세요
+        </div>
+      )}
+      {/* 붙여넣기 모드 — 위치 드래그 후 확정/취소 */}
+      {pasteMode && (
+        <div style={{
+          position:"fixed", top:"calc(env(safe-area-inset-top) + 56px)",
+          left:"50%", transform:"translateX(-50%)",
+          display:"flex", alignItems:"center", gap:8, zIndex:99999,
+          background:"rgba(28,60,136,0.95)", color:"#fff",
+          padding:"6px 8px 6px 14px", borderRadius:24, boxShadow:"0 2px 12px rgba(0,0,0,.35)",
+        }}>
+          <span style={{ fontSize:12, fontWeight:700, whiteSpace:"nowrap" }}>📋 끌어서 위치 지정</span>
+          <button onClick={confirmPaste} style={{
+            padding:"6px 14px", borderRadius:18, border:"none", cursor:"pointer",
+            background:"#2ecc71", color:"#fff", fontWeight:800, fontSize:12, fontFamily:"inherit",
+          }}>붙이기</button>
+          <button onClick={cancelPaste} style={{
+            padding:"6px 12px", borderRadius:18, border:"1px solid rgba(255,255,255,0.5)", cursor:"pointer",
+            background:"transparent", color:"#fff", fontWeight:700, fontSize:12, fontFamily:"inherit",
+          }}>취소</button>
         </div>
       )}
 
