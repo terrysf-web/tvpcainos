@@ -1783,6 +1783,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [cueTxt,        setCueTxt]        = useState("");
   const [cueScr,        setCueScr]        = useState("");
   const [cueSection,    setCueSection]    = useState("");
+  const [cueSecInk,     setCueSecInk]     = useState(false); // 섹션 손글씨 입력 모드
   const [cueEditId,     setCueEditId]     = useState(null);
   const [cueEditTxt,    setCueEditTxt]    = useState("");
   const [showPanicMenu, setShowPanicMenu] = useState(false);
@@ -1817,6 +1818,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [drawWidth, setDrawWidth] = useState(1);
   const [drawTool,  setDrawTool]  = useState("pen"); // "pen" | "highlighter" | "eraser" | "stamp"
   const [drawSaveErr, setDrawSaveErr] = useState("");
+  // ── 크롭 복사 (영역 선택 → 이미지 클립보드 복사)
+  const [cropMode,  setCropMode]  = useState(false);
+  const [cropRect,  setCropRect]  = useState(null); // {x0,y0,x1,y1} 정규화 0-1 (선택 박스 표시)
+  const cropStartRef = useRef(null);
+  const cropSideRef  = useRef(1);
+  const cropModeRef  = useRef(false);
+  // ── Goodnotes 스타일 지우개 원형 표시 {x,y,d} (clientX/Y, 지름 CSS px)
+  const [eraserCursor, setEraserCursor] = useState(null);
 
   // ── Text tool
   const [textInput, setTextInput] = useState(null); // { x, y, value, canvasNum }
@@ -2116,28 +2125,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     updateDoc(doc(db, "services", svc.id), payload).catch(() => {});
   };
 
-  // 각 획은 그려진 시점(ts)부터 1.5초 후 개별 소멸 (전체 동시 삭제 X)
-  const PTR_STROKE_LIFE = 1500;
+  // 마지막 획 후 1.5초가 지나면 전체 획을 한꺼번에 삭제 (원래 스타일)
   const schedulePointerClear = () => {
-    if (pointerClearTimerRef.current) return; // 이미 가동 중
-    pointerClearTimerRef.current = setInterval(() => {
-      const now = Date.now();
-      const before = pointerStrokesRef.current.length;
-      pointerStrokesRef.current = pointerStrokesRef.current.filter(s => now - (s.ts || 0) < PTR_STROKE_LIFE);
-      if (pointerStrokesRef.current.length !== before) {
-        const c = pointerActiveSideRef.current === 2 ? pointerCanvas2Ref : pointerCanvas1Ref;
-        const live = pointerDownRef.current ? { pts: pointerCurPtsRef.current } : null;
-        if (c.current) drawPointerStrokes(c.current, pointerStrokesRef.current, live);
-        if (svc?.id) updateDoc(doc(db, "services", svc.id), {
-          "teamPointer.strokes": pointerStrokesRef.current
-        }).catch(() => {});
-      }
-      // 더 지울 게 없고 그리는 중도 아니면 인터벌 정지
-      if (pointerStrokesRef.current.length === 0 && !pointerDownRef.current) {
-        clearInterval(pointerClearTimerRef.current);
-        pointerClearTimerRef.current = null;
-      }
-    }, 250);
+    clearTimeout(pointerClearTimerRef.current);
+    pointerClearTimerRef.current = setTimeout(() => {
+      pointerStrokesRef.current = [];
+      pointerLiveRef.current = null;
+      [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => { if (r.current) drawPointerStrokes(r.current, [], null); });
+      if (svc?.id) updateDoc(doc(db, "services", svc.id), {
+        "teamPointer.strokes": [], "teamPointer.live": null
+      }).catch(() => {});
+    }, 1500);
   };
 
   // 포인터 아이콘 토글 — 파트 선택/악보 동기화 없음.
@@ -2208,6 +2206,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const pt = getCanvasPt(e, canvasRef.current);
     pointerCurPtsRef.current = [pt];
     pointerDownRef.current = true;
+    clearTimeout(pointerClearTimerRef.current); // 새 획 시작 시 일괄 삭제 타이머 리셋
     clearInterval(pointerWriteTimerRef.current);
     pointerWriteTimerRef.current = setInterval(() => {
       if (pointerCurPtsRef.current.length > 0)
@@ -2298,6 +2297,96 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // keep drawModeRef in sync for non-reactive listeners
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
+  useEffect(() => { cropModeRef.current = cropMode; }, [cropMode]);
+
+  // ── 크롭 복사: 선택 영역(악보+필기+스탬프)을 이미지로 클립보드 복사 (실패 시 다운로드)
+  const cropPt = (e, side) => {
+    const cv = side === 2 ? canvas2Ref.current : canvas1Ref.current;
+    if (!cv) return null;
+    const r = cv.getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    return { x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)),
+             y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)) };
+  };
+  const cropDown = (e, side) => {
+    e.preventDefault(); e.stopPropagation();
+    const p = cropPt(e, side); if (!p) return;
+    cropStartRef.current = p; cropSideRef.current = side;
+    setCropRect({ x0:p.x, y0:p.y, x1:p.x, y1:p.y });
+  };
+  const cropMoveH = (e, side) => {
+    if (!cropStartRef.current) return;
+    e.preventDefault(); e.stopPropagation();
+    const p = cropPt(e, side); if (!p) return;
+    setCropRect({ x0:cropStartRef.current.x, y0:cropStartRef.current.y, x1:p.x, y1:p.y });
+  };
+  const cropUpH = (e, side) => {
+    if (!cropStartRef.current) return;
+    e.preventDefault(); e.stopPropagation();
+    const start = cropStartRef.current; cropStartRef.current = null;
+    const end = cropPt(e, side) || start;
+    setCropRect(null);
+    const x0 = Math.min(start.x, end.x), x1 = Math.max(start.x, end.x);
+    const y0 = Math.min(start.y, end.y), y1 = Math.max(start.y, end.y);
+    if (x1 - x0 < 0.015 || y1 - y0 < 0.015) { showToast("영역이 너무 작습니다"); return; }
+    captureCrop(side, x0, y0, x1, y1);
+    setCropMode(false);
+  };
+  const captureCrop = (side, x0, y0, x1, y1) => {
+    const base = side === 2 ? canvas2Ref.current : canvas1Ref.current;
+    const team = side === 2 ? teamDrawCanvas2Ref.current : teamDrawCanvas1Ref.current;
+    const draw = side === 2 ? drawCanvas2Ref.current : drawCanvas1Ref.current;
+    if (!base?.width) return;
+    const sx = Math.round(x0 * base.width), sy = Math.round(y0 * base.height);
+    const sw = Math.round((x1 - x0) * base.width), sh = Math.round((y1 - y0) * base.height);
+    if (sw < 4 || sh < 4) return;
+    const off = document.createElement("canvas");
+    off.width = sw; off.height = sh;
+    const ctx = off.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, sw, sh);
+    for (const c of [base, team, draw]) {
+      if (c && c.width) { try { ctx.drawImage(c, sx, sy, sw, sh, 0, 0, sw, sh); } catch {} }
+    }
+    off.toBlob(async (blob) => {
+      if (!blob) return;
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          await navigator.clipboard.write([new window.ClipboardItem({ "image/png": blob })]);
+          showToast("✅ 크롭 이미지를 클립보드에 복사했습니다");
+          return;
+        }
+      } catch { /* 클립보드 차단 → 다운로드 폴백 */ }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `crop_${selectedSongId || "score"}.png`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast("✅ 크롭 이미지를 저장했습니다");
+    }, "image/png");
+  };
+  // 크롭 선택 박스 (정규화 좌표 → %)
+  const renderCropBox = (side) => {
+    if (!cropRect || cropSideRef.current !== side) return null;
+    return (
+      <div style={{ position:"absolute",
+        left:`${Math.min(cropRect.x0, cropRect.x1) * 100}%`,
+        top:`${Math.min(cropRect.y0, cropRect.y1) * 100}%`,
+        width:`${Math.abs(cropRect.x1 - cropRect.x0) * 100}%`,
+        height:`${Math.abs(cropRect.y1 - cropRect.y0) * 100}%`,
+        border:"2px dashed #1c3c88", background:"rgba(28,60,136,0.12)",
+        pointerEvents:"none", boxSizing:"border-box" }} />
+    );
+  };
+  const cropOverlay = (side) => (
+    <div style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%",
+      zIndex:30, cursor:"crosshair", touchAction:"none" }}
+      onPointerDown={e => cropDown(e, side)}
+      onPointerMove={e => cropMoveH(e, side)}
+      onPointerUp={e => cropUpH(e, side)}
+      onPointerCancel={() => { cropStartRef.current = null; setCropRect(null); }}>
+      {renderCropBox(side)}
+    </div>
+  );
 
   // pan helpers
   const PAN_STEP = 70;
@@ -3483,6 +3572,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (drawModeRef.current) return;
+    if (cropModeRef.current) return;
     if (penDownRef.current) return;
     if (e.touches.length > 1) { touchStartX.current = null; return; }
     if (zoomMul > 1.01) {
@@ -3558,6 +3648,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (drawModeRef.current) return;
+    if (cropModeRef.current) return;
     if (!swipeNav) return;
     if (e.touches.length > 1) { touchStartX.current = null; return; }
     if (touchStartX.current === null || touchFired.current) return;
@@ -3579,6 +3670,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       return;
     }
     if (drawModeRef.current) return;
+    if (cropModeRef.current) return;
     // 확대 상태: 더블탭 → 원래화면 복귀 / 아니면 패닝 종료
     if (zoomMul > 1.01) {
       const now = Date.now();
@@ -3797,8 +3889,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   const makeStroke = () => ({ color: activeColor, width: drawWidth, tool: drawTool, points: [] });
 
+  // Goodnotes 스타일 지우개 원형 커서 갱신 (eraser 도구일 때만)
+  const updateEraserCursor = (e, canvasEl) => {
+    if (drawTool !== "eraser" || !canvasEl) { setEraserCursor(c => c ? null : c); return; }
+    const r = canvasEl.getBoundingClientRect();
+    if (!r.width) return;
+    const d = Math.max(12, drawWidth * r.width / 90); // drawStrokes의 지우개 폭과 동일 비율
+    setEraserCursor({ x: e.clientX, y: e.clientY, d });
+  };
+  const clearEraserCursor = () => setEraserCursor(c => c ? null : c);
+
   // ── Canvas 1 handlers (single mode + dual left)
   const handleDraw1Down = (e) => {
+    if (drawTool === "eraser") updateEraserCursor(e, drawCanvas1Ref.current);
     if (e.pointerType === "touch" && !isLiteMode && !["text","stamp","select"].includes(drawTool)) return;
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
@@ -3879,6 +3982,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       drawStrokes(rc, teamDrawMode ? teamStrokes1Ref.current : strokes1Ref.current, curStroke1Ref.current); }
   };
   const handleDraw1Move = (e) => {
+    if (drawTool === "eraser") updateEraserCursor(e, drawCanvas1Ref.current);
     if (e.pointerType === "touch" && !isLiteMode && drawTool !== "select" && !(drawTool === "stamp" && selDragRef.current)) return;
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
@@ -3926,6 +4030,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       drawStrokes(rc, teamDrawMode ? teamStrokes1Ref.current : strokes1Ref.current, curStroke1Ref.current); }
   };
   const handleDraw1Up = async (e) => {
+    if (drawTool === "eraser") clearEraserCursor();
     if (drawTool === "select") {
       if (selDragRef.current && selAnnotRef.current?.canvasNum === 1) {
         selDragRef.current = null;
@@ -4002,6 +4107,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       if (canvas) drawStrokes(canvas, sRef1.current); }
   };
   const handleDraw1Cancel = () => {
+    clearEraserCursor();
     setLoupePos(null);
     stampPressed1Ref.current = false;
     shapeStart1Ref.current = null;
@@ -4017,6 +4123,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // ── Canvas 2 handlers (dual right)
   const handleDraw2Down = (e) => {
+    if (drawTool === "eraser") updateEraserCursor(e, drawCanvas2Ref.current);
     if (e.pointerType === "touch" && !["text","stamp","select"].includes(drawTool)) return;
     const canvas = drawCanvas2Ref.current;
     if (!canvas) return;
@@ -4097,6 +4204,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       drawStrokes(rc, teamDrawMode ? teamStrokes2Ref.current : strokes2Ref.current, curStroke2Ref.current); }
   };
   const handleDraw2Move = (e) => {
+    if (drawTool === "eraser") updateEraserCursor(e, drawCanvas2Ref.current);
     if (e.pointerType === "touch" && drawTool !== "select" && !(drawTool === "stamp" && selDragRef.current)) return;
     const canvas = drawCanvas2Ref.current;
     if (!canvas) return;
@@ -4144,6 +4252,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       drawStrokes(rc, teamDrawMode ? teamStrokes2Ref.current : strokes2Ref.current, curStroke2Ref.current); }
   };
   const handleDraw2Up = async (e) => {
+    if (drawTool === "eraser") clearEraserCursor();
     if (drawTool === "select") {
       if (selDragRef.current && selAnnotRef.current?.canvasNum === 2) {
         selDragRef.current = null;
@@ -4215,6 +4324,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       if (canvas) drawStrokes(canvas, sRef2.current); }
   };
   const handleDraw2Cancel = () => {
+    clearEraserCursor();
     setLoupePos(null);
     stampPressed2Ref.current = false;
     shapeStart2Ref.current = null;
@@ -4805,6 +4915,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   fontWeight:700, fontSize:11, fontFamily:"inherit",
                 }}>큐노트</button>
               )}
+              <button onClick={() => { const n = !cropMode; setCropMode(n); if (n) { setDrawMode(false); showToast("복사할 영역을 드래그하세요"); } }} style={{
+                height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                background: cropMode ? `${C.acc}22` : "transparent",
+                border:`1px solid ${cropMode ? C.acc : C.bdr}`,
+                color: cropMode ? C.acc : C.dim,
+                fontWeight:700, fontSize:11, fontFamily:"inherit",
+              }}>✂️ 크롭복사</button>
             </div>
           )}
 
@@ -5741,6 +5858,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         onPointerUp={handleDraw1Up}
                         onPointerCancel={handleDraw1Cancel}
                         onPointerLeave={() => {
+                          clearEraserCursor();
                           if (drawTool === "text" && !textInput) setTextDot(null);
                           if (drawTool === "stamp") { stampPressed1Ref.current = false; setLoupePos(null); }
                         }}
@@ -5758,6 +5876,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           onPointerCancel={e => handlePointerPenUp(e, pointerCanvas1Ref)}
                         />
                       )}
+                      {cropMode && cropOverlay(1)}
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 400;
                         const fs = Math.round(Math.max(8, Math.min(14, cw / 50)) * chordFontScale);
@@ -5831,6 +5950,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           onPointerUp={handleDraw2Up}
                           onPointerCancel={handleDraw2Cancel}
                           onPointerLeave={() => {
+                            clearEraserCursor();
                             if (drawTool === "text" && !textInput) setTextDot(null);
                             if (drawTool === "stamp") { stampPressed2Ref.current = false; setLoupePos(null); }
                           }}
@@ -5838,6 +5958,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         {/* 듀얼 오른쪽 포인터 입력 비활성화 —
                             오른쪽에 포인팅하면 싱글 모드 팀원에게 표시되지 않으므로
                             포인터는 왼쪽 패널에서만 사용 (악보를 왼쪽으로 넘겨서 포인팅) */}
+                        {cropMode && cropOverlay(2)}
                         {transposeMode && chordData2.length > 0 && (() => {
                           const cw = canvas2Ref.current?.offsetWidth  || 400;
                           const fs = Math.round(Math.max(8, Math.min(14, cw / 50)) * chordFontScale);
@@ -5922,6 +6043,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         onPointerUp={handleDraw1Up}
                         onPointerCancel={handleDraw1Cancel}
                         onPointerLeave={() => {
+                          clearEraserCursor();
                           if (drawTool === "text" && !textInput) setTextDot(null);
                           if (drawTool === "stamp") { stampPressed1Ref.current = false; setLoupePos(null); }
                         }}
@@ -6289,14 +6411,28 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 )];
                 return (
                   <div style={{ marginBottom:8, marginTop:4 }}>
-                    <input
-                      value={cueSection}
-                      onChange={e => setCueSection(e.target.value)}
-                      placeholder="섹션 이름 직접 입력 (예: 1절, 후렴, 간주)"
-                      style={{ width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
-                        borderRadius:8, padding:"7px 10px", fontSize:12, color:C.txt,
-                        fontFamily:"inherit", outline:"none", boxSizing:"border-box" }}
-                    />
+                    <div style={{ display:"flex", gap:6 }}>
+                      <input
+                        value={cueSection}
+                        onChange={e => setCueSection(e.target.value)}
+                        placeholder="섹션 이름 (예: 1절, 후렴, 간주)"
+                        style={{ flex:1, minWidth:0, background:C.card, border:`1.5px solid ${C.bdr}`,
+                          borderRadius:8, padding:"7px 10px", fontSize:12, color:C.txt,
+                          fontFamily:"inherit", outline:"none", boxSizing:"border-box" }}
+                      />
+                      <button onClick={() => setCueSecInk(v => !v)} title="손글씨로 섹션 입력"
+                        style={{ flexShrink:0, padding:"0 10px", borderRadius:8, cursor:"pointer",
+                          fontFamily:"inherit", fontSize:12, fontWeight:700,
+                          background: cueSecInk ? "#ff6f00" : C.card,
+                          color: cueSecInk ? "#fff" : C.dim,
+                          border:`1.5px solid ${cueSecInk ? "#ff6f00" : C.bdr}` }}>✍️</button>
+                    </div>
+                    {cueSecInk && (
+                      <div style={{ marginTop:6 }}>
+                        <HandwritePad accent="#ff6f00" apiKey={user?.geminiKey || sharedGeminiKey}
+                          onText={t => { setCueSection(t.trim()); setCueSecInk(false); }} />
+                      </div>
+                    )}
                     {usedSections.length > 0 && (
                       <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:6 }}>
                         {usedSections.map(sec => (
@@ -6702,6 +6838,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
       {showMobileHelp && <HelpModal onClose={() => setShowMobileHelp(false)} />}
 
+
+      {/* Goodnotes 스타일 지우개 원형 표시 */}
+      {eraserCursor && drawMode && drawTool === "eraser" && (
+        <div style={{
+          position:"fixed", left:eraserCursor.x, top:eraserCursor.y,
+          width:eraserCursor.d, height:eraserCursor.d,
+          transform:"translate(-50%,-50%)", borderRadius:"50%",
+          border:"2px solid rgba(120,120,130,0.9)", background:"rgba(150,150,160,0.18)",
+          zIndex:99998, pointerEvents:"none",
+        }} />
+      )}
 
       {/* 팀원 — 포인터 활성 배너 */}
       {!leader && user?.role !== "admin" && svc?.teamPointer?.on && (
