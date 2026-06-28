@@ -2464,8 +2464,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       </div>
                     </div>
 
-                    {/* 큐 노트 카드 */}
-                    <div style={{ flex:"1 1 0", display:"flex", flexDirection:"column", overflow:"hidden", background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}` }}>
+                    {/* 큐 노트 카드 — FOH가 읽는 핵심이라 예배순서보다 넓게 */}
+                    <div style={{ flex:"1.5 1 0", display:"flex", flexDirection:"column", overflow:"hidden", background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}` }}>
                       <div style={{ padding:"8px 12px", borderBottom:`1px solid ${C.bdr}`, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
                         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                           <span style={{ width:3, height:14, background:`#ff9500`, borderRadius:2, display:"inline-block", flexShrink:0 }} />
@@ -2473,7 +2473,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         </div>
                         {dispSong && <span style={{ fontSize:10, color:C.dim, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"55%" }}>{dispIdx+1}. {dispSong.title}</span>}
                       </div>
-                      <div style={{ flex:1, overflowY:"auto", padding:"8px 10px", display:"flex", flexDirection:"column", gap:6, scrollbarWidth:"none", background:C.bg, borderRadius:"0 0 12px 12px" }}>
+                      <div style={{ flex:1, overflowY:"auto", padding:"8px 10px", display:"flex", flexDirection:"column", gap:6, background:C.bg, borderRadius:"0 0 12px 12px" }}>
                         {(() => {
                           const songId = dispSong?.id;
                           const notes = songId
@@ -2521,7 +2521,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                           display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
                                         }}>×</button>
                                       </div>
-                                      <div style={{ fontSize:12, fontWeight:700, color:"#3c3c43", lineHeight:1.5, wordBreak:"break-all" }}>{cue.text}</div>
+                                      <div style={{ fontSize:12, fontWeight:700, color:"#3c3c43", lineHeight:1.5, overflowWrap:"break-word", wordBreak:"keep-all" }}>{cue.text}</div>
                                     </div>
                                   ))}
                                 </div>
