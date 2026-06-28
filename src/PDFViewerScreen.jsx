@@ -6064,6 +6064,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           onPointerCancel={e => handlePointerPenUp(e, pointerCanvas1Ref)}
                         />
                       )}
+                      {cropMode && cropOverlay(1)}
                       {/* 전조 코드 오버레이 */}
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 600;
