@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense, Component } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense, Component, Fragment } from "react";
 import { C, KEY_CLR, DARK_KEY, keyColor, darkKeyColor } from "./theme.js";
 import { Icon, Btn, Badge, KeyBadge, Input, Divider, Modal, ConfirmModal } from "./ui.jsx";
 import { HelpModal } from "./HelpModal.jsx";
@@ -1838,6 +1838,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [inHour,       setInHour]       = useState(false);
   const [worshipReady, setWorshipReady] = useState(false);
   const [worshipEnded, setWorshipEnded] = useState(false);
+  const [, setMinuteTick] = useState(0); // 1분마다 재렌더 → 예배 2시간 경과 시 nextSvc 자동 갱신
+  useEffect(() => { const id = setInterval(() => setMinuteTick(t => t + 1), 60000); return () => clearInterval(id); }, []);
   const [autoPhase,    setAutoPhase]    = useState("idle"); // idle|vol_down|piano_on|service_start
   const [testPhase,    setTestPhase]    = useState(0); // 0=off 1=countdown 2=worshipReady 3=piano_on
   const [syncSongIdx,  setSyncSongIdx]  = useState(-1);
@@ -1918,9 +1920,16 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   }, [userIsFoh]);
 
   const today    = localDateStr();
+  // 오늘 예배라도 시작 시각 +2시간이 지나면 다음 예배로 넘어가게 제외
+  const twoHoursPassed = (s) => {
+    if (!s.time) return false;
+    const [hh, mm] = s.time.split(":").map(Number);
+    const start = new Date(s.date + "T00:00:00"); start.setHours(hh, mm, 0, 0);
+    return Date.now() - start.getTime() > 2 * 60 * 60 * 1000;
+  };
   const upcoming = services
-    .filter(s => s.date >= today)
-    .slice().sort((a, b) => a.date.localeCompare(b.date));
+    .filter(s => s.date > today || (s.date === today && !twoHoursPassed(s)))
+    .slice().sort((a, b) => a.date.localeCompare(b.date) || (a.time || "").localeCompare(b.time || ""));
   const nextSvc  = upcoming[0] || null;
   const otherSvcs = upcoming.slice(1);   // nextSvc 제외 나머지 예정 예배
   const svcSongs = nextSvc
@@ -2649,19 +2658,35 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   {fohCardTab === "chat" && (
                     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}` }}>
                       <div style={{ flex:"1 1 0", height:0, overflowY:"auto", padding:"10px", display:"flex", flexDirection:"column", gap:7, scrollbarWidth:"none" }}>
-                        {teamChatMsgs.map(m => {
-                          const isMe = m.uid === user.uid;
-                          const timeStr = m.createdAt ? fmtMsgTS(m.createdAt.toMillis()) : "";
-                          return (
-                            <div key={m.id} style={{ display:"flex", flexDirection:"column", alignItems:isMe?"flex-end":"flex-start" }}>
-                              <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:2 }}>
-                                {!isMe && <span style={{ fontSize:10, color:C.dim }}>{m.name?.split(" ")[0]}</span>}
-                                {timeStr && <span style={{ fontSize:9, color:C.dim }}>{timeStr}</span>}
-                              </div>
-                              <div style={{ maxWidth:"82%", padding:"7px 11px", borderRadius:14, fontSize:12, lineHeight:1.5, background:isMe?C.pur:C.card, color:isMe?"#fff":C.txt, borderBottomLeftRadius:isMe?14:4, borderBottomRightRadius:isMe?4:14, border:`1px solid ${isMe?"transparent":C.bdr}` }}>{m.text}</div>
-                            </div>
-                          );
-                        })}
+                        {(() => {
+                          let lastDay = null;
+                          return teamChatMsgs.map(m => {
+                            const ms = m.createdAt?.toMillis?.() ?? null;
+                            const dayKey = ms ? new Date(ms).toDateString() : null;
+                            const showDivider = dayKey && dayKey !== lastDay;
+                            lastDay = dayKey;
+                            const isMe = m.uid === user.uid;
+                            const timeStr = ms ? new Date(ms).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}) : "";
+                            return (
+                              <Fragment key={m.id}>
+                                {showDivider && (
+                                  <div style={{ position:"sticky", top:0, zIndex:3, display:"flex", justifyContent:"center", margin:"4px 0 3px", pointerEvents:"none" }}>
+                                    <span style={{ fontSize:10, fontWeight:800, color:C.dim, background:C.surf,
+                                      border:`1px solid ${C.bdr}`, borderRadius:12, padding:"2px 12px",
+                                      boxShadow:"0 1px 4px rgba(0,0,0,0.08)" }}>{fmtDateLabel(ms)}</span>
+                                  </div>
+                                )}
+                                <div style={{ display:"flex", flexDirection:"column", alignItems:isMe?"flex-end":"flex-start" }}>
+                                  <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:2 }}>
+                                    {!isMe && <span style={{ fontSize:10, color:C.dim }}>{m.name?.split(" ")[0]}</span>}
+                                    {timeStr && <span style={{ fontSize:9, color:C.dim }}>{timeStr}</span>}
+                                  </div>
+                                  <div style={{ maxWidth:"82%", padding:"7px 11px", borderRadius:14, fontSize:12, lineHeight:1.5, background:isMe?C.pur:C.card, color:isMe?"#fff":C.txt, borderBottomLeftRadius:isMe?14:4, borderBottomRightRadius:isMe?4:14, border:`1px solid ${isMe?"transparent":C.bdr}` }}>{m.text}</div>
+                                </div>
+                              </Fragment>
+                            );
+                          });
+                        })()}
                         {teamChatMsgs.length === 0 && <div style={{ textAlign:"center", color:C.dim, fontSize:12, padding:"20px 0" }}>메시지 없음</div>}
                         <div ref={teamChatEndRef} />
                       </div>
@@ -7245,6 +7270,17 @@ function fmtMsgTS(ms) {
   const t = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
   const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
   return sameDay ? t : `${d.getMonth() + 1}/${d.getDate()} ${t}`;
+}
+// 채팅 날짜 구분선 라벨 — 오늘/어제/그 외 "M월 D일 (요일)"
+function fmtDateLabel(ms) {
+  if (!ms) return "";
+  const d = new Date(ms); const now = new Date();
+  const dayMs = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((dayMs(now) - dayMs(d)) / 86400000);
+  if (diffDays === 0) return "오늘";
+  if (diffDays === 1) return "어제";
+  const days = ["일","월","화","수","목","금","토"];
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
 // portrait=true → top strip side-by-side, portrait=false → left/right center
