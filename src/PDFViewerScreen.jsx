@@ -6676,7 +6676,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               <Btn label="전송" variant="primary"
                 onClick={() => {
                   const final = (cueTxt + (cueScr.trim() ? (cueTxt ? " " : "") + cueScr.trim() : "")).trim();
-                  if (final) { sendCue?.(selectedSvcId, cueSongId, final, { section: cueSection.trim() }); setCueTxt(""); setCueScr(""); setCueSection(""); setShowCueInput(false); }
+                  if (final) { sendCue?.(selectedSvcId, cueSongId, final, { section: cueSection.trim() }); setCueTxt(""); setCueScr(""); setCueSection(""); showToast("큐노트 전송됨"); /* 패널 유지 — 여러 개 연속 작성, 끝나면 X로 닫기 */ }
                 }}
                 full disabled={!cueTxt.trim() && !cueScr.trim()} />
             </div>
