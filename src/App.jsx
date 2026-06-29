@@ -2651,7 +2651,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       <div style={{ flex:"1 1 0", height:0, overflowY:"auto", padding:"10px", display:"flex", flexDirection:"column", gap:7, scrollbarWidth:"none" }}>
                         {teamChatMsgs.map(m => {
                           const isMe = m.uid === user.uid;
-                          const timeStr = m.createdAt ? new Date(m.createdAt.toMillis()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}) : "";
+                          const timeStr = m.createdAt ? fmtMsgTS(m.createdAt.toMillis()) : "";
                           return (
                             <div key={m.id} style={{ display:"flex", flexDirection:"column", alignItems:isMe?"flex-end":"flex-start" }}>
                               <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:2 }}>
@@ -2822,7 +2822,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                         } else {
                                           await setDoc(doc(db,"fohMessages",fohMsgTo),{message:msg,sentAt:serverTimestamp(),fromName:user.name||user.email});
                                         }
-                                        setFohRecentSent(prev => [{toLabel, text:msg, time:new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}, ...prev].slice(0,5));
+                                        setFohRecentSent(prev => [{toLabel, text:msg, time:fmtMsgTS(Date.now())}, ...prev].slice(0,5));
                                         setFohMsgTo(null);
                                       } catch(e){}
                                       setFohMsgSending(false);
@@ -2876,7 +2876,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                     <div style={{ flex:1, minWidth:0 }}>
                                       <div style={{ fontSize:11, fontWeight:800, color:acked?"#34c759":C.red }}>{cue.userPart||cue.userName}</div>
                                       <div style={{ fontSize:13, fontWeight:700, color:"#1c1c1e", marginTop:2, lineHeight:1.5 }}>{cue.text}</div>
-                                      {cue.createdAt && <div style={{ fontSize:10, color:C.dim, marginTop:3 }}>{new Date(cue.createdAt.toMillis()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}</div>}
+                                      {cue.createdAt && <div style={{ fontSize:10, color:C.dim, marginTop:3 }}>{fmtMsgTS(cue.createdAt.toMillis())}</div>}
                                     </div>
                                     <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
                                       <button onClick={() => acknowledgeCue?.(cue.id, acked, {targetUid:cue.userId,cueText:cue.text})} style={{ padding:"5px 11px", borderRadius:7, background:acked?"#f0fff5":"#fff", border:`1.5px solid ${acked?"#34c75966":C.red+"66"}`, color:acked?"#34c759":C.red, fontSize:11, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>{acked?"확인됨":"확인"}</button>
@@ -7235,6 +7235,16 @@ function fmtSchedTime(timeStr) {
   const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
   const min = String(m).padStart(2, "0");
   return `${period} ${hour}:${min}`;
+}
+
+// 메시지 시간 표시 — 오늘이면 시간만, 다른 날이면 "M/D 시간"으로 날짜 포함
+function fmtMsgTS(ms) {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const now = new Date();
+  const t = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  return sameDay ? t : `${d.getMonth() + 1}/${d.getDate()} ${t}`;
 }
 
 // portrait=true → top strip side-by-side, portrait=false → left/right center

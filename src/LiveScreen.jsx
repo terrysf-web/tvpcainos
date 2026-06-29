@@ -12,6 +12,16 @@ import {
 
 const isLeader = (role) => role === "leader" || role === "admin";
 
+// 메시지 시간 — 오늘이면 시간만, 다른 날이면 "M/D 시간"으로 날짜 포함
+function fmtMsgTS(ms) {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const now = new Date();
+  const t = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  return sameDay ? t : `${d.getMonth() + 1}/${d.getDate()} ${t}`;
+}
+
 /* ══════════════════════════════════════════════════════════════════
    LIVE SCREEN
 ══════════════════════════════════════════════════════════════════ */
@@ -259,7 +269,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
     const parts = [roleLbl(msg.role), msg.name].filter(Boolean);
     const displayName = parts.join(" ");
     const timeStr = msg.createdAt?.toDate
-      ? new Date(msg.createdAt.toDate()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})
+      ? fmtMsgTS(msg.createdAt.toMillis())
       : "";
     return (
       <div style={{ display:"flex", gap:10, padding:"10px 0",
@@ -728,7 +738,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
                           </div>
                           {cue?.updatedAt?.toDate && (
                             <div style={{ fontSize:10, color:C.dim, marginTop:3 }}>
-                              {new Date(cue.updatedAt.toDate()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})}
+                              {fmtMsgTS(cue.updatedAt.toMillis())}
                             </div>
                           )}
                         </div>
@@ -806,7 +816,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
                       <div style={{ fontSize:13, color:C.txt }}>{cue.msg}</div>
                       <div style={{ fontSize:11, color:C.dim, marginTop:4 }}>
                         {cue.updatedByName} · {cue.updatedAt?.toDate
-                          ? new Date(cue.updatedAt.toDate()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}) : ""}
+                          ? fmtMsgTS(cue.updatedAt.toMillis()) : ""}
                       </div>
                     </>}
                     <div style={{ display:"flex", gap:8, marginTop:12 }}>
@@ -1286,7 +1296,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
                 <div style={{ fontSize:13, color:C.txt, marginBottom:3 }}>{cue.msg}</div>
                 <div style={{ fontSize:11, color:C.dim }}>
                   {cue.updatedByName} · {cue.updatedAt?.toDate
-                    ? new Date(cue.updatedAt.toDate()).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})
+                    ? fmtMsgTS(cue.updatedAt.toMillis())
                     : ""}
                 </div>
               </>) : (

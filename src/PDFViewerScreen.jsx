@@ -671,6 +671,16 @@ function drawPointerStrokes(canvas, strokes, live = null, fast = false) {
 /* ══════════════════════════════════════════════════════════════════
    YOUTUBE HELPERS
 ══════════════════════════════════════════════════════════════════ */
+// 메시지 시간 — 오늘이면 시간만, 다른 날이면 "M/D 시간"으로 날짜 포함
+function fmtMsgTS(ms) {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const now = new Date();
+  const t = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  return sameDay ? t : `${d.getMonth() + 1}/${d.getDate()} ${t}`;
+}
+
 function getYoutubeId(url) {
   if (!url) return null;
   const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
@@ -6923,7 +6933,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     : chatMsgs.map(m => (
                       <div key={m.id} style={{ display:"flex", flexDirection:"column",
                         alignItems: m.uid === user?.uid ? "flex-end" : "flex-start" }}>
-                        <div style={{ fontSize:9, color:C.dim, marginBottom:1 }}>{m.name?.split(" ")[0]}</div>
+                        <div style={{ fontSize:9, color:C.dim, marginBottom:1 }}>{m.name?.split(" ")[0]}{m.createdAt?.toMillis?.() ? ` · ${fmtMsgTS(m.createdAt.toMillis())}` : ""}</div>
                         <div style={{
                           maxWidth:"82%", padding:"5px 9px", borderRadius:10, fontSize:12, lineHeight:1.4,
                           background: m.uid === user?.uid ? C.acc : C.card,
