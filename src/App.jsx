@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.721";
+const APP_VERSION = "3.722";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -1814,6 +1814,7 @@ function PdfThumb({ pdfUrl, scale = 1.0, fitHeight = false, page = 1 }) {
 function CueSheetPeek({ song, cues, onClose }) {
   const hasSheet = !!(song?.pdfUrl || song?.imageUrl);
   const list = (cues || []).slice().sort((a,b) => (a.createdAt?.seconds??0)-(b.createdAt?.seconds??0));
+  const [sel, setSel] = useState(null); // 선택된 큐 id (핀/범례 강조 + 말풍선)
   const marked = list.filter(c => c.markX != null);
   const page = marked[0]?.markPage || song?.pdfPage || 1;
   // 같은 페이지에 찍힌 마커만 표시 (PDF 멀티페이지 대응)
@@ -1829,38 +1830,62 @@ function CueSheetPeek({ song, cues, onClose }) {
           borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.55)", color:"#fff",
           fontSize:16, fontWeight:800, cursor:"pointer", lineHeight:1 }}>✕</button>
         <div style={{ position:"absolute", top:10, left:12, zIndex:5, background:"rgba(0,0,0,0.55)", color:"#fff",
-          fontSize:11, fontWeight:700, borderRadius:8, padding:"3px 10px", lineHeight:1.4 }}>{song?.title || ""}</div>
+          fontSize:11, fontWeight:700, borderRadius:8, padding:"3px 10px", lineHeight:1.4 }}>{song?.title || ""} · 핀을 누르면 내용 표시</div>
         {hasSheet ? (
           <div style={{ position:"relative", display:"block", lineHeight:0 }}>
             {song.pdfUrl
               ? <PdfThumb pdfUrl={song.pdfUrl} page={page} scale={2} />
               : <img src={song.imageUrl} alt="" style={{ width:"100%", display:"block" }} />}
-            {onPage.map((c, i) => (
-              <div key={c.id} style={{ position:"absolute", left:`${c.markX * 100}%`, top:`${c.markY * 100}%`,
-                transform:"translate(-50%,-50%)", width:26, height:26, borderRadius:"50%",
-                background:"#ff6f00", border:"2px solid #fff", color:"#fff", fontSize:13, fontWeight:800,
-                display:"flex", alignItems:"center", justifyContent:"center",
-                boxShadow:"0 0 10px rgba(255,111,0,0.8)", pointerEvents:"none",
-                animation:"cuePulse 1.3s ease-in-out infinite" }}>{list.indexOf(c) + 1}</div>
-            ))}
+            {onPage.map((c) => {
+              const n = list.indexOf(c) + 1;
+              const isSel = sel === c.id;
+              const pinLabel = (c.section && c.section.trim()) ? c.section.trim() : `#${n}`;
+              return (
+                <div key={c.id} style={{ position:"absolute", left:`${c.markX * 100}%`, top:`${c.markY * 100}%`,
+                  transform:"translate(-50%,-50%)", zIndex: isSel ? 4 : 2 }}>
+                  <button onClick={(e) => { e.stopPropagation(); setSel(isSel ? null : c.id); }}
+                    style={{ height:isSel?24:22, padding:"0 9px", borderRadius:12, cursor:"pointer",
+                      background: isSel ? "#1c3c88" : "#ff6f00", border:"2px solid #fff", color:"#fff",
+                      fontSize:12, fontWeight:800, lineHeight:1, whiteSpace:"nowrap", fontFamily:"inherit",
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      boxShadow: isSel ? "0 0 14px rgba(28,60,136,0.9)" : "0 1px 8px rgba(255,111,0,0.85)",
+                      animation: isSel ? "none" : "cuePulse 1.3s ease-in-out infinite",
+                      transform:"translate(-50%,-50%)", position:"absolute", left:0, top:0 }}>{pinLabel}</button>
+                  {isSel && (
+                    <div style={{ position:"absolute", left:"50%", top:18, transform:"translateX(-50%)",
+                      whiteSpace:"normal", width:"max-content", maxWidth:200, zIndex:5,
+                      background:"#1c3c88", color:"#fff", borderRadius:8, padding:"6px 10px",
+                      fontSize:12, fontWeight:700, lineHeight:1.4, boxShadow:"0 3px 12px rgba(0,0,0,0.4)" }}>
+                      <div style={{ fontSize:9, opacity:0.85, marginBottom:2 }}>{(c.userPart||c.userName||"")}{c.section?` · ${c.section}`:""}</div>
+                      {c.text}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : <div style={{ padding:40, textAlign:"center", color:C.dim, fontSize:14, lineHeight:1.5 }}>악보 없음</div>}
-        {/* 범례 — 모든 큐노트 목록 (번호=핀, 위치 없는 건 회색) */}
+        {/* 범례 — 모든 큐노트 목록 (번호=핀). 누르면 해당 핀 강조 */}
         {list.length > 0 && (
-          <div style={{ padding:"10px 14px 14px", borderTop:`1px solid ${C.bdr}`, display:"flex", flexDirection:"column", gap:6 }}>
-            {list.map((c, i) => (
-              <div key={c.id} style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
-                <span style={{ flexShrink:0, width:20, height:20, borderRadius:"50%", fontSize:11, fontWeight:800,
-                  background: c.markX != null ? "#ff6f00" : C.bdr, color: c.markX != null ? "#fff" : C.dim,
-                  display:"flex", alignItems:"center", justifyContent:"center", marginTop:1 }}>{i + 1}</span>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:10, color:"#e65c00", fontWeight:700 }}>
-                    {(c.userPart || c.userName || "")}{c.section ? ` · ${c.section}` : ""}{c.markX == null ? " · 위치없음" : ""}
+          <div style={{ padding:"10px 14px 14px", borderTop:`1px solid ${C.bdr}`, display:"flex", flexDirection:"column", gap:4 }}>
+            {list.map((c, i) => {
+              const isSel = sel === c.id;
+              return (
+                <div key={c.id} onClick={() => setSel(isSel ? null : c.id)}
+                  style={{ display:"flex", alignItems:"flex-start", gap:8, cursor:"pointer",
+                    background: isSel ? "#1c3c8810" : "transparent", borderRadius:8, padding:"3px 6px" }}>
+                  <span style={{ flexShrink:0, width:20, height:20, borderRadius:"50%", fontSize:11, fontWeight:800,
+                    background: c.markX != null ? (isSel ? "#1c3c88" : "#ff6f00") : C.bdr, color: c.markX != null ? "#fff" : C.dim,
+                    display:"flex", alignItems:"center", justifyContent:"center", marginTop:1 }}>{i + 1}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:10, color:"#e65c00", fontWeight:700 }}>
+                      {(c.userPart || c.userName || "")}{c.section ? ` · ${c.section}` : ""}{c.markX == null ? " · 위치없음" : ""}
+                    </div>
+                    <div style={{ fontSize:13, fontWeight:700, color:"#3c3c43", lineHeight:1.45, overflowWrap:"anywhere", whiteSpace:"pre-wrap" }}>{c.text}</div>
                   </div>
-                  <div style={{ fontSize:13, fontWeight:700, color:"#3c3c43", lineHeight:1.45, overflowWrap:"anywhere", whiteSpace:"pre-wrap" }}>{c.text}</div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
