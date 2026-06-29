@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.722";
+const APP_VERSION = "3.723";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -1815,79 +1815,103 @@ function CueSheetPeek({ song, cues, onClose }) {
   const hasSheet = !!(song?.pdfUrl || song?.imageUrl);
   const list = (cues || []).slice().sort((a,b) => (a.createdAt?.seconds??0)-(b.createdAt?.seconds??0));
   const [sel, setSel] = useState(null); // 선택된 큐 id (핀/범례 강조 + 말풍선)
+  const [wide, setWide] = useState(() => typeof window !== "undefined" && window.innerWidth > window.innerHeight && window.innerWidth >= 760);
+  useEffect(() => {
+    const onR = () => setWide(window.innerWidth > window.innerHeight && window.innerWidth >= 760);
+    window.addEventListener("resize", onR); window.addEventListener("orientationchange", onR);
+    return () => { window.removeEventListener("resize", onR); window.removeEventListener("orientationchange", onR); };
+  }, []);
   const marked = list.filter(c => c.markX != null);
   const page = marked[0]?.markPage || song?.pdfPage || 1;
-  // 같은 페이지에 찍힌 마커만 표시 (PDF 멀티페이지 대응)
   const onPage = marked.filter(c => (c.markPage || 1) === page);
+
+  const sheetCol = (
+    <div style={{ position:"relative", flexShrink:0,
+      ...(wide
+        ? { width:"min(64vh, 52vw)", maxHeight:"94vh", overflowY:"auto" }
+        : { width:"100%" }) }}>
+      <button onClick={onClose} style={{ position:"absolute", top:8, right:8, zIndex:6, width:32, height:32,
+        borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.55)", color:"#fff",
+        fontSize:16, fontWeight:800, cursor:"pointer", lineHeight:1 }}>✕</button>
+      <div style={{ position:"absolute", top:10, left:12, zIndex:6, background:"rgba(0,0,0,0.55)", color:"#fff",
+        fontSize:11, fontWeight:700, borderRadius:8, padding:"3px 10px", lineHeight:1.4, maxWidth:"70%" }}>{song?.title || ""}</div>
+      {hasSheet ? (
+        <div style={{ position:"relative", display:"block", lineHeight:0 }}>
+          {song.pdfUrl
+            ? <PdfThumb pdfUrl={song.pdfUrl} page={page} scale={2} />
+            : <img src={song.imageUrl} alt="" style={{ width:"100%", display:"block" }} />}
+          {onPage.map((c) => {
+            const n = list.indexOf(c) + 1;
+            const isSel = sel === c.id;
+            const pinLabel = (c.section && c.section.trim()) ? c.section.trim() : `#${n}`;
+            return (
+              <div key={c.id} style={{ position:"absolute", left:`${c.markX * 100}%`, top:`${c.markY * 100}%`,
+                transform:"translate(-50%,-50%)", zIndex: isSel ? 4 : 2 }}>
+                <button onClick={(e) => { e.stopPropagation(); setSel(isSel ? null : c.id); }}
+                  style={{ height:isSel?24:22, padding:"0 9px", borderRadius:12, cursor:"pointer",
+                    background: isSel ? "#1c3c88" : "#ff6f00", border:"2px solid #fff", color:"#fff",
+                    fontSize:12, fontWeight:800, lineHeight:1, whiteSpace:"nowrap", fontFamily:"inherit",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    boxShadow: isSel ? "0 0 14px rgba(28,60,136,0.9)" : "0 1px 8px rgba(255,111,0,0.85)",
+                    animation: isSel ? "none" : "cuePulse 1.3s ease-in-out infinite",
+                    transform:"translate(-50%,-50%)", position:"absolute", left:0, top:0 }}>{pinLabel}</button>
+                {isSel && (
+                  <div style={{ position:"absolute", left:"50%", top:18, transform:"translateX(-50%)",
+                    whiteSpace:"normal", width:"max-content", maxWidth:200, zIndex:5,
+                    background:"#1c3c88", color:"#fff", borderRadius:8, padding:"6px 10px",
+                    fontSize:12, fontWeight:700, lineHeight:1.4, boxShadow:"0 3px 12px rgba(0,0,0,0.4)" }}>
+                    <div style={{ fontSize:9, opacity:0.85, marginBottom:2 }}>{(c.userPart||c.userName||"")}{c.section?` · ${c.section}`:""}</div>
+                    {c.text}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : <div style={{ padding:40, textAlign:"center", color:C.dim, fontSize:14, lineHeight:1.5 }}>악보 없음</div>}
+    </div>
+  );
+
+  const legendCol = list.length > 0 ? (
+    <div style={{ padding:"10px 14px 14px", display:"flex", flexDirection:"column", gap:4,
+      ...(wide
+        ? { flex:"1 1 0", minWidth:240, maxHeight:"94vh", overflowY:"auto", borderLeft:`1px solid ${C.bdr}` }
+        : { borderTop:`1px solid ${C.bdr}` }) }}>
+      <div style={{ fontSize:11, fontWeight:800, color:C.dim, marginBottom:2 }}>큐노트 {list.length}개 · 핀/항목을 누르면 강조</div>
+      {list.map((c, i) => {
+        const isSel = sel === c.id;
+        return (
+          <div key={c.id} onClick={() => setSel(isSel ? null : c.id)}
+            style={{ display:"flex", alignItems:"flex-start", gap:8, cursor:"pointer",
+              background: isSel ? "#1c3c8810" : "transparent", borderRadius:8, padding:"3px 6px" }}>
+            <span style={{ flexShrink:0, minWidth:20, height:20, padding:"0 5px", borderRadius:10, fontSize:10, fontWeight:800,
+              background: c.markX != null ? (isSel ? "#1c3c88" : "#ff6f00") : C.bdr, color: c.markX != null ? "#fff" : C.dim,
+              display:"flex", alignItems:"center", justifyContent:"center", marginTop:1, whiteSpace:"nowrap" }}>
+              {(c.section && c.section.trim()) ? c.section.trim() : i + 1}
+            </span>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:10, color:"#e65c00", fontWeight:700 }}>
+                {(c.userPart || c.userName || "")}{c.markX == null ? " · 위치없음" : ""}
+              </div>
+              <div style={{ fontSize:13, fontWeight:700, color:"#3c3c43", lineHeight:1.45, overflowWrap:"anywhere", whiteSpace:"pre-wrap" }}>{c.text}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  ) : null;
+
   return (
     <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:6000,
       background:"rgba(0,0,0,0.84)", display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
       <style>{`@keyframes cuePulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.18)}}`}</style>
       <div onClick={e => e.stopPropagation()} style={{ position:"relative",
-        width:"min(94vw, 820px)", maxHeight:"94vh", overflowY:"auto",
+        display:"flex", flexDirection: wide ? "row" : "column",
+        width: wide ? "min(96vw, 1150px)" : "min(94vw, 820px)",
+        maxHeight:"94vh", overflow: wide ? "hidden" : "auto",
         background:"#fff", borderRadius:12, boxShadow:"0 8px 40px rgba(0,0,0,0.5)" }}>
-        <button onClick={onClose} style={{ position:"absolute", top:8, right:8, zIndex:5, width:32, height:32,
-          borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.55)", color:"#fff",
-          fontSize:16, fontWeight:800, cursor:"pointer", lineHeight:1 }}>✕</button>
-        <div style={{ position:"absolute", top:10, left:12, zIndex:5, background:"rgba(0,0,0,0.55)", color:"#fff",
-          fontSize:11, fontWeight:700, borderRadius:8, padding:"3px 10px", lineHeight:1.4 }}>{song?.title || ""} · 핀을 누르면 내용 표시</div>
-        {hasSheet ? (
-          <div style={{ position:"relative", display:"block", lineHeight:0 }}>
-            {song.pdfUrl
-              ? <PdfThumb pdfUrl={song.pdfUrl} page={page} scale={2} />
-              : <img src={song.imageUrl} alt="" style={{ width:"100%", display:"block" }} />}
-            {onPage.map((c) => {
-              const n = list.indexOf(c) + 1;
-              const isSel = sel === c.id;
-              const pinLabel = (c.section && c.section.trim()) ? c.section.trim() : `#${n}`;
-              return (
-                <div key={c.id} style={{ position:"absolute", left:`${c.markX * 100}%`, top:`${c.markY * 100}%`,
-                  transform:"translate(-50%,-50%)", zIndex: isSel ? 4 : 2 }}>
-                  <button onClick={(e) => { e.stopPropagation(); setSel(isSel ? null : c.id); }}
-                    style={{ height:isSel?24:22, padding:"0 9px", borderRadius:12, cursor:"pointer",
-                      background: isSel ? "#1c3c88" : "#ff6f00", border:"2px solid #fff", color:"#fff",
-                      fontSize:12, fontWeight:800, lineHeight:1, whiteSpace:"nowrap", fontFamily:"inherit",
-                      display:"flex", alignItems:"center", justifyContent:"center",
-                      boxShadow: isSel ? "0 0 14px rgba(28,60,136,0.9)" : "0 1px 8px rgba(255,111,0,0.85)",
-                      animation: isSel ? "none" : "cuePulse 1.3s ease-in-out infinite",
-                      transform:"translate(-50%,-50%)", position:"absolute", left:0, top:0 }}>{pinLabel}</button>
-                  {isSel && (
-                    <div style={{ position:"absolute", left:"50%", top:18, transform:"translateX(-50%)",
-                      whiteSpace:"normal", width:"max-content", maxWidth:200, zIndex:5,
-                      background:"#1c3c88", color:"#fff", borderRadius:8, padding:"6px 10px",
-                      fontSize:12, fontWeight:700, lineHeight:1.4, boxShadow:"0 3px 12px rgba(0,0,0,0.4)" }}>
-                      <div style={{ fontSize:9, opacity:0.85, marginBottom:2 }}>{(c.userPart||c.userName||"")}{c.section?` · ${c.section}`:""}</div>
-                      {c.text}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : <div style={{ padding:40, textAlign:"center", color:C.dim, fontSize:14, lineHeight:1.5 }}>악보 없음</div>}
-        {/* 범례 — 모든 큐노트 목록 (번호=핀). 누르면 해당 핀 강조 */}
-        {list.length > 0 && (
-          <div style={{ padding:"10px 14px 14px", borderTop:`1px solid ${C.bdr}`, display:"flex", flexDirection:"column", gap:4 }}>
-            {list.map((c, i) => {
-              const isSel = sel === c.id;
-              return (
-                <div key={c.id} onClick={() => setSel(isSel ? null : c.id)}
-                  style={{ display:"flex", alignItems:"flex-start", gap:8, cursor:"pointer",
-                    background: isSel ? "#1c3c8810" : "transparent", borderRadius:8, padding:"3px 6px" }}>
-                  <span style={{ flexShrink:0, width:20, height:20, borderRadius:"50%", fontSize:11, fontWeight:800,
-                    background: c.markX != null ? (isSel ? "#1c3c88" : "#ff6f00") : C.bdr, color: c.markX != null ? "#fff" : C.dim,
-                    display:"flex", alignItems:"center", justifyContent:"center", marginTop:1 }}>{i + 1}</span>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:10, color:"#e65c00", fontWeight:700 }}>
-                      {(c.userPart || c.userName || "")}{c.section ? ` · ${c.section}` : ""}{c.markX == null ? " · 위치없음" : ""}
-                    </div>
-                    <div style={{ fontSize:13, fontWeight:700, color:"#3c3c43", lineHeight:1.45, overflowWrap:"anywhere", whiteSpace:"pre-wrap" }}>{c.text}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {sheetCol}
+        {legendCol}
       </div>
     </div>
   );
