@@ -4959,6 +4959,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             </svg>
             {drawTool === "eraser" ? "펜" : "지우개"}
           </>), drawTool === "eraser", 88)}
+
+          {/* 연습녹음 버튼 — 서비스 연습 녹음이 있을 때 (악보 보며 연습) */}
+          {svcPracticeUrl && !drawMode && (
+            <button onClick={() => setShowWorshipPlayer(v => !v)} style={{
+              position:"fixed", bottom:"calc(env(safe-area-inset-bottom,0px) + 18px)", left:16, zIndex:200,
+              background: showWorshipPlayer ? "rgba(52,199,89,0.9)" : "rgba(0,0,0,0.42)",
+              color:"#fff", border:"none", borderRadius:24, padding:"10px 16px",
+              fontSize:14, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:7,
+              backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)", letterSpacing:"-0.01em",
+            }}>🎧 연습녹음</button>
+          )}
         </>);
       })()}
 
