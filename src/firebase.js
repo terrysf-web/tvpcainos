@@ -4,14 +4,20 @@ import { initializeFirestore, memoryLocalCache } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, isSupported } from "firebase/messaging";
 
+// 환경변수(VITE_FB_*)가 있으면 그 값(다른 교회용), 없으면 기본 tvpcainos.
+// → 같은 코드로 여러 교회 Firebase 프로젝트에 각각 배포 가능 (메인 앱은 기본값 그대로).
+const E = import.meta.env;
 const firebaseConfig = {
-  apiKey: "AIzaSyAzXyQA-BbL_0KsTnukODBfMBkIZINxiNM",
-  authDomain: "tvpcainos.firebaseapp.com",
-  projectId: "tvpcainos",
-  storageBucket: "tvpcainos.firebasestorage.app",
-  messagingSenderId: "721441022829",
-  appId: "1:721441022829:web:45a0ee8fc152090b09f064",
+  apiKey:            E.VITE_FB_API_KEY        || "AIzaSyAzXyQA-BbL_0KsTnukODBfMBkIZINxiNM",
+  authDomain:        E.VITE_FB_AUTH_DOMAIN    || "tvpcainos.firebaseapp.com",
+  projectId:         E.VITE_FB_PROJECT_ID     || "tvpcainos",
+  storageBucket:     E.VITE_FB_STORAGE_BUCKET || "tvpcainos.firebasestorage.app",
+  messagingSenderId: E.VITE_FB_MSG_SENDER_ID  || "721441022829",
+  appId:             E.VITE_FB_APP_ID         || "1:721441022829:web:45a0ee8fc152090b09f064",
 };
+
+// 게스트(무료 테스트) 빌드 여부 — AI·PP7·X32 등 비용/장비 기능 숨김
+export const GUEST_BUILD = E.VITE_GUEST === "1";
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
