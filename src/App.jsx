@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.720";
+const APP_VERSION = "3.721";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -1810,6 +1810,41 @@ function PdfThumb({ pdfUrl, scale = 1.0, fitHeight = false, page = 1 }) {
   return <canvas ref={cvRef} style={{ width:"100%", display:"block" }} />;
 }
 
+// 큐노트 악보 피크 — 곡 악보를 띄우고 작성자가 찍은 위치에 점 표시
+function CueSheetPeek({ song, mark, onClose }) {
+  const hasSheet = !!(song?.pdfUrl || song?.imageUrl);
+  const Dot = () => (mark && mark.x != null) ? (
+    <div style={{ position:"absolute", left:`${mark.x * 100}%`, top:`${mark.y * 100}%`,
+      transform:"translate(-50%,-50%)", width:32, height:32, borderRadius:"50%",
+      border:"3px solid #ff6f00", background:"rgba(255,111,0,0.2)",
+      boxShadow:"0 0 16px rgba(255,111,0,0.9)", pointerEvents:"none",
+      animation:"cuePulse 1.2s ease-in-out infinite" }} />
+  ) : null;
+  return (
+    <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:6000,
+      background:"rgba(0,0,0,0.84)", display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+      <style>{`@keyframes cuePulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:1}50%{transform:translate(-50%,-50%) scale(1.35);opacity:.65}}`}</style>
+      <div onClick={e => e.stopPropagation()} style={{ position:"relative",
+        width:"min(92vw, 760px)", maxHeight:"92vh", overflowY:"auto",
+        background:"#fff", borderRadius:12, lineHeight:0, boxShadow:"0 8px 40px rgba(0,0,0,0.5)" }}>
+        {hasSheet ? (
+          <div style={{ position:"relative", display:"block", lineHeight:0 }}>
+            {song.pdfUrl
+              ? <PdfThumb pdfUrl={song.pdfUrl} page={mark?.page || song.pdfPage || 1} scale={2} />
+              : <img src={song.imageUrl} alt="" style={{ width:"100%", display:"block" }} />}
+            <Dot />
+          </div>
+        ) : <div style={{ padding:40, textAlign:"center", color:C.dim, fontSize:14, lineHeight:1.5 }}>악보 없음</div>}
+        <button onClick={onClose} style={{ position:"absolute", top:8, right:8, width:32, height:32,
+          borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.55)", color:"#fff",
+          fontSize:16, fontWeight:800, cursor:"pointer", lineHeight:1 }}>✕</button>
+        <div style={{ position:"absolute", top:10, left:12, background:"rgba(0,0,0,0.55)", color:"#fff",
+          fontSize:11, fontWeight:700, borderRadius:8, padding:"3px 10px", lineHeight:1.4 }}>{song?.title || ""}</div>
+      </div>
+    </div>
+  );
+}
+
 class FohErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { err: null }; }
   static getDerivedStateFromError(e) { return { err: e }; }
@@ -1855,6 +1890,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   const [fohMsgEdit,   setFohMsgEdit]   = useState(false);
   const [fohMsgInput,  setFohMsgInput]  = useState("");
   const [teamChatMsgs, setTeamChatMsgs] = useState([]);
+  const [cuePeek,      setCuePeek]      = useState(null); // 큐노트 악보 피크 { song, mark }
   const [showTeamChat, setShowTeamChat] = useState(false);
   const [teamChatInput,setTeamChatInput]= useState("");
   const [chatToast,    setChatToast]    = useState(null); // { name, text }
@@ -2518,6 +2554,15 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                     <div key={cue.id}>
                                       <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:1 }}>
                                         <span style={{ fontSize:9, color:C.dim, flexShrink:0 }}>{cue.userPart || cue.userName || ""}</span>
+                                        {dispSong && (dispSong.pdfUrl || dispSong.imageUrl) && (
+                                          <button onClick={() => setCuePeek({ song: dispSong, mark: cue.markX != null ? { x:cue.markX, y:cue.markY, page:cue.markPage } : null })} style={{
+                                            flexShrink:0, padding:"1px 7px", borderRadius:8, cursor:"pointer", fontFamily:"inherit",
+                                            fontSize:9, fontWeight:800, lineHeight:1.4,
+                                            background: cue.markX != null ? "#ff6f00" : `${C.acc}18`,
+                                            color: cue.markX != null ? "#fff" : C.acc,
+                                            border:`1px solid ${cue.markX != null ? "#ff6f00" : C.acc+"44"}`,
+                                          }}>📍 악보</button>
+                                        )}
                                         <button onClick={() => deleteCue?.(cue.id)} style={{
                                           marginLeft:"auto", flexShrink:0, width:14, height:14, borderRadius:"50%",
                                           background:"transparent", border:`1px solid ${C.bdr}`,
@@ -2525,7 +2570,13 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                           display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1,
                                         }}>×</button>
                                       </div>
-                                      <div style={{ fontSize:12, fontWeight:700, color:"#3c3c43", lineHeight:1.5, overflowWrap:"anywhere", whiteSpace:"pre-wrap" }}>{cue.text}</div>
+                                      <div
+                                        onClick={(dispSong && (dispSong.pdfUrl || dispSong.imageUrl)) ? () => setCuePeek({ song: dispSong, mark: cue.markX != null ? { x:cue.markX, y:cue.markY, page:cue.markPage } : null }) : undefined}
+                                        style={{ fontSize:12, fontWeight:700, color:"#3c3c43", lineHeight:1.5, overflowWrap:"anywhere", whiteSpace:"pre-wrap",
+                                          cursor:(dispSong && (dispSong.pdfUrl || dispSong.imageUrl)) ? "pointer" : "default" }}>
+                                        {cue.text}
+                                        {cue.markX != null && <span style={{ marginLeft:5, fontSize:10, color:"#ff6f00", fontWeight:800 }}>📍</span>}
+                                      </div>
                                     </div>
                                   ))}
                                 </div>
@@ -2537,6 +2588,9 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     </div>
 
                   </div>
+
+                  {/* 큐노트 악보 피크 모달 */}
+                  {cuePeek && <CueSheetPeek song={cuePeek.song} mark={cuePeek.mark} onClose={() => setCuePeek(null)} />}
 
                   {/* ── 싱크바 카드 ── */}
                   <div style={{ flexShrink:0, background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}` }}>
@@ -8634,6 +8688,8 @@ export default function App() {
       userPart,
       text: text.trim(),
       section: opts.section || "",
+      // 악보 위치 마커 (작성자가 악보에서 찍은 지점, 전체 페이지 기준 0~1 + 페이지)
+      ...(opts.mark ? { markX: opts.mark.x, markY: opts.mark.y, markPage: opts.mark.page || 1 } : {}),
       createdAt: serverTimestamp(),
       acknowledged: false,
       panic: opts.panic ?? false,

@@ -1823,6 +1823,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [cueScr,        setCueScr]        = useState("");
   const [cueSection,    setCueSection]    = useState("");
   const [cueSecInk,     setCueSecInk]     = useState(false); // 섹션 손글씨 입력 모드
+  const [cueMarkMode,   setCueMarkMode]   = useState(false); // 악보 위치 찍기 모드
+  const [cueMark,       setCueMark]       = useState(null);  // {x,y} 표시 좌표(0~1, 크롭된 화면 기준) + page
   const [cueEditId,     setCueEditId]     = useState(null);
   const [cueEditTxt,    setCueEditTxt]    = useState("");
   const [showPanicMenu, setShowPanicMenu] = useState(false);
@@ -2503,6 +2505,31 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       {renderCropBox(side)}
     </div>
   );
+
+  // ── 큐노트 악보 위치 찍기 (canvas1 = 싱글/듀얼좌)
+  const cueMarkDown = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const p = cropPt(e, 1); if (!p) return; // 표시(크롭) 화면 기준 0~1
+    setCueMark({ x: p.x, y: p.y, page: dual ? (svcSongs[dualIdx]?.pdfPage || 1) : pageNum });
+    setCueMarkMode(false);
+    showToast("위치 표시됨 — 전송하면 함께 저장됩니다");
+  };
+  const cueMarkOverlay = () => (
+    <div style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%",
+      zIndex:31, cursor:"crosshair", touchAction:"none" }}
+      onPointerDown={cueMarkDown} />
+  );
+  const cueMarkerDot = () => {
+    if (!cueMark) return null;
+    const onPage = dual ? cueMark.page === (svcSongs[dualIdx]?.pdfPage || 1) : cueMark.page === pageNum;
+    if (!onPage) return null;
+    return (
+      <div style={{ position:"absolute", left:`${cueMark.x * 100}%`, top:`${cueMark.y * 100}%`,
+        transform:"translate(-50%,-50%)", zIndex:26, pointerEvents:"none",
+        width:24, height:24, borderRadius:"50%", border:"3px solid #ff6f00",
+        background:"rgba(255,111,0,0.22)", boxShadow:"0 0 12px rgba(255,111,0,0.75)" }} />
+    );
+  };
 
   // pan helpers
   const PAN_STEP = 70;
@@ -6016,6 +6043,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         />
                       )}
                       {cropMode && cropOverlay(1)}
+                      {cueMarkMode && cueMarkOverlay()}
+                      {cueMarkerDot()}
                       {pasteMode && pasteRef.current?.side === 1 && pasteOverlay(1)}
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 400;
@@ -6202,6 +6231,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                         />
                       )}
                       {cropMode && cropOverlay(1)}
+                      {cueMarkMode && cueMarkOverlay()}
+                      {cueMarkerDot()}
                       {pasteMode && pasteRef.current?.side === 1 && pasteOverlay(1)}
                       {/* 전조 코드 오버레이 */}
                       {transposeMode && chordData.length > 0 && (() => {
@@ -6593,6 +6624,24 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   </div>
                 );
               })()}
+              {/* 악보 위치 찍기 — 정확히 어느 부분인지 FOH가 볼 수 있게 */}
+              <div style={{ display:"flex", gap:6, alignItems:"center", marginBottom:8 }}>
+                <button onClick={() => { setCueMarkMode(m => !m); }} style={{
+                  flex: cueMark ? "0 0 auto" : 1, padding:"7px 10px", borderRadius:8, cursor:"pointer",
+                  fontFamily:"inherit", fontSize:12, fontWeight:700,
+                  background: cueMarkMode ? "#ff6f00" : (cueMark ? `${C.grn}18` : C.card),
+                  color: cueMarkMode ? "#fff" : (cueMark ? C.grn : C.dim),
+                  border:`1.5px solid ${cueMarkMode ? "#ff6f00" : (cueMark ? C.grn : C.bdr)}` }}>
+                  📍 {cueMarkMode ? "악보를 탭하세요" : cueMark ? "위치 표시됨" : "악보 위치 찍기"}
+                </button>
+                {cueMark && (
+                  <button onClick={() => { setCueMark(null); setCueMarkMode(false); }} style={{
+                    padding:"7px 10px", borderRadius:8, cursor:"pointer", fontFamily:"inherit",
+                    fontSize:12, fontWeight:700, background:C.card, color:C.red, border:`1px solid ${C.bdr}` }}>
+                    위치 지우기
+                  </button>
+                )}
+              </div>
               {/* 글자 표시/편집 영역 — 변환 후 직접 수정 가능 */}
               <textarea
                 value={cueTxt}
@@ -6676,7 +6725,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               <Btn label="전송" variant="primary"
                 onClick={() => {
                   const final = (cueTxt + (cueScr.trim() ? (cueTxt ? " " : "") + cueScr.trim() : "")).trim();
-                  if (final) { sendCue?.(selectedSvcId, cueSongId, final, { section: cueSection.trim() }); setCueTxt(""); setCueScr(""); setCueSection(""); showToast("큐노트 전송됨"); /* 패널 유지 — 여러 개 연속 작성, 끝나면 X로 닫기 */ }
+                  if (!final) return;
+                  // 표시(크롭) 좌표 → 전체 페이지 좌표로 변환 (FOH 피크에서 풀페이지로 렌더하므로)
+                  let mark = null;
+                  if (cueMark) {
+                    const cb = cueSong?.cropBox;
+                    const cropped = cb && (cb.left > 0.001 || cb.top > 0.001 || cb.right < 0.999 || cb.bottom < 0.999);
+                    mark = cropped
+                      ? { x: cb.left + cueMark.x * (cb.right - cb.left), y: cb.top + cueMark.y * (cb.bottom - cb.top), page: cueMark.page }
+                      : { x: cueMark.x, y: cueMark.y, page: cueMark.page };
+                  }
+                  sendCue?.(selectedSvcId, cueSongId, final, { section: cueSection.trim(), mark });
+                  setCueTxt(""); setCueScr(""); setCueSection(""); setCueMark(null); setCueMarkMode(false);
+                  showToast("큐노트 전송됨"); /* 패널 유지 — 여러 개 연속 작성, 끝나면 X로 닫기 */
                 }}
                 full disabled={!cueTxt.trim() && !cueScr.trim()} />
             </div>
