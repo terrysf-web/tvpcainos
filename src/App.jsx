@@ -1810,36 +1810,59 @@ function PdfThumb({ pdfUrl, scale = 1.0, fitHeight = false, page = 1 }) {
   return <canvas ref={cvRef} style={{ width:"100%", display:"block" }} />;
 }
 
-// 큐노트 악보 피크 — 곡 악보를 띄우고 작성자가 찍은 위치에 점 표시
-function CueSheetPeek({ song, mark, onClose }) {
+// 큐노트 악보 피크 — 곡 악보를 띄우고 모든 큐노트 위치를 번호 핀으로 표시 + 범례
+function CueSheetPeek({ song, cues, onClose }) {
   const hasSheet = !!(song?.pdfUrl || song?.imageUrl);
-  const Dot = () => (mark && mark.x != null) ? (
-    <div style={{ position:"absolute", left:`${mark.x * 100}%`, top:`${mark.y * 100}%`,
-      transform:"translate(-50%,-50%)", width:32, height:32, borderRadius:"50%",
-      border:"3px solid #ff6f00", background:"rgba(255,111,0,0.2)",
-      boxShadow:"0 0 16px rgba(255,111,0,0.9)", pointerEvents:"none",
-      animation:"cuePulse 1.2s ease-in-out infinite" }} />
-  ) : null;
+  const list = (cues || []).slice().sort((a,b) => (a.createdAt?.seconds??0)-(b.createdAt?.seconds??0));
+  const marked = list.filter(c => c.markX != null);
+  const page = marked[0]?.markPage || song?.pdfPage || 1;
+  // 같은 페이지에 찍힌 마커만 표시 (PDF 멀티페이지 대응)
+  const onPage = marked.filter(c => (c.markPage || 1) === page);
   return (
     <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:6000,
       background:"rgba(0,0,0,0.84)", display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-      <style>{`@keyframes cuePulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:1}50%{transform:translate(-50%,-50%) scale(1.35);opacity:.65}}`}</style>
+      <style>{`@keyframes cuePulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.18)}}`}</style>
       <div onClick={e => e.stopPropagation()} style={{ position:"relative",
-        width:"min(92vw, 760px)", maxHeight:"92vh", overflowY:"auto",
-        background:"#fff", borderRadius:12, lineHeight:0, boxShadow:"0 8px 40px rgba(0,0,0,0.5)" }}>
+        width:"min(94vw, 820px)", maxHeight:"94vh", overflowY:"auto",
+        background:"#fff", borderRadius:12, boxShadow:"0 8px 40px rgba(0,0,0,0.5)" }}>
+        <button onClick={onClose} style={{ position:"absolute", top:8, right:8, zIndex:5, width:32, height:32,
+          borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.55)", color:"#fff",
+          fontSize:16, fontWeight:800, cursor:"pointer", lineHeight:1 }}>✕</button>
+        <div style={{ position:"absolute", top:10, left:12, zIndex:5, background:"rgba(0,0,0,0.55)", color:"#fff",
+          fontSize:11, fontWeight:700, borderRadius:8, padding:"3px 10px", lineHeight:1.4 }}>{song?.title || ""}</div>
         {hasSheet ? (
           <div style={{ position:"relative", display:"block", lineHeight:0 }}>
             {song.pdfUrl
-              ? <PdfThumb pdfUrl={song.pdfUrl} page={mark?.page || song.pdfPage || 1} scale={2} />
+              ? <PdfThumb pdfUrl={song.pdfUrl} page={page} scale={2} />
               : <img src={song.imageUrl} alt="" style={{ width:"100%", display:"block" }} />}
-            <Dot />
+            {onPage.map((c, i) => (
+              <div key={c.id} style={{ position:"absolute", left:`${c.markX * 100}%`, top:`${c.markY * 100}%`,
+                transform:"translate(-50%,-50%)", width:26, height:26, borderRadius:"50%",
+                background:"#ff6f00", border:"2px solid #fff", color:"#fff", fontSize:13, fontWeight:800,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                boxShadow:"0 0 10px rgba(255,111,0,0.8)", pointerEvents:"none",
+                animation:"cuePulse 1.3s ease-in-out infinite" }}>{list.indexOf(c) + 1}</div>
+            ))}
           </div>
         ) : <div style={{ padding:40, textAlign:"center", color:C.dim, fontSize:14, lineHeight:1.5 }}>악보 없음</div>}
-        <button onClick={onClose} style={{ position:"absolute", top:8, right:8, width:32, height:32,
-          borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.55)", color:"#fff",
-          fontSize:16, fontWeight:800, cursor:"pointer", lineHeight:1 }}>✕</button>
-        <div style={{ position:"absolute", top:10, left:12, background:"rgba(0,0,0,0.55)", color:"#fff",
-          fontSize:11, fontWeight:700, borderRadius:8, padding:"3px 10px", lineHeight:1.4 }}>{song?.title || ""}</div>
+        {/* 범례 — 모든 큐노트 목록 (번호=핀, 위치 없는 건 회색) */}
+        {list.length > 0 && (
+          <div style={{ padding:"10px 14px 14px", borderTop:`1px solid ${C.bdr}`, display:"flex", flexDirection:"column", gap:6 }}>
+            {list.map((c, i) => (
+              <div key={c.id} style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
+                <span style={{ flexShrink:0, width:20, height:20, borderRadius:"50%", fontSize:11, fontWeight:800,
+                  background: c.markX != null ? "#ff6f00" : C.bdr, color: c.markX != null ? "#fff" : C.dim,
+                  display:"flex", alignItems:"center", justifyContent:"center", marginTop:1 }}>{i + 1}</span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:10, color:"#e65c00", fontWeight:700 }}>
+                    {(c.userPart || c.userName || "")}{c.section ? ` · ${c.section}` : ""}{c.markX == null ? " · 위치없음" : ""}
+                  </div>
+                  <div style={{ fontSize:13, fontWeight:700, color:"#3c3c43", lineHeight:1.45, overflowWrap:"anywhere", whiteSpace:"pre-wrap" }}>{c.text}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2555,7 +2578,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                       <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:1 }}>
                                         <span style={{ fontSize:9, color:C.dim, flexShrink:0 }}>{cue.userPart || cue.userName || ""}</span>
                                         {dispSong && (dispSong.pdfUrl || dispSong.imageUrl) && (
-                                          <button onClick={() => setCuePeek({ song: dispSong, mark: cue.markX != null ? { x:cue.markX, y:cue.markY, page:cue.markPage } : null })} style={{
+                                          <button onClick={() => setCuePeek({ song: dispSong, cues: (songCues?.[dispSong.id] || []).filter(c => !c.panic) })} style={{
                                             flexShrink:0, padding:"1px 7px", borderRadius:8, cursor:"pointer", fontFamily:"inherit",
                                             fontSize:9, fontWeight:800, lineHeight:1.4,
                                             background: cue.markX != null ? "#ff6f00" : `${C.acc}18`,
@@ -2571,7 +2594,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                                         }}>×</button>
                                       </div>
                                       <div
-                                        onClick={(dispSong && (dispSong.pdfUrl || dispSong.imageUrl)) ? () => setCuePeek({ song: dispSong, mark: cue.markX != null ? { x:cue.markX, y:cue.markY, page:cue.markPage } : null }) : undefined}
+                                        onClick={(dispSong && (dispSong.pdfUrl || dispSong.imageUrl)) ? () => setCuePeek({ song: dispSong, cues: (songCues?.[dispSong.id] || []).filter(c => !c.panic) }) : undefined}
                                         style={{ fontSize:12, fontWeight:700, color:"#3c3c43", lineHeight:1.5, overflowWrap:"anywhere", whiteSpace:"pre-wrap",
                                           cursor:(dispSong && (dispSong.pdfUrl || dispSong.imageUrl)) ? "pointer" : "default" }}>
                                         {cue.text}
@@ -2590,7 +2613,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   </div>
 
                   {/* 큐노트 악보 피크 모달 */}
-                  {cuePeek && <CueSheetPeek song={cuePeek.song} mark={cuePeek.mark} onClose={() => setCuePeek(null)} />}
+                  {cuePeek && <CueSheetPeek song={cuePeek.song} cues={cuePeek.cues} onClose={() => setCuePeek(null)} />}
 
                   {/* ── 싱크바 카드 ── */}
                   <div style={{ flexShrink:0, background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}` }}>
