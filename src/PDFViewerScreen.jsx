@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { C } from "./theme.js";
+import { C, keyColor } from "./theme.js";
 import {
   PARTS, VOCALIST_PART_IDS, INST_MODES,
   getUserParts, isVocalistUser,
@@ -5825,7 +5825,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   {showDict && (
                     <>
                       {divH}
-                      <button onClick={() => setShowChordDict(side || "left")} style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 10px", borderRadius:7, border:`1.5px solid ${C.pur}55`, background:`${C.pur}11`, color:C.pur, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>🎵 코드사전</button>
+                      <button onClick={() => setShowChordDict(side || "left")} style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 10px", borderRadius:7, border:`1.5px solid ${C.acc}55`, background:`${C.acc}11`, color:C.acc, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>🎵 코드사전</button>
                     </>
                   )}
                 </>
@@ -8322,28 +8322,28 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, userPart
     };
     if (tab === "bass") return (
       <div style={cardBase}>
-        {sub && <div style={{ fontSize:8, color:C.pur, fontWeight:700 }}>{sub}</div>}
+        {sub && <div style={{ fontSize:8, color:C.acc, fontWeight:700 }}>{sub}</div>}
         <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>{name}</div>
         <BassFretDiagram chordName={name} />
       </div>
     );
     if (tab === "keyboard") return (
       <div style={{ ...cardBase, padding:"8px 4px" }}>
-        {sub && <div style={{ fontSize:8, color:C.pur, fontWeight:700 }}>{sub}</div>}
+        {sub && <div style={{ fontSize:8, color:C.acc, fontWeight:700 }}>{sub}</div>}
         <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>{name}</div>
         <PianoChordDiagram chordName={name} C={C} />
       </div>
     );
     return voicings ? (
       <div style={cardBase}>
-        {sub && <div style={{ fontSize:8, color:C.pur, fontWeight:700 }}>{sub}</div>}
+        {sub && <div style={{ fontSize:8, color:C.acc, fontWeight:700 }}>{sub}</div>}
         <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>{name}</div>
         <FretDiagram voicing={voicings[0]} />
         {voicings.length > 1 && <div style={{ fontSize:8, color:C.dim }}>+{voicings.length - 1}개</div>}
       </div>
     ) : (
       <div style={{ ...cardBase, minWidth:60, opacity:0.5 }}>
-        {sub && <div style={{ fontSize:8, color:C.pur, fontWeight:700 }}>{sub}</div>}
+        {sub && <div style={{ fontSize:8, color:C.acc, fontWeight:700 }}>{sub}</div>}
         <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>{name}</div>
         <div style={{ fontSize:8, color:C.dim, marginTop:3 }}>정보없음</div>
       </div>
@@ -8371,19 +8371,22 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, userPart
         onPointerCancel={onDragUp}
         style={{
           display:"flex", alignItems:"center", justifyContent:"space-between",
-          padding:"10px 12px 8px", flexShrink:0,
-          borderBottom:`1px solid ${C.bdr}`,
+          padding:"10px 14px", flexShrink:0,
+          borderBottom:`1px solid ${C.bdr}`, background:C.card,
+          borderTopLeftRadius:16, borderTopRightRadius:16,
           cursor:"grab", touchAction:"none",
         }}
       >
-        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:7 }}>
           <span style={{ fontSize:9, color:C.dim, letterSpacing:2 }}>⠿⠿</span>
-          <div style={{ fontSize:13, fontWeight:800, color:C.txt }}>🎵 코드 사전</div>
+          <span style={{ fontSize:14 }}>🎵</span>
+          <span style={{ fontSize:13, fontWeight:800, color:C.acc, letterSpacing:"-0.01em" }}>코드 사전</span>
           {effectiveKey && (
-            <div style={{
-              fontSize:10, fontWeight:700, color:C.pur,
-              background:`${C.pur}15`, borderRadius:5, padding:"1px 6px",
-            }}>Key {effectiveKey}</div>
+            <span style={{
+              fontSize:10, fontWeight:700, color:keyColor(effectiveKey),
+              background:`${keyColor(effectiveKey)}22`, border:`1px solid ${keyColor(effectiveKey)}44`,
+              borderRadius:5, padding:"2px 7px",
+            }}>Key {effectiveKey}</span>
           )}
         </div>
         <button onClick={onClose} style={{
@@ -8400,8 +8403,8 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, userPart
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             flex:1, padding:"5px 4px", borderRadius:16,
-            border:`1.5px solid ${tab === t.id ? C.pur : C.bdr}`,
-            background: tab === t.id ? C.pur : "transparent",
+            border:`1.5px solid ${tab === t.id ? C.acc : C.bdr}`,
+            background: tab === t.id ? C.acc : "transparent",
             color: tab === t.id ? "#fff" : C.dim,
             fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
           }}>{t.label}</button>
