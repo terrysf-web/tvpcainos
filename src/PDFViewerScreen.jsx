@@ -1923,6 +1923,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const tmKey = user?.uid && selectedSongId ? `tvpc_tm_${user.uid}_${selectedSongId}` : null;
   const [transposeMode,  setTransposeMode]  = useState(false);
   const [chordMoveMode,  setChordMoveMode]  = useState(false); // 리더 전용: 코드 이동 모드
+  const [addChordMode,   setAddChordMode]   = useState(false); // 리더 전용: 코드 추가 모드 (악보 탭)
+  const [chordInput,     setChordInput]     = useState(null);  // {x,y,side} 인라인 입력 위치
+  const [chordInputVal,  setChordInputVal]  = useState("");
   const [transposeSteps,  setTransposeSteps]  = useState(0);  // single / dual left
   const [transposeSteps2, setTransposeSteps2] = useState(0);  // dual right
   const [capoFret,        setCapoFret]        = useState(0);  // 0=없음, 1~7 (기타/일렉기타만) — 싱글/듀얼 왼쪽
@@ -2534,6 +2537,28 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     );
   };
 
+  // 코드 추가 — 탭 캡처 오버레이 + 인라인 입력
+  const addChordOverlay = (side) => (
+    <div style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%",
+      zIndex:32, cursor:"crosshair", touchAction:"none" }}
+      onPointerDown={e => startAddChord(e, side)} />
+  );
+  const chordInputBox = (side) => {
+    if (!chordInput || chordInput.side !== side) return null;
+    return (
+      <input autoFocus value={chordInputVal}
+        onChange={e => setChordInputVal(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter") commitChord(); if (e.key === "Escape") { setChordInput(null); setChordInputVal(""); } }}
+        onBlur={commitChord}
+        placeholder="코드"
+        style={{ position:"absolute", left:`${chordInput.x * 100}%`, top:`${chordInput.y * 100}%`,
+          transform:"translate(-50%,-50%)", zIndex:40, width:84, textAlign:"center",
+          fontSize:15, fontWeight:800, padding:"4px 6px", borderRadius:7,
+          border:`2px solid ${C.acc}`, outline:"none", fontFamily:"inherit",
+          background:"#fff", color:"#111", boxShadow:"0 2px 10px rgba(0,0,0,.3)" }} />
+    );
+  };
+
   // pan helpers
   const PAN_STEP = 70;
   const doPan = useCallback((dx, dy) => {
@@ -3091,6 +3116,32 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const updated = current.filter((_, i) => i !== idx);
     (side === 2 ? setChordData2 : setChordData)(updated);
     saveChordPositions(updated, side);
+  };
+
+  // 코드 추가: 악보 탭 → 인라인 입력 위치 지정
+  const startAddChord = (e, side) => {
+    e.preventDefault(); e.stopPropagation();
+    const cv = side === 2 ? canvas2Ref.current : canvas1Ref.current;
+    if (!cv) return;
+    const r = cv.getBoundingClientRect();
+    if (!r.width) return;
+    const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+    setChordInput({ x, y, side });
+    setChordInputVal("");
+  };
+  // 입력 확정: 현재 보이는 키로 입력 → 원본키로 역전조 저장 (이후 전조 시 같이 변경)
+  const commitChord = () => {
+    const ci = chordInput; const v = chordInputVal.trim();
+    setChordInput(null); setChordInputVal("");
+    if (!ci || !v) return;
+    const effSteps = ci.side === 2 ? (transposeSteps2 - capoFret2) : (transposeSteps - capoFret);
+    const orig = transposeChord(v, ((-effSteps) % 12 + 12) % 12, false); // 역전조 → 원본키 표기
+    const cur = ci.side === 2 ? chordData2 : chordData;
+    const updated = [...cur, { chord: orig, x: ci.x, y: ci.y }];
+    (ci.side === 2 ? setChordData2 : setChordData)(updated);
+    saveChordPositions(updated, ci.side);
+    showToast("코드 추가됨");
   };
 
   const duplicateChord = (side, idx) => {
@@ -5703,8 +5754,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
             const utilBar = (mLeft) => (
               <div style={{ marginLeft: mLeft ? "auto" : 0, display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                {leader && (
+                  <button onClick={() => { setAddChordMode(m => !m); setChordMoveMode(false); setChordInput(null); }} style={{ border:`1px solid ${addChordMode ? C.acc : C.bdr}`, borderRadius:6, background: addChordMode ? `${C.acc}22` : "transparent", padding:"3px 8px", cursor:"pointer", fontSize:10, color: addChordMode ? C.acc : C.dim, fontFamily:"inherit", flexShrink:0, whiteSpace:"nowrap" }}>
+                    {addChordMode ? "➕ 탭해서 추가" : "➕ 코드 추가"}
+                  </button>
+                )}
                 {leader && (chordData.length > 0 || chordData2.length > 0) && (
-                  <button onClick={() => setChordMoveMode(m => !m)} style={{ border:`1px solid ${chordMoveMode ? C.grn : C.bdr}`, borderRadius:6, background: chordMoveMode ? `${C.grn}22` : "transparent", padding:"3px 8px", cursor:"pointer", fontSize:10, color: chordMoveMode ? C.grn : C.dim, fontFamily:"inherit", flexShrink:0 }}>
+                  <button onClick={() => { setChordMoveMode(m => !m); setAddChordMode(false); }} style={{ border:`1px solid ${chordMoveMode ? C.grn : C.bdr}`, borderRadius:6, background: chordMoveMode ? `${C.grn}22` : "transparent", padding:"3px 8px", cursor:"pointer", fontSize:10, color: chordMoveMode ? C.grn : C.dim, fontFamily:"inherit", flexShrink:0 }}>
                     {chordMoveMode ? "✋ 이동 ON" : "코드 이동"}
                   </button>
                 )}
@@ -6049,6 +6105,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       {cropMode && cropOverlay(1)}
                       {cueMarkMode && cueMarkOverlay()}
                       {cueMarkerDot()}
+                      {addChordMode && addChordOverlay(1)}
+                      {chordInputBox(1)}
                       {pasteMode && pasteRef.current?.side === 1 && pasteOverlay(1)}
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 400;
@@ -6132,6 +6190,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                             오른쪽에 포인팅하면 싱글 모드 팀원에게 표시되지 않으므로
                             포인터는 왼쪽 패널에서만 사용 (악보를 왼쪽으로 넘겨서 포인팅) */}
                         {cropMode && cropOverlay(2)}
+                        {addChordMode && addChordOverlay(2)}
+                        {chordInputBox(2)}
                         {pasteMode && pasteRef.current?.side === 2 && pasteOverlay(2)}
                         {transposeMode && chordData2.length > 0 && (() => {
                           const cw = canvas2Ref.current?.offsetWidth  || 400;
@@ -6237,6 +6297,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       {cropMode && cropOverlay(1)}
                       {cueMarkMode && cueMarkOverlay()}
                       {cueMarkerDot()}
+                      {addChordMode && addChordOverlay(1)}
+                      {chordInputBox(1)}
                       {pasteMode && pasteRef.current?.side === 1 && pasteOverlay(1)}
                       {/* 전조 코드 오버레이 */}
                       {transposeMode && chordData.length > 0 && (() => {
