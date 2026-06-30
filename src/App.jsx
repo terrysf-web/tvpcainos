@@ -2796,10 +2796,12 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                             return (
                               <Fragment key={m.id}>
                                 {showDivider && (
-                                  <div style={{ position:"sticky", top:0, zIndex:3, display:"flex", justifyContent:"center", margin:"4px 0 3px", pointerEvents:"none" }}>
+                                  <div style={{ position:"sticky", top:0, zIndex:3, display:"flex", alignItems:"center", gap:10, justifyContent:"center", margin:"4px 0 3px", pointerEvents:"none" }}>
+                                    <div style={{ flex:1, height:1, background:C.bdr, opacity:0.5 }} />
                                     <span style={{ fontSize:10, fontWeight:800, color:C.dim, background:C.surf,
                                       border:`1px solid ${C.bdr}`, borderRadius:12, padding:"2px 12px",
-                                      boxShadow:"0 1px 4px rgba(0,0,0,0.08)" }}>{fmtDateLabel(ms)}</span>
+                                      boxShadow:"0 1px 4px rgba(0,0,0,0.08)", flexShrink:0 }}>{fmtDateLabel(ms)}</span>
+                                    <div style={{ flex:1, height:1, background:C.bdr, opacity:0.5 }} />
                                   </div>
                                 )}
                                 <div style={{ display:"flex", flexDirection:"column", alignItems:isMe?"flex-end":"flex-start" }}>
