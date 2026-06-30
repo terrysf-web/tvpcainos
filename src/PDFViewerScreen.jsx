@@ -1924,8 +1924,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [transposeMode,  setTransposeMode]  = useState(false);
   const [chordMoveMode,  setChordMoveMode]  = useState(false); // 리더 전용: 코드 이동 모드
   const [addChordMode,   setAddChordMode]   = useState(false); // 리더 전용: 코드 추가 모드 (악보 탭)
-  const [chordInput,     setChordInput]     = useState(null);  // {x,y,side} 인라인 입력 위치
-  const [chordInputVal,  setChordInputVal]  = useState("");
+  const [chordInput,     setChordInput]     = useState(null);  // {x,y,side} 코드 선택 위치
+  const [pickRoot,       setPickRoot]       = useState(null);  // 선택한 루트 (반음 인덱스)
+  const [pickQual,       setPickQual]       = useState("");    // 선택한 코드 성질
   const [transposeSteps,  setTransposeSteps]  = useState(0);  // single / dual left
   const [transposeSteps2, setTransposeSteps2] = useState(0);  // dual right
   const [capoFret,        setCapoFret]        = useState(0);  // 0=없음, 1~7 (기타/일렉기타만) — 싱글/듀얼 왼쪽
@@ -2543,19 +2544,52 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       zIndex:32, cursor:"crosshair", touchAction:"none" }}
       onPointerDown={e => startAddChord(e, side)} />
   );
-  const chordInputBox = (side) => {
+  const CHORD_QUALITIES = ["", "m", "7", "m7", "maj7", "sus4", "sus2", "dim", "aug", "add9", "6", "m7b5"];
+  const closePicker = () => { setChordInput(null); setPickRoot(null); setPickQual(""); };
+  const chordPicker = (side) => {
     if (!chordInput || chordInput.side !== side) return null;
+    const effSteps = side === 2 ? (transposeSteps2 - capoFret2) : (transposeSteps - capoFret);
+    const keyForFlats = side === 2 ? (songs?.find(s => s.id === dualRightSongId)?.key || song?.key) : song?.key;
+    const flats = useFlats(keyForFlats, effSteps);
+    const dmap = flats ? DISPLAY_FLAT : DISPLAY_SHARP;
+    const roots = SEMITONES.map(n => dmap[n]);
+    const preview = pickRoot != null ? roots[pickRoot] + pickQual : "";
+    const above = chordInput.y > 0.55;
+    const leftPct = Math.max(8, Math.min(92, chordInput.x * 100));
     return (
-      <input autoFocus value={chordInputVal}
-        onChange={e => setChordInputVal(e.target.value)}
-        onKeyDown={e => { if (e.key === "Enter") commitChord(); if (e.key === "Escape") { setChordInput(null); setChordInputVal(""); } }}
-        onBlur={commitChord}
-        placeholder="코드"
-        style={{ position:"absolute", left:`${chordInput.x * 100}%`, top:`${chordInput.y * 100}%`,
-          transform:"translate(-50%,-50%)", zIndex:40, width:84, textAlign:"center",
-          fontSize:15, fontWeight:800, padding:"4px 6px", borderRadius:7,
-          border:`2px solid ${C.acc}`, outline:"none", fontFamily:"inherit",
-          background:"#fff", color:"#111", boxShadow:"0 2px 10px rgba(0,0,0,.3)" }} />
+      <div style={{ position:"absolute", left:`${leftPct}%`, top:`${chordInput.y * 100}%`,
+        transform: above ? "translate(-50%, calc(-100% - 10px))" : "translate(-50%, 10px)",
+        zIndex:45, background:"#fff", borderRadius:11, border:`2px solid ${C.acc}`,
+        boxShadow:"0 8px 28px rgba(0,0,0,.3)", padding:9, width:240, touchAction:"none" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:7 }}>
+          <span style={{ fontSize:11, fontWeight:800, color:C.txt }}>코드 선택 {effSteps !== 0 && <span style={{ color:C.dim, fontWeight:600 }}>(현재 키)</span>}</span>
+          <span style={{ fontSize:16, fontWeight:900, color:C.acc, fontFamily:"monospace", minWidth:44, textAlign:"right" }}>{preview || "—"}</span>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:3, marginBottom:7 }}>
+          {roots.map((r, i) => (
+            <button key={i} onClick={() => setPickRoot(i)} style={{ padding:"6px 0", borderRadius:5, fontSize:12,
+              fontWeight:800, fontFamily:"monospace", cursor:"pointer",
+              border:`1px solid ${pickRoot===i?C.acc:C.bdr}`, background: pickRoot===i?C.acc:"#f4f4f7",
+              color: pickRoot===i?"#fff":C.txt }}>{r}</button>
+          ))}
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:3, marginBottom:9 }}>
+          {CHORD_QUALITIES.map(q => (
+            <button key={q} onClick={() => setPickQual(q)} style={{ padding:"5px 0", borderRadius:5, fontSize:11,
+              fontWeight:700, fontFamily:"monospace", cursor:"pointer",
+              border:`1px solid ${pickQual===q?C.pur:C.bdr}`, background: pickQual===q?`${C.pur}18`:"#fff",
+              color: pickQual===q?C.pur:C.txt }}>{q===""?"major":q}</button>
+          ))}
+        </div>
+        <div style={{ display:"flex", gap:6 }}>
+          <button onClick={closePicker} style={{ flex:1, padding:"7px 0", borderRadius:6, fontSize:12, fontWeight:700,
+            cursor:"pointer", border:`1px solid ${C.bdr}`, background:"#fff", color:C.dim, fontFamily:"inherit" }}>취소</button>
+          <button onClick={() => { if (pickRoot==null) return; const ci = chordInput; storeChordAt(ci, roots[pickRoot]+pickQual); closePicker(); }}
+            disabled={pickRoot==null} style={{ flex:1.5, padding:"7px 0", borderRadius:6, fontSize:12, fontWeight:800,
+            cursor: pickRoot==null?"default":"pointer", border:"none", background: pickRoot==null?C.bdr:C.acc,
+            color:"#fff", fontFamily:"inherit" }}>추가</button>
+        </div>
+      </div>
     );
   };
 
@@ -3128,12 +3162,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
     const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
     setChordInput({ x, y, side });
-    setChordInputVal("");
+    setPickRoot(null);
+    setPickQual("");
   };
-  // 입력 확정: 현재 보이는 키로 입력 → 원본키로 역전조 저장 (이후 전조 시 같이 변경)
-  const commitChord = () => {
-    const ci = chordInput; const v = chordInputVal.trim();
-    setChordInput(null); setChordInputVal("");
+  // 선택 확정: 현재 보이는 키로 선택 → 원본키로 역전조 저장 (이후 전조 시 같이 변경)
+  const storeChordAt = (ci, v) => {
+    v = (v || "").trim();
     if (!ci || !v) return;
     const effSteps = ci.side === 2 ? (transposeSteps2 - capoFret2) : (transposeSteps - capoFret);
     const orig = transposeChord(v, ((-effSteps) % 12 + 12) % 12, false); // 역전조 → 원본키 표기
@@ -6106,7 +6140,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       {cueMarkMode && cueMarkOverlay()}
                       {cueMarkerDot()}
                       {addChordMode && addChordOverlay(1)}
-                      {chordInputBox(1)}
+                      {chordPicker(1)}
                       {pasteMode && pasteRef.current?.side === 1 && pasteOverlay(1)}
                       {transposeMode && chordData.length > 0 && (() => {
                         const cw = canvas1Ref.current?.offsetWidth  || 400;
@@ -6191,7 +6225,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                             포인터는 왼쪽 패널에서만 사용 (악보를 왼쪽으로 넘겨서 포인팅) */}
                         {cropMode && cropOverlay(2)}
                         {addChordMode && addChordOverlay(2)}
-                        {chordInputBox(2)}
+                        {chordPicker(2)}
                         {pasteMode && pasteRef.current?.side === 2 && pasteOverlay(2)}
                         {transposeMode && chordData2.length > 0 && (() => {
                           const cw = canvas2Ref.current?.offsetWidth  || 400;
@@ -6298,7 +6332,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       {cueMarkMode && cueMarkOverlay()}
                       {cueMarkerDot()}
                       {addChordMode && addChordOverlay(1)}
-                      {chordInputBox(1)}
+                      {chordPicker(1)}
                       {pasteMode && pasteRef.current?.side === 1 && pasteOverlay(1)}
                       {/* 전조 코드 오버레이 */}
                       {transposeMode && chordData.length > 0 && (() => {
