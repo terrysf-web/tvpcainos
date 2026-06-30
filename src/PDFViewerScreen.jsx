@@ -7663,60 +7663,169 @@ function FretDiagram({ voicing }) {
   );
 }
 
+// Chord AI 스타일 기타 다이어그램 — 다크 네이비 + 베이지 손가락(번호) + 음이름
+const GUITAR_OPEN_PC = [4, 9, 2, 7, 11, 4]; // 저음 E A D G B 고음 E
+function FretDiagramAI({ voicing }) {
+  if (!voicing) return null;
+  const { frets, fingers, barre } = voicing;
+  const strX = [11, 22, 33, 44, 55, 66];
+  const lines = [20, 33, 46, 59, 72]; // 너트 + 4프렛 와이어
+  const nonMuted = frets.filter(f => f > 0);
+  const minFret = nonMuted.length ? Math.min(...nonMuted) : 1;
+  const startFret = (barre > 0) ? barre : (minFret <= 4 ? 1 : minFret);
+  const isNut = startFret === 1;
+  const GRID = "#cfd6e2", DIM = "#8a97b0", DOT = "#c2a06b", DOTX = "#1b2333", LBL = "#e7edf6";
+
+  const dotY = (fretNum) => {
+    const idx = fretNum - startFret;
+    if (idx < 0 || idx >= 4) return null;
+    return (lines[idx] + lines[idx + 1]) / 2;
+  };
+
+  return (
+    <svg width={80} height={94} viewBox="0 0 80 94" style={{ display:"block" }}>
+      {/* × / ○ 마커 */}
+      {frets.map((f, i) => {
+        if (f === -1) return <text key={i} x={strX[i]} y={13} textAnchor="middle" fontSize={9} fontWeight="700" fill={DIM}>×</text>;
+        if (f === 0)  return <text key={i} x={strX[i]} y={13} textAnchor="middle" fontSize={9} fill={LBL}>○</text>;
+        return null;
+      })}
+      {/* 너트 / 시작프렛 */}
+      {isNut
+        ? <rect x={strX[0] - 2} y={lines[0] - 4} width={strX[5] - strX[0] + 4} height={4} fill={LBL} rx={1} />
+        : <line x1={strX[0]} y1={lines[0]} x2={strX[5]} y2={lines[0]} stroke={GRID} strokeWidth={1.5} />}
+      {/* 프렛 와이어 */}
+      {lines.slice(1).map((y, i) => <line key={i} x1={strX[0]} y1={y} x2={strX[5]} y2={y} stroke={GRID} strokeWidth={1} />)}
+      {/* 줄 */}
+      {strX.map((x, i) => <line key={i} x1={x} y1={lines[0]} x2={x} y2={lines[4]} stroke={GRID} strokeWidth={1} />)}
+      {/* 시작 프렛 번호 */}
+      {!isNut && <text x={strX[5] + 6} y={lines[0] + 11} fontSize={8} fontWeight="700" fill={DIM}>{startFret}</text>}
+      {/* 바레 바 */}
+      {barre > 0 && (() => {
+        const by = dotY(barre);
+        if (by === null) return null;
+        return <rect x={strX[0] - 1} y={by - 6} width={strX[5] - strX[0] + 2} height={12} rx={6} fill={DOT} />;
+      })()}
+      {/* 손가락 점 + 번호 */}
+      {frets.map((f, i) => {
+        if (f <= 0) return null;
+        if (barre > 0 && f === barre) {
+          // 바레 줄: 바 위에 번호 하나만(양끝)
+          if (i === 0 || i === 5) {
+            const cy = dotY(f);
+            return cy === null ? null : <text key={i} x={strX[i]} y={cy + 3} textAnchor="middle" fontSize={8} fontWeight="800" fill={DOTX}>1</text>;
+          }
+          return null;
+        }
+        const cy = dotY(f);
+        if (cy === null) return null;
+        const fg = fingers?.[i];
+        return (
+          <g key={i}>
+            <circle cx={strX[i]} cy={cy} r={5.5} fill={DOT} />
+            {fg > 0 && <text x={strX[i]} y={cy + 3} textAnchor="middle" fontSize={8} fontWeight="800" fill={DOTX}>{fg}</text>}
+          </g>
+        );
+      })}
+      {/* 음이름 라벨 */}
+      {frets.map((f, i) => {
+        if (f < 0) return null;
+        const pc = (GUITAR_OPEN_PC[i] + f) % 12;
+        return <text key={i} x={strX[i]} y={90} textAnchor="middle" fontSize={8} fontWeight="700" fill={LBL}>{PIANO_NOTE_NAMES[pc]}</text>;
+      })}
+    </svg>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════════════
    PIANO CHORD DIAGRAM
 ══════════════════════════════════════════════════════════════════ */
-function PianoChordDiagram({ chordName, C }) {
+// Chord AI 스타일 피아노 다이어그램 — 루트=파랑, 나머지 코드톤=베이지, 음이름+손가락 번호
+const PIANO_NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const PIANO_ROOT_CLR = "#4d8fd6";  // 루트 (파랑)
+const PIANO_TONE_CLR = "#c2a06b";  // 코드톤 (베이지)
+function PianoChordDiagram({ chordName }) {
   const { root, tones } = getChordTones(chordName);
-  const W = 12, WH = 52, BW = 8, BH = 32;
-  const OCT_W = 7 * W; // 84px per octave
-  const OCTAVES = 2;
-  const WHITE_NOTES = [0, 2, 4, 5, 7, 9, 11]; // C D E F G A B
-  // Black key left-edge x within one octave
-  const BLACK_KEYS = [
-    { note:1, x:8 }, { note:3, x:20 },
-    { note:6, x:44 }, { note:8, x:56 }, { note:10, x:68 },
-  ];
+  if (root < 0 || !tones.length) return null;
+
+  // 코드톤을 루트부터 위로 올라가는 보이싱(절대 반음 위치)으로 배치 (한 옥타브 위에서 시작 → 좌우 여백)
+  const OFFSET = 12;
+  const voiced = [];
+  let prevAbs = -1;
+  tones.forEach((pc, i) => {
+    let abs = pc + OFFSET;
+    while (abs <= prevAbs) abs += 12;
+    voiced.push({ abs, pc, isLow: i < 2, finger: i + 1 }); // 낮은 두 음=파랑, 나머지=베이지
+    prevAbs = abs;
+  });
+  const voicedByAbs = new Map(voiced.map(v => [v.abs, v]));
+  const maxAbs = voiced[voiced.length - 1].abs;
+
+  const OCTAVES = Math.max(3, Math.ceil((maxAbs + 1) / 12));
+  const W = 12, WH = 50, BW = 7.6, BH = 31, LBL = 15;
+  const OCT_W = 7 * W;
   const svgW = OCTAVES * OCT_W;
+  const svgH = WH + LBL;
+
+  const WHITE_IDX = { 0:0, 2:1, 4:2, 5:3, 7:4, 9:5, 11:6 };
+  const BLACK_BOUND = { 1:1, 3:2, 6:4, 8:5, 10:6 }; // 흰건반 경계 인덱스
+  const isBlack = pc => BLACK_BOUND[pc] !== undefined;
+  const whiteCx = (oct, pc) => oct * OCT_W + WHITE_IDX[pc] * W + W / 2;
+  const blackLeft = (oct, pc) => oct * OCT_W + BLACK_BOUND[pc] * W - BW / 2;
+  const blackCx = (oct, pc) => blackLeft(oct, pc) + BW / 2;
+
+  const whites = [];
+  const blacks = [];
+  for (let oct = 0; oct < OCTAVES; oct++) {
+    for (let pc = 0; pc < 12; pc++) {
+      const abs = oct * 12 + pc;
+      const v = voicedByAbs.get(abs);
+      if (isBlack(pc)) blacks.push({ oct, pc, abs, v });
+      else whites.push({ oct, pc, abs, v });
+    }
+  }
 
   return (
-    <svg width={svgW} height={WH} viewBox={`0 0 ${svgW} ${WH}`} style={{ display:"block" }}>
-      {Array.from({ length: OCTAVES }).map((_, oct) => {
-        const ox = oct * OCT_W;
+    <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ display:"block" }}>
+      {/* 흰 건반 */}
+      {whites.map(({ oct, pc, v }) => {
+        const x = oct * OCT_W + WHITE_IDX[pc] * W;
+        const fill = v ? (v.isLow ? PIANO_ROOT_CLR : PIANO_TONE_CLR) : "#f4f5f7";
         return (
-          <g key={oct}>
-            {WHITE_NOTES.map((note, wi) => {
-              const isRoot = note === root;
-              const isTone = tones.includes(note);
-              const x = ox + wi * W;
-              return (
-                <g key={note}>
-                  <rect x={x} y={0} width={W - 1} height={WH}
-                    fill={isRoot ? C.pur : isTone ? `${C.pur}28` : "#fff"}
-                    stroke="#d1d1d6" strokeWidth={0.5} rx={1} />
-                  {isTone && (
-                    <circle cx={x + (W-1)/2} cy={WH - 9} r={4}
-                      fill={isRoot ? "#fff" : C.pur} />
-                  )}
-                </g>
-              );
-            })}
-            {BLACK_KEYS.map(({ note, x: bx }) => {
-              const isRoot = note === root;
-              const isTone = tones.includes(note);
-              const x = ox + bx;
-              return (
-                <g key={note}>
-                  <rect x={x} y={0} width={BW} height={BH}
-                    fill={isRoot ? C.pur : isTone ? `${C.pur}99` : "#222"} rx={1} />
-                  {isTone && (
-                    <circle cx={x + BW/2} cy={BH - 7} r={3.5}
-                      fill={isRoot ? "#fff" : "rgba(255,255,255,0.85)"} />
-                  )}
-                </g>
-              );
-            })}
+          <g key={`w${oct}-${pc}`}>
+            <rect x={x} y={0} width={W - 0.6} height={WH} fill={fill}
+              stroke="#cfd4dc" strokeWidth={0.5} rx={1.5} />
+            {v && (
+              <text x={x + (W - 0.6) / 2} y={WH - 4} textAnchor="middle"
+                fontSize={7} fontWeight="800" fill="#fff">{v.finger}</text>
+            )}
           </g>
+        );
+      })}
+      {/* 검은 건반 */}
+      {blacks.map(({ oct, pc, v }) => {
+        const x = blackLeft(oct, pc);
+        const fill = v ? (v.isLow ? PIANO_ROOT_CLR : PIANO_TONE_CLR) : "#222a3a";
+        return (
+          <g key={`b${oct}-${pc}`}>
+            <rect x={x} y={0} width={BW} height={BH} fill={fill} rx={1.2} />
+            {v && (
+              <text x={x + BW / 2} y={BH - 3} textAnchor="middle"
+                fontSize={6} fontWeight="800" fill="#fff">{v.finger}</text>
+            )}
+          </g>
+        );
+      })}
+      {/* 음이름 라벨 */}
+      {voiced.map((v, i) => {
+        const oct = Math.floor(v.abs / 12);
+        const cx = isBlack(v.pc) ? blackCx(oct, v.pc) : whiteCx(oct, v.pc);
+        return (
+          <text key={i} x={cx} y={svgH - 2} textAnchor="middle"
+            fontSize={8} fontWeight="800"
+            fill={v.isLow ? PIANO_ROOT_CLR : PIANO_TONE_CLR}>
+            {PIANO_NOTE_NAMES[v.pc]}
+          </text>
         );
       })}
     </svg>
@@ -8291,12 +8400,15 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, userPart
   const diatonicChords = songKey ? getDiatonicChords(songKey, effectiveSteps) : [];
   const hasAiChords = songChords && songChords.length > 0;
 
-  const PANEL_W = 300;
+  const PANEL_W = 340;
   const TABS = [
     { id:"guitar",   label:"🎸 기타" },
     { id:"bass",     label:"🎵 베이스" },
     { id:"keyboard", label:"🎹 키보드" },
   ];
+  // Chord AI 스타일 다크 네이비 팔레트
+  const AI = { surf:"#16233e", card:"#1b2a47", bdr:"#2a3a5c", txt:"#e7edf6",
+    dim:"#8a97b0", blue:"#4d8fd6", tone:"#c2a06b" };
 
   // ── Drag handling
   const onDragDown = (e) => {
@@ -8315,51 +8427,96 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, userPart
   };
   const onDragUp = () => { dragRef.current = null; };
 
-  function ChordCard({ name, voicings, sub }) {
-    const cardBase = {
-      background:C.bg, borderRadius:10, padding:"8px 6px",
-      display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-    };
-    if (tab === "bass") return (
-      <div style={cardBase}>
-        {sub && <div style={{ fontSize:8, color:C.acc, fontWeight:700 }}>{sub}</div>}
-        <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>{name}</div>
+  // 코드톤 이름 (루트부터) — 파란 원으로 표시
+  const toneNames = (name) => {
+    const { tones } = getChordTones(name);
+    return tones.map(pc => PIANO_NOTE_NAMES[pc]);
+  };
+  const ToneCircles = ({ name }) => (
+    <div style={{ display:"flex", gap:3, flexWrap:"wrap", marginTop:6 }}>
+      {toneNames(name).map((t, i) => (
+        <span key={i} style={{ minWidth:18, height:18, padding:"0 3px", borderRadius:9,
+          background:AI.blue, color:"#fff", fontSize:8, fontWeight:800, boxSizing:"border-box",
+          display:"inline-flex", alignItems:"center", justifyContent:"center" }}>{t}</span>
+      ))}
+    </div>
+  );
+
+  // 기타 — 코드명 + 코드톤 원 + 보이싱 다이어그램(가로 스크롤)
+  const GuitarRow = ({ name, voicings, sub }) => {
+    const vs = (voicings && voicings.length) ? voicings : getVoicings(name);
+    return (
+      <div style={{ background:AI.card, borderRadius:12, padding:"10px 10px", marginBottom:8 }}>
+        <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
+          <div style={{ width:54, flexShrink:0 }}>
+            <div style={{ fontSize:18, fontWeight:800, color:AI.txt, lineHeight:1.05, overflowWrap:"anywhere" }}>{name}</div>
+            {sub && <div style={{ fontSize:11, fontWeight:700, color:AI.tone, marginTop:2 }}>{sub}</div>}
+            <ToneCircles name={name} />
+          </div>
+          {vs && vs.length ? (
+            <div style={{ flex:1, minWidth:0, display:"flex", gap:8, overflowX:"auto", paddingBottom:2 }}>
+              {vs.map((v, i) => <FretDiagramAI key={i} voicing={v} />)}
+            </div>
+          ) : (
+            <div style={{ flex:1, color:AI.dim, fontSize:11, alignSelf:"center" }}>코드 정보 없음</div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // 공통 행 레이아웃 — 왼쪽 코드명+코드톤 원, 오른쪽 다이어그램(들)
+  const ChordRow = ({ name, sub, children }) => (
+    <div style={{ background:AI.card, borderRadius:12, padding:"10px 10px", marginBottom:8 }}>
+      <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
+        <div style={{ width:54, flexShrink:0 }}>
+          <div style={{ fontSize:18, fontWeight:800, color:AI.txt, lineHeight:1.05, overflowWrap:"anywhere" }}>{name}</div>
+          {sub && <div style={{ fontSize:11, fontWeight:700, color:AI.tone, marginTop:2 }}>{sub}</div>}
+          <ToneCircles name={name} />
+        </div>
+        <div style={{ flex:1, minWidth:0, display:"flex", gap:8, overflowX:"auto", paddingBottom:2 }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+
+  // 키보드 — 와이드 피아노 다이어그램 (행 레이아웃)
+  const PianoRow = ({ name, sub }) => (
+    <ChordRow name={name} sub={sub}><PianoChordDiagram chordName={name} /></ChordRow>
+  );
+
+  // 베이스 — 다크잉크 다이어그램이라 밝은 박스 위에 표시
+  const BassRow = ({ name, sub }) => (
+    <ChordRow name={name} sub={sub}>
+      <div style={{ background:"#f4f5f7", borderRadius:8, padding:"6px 8px", flexShrink:0 }}>
         <BassFretDiagram chordName={name} />
       </div>
-    );
-    if (tab === "keyboard") return (
-      <div style={{ ...cardBase, padding:"8px 4px" }}>
-        {sub && <div style={{ fontSize:8, color:C.acc, fontWeight:700 }}>{sub}</div>}
-        <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>{name}</div>
-        <PianoChordDiagram chordName={name} C={C} />
-      </div>
-    );
-    return voicings ? (
-      <div style={cardBase}>
-        {sub && <div style={{ fontSize:8, color:C.acc, fontWeight:700 }}>{sub}</div>}
-        <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>{name}</div>
-        <FretDiagram voicing={voicings[0]} />
-        {voicings.length > 1 && <div style={{ fontSize:8, color:C.dim }}>+{voicings.length - 1}개</div>}
-      </div>
-    ) : (
-      <div style={{ ...cardBase, minWidth:60, opacity:0.5 }}>
-        {sub && <div style={{ fontSize:8, color:C.acc, fontWeight:700 }}>{sub}</div>}
-        <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>{name}</div>
-        <div style={{ fontSize:8, color:C.dim, marginTop:3 }}>정보없음</div>
-      </div>
-    );
-  }
+    </ChordRow>
+  );
+
+  // 탭별 목록 렌더 — 모두 행 레이아웃
+  const renderList = (items) => (
+    <div>
+      {items.map((it, i) =>
+        tab === "guitar"   ? <GuitarRow key={i} {...it} />
+      : tab === "keyboard" ? <PianoRow  key={i} {...it} />
+      :                      <BassRow   key={i} {...it} />)}
+    </div>
+  );
+
+  const secLabel = { fontSize:10, color:AI.dim, fontWeight:700, marginBottom:7 };
 
   return (
     <div style={{
       position:"fixed",
       left: pos.x, top: pos.y,
       width: PANEL_W,
-      maxHeight: "70vh",
+      maxHeight: "78vh",
       zIndex: 3000,
-      background: C.surf,
+      background: AI.surf,
       borderRadius: 16,
-      boxShadow: "0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12)",
+      boxShadow: "0 10px 36px rgba(0,0,0,0.45)",
       display: "flex", flexDirection: "column",
       userSelect: "none",
     }}>
@@ -8372,40 +8529,40 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, userPart
         style={{
           display:"flex", alignItems:"center", justifyContent:"space-between",
           padding:"10px 14px", flexShrink:0,
-          borderBottom:`1px solid ${C.bdr}`, background:C.card,
+          borderBottom:`1px solid ${AI.bdr}`, background:AI.card,
           borderTopLeftRadius:16, borderTopRightRadius:16,
           cursor:"grab", touchAction:"none",
         }}
       >
         <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-          <span style={{ fontSize:9, color:C.dim, letterSpacing:2 }}>⠿⠿</span>
-          <span style={{ fontSize:14 }}>🎵</span>
-          <span style={{ fontSize:13, fontWeight:800, color:C.acc, letterSpacing:"-0.01em" }}>코드 사전</span>
+          <span style={{ fontSize:9, color:AI.dim, letterSpacing:2 }}>⠿⠿</span>
+          <span style={{ fontSize:14 }}>🎹</span>
+          <span style={{ fontSize:13, fontWeight:800, color:AI.txt, letterSpacing:"-0.01em" }}>코드 사전</span>
           {effectiveKey && (
             <span style={{
-              fontSize:10, fontWeight:700, color:keyColor(effectiveKey),
-              background:`${keyColor(effectiveKey)}22`, border:`1px solid ${keyColor(effectiveKey)}44`,
+              fontSize:10, fontWeight:700, color:"#fff",
+              background:keyColor(effectiveKey), border:`1px solid ${keyColor(effectiveKey)}`,
               borderRadius:5, padding:"2px 7px",
             }}>Key {effectiveKey}</span>
           )}
         </div>
         <button onClick={onClose} style={{
           background:"transparent", border:"none", fontSize:18,
-          color:C.dim, cursor:"pointer", lineHeight:1, padding:"0 2px",
+          color:AI.dim, cursor:"pointer", lineHeight:1, padding:"0 2px",
         }}>×</button>
       </div>
 
       {/* Tabs */}
       <div style={{
         display:"flex", gap:4, padding:"6px 10px", flexShrink:0,
-        borderBottom:`1px solid ${C.bdr}`,
+        borderBottom:`1px solid ${AI.bdr}`,
       }}>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             flex:1, padding:"5px 4px", borderRadius:16,
-            border:`1.5px solid ${tab === t.id ? C.acc : C.bdr}`,
-            background: tab === t.id ? C.acc : "transparent",
-            color: tab === t.id ? "#fff" : C.dim,
+            border:`1.5px solid ${tab === t.id ? AI.blue : AI.bdr}`,
+            background: tab === t.id ? AI.blue : "transparent",
+            color: tab === t.id ? "#fff" : AI.dim,
             fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
           }}>{t.label}</button>
         ))}
@@ -8419,66 +8576,38 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, userPart
           placeholder="코드 검색 (예: Am, G7, F#m)"
           style={{
             width:"100%", padding:"7px 10px", borderRadius:8,
-            border:`1.5px solid ${C.bdr}`, fontSize:12,
+            border:`1.5px solid ${AI.bdr}`, fontSize:12,
             fontFamily:"inherit", outline:"none", boxSizing:"border-box",
-            background:C.bg, color:C.txt,
+            background:"#0f1b30", color:AI.txt,
           }}
         />
       </div>
 
       {/* Content */}
-      <div style={{ overflowY:"auto", padding:"4px 10px 16px", flex:1 }}>
+      <div style={{ overflowY:"auto", padding:"6px 10px 16px", flex:1 }}>
         {search.trim() ? (
           <div>
-            <div style={{ fontSize:10, color:C.dim, fontWeight:700, marginBottom:8 }}>
-              "{searchTrimmed}" 검색 결과
-            </div>
-            {tab === "guitar" ? (
-              searchVoicings ? (
-                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                  {searchVoicings.map((v, i) => (
-                    <div key={i} style={{
-                      background:C.bg, borderRadius:10, padding:"10px 8px",
-                      display:"flex", flexDirection:"column", alignItems:"center", gap:5,
-                    }}>
-                      <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>{v.label}</div>
-                      <FretDiagram voicing={v} />
-                    </div>
-                  ))}
-                </div>
-              ) : <div style={{ fontSize:12, color:C.dim, padding:"16px 0" }}>코드 정보 없음</div>
-            ) : (
-              <ChordCard name={searchTrimmed} voicings={null} />
-            )}
+            <div style={{ ...secLabel, marginBottom:8 }}>"{searchTrimmed}" 검색 결과</div>
+            {(tab === "guitar" ? searchVoicings : true)
+              ? renderList([{ name: searchTrimmed, voicings: searchVoicings || null, sub: null }])
+              : <div style={{ fontSize:12, color:AI.dim, padding:"16px 0" }}>코드 정보 없음</div>}
           </div>
         ) : (
           <>
             {diatonicChords.length > 0 && (
               <div style={{ marginBottom:14 }}>
-                <div style={{ fontSize:10, color:C.dim, fontWeight:700, marginBottom:7 }}>
-                  {effectiveKey} 장조 다이아토닉
-                </div>
-                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                  {diatonicChords.map(({ name, roman, voicings }, i) => (
-                    <ChordCard key={i} name={name} voicings={voicings} sub={roman} />
-                  ))}
-                </div>
+                <div style={secLabel}>{effectiveKey} 장조 다이아토닉</div>
+                {renderList(diatonicChords.map(c => ({ name:c.name, voicings:c.voicings, sub:c.roman })))}
               </div>
             )}
             {hasAiChords && (
               <div>
-                <div style={{ fontSize:10, color:C.dim, fontWeight:700, marginBottom:7 }}>
-                  감지된 코드
-                </div>
-                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                  {songChords.map(({ name, voicings }, i) => (
-                    <ChordCard key={i} name={name} voicings={voicings} />
-                  ))}
-                </div>
+                <div style={secLabel}>감지된 코드</div>
+                {renderList(songChords.map(c => ({ name:c.name, voicings:c.voicings, sub:null })))}
               </div>
             )}
             {!diatonicChords.length && !hasAiChords && (
-              <div style={{ fontSize:12, color:C.dim, padding:"20px 0", textAlign:"center" }}>
+              <div style={{ fontSize:12, color:AI.dim, padding:"20px 0", textAlign:"center" }}>
                 코드를 검색하거나<br/>곡에 Key가 설정되면<br/>자동으로 표시됩니다.
               </div>
             )}
