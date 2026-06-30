@@ -1794,6 +1794,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // ── UI
   const [fitActive,     setFitActive]     = useState(false);
+  // 눈부심 방지 — 악보 캔버스에만 필터 (필기/스탬프는 보존). off|sepia|dark
+  const [glareMode,     setGlareMode]     = useState(() => localStorage.getItem("tvpc_glare") || "off");
+  const glareFilter = glareMode === "sepia"
+    ? "sepia(0.62) brightness(0.98) contrast(0.96) saturate(1.1)"
+    : glareMode === "dark"
+    ? "invert(1) hue-rotate(180deg) brightness(0.92) contrast(1.05)"
+    : "none";
+  const cycleGlare = () => {
+    const next = glareMode === "off" ? "sepia" : glareMode === "sepia" ? "dark" : "off";
+    setGlareMode(next);
+    localStorage.setItem("tvpc_glare", next);
+    showToast(next === "off" ? "눈부심 방지 끔" : next === "sepia" ? "📜 세피아" : "🌙 다크");
+  };
   const [dual,          setDual]          = useState(false);
   const [media,         setMedia]         = useState(false);
   const [ytRange,       setYtRange]       = useState({ start:"", end:"" }); // MM:SS
@@ -4923,6 +4936,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     포인터
                   </button>
                 )}
+                <button onClick={cycleGlare} title="눈부심 방지 (보통→세피아→다크)" style={{
+                  flexShrink:0, height:28, width:28, borderRadius:7, cursor:"pointer",
+                  background: glareMode !== "off" ? "#fff" : "rgba(255,255,255,0.12)",
+                  border:`1px solid ${glareMode !== "off" ? "#fff" : "rgba(255,255,255,0.3)"}`,
+                  color: glareMode !== "off" ? "#1c3c88" : "#fff", fontSize:13, fontFamily:"inherit",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                }}>{glareMode === "sepia" ? "📜" : glareMode === "dark" ? "🌙" : "☀"}</button>
                 <button onClick={() => setShowMobileHelp(true)} style={{
                   flexShrink:0, height:28, width:28,
                   borderRadius:7, cursor:"pointer",
@@ -4997,6 +5017,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)", letterSpacing:"-0.01em",
             }}>🎧 연습녹음</button>
           )}
+
+          {/* 눈부심 방지 (보통→세피아→다크) */}
+          {liteBtn(cycleGlare, (<>{glareMode === "sepia" ? "📜 세피아" : glareMode === "dark" ? "🌙 다크" : "☀ 눈부심"}</>), glareMode !== "off", drawMode ? 160 : 88)}
         </>);
       })()}
 
@@ -6004,7 +6027,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 background:"#fff" }}>
                 {(svcSongs[dualIdx]?.pdfUrl || svcSongs[dualIdx]?.imageUrl)
                   ? <div style={{ position:"relative", display:"inline-block", lineHeight:0 }}>
-                      <canvas ref={canvas1Ref} width={0} height={0} style={{ display:"block" }} />
+                      <canvas ref={canvas1Ref} width={0} height={0} style={{ display:"block", filter:glareFilter }} />
                       <canvas ref={teamDrawCanvas1Ref} style={{
                         position:"absolute", top:0, left:0, width:"100%", height:"100%",
                         borderRadius:4, pointerEvents:"none",
@@ -6099,7 +6122,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 {svcSongs[dualIdx + 1]
                   ? (svcSongs[dualIdx + 1].pdfUrl || svcSongs[dualIdx + 1].imageUrl)
                     ? <div style={{ position:"relative", display:"inline-block", lineHeight:0 }}>
-                        <canvas ref={canvas2Ref} width={0} height={0} style={{ display:"block" }} />
+                        <canvas ref={canvas2Ref} width={0} height={0} style={{ display:"block", filter:glareFilter }} />
                         <canvas ref={teamDrawCanvas2Ref} style={{
                           position:"absolute", top:0, left:0, width:"100%", height:"100%",
                           borderRadius:4, pointerEvents:"none",
@@ -6192,7 +6215,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   ? <div style={{ color:C.red, fontSize:13 }}>{loadErr}</div>
                   : <div style={{ position:"relative", display:"inline-block", lineHeight:0, flexShrink:0 }}>
                       <canvas ref={canvas1Ref} width={0} height={0} style={{ display:"block",
-                        borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)" }} />
+                        borderRadius:4, boxShadow:"0 2px 16px rgba(0,0,0,.10)", filter:glareFilter }} />
                       <canvas ref={teamDrawCanvas1Ref} style={{
                         position:"absolute", top:0, left:0, width:"100%", height:"100%",
                         borderRadius:4, pointerEvents:"none",
