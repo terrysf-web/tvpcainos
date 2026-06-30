@@ -2562,9 +2562,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         transform: above ? "translate(-50%, calc(-100% - 10px))" : "translate(-50%, 10px)",
         zIndex:45, background:"#fff", borderRadius:11, border:`2px solid ${C.acc}`,
         boxShadow:"0 8px 28px rgba(0,0,0,.3)", padding:9, width:240, touchAction:"none" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:7 }}>
-          <span style={{ fontSize:11, fontWeight:800, color:C.txt }}>코드 선택 {effSteps !== 0 && <span style={{ color:C.dim, fontWeight:600 }}>(현재 키)</span>}</span>
-          <span style={{ fontSize:16, fontWeight:900, color:C.acc, fontFamily:"monospace", minWidth:44, textAlign:"right" }}>{assembled || "—"}</span>
+        <div style={{ marginBottom:7 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:C.dim, marginBottom:2 }}>코드 선택 {effSteps !== 0 && <span style={{ fontWeight:600 }}>(현재 키)</span>}</div>
+          <div style={{ fontSize:18, fontWeight:900, color: assembled ? C.acc : C.bdr, fontFamily:"monospace",
+            textAlign:"center", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+            lineHeight:1.2 }}>{assembled || "코드를 고르세요"}</div>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:3, marginBottom:7 }}>
           {roots.map((r, i) => (
