@@ -2585,7 +2585,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           ))}
         </div>
         {/* 슬래시 베이스 (옵션) — 예: Fm/Ab */}
-        <div style={{ fontSize:10, fontWeight:700, color:C.dim, marginBottom:3 }}>베이스 음 (슬래시 코드, 옵션)</div>
+        <div style={{ fontSize:10, fontWeight:700, color:C.dim, lineHeight:1.3, marginTop:2, marginBottom:6 }}>베이스 음 · 슬래시 (옵션)</div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3, marginBottom:9 }}>
           <button onClick={() => setPickBass(null)} style={{ padding:"5px 0", borderRadius:5, fontSize:11,
             fontWeight:800, fontFamily:"monospace", cursor:"pointer",
