@@ -1830,6 +1830,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [cueMark,       setCueMark]       = useState(null);  // {x,y} 표시 좌표(0~1, 크롭된 화면 기준) + page
   const [cueEditId,     setCueEditId]     = useState(null);
   const [cueEditTxt,    setCueEditTxt]    = useState("");
+  const [cueTopics,     setCueTopics]     = useState([]);   // 리더가 만든 타이틀(주제) 목록 (곡별 공유)
+  const [newTopic,      setNewTopic]      = useState("");   // 리더 타이틀 추가 입력
+  const [topicAdding,   setTopicAdding]   = useState(false); // 타이틀 추가 입력창 열림
   const [showPanicMenu, setShowPanicMenu] = useState(false);
   const [panicSent,     setPanicSent]     = useState(null); // 전송된 옵션 라벨
   const [noteTxt,       setNoteTxt]       = useState("");
@@ -2730,6 +2733,30 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // 큐 노트는 듀얼 시 항상 왼쪽 악보 기준
   const cueSongId = dual ? (dualLeftSongId || selectedSongId) : selectedSongId;
   const cueSong   = songs.find(s => s.id === cueSongId) || song;
+
+  // 리더가 만든 큐노트 타이틀(주제) — cueTopics/{songId} 에 곡별로 공유 저장
+  useEffect(() => {
+    if (!showCueInput || !cueSongId) { setCueTopics([]); return; }
+    const unsub = onSnapshot(doc(db, "cueTopics", cueSongId), snap => {
+      setCueTopics(Array.isArray(snap.data()?.titles) ? snap.data().titles : []);
+    }, () => setCueTopics([]));
+    return unsub;
+  }, [showCueInput, cueSongId]);
+
+  const addCueTopic = async (name) => {
+    const t = (name || "").trim();
+    if (!t || !cueSongId) return;
+    if (cueTopics.includes(t)) { setNewTopic(""); setTopicAdding(false); return; }
+    const next = [...cueTopics, t];
+    await setDoc(doc(db, "cueTopics", cueSongId), { titles: next, updatedAt: serverTimestamp() }, { merge: true });
+    setNewTopic(""); setTopicAdding(false);
+  };
+  const removeCueTopic = async (name) => {
+    if (!cueSongId) return;
+    const next = cueTopics.filter(t => t !== name);
+    await setDoc(doc(db, "cueTopics", cueSongId), { titles: next, updatedAt: serverTimestamp() }, { merge: true });
+    if (cueSection === name) setCueSection("");
+  };
 
   // drawings stored under customSongs/drw_{uid}_{songId}_p{page}
   // — customSongs has "allow read, write: if isAuthed()" in live Firestore rules
@@ -6696,6 +6723,67 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   })}
                 </div>
               )}
+              {/* 📌 리더가 만든 타이틀(주제) — 곡별 공유. 팀원은 골라서 자기 내용 작성 */}
+              {(leader || cueTopics.length > 0) && (
+                <div style={{ marginBottom:8, padding:"8px 10px", borderRadius:10,
+                  background:"#fff7ed", border:"1px solid #ffd9a8" }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+                    <span style={{ fontSize:11, fontWeight:800, color:"#b35309" }}>📌 타이틀{leader ? " (리더 지정)" : ""}</span>
+                    {leader && !topicAdding && (
+                      <button onClick={() => { setTopicAdding(true); setNewTopic(""); }}
+                        style={{ fontSize:11, fontWeight:700, color:"#b35309", background:"#ffedd5",
+                          border:"1px solid #fdba74", borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>
+                        ➕ 타이틀 추가
+                      </button>
+                    )}
+                  </div>
+                  {cueTopics.length > 0 ? (
+                    <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+                      {cueTopics.map(t => {
+                        const sel = cueSection === t;
+                        return (
+                          <span key={t} style={{ display:"inline-flex", alignItems:"center", gap:4,
+                            padding:"4px 4px 4px 11px", borderRadius:20,
+                            background: sel ? "#ff6f00" : "#fff",
+                            border:`1.5px solid ${sel ? "#ff6f00" : "#fdba74"}` }}>
+                            <button onClick={() => setCueSection(sel ? "" : t)}
+                              style={{ background:"transparent", border:"none", cursor:"pointer", padding:0,
+                                fontFamily:"inherit", fontSize:11, fontWeight:700,
+                                color: sel ? "#fff" : "#b35309" }}>{t}</button>
+                            {leader && (
+                              <button onClick={() => removeCueTopic(t)} title="타이틀 삭제"
+                                style={{ background:"transparent", border:"none", cursor:"pointer",
+                                  padding:"0 2px", fontFamily:"inherit", fontSize:12, lineHeight:1,
+                                  color: sel ? "#fff" : "#c2410c", opacity:0.8 }}>✕</button>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    !topicAdding && <div style={{ fontSize:11, color:C.dim }}>리더가 타이틀을 만들면 팀원이 골라서 내용을 작성합니다.</div>
+                  )}
+                  {leader && topicAdding && (
+                    <div style={{ display:"flex", gap:6, marginTop:7 }}>
+                      <input autoFocus value={newTopic}
+                        onChange={e => setNewTopic(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") addCueTopic(newTopic); if (e.key === "Escape") { setTopicAdding(false); setNewTopic(""); } }}
+                        placeholder="타이틀 (예: 인트로, 간주 강조, 엔딩)"
+                        style={{ flex:1, minWidth:0, background:"#fff", border:"1.5px solid #fdba74",
+                          borderRadius:8, padding:"7px 10px", fontSize:12, color:C.txt,
+                          fontFamily:"inherit", outline:"none", boxSizing:"border-box" }} />
+                      <button onClick={() => addCueTopic(newTopic)} disabled={!newTopic.trim()}
+                        style={{ flexShrink:0, padding:"0 12px", borderRadius:8, cursor: newTopic.trim() ? "pointer" : "default",
+                          fontFamily:"inherit", fontSize:12, fontWeight:800, color:"#fff",
+                          background: newTopic.trim() ? "#ff6f00" : C.bdr, border:"none" }}>추가</button>
+                      <button onClick={() => { setTopicAdding(false); setNewTopic(""); }}
+                        style={{ flexShrink:0, padding:"0 10px", borderRadius:8, cursor:"pointer",
+                          fontFamily:"inherit", fontSize:12, fontWeight:700, color:C.dim,
+                          background:"#fff", border:`1px solid ${C.bdr}` }}>취소</button>
+                    </div>
+                  )}
+                </div>
+              )}
               {/* 섹션 직접 입력 + 이 곡에서 이미 쓴 섹션 빠른 선택 */}
               {(() => {
                 const usedSections = [...new Set(
@@ -6707,7 +6795,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       <input
                         value={cueSection}
                         onChange={e => setCueSection(e.target.value)}
-                        placeholder="섹션 이름 (예: 1절, 후렴, 간주)"
+                        placeholder="또는 직접 입력 (예: 1절, 후렴, 간주)"
                         style={{ flex:1, minWidth:0, background:C.card, border:`1.5px solid ${C.bdr}`,
                           borderRadius:8, padding:"7px 10px", fontSize:12, color:C.txt,
                           fontFamily:"inherit", outline:"none", boxSizing:"border-box" }}

@@ -167,6 +167,12 @@ service cloud.firestore {
       allow read, write: if isAuthed();
     }
 
+    // 큐노트 타이틀(주제) — 곡별 공유. 읽기 인증된 모두, 쓰기 리더만
+    match /cueTopics/{songId} {
+      allow read: if isAuthed();
+      allow write: if isLeader();
+    }
+
     // FOH → 멤버 개별 메시지 (doc ID = 수신자 uid)
     match /fohMessages/{uid} {
       allow read: if isAuthed() && request.auth.uid == uid;
