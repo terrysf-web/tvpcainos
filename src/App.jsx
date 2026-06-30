@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense, Component, Fragment } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, lazy, Suspense, Component, Fragment } from "react";
 import { C, KEY_CLR, DARK_KEY, keyColor, darkKeyColor } from "./theme.js";
 import { Icon, Btn, Badge, KeyBadge, Input, Divider, Modal, ConfirmModal } from "./ui.jsx";
 import { HelpModal } from "./HelpModal.jsx";
@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.737";
+const APP_VERSION = "3.738";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -5531,6 +5531,17 @@ function PdfPagePickerModal({ file, songTitle, onConfirm, onClose }) {
 ══════════════════════════════════════════════════════════════════ */
 function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotations, userMap, songDrawings }) {
   const tbNarrow = window.innerWidth < 600;
+  const listRef = useRef(null);
+  // 악보를 열었다가 돌아오면 보던 스크롤 위치로 복원
+  useLayoutEffect(() => {
+    const saved = Number(sessionStorage.getItem("tvpc_libScroll") || 0);
+    if (saved && listRef.current) listRef.current.scrollTop = saved;
+    sessionStorage.removeItem("tvpc_libScroll"); // 한 번 복원 후 비움 (새로 들어오면 맨 위)
+  }, []);
+  const openSong = (songId) => {
+    if (listRef.current) sessionStorage.setItem("tvpc_libScroll", String(listRef.current.scrollTop));
+    nav("pdfViewer", { songId, svcId: null, backTo: "library" });
+  };
   const [query,      setQuery]      = useState("");
   const [showAdd,    setShowAdd]    = useState(false);
   const [uploading,     setUploading]     = useState(null);
@@ -5740,7 +5751,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
       {/* 리스트 + 자음 인덱스 */}
       <div style={{ flex:1, display:"flex", overflow:"hidden", position:"relative" }}>
         {/* 곡 목록 (스크롤) */}
-        <div style={{ flex:1, overflowY:"auto", padding:"12px 52px 0 16px", paddingBottom:"calc(90px + env(safe-area-inset-bottom))" }}>
+        <div ref={listRef} style={{ flex:1, overflowY:"auto", padding:"12px 52px 0 16px", paddingBottom:"calc(90px + env(safe-area-inset-bottom))" }}>
           {filtered.length === 0 && (
             <div style={{ textAlign:"center", padding:"60px 0", color:C.dim }}>
               <div style={{ fontSize:36, marginBottom:12 }}>🎵</div>
@@ -5763,7 +5774,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
             );
             const songInfoArea = (
               <div style={{ flex:1, minWidth:0, cursor:"pointer" }}
-                onClick={() => nav("pdfViewer", { songId: song.id, svcId: null, backTo: "library" })}>
+                onClick={() => openSong(song.id)}>
                 <div style={{ fontWeight:700, fontSize:14, letterSpacing:"-0.01em",
                   overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                   {song.title}
@@ -5889,7 +5900,8 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                   {songIconBox}
                   {songInfoArea}
                   {!tbNarrow && isLeader(user.role) && (
-                    <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                    <div style={{ display:"flex", gap:6, flexShrink:0, paddingLeft:14, marginLeft:2,
+                      borderLeft:`1px solid ${C.bdr}` }}>
                       {songActionBtns}
                     </div>
                   )}
