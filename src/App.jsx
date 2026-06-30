@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.738";
+const APP_VERSION = "3.739";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -5532,17 +5532,25 @@ function PdfPagePickerModal({ file, songTitle, onConfirm, onClose }) {
 function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotations, userMap, songDrawings }) {
   const tbNarrow = window.innerWidth < 600;
   const listRef = useRef(null);
-  // 악보를 열었다가 돌아오면 보던 스크롤 위치로 복원
+  // 악보를 열었다가 돌아오면 검색·자음 필터와 스크롤 위치를 복원
+  const restoreRef = useRef(undefined);
+  if (restoreRef.current === undefined) {
+    let s = null;
+    try { s = JSON.parse(sessionStorage.getItem("tvpc_libState") || "null"); } catch { s = null; }
+    restoreRef.current = s;
+  }
+  const restore = restoreRef.current;
   useLayoutEffect(() => {
-    const saved = Number(sessionStorage.getItem("tvpc_libScroll") || 0);
-    if (saved && listRef.current) listRef.current.scrollTop = saved;
-    sessionStorage.removeItem("tvpc_libScroll"); // 한 번 복원 후 비움 (새로 들어오면 맨 위)
+    if (restore?.scroll && listRef.current) listRef.current.scrollTop = restore.scroll;
+    sessionStorage.removeItem("tvpc_libState"); // 한 번 복원 후 비움 (새로 들어오면 초기화)
   }, []);
   const openSong = (songId) => {
-    if (listRef.current) sessionStorage.setItem("tvpc_libScroll", String(listRef.current.scrollTop));
+    sessionStorage.setItem("tvpc_libState", JSON.stringify({
+      scroll: listRef.current?.scrollTop || 0, query, consonant,
+    }));
     nav("pdfViewer", { songId, svcId: null, backTo: "library" });
   };
-  const [query,      setQuery]      = useState("");
+  const [query,      setQuery]      = useState(restore?.query || "");
   const [showAdd,    setShowAdd]    = useState(false);
   const [uploading,     setUploading]     = useState(null);
   const [confirmDel,    setConfirmDel]    = useState(null);
@@ -5551,7 +5559,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
   const [pagePicker,    setPagePicker]    = useState(null);
   const [cropSong,      setCropSong]      = useState(null); // { id, pdfUrl, imageUrl, cropBox }
   const [imgUploading,  setImgUploading]  = useState(null);
-  const [consonant,     setConsonant]     = useState("");
+  const [consonant,     setConsonant]     = useState(restore?.consonant || "");
   const [memoReplaceModal, setMemoReplaceModal] = useState(null); // { song, othersNotes, ownNotes, pendingUpload }
   const [lyricsModal,  setLyricsModal]  = useState(null); // { song, text }
   const [lyricsSaving, setLyricsSaving] = useState(false);
