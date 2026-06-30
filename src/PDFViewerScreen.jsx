@@ -8306,6 +8306,7 @@ function ImprovChordScreen({ onClose, C }) {
 /* ══════════════════════════════════════════════════════════════════
    BASS FRET DIAGRAM
 ══════════════════════════════════════════════════════════════════ */
+// Chord AI 스타일 베이스 다이어그램 — 다크 네이비 + 루트=파랑(R)·5도=베이지(5)
 function BassFretDiagram({ chordName }) {
   const { root, tones } = getChordTones(chordName);
   const fifth = tones[2] ?? -1;
@@ -8313,8 +8314,9 @@ function BassFretDiagram({ chordName }) {
   const STRINGS = [4, 9, 2, 7];
   const STR_LABELS = ["E","A","D","G"];
   const strX = [14, 26, 38, 50];
-  const allLines = [22, 36, 50, 64, 78]; // nut + 4 fret wires
-  const C_txt = "#1c1c1e", C_dim = "#8e8e93", C_bdr = "#d1d1d6", C_pur = "#6b5de7";
+  const allLines = [24, 38, 52, 66, 80]; // nut + 4 fret wires
+  const GRID = "#cfd6e2", DIM = "#8a97b0", LBL = "#e7edf6";
+  const ROOT_CLR = PIANO_ROOT_CLR, FIFTH_CLR = PIANO_TONE_CLR, DOTX = "#1b2333";
 
   // Collect dots: root and 5th on frets 0-4
   const dots = [];
@@ -8324,46 +8326,40 @@ function BassFretDiagram({ chordName }) {
       const isRoot = note === root;
       const is5th = note === fifth && fifth !== root;
       if (!isRoot && !is5th) continue;
-      const cy = f === 0
-        ? null // open string → show O above
-        : (allLines[f - 1] + allLines[f]) / 2;
+      const cy = f === 0 ? null : (allLines[f - 1] + allLines[f]) / 2;
       dots.push({ si, f, isRoot, is5th, cy });
     }
   });
 
   return (
-    <svg width={64} height={90} viewBox="0 0 64 90" style={{ display:"block" }}>
+    <svg width={64} height={92} viewBox="0 0 64 92" style={{ display:"block" }}>
       {/* String labels */}
       {STR_LABELS.map((label, i) => (
-        <text key={i} x={strX[i]} y={10} textAnchor="middle" fontSize={8} fill={C_dim}>{label}</text>
+        <text key={i} x={strX[i]} y={11} textAnchor="middle" fontSize={8} fontWeight="700" fill={DIM}>{label}</text>
       ))}
       {/* Open string markers */}
       {dots.filter(d => d.f === 0).map((d, i) => (
-        <text key={i} x={strX[d.si]} y={19}
-          textAnchor="middle" fontSize={10} fontWeight="700"
-          fill={d.isRoot ? C_pur : C_txt}>
-          {d.isRoot ? "●" : "○"}
-        </text>
+        <circle key={i} cx={strX[d.si]} cy={16} r={4.5}
+          fill={d.isRoot ? ROOT_CLR : "transparent"}
+          stroke={d.isRoot ? ROOT_CLR : FIFTH_CLR} strokeWidth={1.5} />
       ))}
       {/* Nut */}
-      <rect x={strX[0]-2} y={allLines[0]-3} width={strX[3]-strX[0]+4} height={3} fill={C_txt} rx={1} />
+      <rect x={strX[0]-2} y={allLines[0]-3} width={strX[3]-strX[0]+4} height={3} fill={LBL} rx={1} />
       {/* Fret wires */}
       {allLines.slice(1).map((y, i) => (
-        <line key={i} x1={strX[0]} y1={y} x2={strX[3]} y2={y} stroke={C_bdr} strokeWidth={1} />
+        <line key={i} x1={strX[0]} y1={y} x2={strX[3]} y2={y} stroke={GRID} strokeWidth={1} />
       ))}
       {/* String lines */}
       {strX.map((x, i) => (
-        <line key={i} x1={x} y1={allLines[0]} x2={x} y2={allLines[4]} stroke={C_bdr} strokeWidth={1} />
+        <line key={i} x1={x} y1={allLines[0]} x2={x} y2={allLines[4]} stroke={GRID} strokeWidth={1} />
       ))}
       {/* Fretted dots */}
       {dots.filter(d => d.f > 0).map((d, i) => (
         <g key={i}>
-          <circle cx={strX[d.si]} cy={d.cy} r={6}
-            fill={d.isRoot ? C_txt : "transparent"}
-            stroke={C_txt} strokeWidth={1.5} />
-          <text x={strX[d.si]} y={d.cy + 3.5} textAnchor="middle"
-            fontSize={6.5} fontWeight="700"
-            fill={d.isRoot ? "#fff" : C_txt}>
+          <circle cx={strX[d.si]} cy={d.cy} r={6} fill={d.isRoot ? ROOT_CLR : FIFTH_CLR} />
+          <text x={strX[d.si]} y={d.cy + 3} textAnchor="middle"
+            fontSize={7} fontWeight="800"
+            fill={d.isRoot ? "#fff" : DOTX}>
             {d.isRoot ? "R" : "5"}
           </text>
         </g>
@@ -8486,13 +8482,9 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, userPart
     <ChordRow name={name} sub={sub}><PianoChordDiagram chordName={name} /></ChordRow>
   );
 
-  // 베이스 — 다크잉크 다이어그램이라 밝은 박스 위에 표시
+  // 베이스 — 다크 네이비 다이어그램 (행 레이아웃)
   const BassRow = ({ name, sub }) => (
-    <ChordRow name={name} sub={sub}>
-      <div style={{ background:"#f4f5f7", borderRadius:8, padding:"6px 8px", flexShrink:0 }}>
-        <BassFretDiagram chordName={name} />
-      </div>
-    </ChordRow>
+    <ChordRow name={name} sub={sub}><BassFretDiagram chordName={name} /></ChordRow>
   );
 
   // 탭별 목록 렌더 — 모두 행 레이아웃
