@@ -247,9 +247,12 @@ const FLAT_RESULT_IDX = new Set([1, 3, 5, 6, 8, 10]);
 function useFlats(key, steps = 0) {
   if (!key) return false;
   const root = key.replace(/m$/, '').trim();
-  // Use original key notation: 'b' in name (Bb,Db,Eb,Ab,Gb) or F → flat; '#' or natural → sharp
-  // steps is intentionally ignored — notation follows the original sheet key signature
-  return root === 'F' || root.includes('b');
+  const base = FLAT_SHARP[root] || root;               // Bb→A#, Db→C# 등 정규화
+  const idx = SEMITONES.indexOf(base);
+  if (idx === -1) return root === 'F' || root.includes('b'); // 알 수 없으면 원조표 기준
+  const newIdx = ((idx + steps) % 12 + 12) % 12;        // 전조된 조의 반음 인덱스
+  // 결과 조가 플랫 조(Db·Eb·F·Gb·Ab·Bb)면 플랫, 아니면 샵 표기 (조표 규칙)
+  return FLAT_RESULT_IDX.has(newIdx);
 }
 
 function transposeNote(note, steps) {
@@ -1794,14 +1797,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // ── UI
   const [fitActive,     setFitActive]     = useState(false);
-  // 눈부심 방지 — 화면 전체에 따뜻한 톤 오버레이 (켜기/끄기)
-  const [glareOn,       setGlareOn]       = useState(() => localStorage.getItem("tvpc_glare") === "1");
-  const cycleGlare = () => {
-    const next = !glareOn;
-    setGlareOn(next);
-    localStorage.setItem("tvpc_glare", next ? "1" : "0");
-    showToast(next ? "📜 눈부심 방지 켬" : "눈부심 방지 끔");
-  };
   const [dual,          setDual]          = useState(false);
   const [media,         setMedia]         = useState(false);
   const [ytRange,       setYtRange]       = useState({ start:"", end:"" }); // MM:SS
@@ -4931,13 +4926,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     포인터
                   </button>
                 )}
-                <button onClick={cycleGlare} title="눈부심 방지 켜기/끄기" style={{
-                  flexShrink:0, height:28, width:28, borderRadius:7, cursor:"pointer",
-                  background: glareOn ? "#fff" : "rgba(255,255,255,0.12)",
-                  border:`1px solid ${glareOn ? "#fff" : "rgba(255,255,255,0.3)"}`,
-                  color: glareOn ? "#1c3c88" : "#fff", fontSize:13, fontFamily:"inherit",
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                }}>{glareOn ? "📜" : "☀"}</button>
                 <button onClick={() => setShowMobileHelp(true)} style={{
                   flexShrink:0, height:28, width:28,
                   borderRadius:7, cursor:"pointer",
@@ -5013,8 +5001,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             }}>🎧 연습녹음</button>
           )}
 
-          {/* 눈부심 방지 켜기/끄기 */}
-          {liteBtn(cycleGlare, (<>{glareOn ? "📜 눈부심 ON" : "☀ 눈부심"}</>), glareOn, drawMode ? 160 : 88)}
         </>);
       })()}
 
@@ -7093,12 +7079,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             background:"transparent", color:"#fff", fontWeight:700, fontSize:12, fontFamily:"inherit",
           }}>취소</button>
         </div>
-      )}
-
-      {/* 눈부심 방지 — 화면 전체 따뜻한 톤 (악보·UI 모두) */}
-      {glareOn && (
-        <div style={{ position:"fixed", inset:0, zIndex:9000, pointerEvents:"none",
-          background:"rgba(206,148,72,0.24)", mixBlendMode:"multiply" }} />
       )}
 
       {/* Goodnotes 스타일 지우개 원형 표시 */}
