@@ -1635,8 +1635,8 @@ function HandwritePad({ accent, apiKey, onText }) {
           const d = await res.json();
           if (d.error) {
             lastMsg = d.error.message || "Gemini 오류";
-            const retryable = d.error.code === 503 || d.error.code === 429 ||
-              /high demand|overload|exhausted|unavailable/i.test(lastMsg);
+            const retryable = d.error.code === 503 || d.error.code === 429 || d.error.code === 404 ||
+              /high demand|overload|exhausted|unavailable|not found|no longer|not supported|deprecat/i.test(lastMsg);
             if (retryable) continue; // 다음 모델로
             throw new Error(lastMsg);
           }

@@ -48,7 +48,7 @@ function parseChordResponse(text) {
 }
 
 async function detectWithGemini(imageData, apiKey) {
-  const models = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-8b"];
+  const models = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
   const body = JSON.stringify({ contents: [{ parts: [
     { inlineData: { mimeType: "image/jpeg", data: imageData } },
     { text: CHORD_PROMPT },
@@ -63,7 +63,9 @@ async function detectWithGemini(imageData, apiKey) {
     const d = await res.json();
     if (d.error) {
       const msg = d.error.message || "";
-      if (d.error.code === 429 || /quota|resource_exhausted|rate|high demand|overloaded|temporarily|try again/i.test(msg)) continue;
+      // 쿼터/혼잡 또는 모델 단종·미지원 → 다음 모델로 넘어감 (마지막 모델까지 실패 시에만 에러)
+      if (d.error.code === 429 || d.error.code === 404 ||
+          /quota|resource_exhausted|rate|high demand|overloaded|temporarily|try again|not found|no longer|not supported|deprecat|unavailable/i.test(msg)) continue;
       throw new Error(msg || "Gemini 오류");
     }
     result = d;
