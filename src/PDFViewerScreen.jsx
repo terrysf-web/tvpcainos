@@ -1833,6 +1833,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [cueTopics,     setCueTopics]     = useState([]);   // 리더가 만든 타이틀(주제) 목록 (곡별 공유)
   const [newTopic,      setNewTopic]      = useState("");   // 리더 타이틀 추가 입력
   const [topicAdding,   setTopicAdding]   = useState(false); // 타이틀 추가 입력창 열림
+  const [topicInk,      setTopicInk]      = useState(false); // 타이틀 손글씨 입력 모드
   const [showPanicMenu, setShowPanicMenu] = useState(false);
   const [panicSent,     setPanicSent]     = useState(null); // 전송된 옵션 라벨
   const [noteTxt,       setNoteTxt]       = useState("");
@@ -6764,22 +6765,36 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     !topicAdding && <div style={{ fontSize:11, color:C.dim }}>리더가 타이틀을 만들면 팀원이 골라서 내용을 작성합니다.</div>
                   )}
                   {leader && topicAdding && (
-                    <div style={{ display:"flex", gap:6, marginTop:7 }}>
-                      <input autoFocus value={newTopic}
-                        onChange={e => setNewTopic(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") addCueTopic(newTopic); if (e.key === "Escape") { setTopicAdding(false); setNewTopic(""); } }}
-                        placeholder="타이틀 (예: 인트로, 간주 강조, 엔딩)"
-                        style={{ flex:1, minWidth:0, background:"#fff", border:"1.5px solid #fdba74",
-                          borderRadius:8, padding:"7px 10px", fontSize:12, color:C.txt,
-                          fontFamily:"inherit", outline:"none", boxSizing:"border-box" }} />
-                      <button onClick={() => addCueTopic(newTopic)} disabled={!newTopic.trim()}
-                        style={{ flexShrink:0, padding:"0 12px", borderRadius:8, cursor: newTopic.trim() ? "pointer" : "default",
-                          fontFamily:"inherit", fontSize:12, fontWeight:800, color:"#fff",
-                          background: newTopic.trim() ? "#ff6f00" : C.bdr, border:"none" }}>추가</button>
-                      <button onClick={() => { setTopicAdding(false); setNewTopic(""); }}
-                        style={{ flexShrink:0, padding:"0 10px", borderRadius:8, cursor:"pointer",
-                          fontFamily:"inherit", fontSize:12, fontWeight:700, color:C.dim,
-                          background:"#fff", border:`1px solid ${C.bdr}` }}>취소</button>
+                    <div style={{ marginTop:7 }}>
+                      <div style={{ display:"flex", gap:6 }}>
+                        <input autoFocus value={newTopic}
+                          onChange={e => setNewTopic(e.target.value)}
+                          onKeyDown={e => { if (e.key === "Enter") addCueTopic(newTopic); if (e.key === "Escape") { setTopicAdding(false); setNewTopic(""); setTopicInk(false); } }}
+                          placeholder="타이틀 (예: 인트로, 간주 강조, 엔딩)"
+                          style={{ flex:1, minWidth:0, background:"#fff", border:"1.5px solid #fdba74",
+                            borderRadius:8, padding:"7px 10px", fontSize:12, color:C.txt,
+                            fontFamily:"inherit", outline:"none", boxSizing:"border-box" }} />
+                        <button onClick={() => setTopicInk(v => !v)} title="손글씨로 타이틀 입력"
+                          style={{ flexShrink:0, padding:"0 10px", borderRadius:8, cursor:"pointer",
+                            fontFamily:"inherit", fontSize:12, fontWeight:700,
+                            background: topicInk ? "#ff6f00" : "#fff",
+                            color: topicInk ? "#fff" : C.dim,
+                            border:`1.5px solid ${topicInk ? "#ff6f00" : C.bdr}` }}>✍️</button>
+                        <button onClick={() => addCueTopic(newTopic)} disabled={!newTopic.trim()}
+                          style={{ flexShrink:0, padding:"0 12px", borderRadius:8, cursor: newTopic.trim() ? "pointer" : "default",
+                            fontFamily:"inherit", fontSize:12, fontWeight:800, color:"#fff",
+                            background: newTopic.trim() ? "#ff6f00" : C.bdr, border:"none" }}>추가</button>
+                        <button onClick={() => { setTopicAdding(false); setNewTopic(""); setTopicInk(false); }}
+                          style={{ flexShrink:0, padding:"0 10px", borderRadius:8, cursor:"pointer",
+                            fontFamily:"inherit", fontSize:12, fontWeight:700, color:C.dim,
+                            background:"#fff", border:`1px solid ${C.bdr}` }}>취소</button>
+                      </div>
+                      {topicInk && (
+                        <div style={{ marginTop:6 }}>
+                          <HandwritePad accent="#ff6f00" apiKey={user?.geminiKey || sharedGeminiKey}
+                            onText={t => { setNewTopic(t.trim()); setTopicInk(false); }} />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
