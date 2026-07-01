@@ -1718,8 +1718,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [showMyPicker, setShowMyPicker] = useState(false);
   const [myPickerQ, setMyPickerQ] = useState("");
   const [posForSong, setPosForSong] = useState(null); // 위치 선택 대기 곡
-  const [editInfo, setEditInfo] = useState(false);    // 곡 정보(BPM·Key 등) 편집 모달 (리더/어드민)
-  const [editInfoForm, setEditInfoForm] = useState({});
 
   // selectedSvcId 없을 때 가장 가까운 서비스로 폴백 (팀채팅용)
   const effectiveSvcId = (() => {
@@ -1799,30 +1797,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const removeMyItem = (songId) => {
     const items = myItems.filter(it => it.id !== songId);
     setMyItems(items); saveMyItems(items);
-  };
-
-  // 곡 정보(BPM·Key 등) 편집 — songs 문서를 직접 수정 (= 라이브러리에도 반영). 리더/어드민만
-  const openEditInfo = () => {
-    if (!song) return;
-    setEditInfoForm({ title: song.title || "", artist: song.artist || "", key: song.key || "",
-      bpm: song.bpm ?? "", timeSig: song.timeSig || "4/4" });
-    setEditInfo(true);
-  };
-  const saveEditInfo = async () => {
-    if (!song) return;
-    try {
-      await updateDoc(doc(db, "songs", song.id), {
-        title:   (editInfoForm.title || "").trim() || song.title,
-        artist:  (editInfoForm.artist || "").trim(),
-        key:     (editInfoForm.key || "").trim(),
-        bpm:     Number(editInfoForm.bpm) || 0,
-        timeSig: (editInfoForm.timeSig || "").trim() || "4/4",
-      });
-      setEditInfo(false);
-      showToast("곡 정보 저장됨 (라이브러리 반영)");
-    } catch (e) {
-      showToast("저장 실패: " + (e?.code === "permission-denied" ? "권한 없음" : "다시 시도"));
-    }
   };
 
   // 파트 레이블 (결단·Closing만 표시)
@@ -5027,15 +5001,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             </button>
           )}
 
-          {/* 곡 정보(BPM·Key) 편집 — 리더/어드민만. songs 문서 직접 수정 = 라이브러리 반영 */}
-          {leader && song && (
-            <button onClick={openEditInfo} title="곡 정보 편집 (BPM·Key)"
-              style={{ flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center",
-                width:30, height:30, borderRadius:8, cursor:"pointer",
-                background:"rgba(255,255,255,0.14)", border:"1px solid rgba(255,255,255,0.28)" }}>
-              <Icon n="pen" size={14} color="#fff" />
-            </button>
-          )}
 
           {/* 그룹 버튼 */}
           {(() => {
@@ -6007,37 +5972,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           />
         );
       })()}
-
-      {/* 곡 정보(BPM·Key 등) 편집 — 리더/어드민. 저장하면 라이브러리(songs)에 바로 반영 */}
-      {editInfo && song && (
-        <Modal title="곡 정보 편집" onClose={() => setEditInfo(false)}>
-          <div style={{ fontSize:11, color:C.dim, marginBottom:10, lineHeight:1.5 }}>
-            여기서 고치면 <b>라이브러리 원본</b>이 바뀌어 이 곡을 쓰는 모든 예배·팀원에게 반영됩니다.
-          </div>
-          {[
-            { label:"곡명", key:"title", placeholder:"곡명" },
-            { label:"아티스트", key:"artist", placeholder:"아티스트" },
-            { label:"키 (Key)", key:"key", placeholder:"C, D, E, F, G, A, B..." },
-            { label:"BPM", key:"bpm", placeholder:"120", type:"number" },
-            { label:"박자", key:"timeSig", placeholder:"4/4, 3/4, 6/8..." },
-          ].map(f => (
-            <div key={f.key} style={{ marginBottom:12 }}>
-              <div style={{ fontSize:12, color:C.dim, marginBottom:4 }}>{f.label}</div>
-              <input type={f.type || "text"} value={editInfoForm[f.key] ?? ""}
-                onChange={e => setEditInfoForm(p => ({ ...p, [f.key]: e.target.value }))}
-                placeholder={f.placeholder}
-                autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
-                style={{ width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
-                  color:C.txt, padding:"9px 12px", borderRadius:10, fontSize:14, outline:"none",
-                  fontFamily:"inherit", boxSizing:"border-box" }} />
-            </div>
-          ))}
-          <div style={{ display:"flex", gap:8, marginTop:4 }}>
-            <Btn label="취소" variant="ghost" full onClick={() => setEditInfo(false)} />
-            <Btn label="저장" full onClick={saveEditInfo} />
-          </div>
-        </Modal>
-      )}
 
       {/* 내 악보(개인) 추가 — 라이브러리에서 골라 원하는 위치에 삽입 (본인만 보임) */}
       {showMyPicker && (() => {

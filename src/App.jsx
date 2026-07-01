@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.745";
+const APP_VERSION = "3.746";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -4510,6 +4510,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const cardRefs = useRef([]);
   const [svcLyricsModal,        setSvcLyricsModal]        = useState(null); // { song, text }
   const [svcLyricsSaving,       setSvcLyricsSaving]       = useState(false);
+  const [editInfoSong,          setEditInfoSong]          = useState(null); // 곡 정보 편집 대상 곡
+  const [editInfoForm,          setEditInfoForm]          = useState({});
   const [svcPp7Confirm,         setSvcPp7Confirm]         = useState(null); // { stanzaCount, title, text }
   const [removeSongConfirm,     setRemoveSongConfirm]     = useState(null); // { idx, songTitle }
   const [showKakaoFormatPicker, setShowKakaoFormatPicker] = useState(false);
@@ -4603,6 +4605,24 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     await updateDoc(doc(db, "songs", svcLyricsModal.song.id), { lyrics: svcLyricsModal.text });
     setSvcLyricsSaving(false);
     setSvcLyricsModal(null);
+  };
+
+  // 곡 정보(BPM·Key 등) 편집 — songs 원본 수정 (라이브러리 반영). 리더/어드민만
+  const openEditInfo = (song) => {
+    setEditInfoForm({ title: song.title || "", artist: song.artist || "", key: song.key || "",
+      bpm: song.bpm ?? "", timeSig: song.timeSig || "4/4" });
+    setEditInfoSong(song);
+  };
+  const saveEditInfo = async () => {
+    if (!editInfoSong) return;
+    await updateDoc(doc(db, "songs", editInfoSong.id), {
+      title:   (editInfoForm.title || "").trim() || editInfoSong.title,
+      artist:  (editInfoForm.artist || "").trim(),
+      key:     (editInfoForm.key || "").trim(),
+      bpm:     Number(editInfoForm.bpm) || 0,
+      timeSig: (editInfoForm.timeSig || "").trim() || "4/4",
+    });
+    setEditInfoSong(null);
   };
 
   const _doSvcProDownload = async (title, text, stanzaCount) => {
@@ -5061,7 +5081,18 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           );
 
           const btnEl = (
-            <div style={{ display:"flex", flexDirection: landscape ? "row" : "column", gap:4, flexShrink:0 }}>
+            <div style={{ display:"flex", flexDirection: landscape ? "row" : "column", gap:9, flexShrink:0, alignItems:"center" }}>
+              {leader && (
+                <button onClick={e => { e.stopPropagation(); openEditInfo(song); }}
+                  title="곡 정보 편집 (BPM·Key)"
+                  style={{ background:`${C.acc}15`, border:`1px solid ${C.acc}55`,
+                    borderRadius:7, cursor:"pointer", padding:"4px 8px",
+                    display:"flex", alignItems:"center", gap:4,
+                    fontSize:11, fontWeight:700, color:C.acc, fontFamily:"inherit" }}>
+                  <Icon n="pen" size={11} color={C.acc} />
+                  수정
+                </button>
+              )}
               <button onClick={e => { e.stopPropagation(); setRecSong({ id: song.id, title: song.title }); }}
                 title={hasRec ? "녹음 재생 준비 완료" : "녹음 파일 없음"}
                 style={{ background: hasRec ? `${C.grn}12` : `${C.dim}10`,
@@ -5291,6 +5322,37 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           onConfirm={() => { const idx = removeSongConfirm.idx; setRemoveSongConfirm(null); _doRemoveSong(idx); }}
           onClose={() => setRemoveSongConfirm(null)}
         />
+      )}
+
+      {/* 곡 정보(BPM·Key 등) 편집 — 저장 시 라이브러리(songs) 원본에 반영. 리더/어드민 */}
+      {editInfoSong && (
+        <Modal title="곡 정보 편집" onClose={() => setEditInfoSong(null)}>
+          <div style={{ fontSize:11, color:C.dim, marginBottom:10, lineHeight:1.5 }}>
+            여기서 고치면 <b>라이브러리 원본</b>이 바뀌어 이 곡을 쓰는 모든 예배·팀원에게 반영됩니다.
+          </div>
+          {[
+            { label:"곡명", key:"title", placeholder:"곡명" },
+            { label:"아티스트", key:"artist", placeholder:"아티스트" },
+            { label:"키 (Key)", key:"key", placeholder:"C, D, E, F, G, A, B..." },
+            { label:"BPM", key:"bpm", placeholder:"120", type:"number" },
+            { label:"박자", key:"timeSig", placeholder:"4/4, 3/4, 6/8..." },
+          ].map(f => (
+            <div key={f.key} style={{ marginBottom:12 }}>
+              <div style={{ fontSize:12, color:C.dim, marginBottom:4 }}>{f.label}</div>
+              <input type={f.type || "text"} value={editInfoForm[f.key] ?? ""}
+                onChange={e => setEditInfoForm(p => ({ ...p, [f.key]: e.target.value }))}
+                placeholder={f.placeholder}
+                autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
+                style={{ width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
+                  color:C.txt, padding:"9px 12px", borderRadius:10, fontSize:14, outline:"none",
+                  fontFamily:"inherit", boxSizing:"border-box" }} />
+            </div>
+          ))}
+          <div style={{ display:"flex", gap:8, marginTop:4 }}>
+            <Btn label="취소" variant="ghost" full onClick={() => setEditInfoSong(null)} />
+            <Btn label="저장" full onClick={saveEditInfo} />
+          </div>
+        </Modal>
       )}
 
       {/* 가사 편집 + .pro 다운로드 모달 (서비스 화면) */}
