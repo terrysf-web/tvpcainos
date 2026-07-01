@@ -4,7 +4,7 @@ import { Icon, Input } from "./ui.jsx";
 
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-import { db } from "./firebase.js";
+import { db, GUEST_BUILD } from "./firebase.js";
 import {
   collection, doc, onSnapshot, setDoc, addDoc, deleteDoc,
   query, orderBy, limit, serverTimestamp,
@@ -322,7 +322,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
 
   // Poll ProPresenter for current presentation every 2s
   useEffect(() => {
-    if (!ppConnected) { setPpPresentation(null); return; }
+    if (GUEST_BUILD || !ppConnected) { setPpPresentation(null); return; }
     const poll = async () => {
       const data = await ppFetch("/v1/presentation/active");
       if (data?.presentation) setPpPresentation(data.presentation);
@@ -843,6 +843,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
 
               {/* ══ 설정 ══ */}
               {liveTab === "settings" && (<>
+                {!GUEST_BUILD && (
                 <div style={{ background:C.surf, borderRadius:14, padding:18, border:`1px solid ${C.bdr}` }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
                     <Icon n="antenna" size={16} color={C.acc} />
@@ -871,6 +872,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
                     marginBottom:12,
                   }}>{ppChecking?"연결 중...":ppConnected?"✓ 연결됨 (재테스트)":"연결 테스트"}</button>
                 </div>
+                )}
                 <div style={{ background:C.surf, borderRadius:14, padding:18, border:`1px solid ${C.bdr}` }}>
                   <div style={{ fontSize:14, fontWeight:700, color:C.txt, marginBottom:10 }}>기본 곡 시간</div>
                   <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>

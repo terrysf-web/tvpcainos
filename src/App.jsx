@@ -3,7 +3,7 @@ import { C, KEY_CLR, DARK_KEY, keyColor, darkKeyColor } from "./theme.js";
 import { Icon, Btn, Badge, KeyBadge, Input, Divider, Modal, ConfirmModal } from "./ui.jsx";
 import { HelpModal } from "./HelpModal.jsx";
 import { getVoicings, getDiatonicChords, getEffectiveKey, getChordTones, CHORD_VOICINGS } from "./chordVoicings.js";
-import { auth, db, storage, messagingPromise, firebaseConfigObj } from "./firebase.js";
+import { auth, db, storage, messagingPromise, firebaseConfigObj, GUEST_BUILD } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
 import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart, saveServiceSettings, loadServiceSettings, listWorshipRecordingServiceIds } from "./supabase.js";
@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.746";
+const APP_VERSION = "3.747";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -2113,7 +2113,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
   // PP7 자동감지 폴링
   const PP7_BASE = `https://${pp7Host}`;
   useEffect(() => {
-    if (!pp7AutoOn || !isFoh(user)) return;
+    if (GUEST_BUILD || !pp7AutoOn || !isFoh(user)) return;
     let timer;
     // AbortSignal.timeout 미지원 브라우저(구형 Safari) 호환
     const mkSignal = (ms) => {
@@ -2521,10 +2521,12 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
                   {/* 예배종료 카드 제거 — worshipEnded가 예배 시작 시각에 켜져 예배 중에도 잘못 표시됨 */}
 
-                  {/* X32 상태 카드 */}
+                  {/* X32 상태 카드 (게스트 빌드 숨김) */}
+                  {!GUEST_BUILD && (
                   <div style={{ flexShrink:0 }}>
                     <X32StatusBar />
                   </div>
+                  )}
 
                   {/* ── 예배순서 + 큐노트 카드 2열 ── */}
                   <div style={{ flex:"1 1 0", height:0, display:"flex", gap:6, overflow:"hidden" }}>
@@ -2666,7 +2668,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
                   {/* ── 싱크바 카드 ── */}
                   <div style={{ flexShrink:0, background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}` }}>
-                    {/* 1행: 예배순서 자동감지 (PP7) */}
+                    {/* 1행: 예배순서 자동감지 (PP7) — 게스트 빌드 숨김 */}
+                    {!GUEST_BUILD && (
                     <div style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px 6px", borderBottom:`1px solid ${C.pur}22` }}>
                       <span style={{ fontSize:11, fontWeight:800, color:C.pur, flexShrink:0, whiteSpace:"nowrap" }}>🎹 예배순서 자동감지</span>
                       <div style={{ display:"flex", gap:6, alignItems:"center", flex:1 }}>
@@ -2700,6 +2703,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         )}
                       </div>
                     </div>
+                    )}
                     {/* 2행: 악보 싱크 */}
                     <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px 8px" }}>
                       <span style={{ fontSize:11, fontWeight:800, color:C.pur, flexShrink:0, whiteSpace:"nowrap" }}>🔗 악보 싱크</span>
@@ -3129,8 +3133,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
             {isBroadcast(user?.role) ? (
             <>
-            {/* X32 채널 상태 */}
-            <X32StatusBar />
+            {/* X32 채널 상태 (게스트 빌드 숨김) */}
+            {!GUEST_BUILD && <X32StatusBar />}
 
             {/* 악보 리스트 — 스냅 캐러셀 */}
             {svcSongs.length > 0 && (
@@ -5372,6 +5376,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                 fontFamily:"inherit", lineHeight:1.8, outline:"none" }}
             />
             <div style={{ display:"flex", gap:8, marginTop:12 }}>
+              {!GUEST_BUILD && (
               <button onClick={downloadSvcProFile}
                 style={{ flex:1, padding:"10px 0", borderRadius:9, cursor:"pointer",
                   background:`${C.grn}22`, border:`1px solid ${C.grn}55`,
@@ -5380,6 +5385,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                 <Icon n="download" size={14} color={C.grn} />
                 .pro 다운로드
               </button>
+              )}
               <button onClick={saveSvcLyrics} disabled={svcLyricsSaving}
                 style={{ flex:1, padding:"10px 0", borderRadius:9, cursor:"pointer",
                   background: svcLyricsSaving ? C.bdr : C.acc,
@@ -6169,6 +6175,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                 fontFamily:"inherit", lineHeight:1.8, outline:"none" }}
             />
             <div style={{ display:"flex", gap:8, marginTop:12 }}>
+              {!GUEST_BUILD && (
               <button onClick={downloadProFile}
                 style={{ flex:1, padding:"10px 0", borderRadius:9, cursor:"pointer",
                   background:`${C.grn}22`, border:`1px solid ${C.grn}55`,
@@ -6177,6 +6184,7 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                 <Icon n="download" size={14} color={C.grn} />
                 .pro 다운로드
               </button>
+              )}
               <button onClick={saveLyrics} disabled={lyricsSaving}
                 style={{ flex:1, padding:"10px 0", borderRadius:9, cursor:"pointer",
                   background: lyricsSaving ? C.bdr : C.acc,
