@@ -25,12 +25,6 @@ service cloud.firestore {
       );
     }
 
-    // 키보드(건반) 파트 — 예배 곡 목록 관리 허용
-    function isKeyboard() {
-      let ud = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return isAuthed() && ud.get("parts", []).hasAny(["키보드", "건반", "피아노"]);
-    }
-
     match /songs/{id} {
       allow read: if isAuthed();
       allow create, update, delete: if isLeader();
@@ -42,10 +36,6 @@ service cloud.firestore {
       allow update: if isAuthed() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasRecordings']) &&
         request.resource.data.hasRecordings == true;
-      // 키보드 파트: 예배 곡 목록만 수정 허용 (제목/삭제 등은 불가)
-      allow update: if isKeyboard() &&
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['songIds', 'songPartIds', 'songAddedAt', 'closingSongId']);
     }
 
     match /notifications/{id} {
@@ -181,6 +171,12 @@ service cloud.firestore {
     match /cueTopics/{songId} {
       allow read: if isAuthed();
       allow write: if isLeader();
+    }
+
+    // 개인 예배 악보 목록 — doc id = "{uid}_{svcId}". 본인만 보는 개인 곡 목록
+    // (앱이 자신의 UID 포함 ID만 읽으므로 남의 목록 안 보임)
+    match /userSvcSongs/{docId} {
+      allow read, write: if isAuthed();
     }
 
     // FOH → 멤버 개별 메시지 (doc ID = 수신자 uid)

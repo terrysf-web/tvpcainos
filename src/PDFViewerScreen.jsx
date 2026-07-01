@@ -1711,6 +1711,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const isLibraryMode = backTo === "library"; // 라이브러리에서 열린 경우: 예배 컨텍스트 없음
   const isLiteMode    = backTo === "lite";    // Lite 뷰어: 메뉴 없음, 전체화면 악보만
 
+  // 개인 예배 악보 목록 — 키보드(건반)/어드민만, 본인만 보임 (예배 곡 뒤에 이어서 넘김)
+  const canManageMine = !isLibraryMode && (user?.role === "admin" ||
+    getUserParts(user).some(p => ["키보드","건반","피아노"].includes(p)));
+  const [myExtraIds, setMyExtraIds] = useState([]); // 개인 추가 곡 id
+  const [showMyPicker, setShowMyPicker] = useState(false);
+  const [myPickerQ, setMyPickerQ] = useState("");
+
   // selectedSvcId 없을 때 가장 가까운 서비스로 폴백 (팀채팅용)
   const effectiveSvcId = (() => {
     if (selectedSvcId) return selectedSvcId;
@@ -1726,10 +1733,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // ── 예배 곡 순서
   const svc      = (!isLibraryMode && selectedSvcId) ? services.find(s => s.id === selectedSvcId) : null;
   // 유효 곡만 포함 — 삭제된 ID 제외, 중복 ID(복사) 허용
-  const svcSongs = svc
+  const baseSvcSongs = svc
     ? (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean)
     : [];
-  // filter(Boolean) shifts indices — track which raw svc.songIds indices survived
+  // 개인 곡 (본인만) — 예배에 이미 있는 곡 제외하고 뒤에 이어 붙임
+  const myExtraSongs = (svc && canManageMine)
+    ? myExtraIds.map(id => songs.find(s => s.id === id)).filter(Boolean)
+        .filter(s => !baseSvcSongs.some(b => b.id === s.id))
+    : [];
+  const mySongIdSet = new Set(myExtraSongs.map(s => s.id));
+  const svcSongs = [...baseSvcSongs, ...myExtraSongs];
+  // filter(Boolean) shifts indices — track which raw svc.songIds indices survived (개인 곡은 파트 라벨 없음)
   const rawSvcIdxs = svc
     ? (svc.songIds || []).reduce((acc, id, ri) => {
         if (songs.find(s => s.id === id)) acc.push(ri);
@@ -1743,6 +1757,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const goToSong = (idx) => {
     if (idx < 0 || idx >= svcSongs.length || !svcSongs[idx]) return;
     nav("pdfViewer", { songId: svcSongs[idx].id, svcSongIdx: idx, backTo });
+  };
+
+  // 개인 예배 악보 목록 로드/저장 (userSvcSongs/{uid}_{svcId})
+  const myDocId = (user?.uid && selectedSvcId) ? `${user.uid}_${selectedSvcId}` : null;
+  useEffect(() => {
+    if (!canManageMine || !myDocId) { setMyExtraIds([]); return; }
+    const unsub = onSnapshot(doc(db, "userSvcSongs", myDocId), snap => {
+      setMyExtraIds(Array.isArray(snap.data()?.songIds) ? snap.data().songIds : []);
+    }, () => setMyExtraIds([]));
+    return unsub;
+  }, [canManageMine, myDocId]);
+  const saveMyIds = (ids) => {
+    if (!myDocId) return;
+    setDoc(doc(db, "userSvcSongs", myDocId), { songIds: ids, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
+  };
+  const toggleMySong = (songId) => {
+    const next = myExtraIds.includes(songId) ? myExtraIds.filter(x => x !== songId) : [...myExtraIds, songId];
+    setMyExtraIds(next);
+    saveMyIds(next);
   };
 
   // 파트 레이블 (결단·Closing만 표시)
@@ -4929,9 +4962,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 {song.bpm ? ` · ♩${song.bpm}` : ""}
                 {numPages > 0 ? ` · ${pageNum}/${numPages}p` : ""}
                 {!isLibraryMode && svcSongs.length > 1 ? ` · 곡 ${songIdx+1}/${svcSongs.length}` : ""}
+                {mySongIdSet.has(song?.id) ? " · 개인" : ""}
               </div>
             )}
           </div>
+
+          {/* 내 악보(개인) — 키보드/어드민만, 예배 곡 뒤에 이어 넘김 */}
+          {canManageMine && (
+            <button onClick={() => setShowMyPicker(true)} title="내 악보(개인 곡 추가)"
+              style={{ flexShrink:0, display:"flex", alignItems:"center", gap:3,
+                height:30, padding:"0 9px", borderRadius:8, cursor:"pointer", fontFamily:"inherit",
+                fontSize:11, fontWeight:700, whiteSpace:"nowrap",
+                color: mySongIdSet.has(song?.id) ? "#fff" : "rgba(255,255,255,0.9)",
+                background: mySongIdSet.has(song?.id) ? C.pur : "rgba(255,255,255,0.14)",
+                border:"1px solid rgba(255,255,255,0.28)" }}>
+              ＋ 내악보{myExtraSongs.length ? ` ${myExtraSongs.length}` : ""}
+            </button>
+          )}
 
           {/* 그룹 버튼 */}
           {(() => {
@@ -5901,6 +5948,63 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             userParts={getUserParts(user)}
             C={C}
           />
+        );
+      })()}
+
+      {/* 내 악보(개인) 추가 — 라이브러리에서 골라 개인 목록에 담기 (본인만 보임) */}
+      {showMyPicker && (() => {
+        const baseIds = new Set(baseSvcSongs.map(s => s.id));
+        const q = myPickerQ.trim().toLowerCase();
+        const list = (songs || [])
+          .filter(s => (s.pdfUrl || s.imageUrl))
+          .filter(s => !q || (s.title || "").toLowerCase().includes(q) || (s.artist || "").toLowerCase().includes(q))
+          .sort((a, b) => (a.title || "").localeCompare(b.title || "", "ko"));
+        return (
+          <Modal title="내 악보 — 개인 곡 추가" onClose={() => { setShowMyPicker(false); setMyPickerQ(""); }}>
+            <div style={{ padding:"0 2px 4px" }}>
+              <div style={{ fontSize:11, color:C.dim, marginBottom:8, lineHeight:1.5 }}>
+                여기서 담은 곡은 <b>나만</b> 보이고, 이 예배의 곡들 <b>뒤에 이어서</b> 넘겨집니다. (다른 팀원에겐 안 보임)
+              </div>
+              <input value={myPickerQ} onChange={e => setMyPickerQ(e.target.value)}
+                placeholder="곡 검색 (제목·아티스트)"
+                style={{ width:"100%", padding:"8px 11px", borderRadius:9, boxSizing:"border-box",
+                  border:`1.5px solid ${C.bdr}`, background:C.bg, color:C.txt, fontSize:13,
+                  fontFamily:"inherit", outline:"none", marginBottom:8 }} />
+              <div style={{ display:"flex", flexDirection:"column", gap:6, maxHeight:"48vh", overflowY:"auto" }}>
+                {list.length === 0 && (
+                  <div style={{ textAlign:"center", padding:"24px 0", color:C.dim, fontSize:13 }}>곡이 없습니다.</div>
+                )}
+                {list.map(s => {
+                  const inSvc = baseIds.has(s.id);
+                  const added = myExtraIds.includes(s.id);
+                  return (
+                    <div key={s.id} style={{ display:"flex", alignItems:"center", gap:10,
+                      padding:"9px 12px", borderRadius:10, background:C.card, border:`1px solid ${C.bdr}` }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:13, fontWeight:700, color:C.txt, overflow:"hidden",
+                          textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.title}</div>
+                        <div style={{ fontSize:11, color:C.dim, marginTop:1 }}>{s.artist || ""}{s.key ? ` · ${s.key}` : ""}</div>
+                      </div>
+                      {inSvc ? (
+                        <span style={{ flexShrink:0, fontSize:11, fontWeight:700, color:C.dim,
+                          background:C.bg, borderRadius:7, padding:"5px 10px" }}>예배곡</span>
+                      ) : (
+                        <button onClick={() => toggleMySong(s.id)}
+                          style={{ flexShrink:0, padding:"6px 12px", borderRadius:8, cursor:"pointer",
+                            fontFamily:"inherit", fontSize:12, fontWeight:800, border:"none", color:"#fff",
+                            background: added ? C.red : C.pur }}>
+                          {added ? "빼기" : "＋ 담기"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ marginTop:12 }}>
+                <Btn label="닫기" variant="ghost" full onClick={() => { setShowMyPicker(false); setMyPickerQ(""); }} />
+              </div>
+            </div>
+          </Modal>
         );
       })()}
 
