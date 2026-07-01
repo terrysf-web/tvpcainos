@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.741";
+const APP_VERSION = "3.742";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -5925,9 +5925,9 @@ function SongLibraryScreen({ user, songs, services, addSong, nav, teamAnnotation
                     <button onClick={() => setAddToSvcSong(song)}
                       title="예배에 추가"
                       style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0,
-                        padding:"7px 11px", borderRadius:9, cursor:"pointer", fontFamily:"inherit",
-                        fontSize:12, fontWeight:800, color:"#fff", background:C.grn,
-                        border:"none", whiteSpace:"nowrap" }}>
+                        height:BtnSz, padding:"0 10px", borderRadius:9, cursor:"pointer", fontFamily:"inherit",
+                        fontSize:12, fontWeight:700, color:C.grn, background:`${C.grn}18`,
+                        border:`1px solid ${C.grn}55`, whiteSpace:"nowrap" }}>
                       ＋ 예배
                     </button>
                   )}
