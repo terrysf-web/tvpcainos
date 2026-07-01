@@ -1714,9 +1714,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // 개인 예배 악보 목록 — 키보드(건반)/어드민만, 본인만 보임 (예배 곡 뒤에 이어서 넘김)
   const canManageMine = !isLibraryMode && (user?.role === "admin" ||
     getUserParts(user).some(p => ["키보드","건반","피아노"].includes(p)));
-  const [myExtraIds, setMyExtraIds] = useState([]); // 개인 추가 곡 id
+  const [myItems, setMyItems] = useState([]); // 개인 추가 곡 [{id, after}] — after=이 곡 뒤에 삽입(null=맨 앞)
   const [showMyPicker, setShowMyPicker] = useState(false);
   const [myPickerQ, setMyPickerQ] = useState("");
+  const [posForSong, setPosForSong] = useState(null); // 위치 선택 대기 곡
 
   // selectedSvcId 없을 때 가장 가까운 서비스로 폴백 (팀채팅용)
   const effectiveSvcId = (() => {
@@ -1736,13 +1737,26 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const baseSvcSongs = svc
     ? (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean)
     : [];
-  // 개인 곡 (본인만) — 예배에 이미 있는 곡 제외하고 뒤에 이어 붙임
-  const myExtraSongs = (svc && canManageMine)
-    ? myExtraIds.map(id => songs.find(s => s.id === id)).filter(Boolean)
-        .filter(s => !baseSvcSongs.some(b => b.id === s.id))
-    : [];
-  const mySongIdSet = new Set(myExtraSongs.map(s => s.id));
-  const svcSongs = [...baseSvcSongs, ...myExtraSongs];
+  // 개인 곡 (본인만) — {id, after} 앵커에 따라 예배 곡 사이/앞/뒤 원하는 위치에 삽입
+  const baseIdSet0 = new Set(baseSvcSongs.map(s => s.id));
+  const mySongIdSet = new Set((svc && canManageMine)
+    ? myItems.map(i => i.id).filter(id => !baseIdSet0.has(id)) : []);
+  const svcSongs = (() => {
+    if (!svc) return [];
+    const merged = [...baseSvcSongs];
+    if (canManageMine) {
+      for (const it of myItems) {
+        const s = songs.find(x => x.id === it.id);
+        if (!s || merged.some(m => m.id === s.id)) continue;
+        if (!it.after) { merged.unshift(s); continue; }         // 맨 앞
+        const ai = merged.findIndex(m => m.id === it.after);
+        if (ai < 0) merged.push(s);                             // 앵커 없으면 맨 뒤
+        else merged.splice(ai + 1, 0, s);                       // 앵커 다음에
+      }
+    }
+    return merged;
+  })();
+  const myCount = mySongIdSet.size;
   // filter(Boolean) shifts indices — track which raw svc.songIds indices survived (개인 곡은 파트 라벨 없음)
   const rawSvcIdxs = svc
     ? (svc.songIds || []).reduce((acc, id, ri) => {
@@ -1762,20 +1776,27 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // 개인 예배 악보 목록 로드/저장 (userSvcSongs/{uid}_{svcId})
   const myDocId = (user?.uid && selectedSvcId) ? `${user.uid}_${selectedSvcId}` : null;
   useEffect(() => {
-    if (!canManageMine || !myDocId) { setMyExtraIds([]); return; }
+    if (!canManageMine || !myDocId) { setMyItems([]); return; }
     const unsub = onSnapshot(doc(db, "userSvcSongs", myDocId), snap => {
-      setMyExtraIds(Array.isArray(snap.data()?.songIds) ? snap.data().songIds : []);
-    }, () => setMyExtraIds([]));
+      const d = snap.data();
+      const items = Array.isArray(d?.items) ? d.items
+        : Array.isArray(d?.songIds) ? d.songIds.map(id => ({ id, after: null })) // 구버전 호환
+        : [];
+      setMyItems(items.filter(it => it && it.id));
+    }, () => setMyItems([]));
     return unsub;
   }, [canManageMine, myDocId]);
-  const saveMyIds = (ids) => {
+  const saveMyItems = (items) => {
     if (!myDocId) return;
-    setDoc(doc(db, "userSvcSongs", myDocId), { songIds: ids, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
+    setDoc(doc(db, "userSvcSongs", myDocId), { items, songIds: deleteField(), updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
   };
-  const toggleMySong = (songId) => {
-    const next = myExtraIds.includes(songId) ? myExtraIds.filter(x => x !== songId) : [...myExtraIds, songId];
-    setMyExtraIds(next);
-    saveMyIds(next);
+  const addMyItem = (songId, after) => {
+    const items = [...myItems.filter(it => it.id !== songId), { id: songId, after: after || null }];
+    setMyItems(items); saveMyItems(items);
+  };
+  const removeMyItem = (songId) => {
+    const items = myItems.filter(it => it.id !== songId);
+    setMyItems(items); saveMyItems(items);
   };
 
   // 파트 레이블 (결단·Closing만 표시)
@@ -4976,7 +4997,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 color: mySongIdSet.has(song?.id) ? "#fff" : "rgba(255,255,255,0.9)",
                 background: mySongIdSet.has(song?.id) ? C.pur : "rgba(255,255,255,0.14)",
                 border:"1px solid rgba(255,255,255,0.28)" }}>
-              ＋ 내악보{myExtraSongs.length ? ` ${myExtraSongs.length}` : ""}
+              ＋ 내악보{myCount ? ` ${myCount}` : ""}
             </button>
           )}
 
@@ -5951,8 +5972,44 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         );
       })()}
 
-      {/* 내 악보(개인) 추가 — 라이브러리에서 골라 개인 목록에 담기 (본인만 보임) */}
+      {/* 내 악보(개인) 추가 — 라이브러리에서 골라 원하는 위치에 삽입 (본인만 보임) */}
       {showMyPicker && (() => {
+        const closePicker = () => { setShowMyPicker(false); setMyPickerQ(""); setPosForSong(null); };
+        // 2단계: 위치 선택
+        if (posForSong) {
+          return (
+            <Modal title={`위치 선택 — ${posForSong.title}`} onClose={() => setPosForSong(null)}>
+              <div style={{ padding:"0 2px 4px" }}>
+                <div style={{ fontSize:11, color:C.dim, marginBottom:8, lineHeight:1.5 }}>
+                  이 곡을 <b>어디에</b> 넣을까요? 고른 곡 <b>다음</b>에 삽입됩니다.
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:6, maxHeight:"52vh", overflowY:"auto" }}>
+                  <button onClick={() => { addMyItem(posForSong.id, null); setPosForSong(null); }}
+                    style={{ textAlign:"left", padding:"10px 12px", borderRadius:10, cursor:"pointer",
+                      fontFamily:"inherit", fontSize:13, fontWeight:800, color:C.pur,
+                      background:`${C.pur}12`, border:`1px solid ${C.pur}44` }}>
+                    ⬆ 맨 앞에 넣기
+                  </button>
+                  {svcSongs.map((s, i) => (
+                    <button key={s.id + i} onClick={() => { addMyItem(posForSong.id, s.id); setPosForSong(null); }}
+                      style={{ display:"flex", alignItems:"center", gap:8, textAlign:"left",
+                        padding:"10px 12px", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
+                        background:C.card, border:`1px solid ${C.bdr}` }}>
+                      <span style={{ fontSize:11, fontWeight:800, color:C.dim, minWidth:20 }}>{i + 1}</span>
+                      <span style={{ flex:1, minWidth:0, fontSize:13, fontWeight:700, color:C.txt,
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.title}</span>
+                      <span style={{ fontSize:11, fontWeight:700, color:C.pur, flexShrink:0 }}>다음에 ▸</span>
+                    </button>
+                  ))}
+                </div>
+                <div style={{ marginTop:12 }}>
+                  <Btn label="← 곡 목록으로" variant="ghost" full onClick={() => setPosForSong(null)} />
+                </div>
+              </div>
+            </Modal>
+          );
+        }
+        // 1단계: 곡 선택
         const baseIds = new Set(baseSvcSongs.map(s => s.id));
         const q = myPickerQ.trim().toLowerCase();
         const list = (songs || [])
@@ -5960,10 +6017,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           .filter(s => !q || (s.title || "").toLowerCase().includes(q) || (s.artist || "").toLowerCase().includes(q))
           .sort((a, b) => (a.title || "").localeCompare(b.title || "", "ko"));
         return (
-          <Modal title="내 악보 — 개인 곡 추가" onClose={() => { setShowMyPicker(false); setMyPickerQ(""); }}>
+          <Modal title="내 악보 — 개인 곡 추가" onClose={closePicker}>
             <div style={{ padding:"0 2px 4px" }}>
               <div style={{ fontSize:11, color:C.dim, marginBottom:8, lineHeight:1.5 }}>
-                여기서 담은 곡은 <b>나만</b> 보이고, 이 예배의 곡들 <b>뒤에 이어서</b> 넘겨집니다. (다른 팀원에겐 안 보임)
+                담은 곡은 <b>나만</b> 보입니다. 담을 때 <b>넣을 위치(중간·앞·뒤)</b>를 고를 수 있어요.
               </div>
               <input value={myPickerQ} onChange={e => setMyPickerQ(e.target.value)}
                 placeholder="곡 검색 (제목·아티스트)"
@@ -5976,7 +6033,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 )}
                 {list.map(s => {
                   const inSvc = baseIds.has(s.id);
-                  const added = myExtraIds.includes(s.id);
+                  const added = myItems.some(it => it.id === s.id);
                   return (
                     <div key={s.id} style={{ display:"flex", alignItems:"center", gap:10,
                       padding:"9px 12px", borderRadius:10, background:C.card, border:`1px solid ${C.bdr}` }}>
@@ -5988,12 +6045,17 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       {inSvc ? (
                         <span style={{ flexShrink:0, fontSize:11, fontWeight:700, color:C.dim,
                           background:C.bg, borderRadius:7, padding:"5px 10px" }}>예배곡</span>
-                      ) : (
-                        <button onClick={() => toggleMySong(s.id)}
+                      ) : added ? (
+                        <button onClick={() => removeMyItem(s.id)}
                           style={{ flexShrink:0, padding:"6px 12px", borderRadius:8, cursor:"pointer",
-                            fontFamily:"inherit", fontSize:12, fontWeight:800, border:"none", color:"#fff",
-                            background: added ? C.red : C.pur }}>
-                          {added ? "빼기" : "＋ 담기"}
+                            fontFamily:"inherit", fontSize:12, fontWeight:800, border:"none", color:"#fff", background:C.red }}>
+                          빼기
+                        </button>
+                      ) : (
+                        <button onClick={() => setPosForSong(s)}
+                          style={{ flexShrink:0, padding:"6px 12px", borderRadius:8, cursor:"pointer",
+                            fontFamily:"inherit", fontSize:12, fontWeight:800, border:"none", color:"#fff", background:C.pur }}>
+                          ＋ 담기
                         </button>
                       )}
                     </div>
@@ -6001,7 +6063,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 })}
               </div>
               <div style={{ marginTop:12 }}>
-                <Btn label="닫기" variant="ghost" full onClick={() => { setShowMyPicker(false); setMyPickerQ(""); }} />
+                <Btn label="닫기" variant="ghost" full onClick={closePicker} />
               </div>
             </div>
           </Modal>
