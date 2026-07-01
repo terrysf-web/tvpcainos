@@ -25,6 +25,12 @@ service cloud.firestore {
       );
     }
 
+    // 키보드(건반) 파트 — 예배 곡 목록 관리 허용
+    function isKeyboard() {
+      let ud = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isAuthed() && ud.get("parts", []).hasAny(["키보드", "건반", "피아노"]);
+    }
+
     match /songs/{id} {
       allow read: if isAuthed();
       allow create, update, delete: if isLeader();
@@ -36,6 +42,10 @@ service cloud.firestore {
       allow update: if isAuthed() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasRecordings']) &&
         request.resource.data.hasRecordings == true;
+      // 키보드 파트: 예배 곡 목록만 수정 허용 (제목/삭제 등은 불가)
+      allow update: if isKeyboard() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['songIds', 'songPartIds', 'songAddedAt', 'closingSongId']);
     }
 
     match /notifications/{id} {

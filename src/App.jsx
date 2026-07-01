@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.739";
+const APP_VERSION = "3.740";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -5529,8 +5529,22 @@ function PdfPagePickerModal({ file, songTitle, onConfirm, onClose }) {
 /* ══════════════════════════════════════════════════════════════════
    SONG LIBRARY SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotations, userMap, songDrawings }) {
+function SongLibraryScreen({ user, songs, services, addSong, nav, teamAnnotations, annotations, userMap, songDrawings }) {
   const tbNarrow = window.innerWidth < 600;
+  // 예배에 곡 추가 권한 — 키보드(건반) 파트 + 어드민 (다른 리더에겐 숨김)
+  const canAddToSvc = user?.role === "admin" ||
+    getUserParts(user).some(p => ["키보드","건반","피아노"].includes(p));
+  const [addToSvcSong, setAddToSvcSong] = useState(null); // 예배 선택 모달용 곡
+  const addSongToService = async (svc) => {
+    const song = addToSvcSong;
+    if (!song || !svc) return;
+    const ids = svc.songIds || [];
+    if (ids.includes(song.id)) return;
+    const newAddedAt = { ...(svc.songAddedAt || {}), [song.id]: new Date().toISOString() };
+    const updates = { songIds: [...ids, song.id], songAddedAt: newAddedAt };
+    if (svc.partsEnabled) updates.songPartIds = [...(svc.songPartIds || []), "찬양"];
+    await updateDoc(doc(db, "services", svc.id), updates);
+  };
   const listRef = useRef(null);
   // 악보를 열었다가 돌아오면 검색·자음 필터와 스크롤 위치를 복원
   const restoreRef = useRef(undefined);
@@ -5907,6 +5921,16 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                 <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                   {songIconBox}
                   {songInfoArea}
+                  {canAddToSvc && (song.pdfUrl || song.imageUrl) && (
+                    <button onClick={() => setAddToSvcSong(song)}
+                      title="예배에 추가"
+                      style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0,
+                        padding:"7px 11px", borderRadius:9, cursor:"pointer", fontFamily:"inherit",
+                        fontSize:12, fontWeight:800, color:"#fff", background:C.grn,
+                        border:"none", whiteSpace:"nowrap" }}>
+                      ＋ 예배
+                    </button>
+                  )}
                   {!tbNarrow && isLeader(user.role) && (
                     <div style={{ display:"flex", gap:6, flexShrink:0, paddingLeft:14, marginLeft:2,
                       borderLeft:`1px solid ${C.bdr}` }}>
@@ -6003,6 +6027,53 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
           }}
         />
       )}
+
+      {/* 예배에 곡 추가 — 다가오는 예배 선택 (키보드/어드민 전용) */}
+      {addToSvcSong && (() => {
+        const upcoming = (services || [])
+          .filter(s => (s.date || "") >= localDateStr())
+          .sort((a, b) => (a.date || "").localeCompare(b.date || "") || (a.time || "").localeCompare(b.time || ""));
+        const fmtD = d => { try { return new Date(d + "T00:00:00").toLocaleDateString("ko-KR", { month:"long", day:"numeric", weekday:"short" }); } catch { return d; } };
+        return (
+          <Modal title={`예배에 추가 — ${addToSvcSong.title}`} onClose={() => setAddToSvcSong(null)}>
+            <div style={{ padding:"0 2px 6px" }}>
+              {upcoming.length === 0 ? (
+                <div style={{ textAlign:"center", padding:"30px 0", color:C.dim, fontSize:13 }}>
+                  다가오는 예배가 없습니다.<br />먼저 예배를 만들어주세요.
+                </div>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", gap:8, maxHeight:"52vh", overflowY:"auto" }}>
+                  {upcoming.map(svc => {
+                    const already = (svc.songIds || []).includes(addToSvcSong.id);
+                    return (
+                      <div key={svc.id} style={{ display:"flex", alignItems:"center", gap:10,
+                        padding:"11px 13px", borderRadius:11, background:C.card,
+                        border:`1px solid ${C.bdr}` }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:14, fontWeight:800, color:C.txt, overflow:"hidden",
+                            textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{svc.title || "예배"}</div>
+                          <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>
+                            {fmtD(svc.date)}{svc.time ? ` · ${svc.time}` : ""} · {(svc.songIds || []).length}곡
+                          </div>
+                        </div>
+                        <button onClick={() => addSongToService(svc)} disabled={already}
+                          style={{ flexShrink:0, padding:"8px 14px", borderRadius:9, cursor: already ? "default" : "pointer",
+                            fontFamily:"inherit", fontSize:12, fontWeight:800, border:"none",
+                            color: already ? C.dim : "#fff", background: already ? C.bg : C.grn }}>
+                          {already ? "추가됨 ✓" : "＋ 추가"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ marginTop:12 }}>
+                <Btn label="닫기" variant="ghost" full onClick={() => setAddToSvcSong(null)} />
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {confirmDel && (() => {
         const s = songs.find(x => x.id === confirmDel);
