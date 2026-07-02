@@ -7920,9 +7920,8 @@ function HomeSplashScreen({ user, onEnterLite }) {
         display:"flex", alignItems:"center", gap:6,
         zIndex:10,
       }}>
-        {!GUEST_BUILD && (
         <a
-          href="https://m.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ"
+          href={GUEST_BUILD ? "https://www.sffbc.org/sunday" : "https://m.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ"}
           target="_blank" rel="noopener noreferrer"
           style={{
             display:"flex", alignItems:"center", gap:6,
@@ -7938,9 +7937,8 @@ function HomeSplashScreen({ user, onEnterLite }) {
             <rect width="18" height="13" rx="3" fill="#FF0000"/>
             <path d="M7 9.5V3.5L13 6.5L7 9.5Z" fill="white"/>
           </svg>
-          TVPC
+          {GUEST_BUILD ? "SFFBC" : "TVPC"}
         </a>
-        )}
         <button
           onClick={onEnterLite}
           style={{
