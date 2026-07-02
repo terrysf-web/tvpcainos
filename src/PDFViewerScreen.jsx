@@ -9,7 +9,7 @@ import { Icon, Btn, Modal, ConfirmModal } from "./ui.jsx";
 import { getVoicings, getDiatonicChords, getEffectiveKey, CHORD_VOICINGS, getChordTones } from "./chordVoicings.js";
 import { generateProgression, KEYS as IMPROV_KEYS, MOODS as IMPROV_MOODS } from "./improvChords.js";
 import { HelpModal } from "./HelpModal.jsx";
-import { db, storage } from "./firebase.js";
+import { db, storage, GUEST_BUILD } from "./firebase.js";
 import {
   collection, doc, onSnapshot, addDoc, updateDoc, setDoc, getDoc,
   query, orderBy, limit, serverTimestamp, where, deleteDoc, deleteField,
@@ -4896,7 +4896,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
       {/* 상단 툴바 */}
       {!isLiteMode && <div style={{
-        background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)",
+        background:(GUEST_BUILD ? "linear-gradient(135deg,#1a1264 0%,#3a2b9e 45%,#6b5de7 100%)" : "linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)"),
         flexShrink:0,
       }}>
         {/* iOS safe area spacer */}

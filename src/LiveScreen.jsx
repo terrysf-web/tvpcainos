@@ -970,7 +970,7 @@ function LiveScreen({ user, services, songs, nav, anyLiveActive }) {
 
       {/* ── Header */}
       <div style={{ padding:"calc(16px + env(safe-area-inset-top)) 20px 0",
-        background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)" }}>
+        background:(GUEST_BUILD ? "linear-gradient(135deg,#1a1264 0%,#3a2b9e 45%,#6b5de7 100%)" : "linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)") }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
           <button onClick={() => setShowSvcPicker(p => !p)} style={{
             display:"flex", alignItems:"center", gap:6, background:"none",
