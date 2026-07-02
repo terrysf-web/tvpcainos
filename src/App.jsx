@@ -7875,7 +7875,9 @@ function HomeSplashScreen({ user, onEnterLite }) {
     <>
       <div style={{
         position:"fixed", inset:"-20px",
-        backgroundImage: portrait ? "url('/home-bg-portrait.webp')"
+        backgroundImage: GUEST_BUILD
+          ? "linear-gradient(160deg, #0c1850 0%, #1c3c88 48%, #0f1b30 100%)"
+          : portrait ? "url('/home-bg-portrait.webp')"
           : isPC ? "url('/home-bg-pc.webp')"
           :        "url('/home-bg.webp')",
         backgroundSize:"cover",
