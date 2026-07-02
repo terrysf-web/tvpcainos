@@ -7876,7 +7876,7 @@ function HomeSplashScreen({ user, onEnterLite }) {
       <div style={{
         position:"fixed", inset:"-20px",
         backgroundImage: GUEST_BUILD
-          ? "linear-gradient(160deg, #eaf1fb 0%, #cfe0f5 55%, #b9d2f0 100%)"
+          ? "radial-gradient(ellipse 120% 90% at 50% 32%, #ffffff 0%, #eef4fc 42%, #dbe7f7 72%, #cadcf3 100%)"
           : portrait ? "url('/home-bg-portrait.webp')"
           : isPC ? "url('/home-bg-pc.webp')"
           :        "url('/home-bg.webp')",
@@ -7891,6 +7891,25 @@ function HomeSplashScreen({ user, onEnterLite }) {
         background:"linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 100%)",
         pointerEvents:"none", zIndex:1,
       }} />
+
+      {/* 게스트(SFFBC) 홈 중앙 브랜딩 — 지구본 + SFFBC Ainos + SFFBC WORSHIP */}
+      {GUEST_BUILD && (
+        <div style={{
+          position:"fixed", inset:0, display:"flex", flexDirection:"column",
+          alignItems:"center", justifyContent:"center",
+          pointerEvents:"none", zIndex:0, transform:"translateY(-6%)",
+        }}>
+          <img src="/sffbc_logo.jpg" alt="SFFBC"
+            style={{ width:104, height:104, borderRadius:"50%", background:"#fff",
+              objectFit:"cover", boxShadow:"0 8px 26px rgba(28,60,136,0.18)", marginBottom:16 }} />
+          <div style={{ fontSize:44, fontWeight:800, letterSpacing:"-0.01em", lineHeight:1 }}>
+            <span style={{ color:"#1c2b50" }}>SFFBC</span>{" "}
+            <span style={{ color:"#6f8fc4", fontWeight:600 }}>Ainos</span>
+          </div>
+          <div style={{ marginTop:12, fontSize:16, fontWeight:700, letterSpacing:"0.42em",
+            color:"#9fb4d6", paddingLeft:"0.42em" }}>SFFBC WORSHIP</div>
+        </div>
+      )}
 
       {/* Schedule cards — always shown; portrait=top strip, landscape=left/right center */}
       <ScheduleCard
