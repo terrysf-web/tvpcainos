@@ -7940,7 +7940,7 @@ function HomeSplashScreen({ user, onEnterLite }) {
         zIndex:10,
       }}>
         <a
-          href={GUEST_BUILD ? "https://www.sffbc.org/sunday" : "https://m.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ"}
+          href={GUEST_BUILD ? "https://www.youtube.com/@KFBCSF-SFUNITED" : "https://m.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ"}
           target="_blank" rel="noopener noreferrer"
           style={{
             display:"flex", alignItems:"center", gap:6,
