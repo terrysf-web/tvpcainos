@@ -7900,8 +7900,8 @@ function HomeSplashScreen({ user, onEnterLite }) {
           pointerEvents:"none", zIndex:0, transform:"translateY(-6%)",
         }}>
           <img src="/sffbc_logo.jpg" alt="SFFBC"
-            style={{ width:104, height:104, borderRadius:"50%", background:"#fff",
-              objectFit:"cover", boxShadow:"0 8px 26px rgba(28,60,136,0.18)", marginBottom:16 }} />
+            style={{ width:112, height:112, objectFit:"contain", marginBottom:14,
+              mixBlendMode:"multiply" }} />
           <div style={{ fontSize:44, fontWeight:800, letterSpacing:"-0.01em", lineHeight:1 }}>
             <span style={{ color:"#1c2b50" }}>SFFBC</span>{" "}
             <span style={{ color:"#6f8fc4", fontWeight:600 }}>Ainos</span>
