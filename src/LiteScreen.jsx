@@ -62,20 +62,28 @@ export default function LiteScreen({ user, services, songs, onOpenSong, onGoToAp
         paddingTop:"calc(env(safe-area-inset-top,0px) + 16px)",
       }}>
         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-          {/* 아이노스 로고 — 검정 배경을 screen 블렌드로 투명화, Ainos 스크립트만 크롭 */}
-          <div style={{ height:28, overflow:"hidden", flexShrink:0 }}>
-            <img
-              src="/ainos-logo.jpg"
-              alt="Ainos"
-              style={{
-                height:46,
-                width:"auto",
-                display:"block",
-                filter:"brightness(9)",
-                mixBlendMode:"screen",
-              }}
-            />
-          </div>
+          {/* 로고 — 메인은 Ainos 스크립트(screen 블렌드), 게스트는 지구본 배지+Ainos */}
+          {GUEST_BUILD ? (
+            <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+              <img src="/sffbc_logo.jpg" alt="Ainos"
+                style={{ width:26, height:26, borderRadius:"50%", background:"#fff", objectFit:"cover", flexShrink:0 }} />
+              <span style={{ fontSize:16, fontWeight:900, fontStyle:"italic", color:"#fff", letterSpacing:"0.3px" }}>Ainos</span>
+            </div>
+          ) : (
+            <div style={{ height:28, overflow:"hidden", flexShrink:0 }}>
+              <img
+                src="/ainos-logo.jpg"
+                alt="Ainos"
+                style={{
+                  height:46,
+                  width:"auto",
+                  display:"block",
+                  filter:"brightness(9)",
+                  mixBlendMode:"screen",
+                }}
+              />
+            </div>
+          )}
           <span style={{ fontSize:13, fontWeight:900, color:"rgba(255,255,255,0.85)", letterSpacing:"0.04em" }}>Lite</span>
           {live && (
             <span style={{ fontSize:10, fontWeight:800, color:"#fff", background:"rgba(229,57,53,0.9)", borderRadius:6, padding:"2px 8px", lineHeight:1.5 }}>

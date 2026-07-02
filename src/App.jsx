@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.747";
+const APP_VERSION = "3.748";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -2269,10 +2269,18 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         display:"flex", alignItems:"center", justifyContent:"space-between",
       }}>
         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-          <div style={{ height:28, overflow:"hidden", flexShrink:0 }}>
-            <img src="/ainos-logo.jpg" alt="Ainos"
-              style={{ height:46, width:"auto", display:"block", filter:"brightness(9)", mixBlendMode:"screen" }} />
-          </div>
+          {GUEST_BUILD ? (
+            <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+              <img src="/sffbc_logo.jpg" alt="Ainos"
+                style={{ width:26, height:26, borderRadius:"50%", background:"#fff", objectFit:"cover", flexShrink:0 }} />
+              <span style={{ fontSize:18, fontWeight:900, fontStyle:"italic", color:"#fff", letterSpacing:"0.3px" }}>Ainos</span>
+            </div>
+          ) : (
+            <div style={{ height:28, overflow:"hidden", flexShrink:0 }}>
+              <img src="/ainos-logo.jpg" alt="Ainos"
+                style={{ height:46, width:"auto", display:"block", filter:"brightness(9)", mixBlendMode:"screen" }} />
+            </div>
+          )}
           <span style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.6)", letterSpacing:"0.03em" }}>v{APP_VERSION}</span>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
@@ -7390,7 +7398,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
           <div style={{ textAlign:"center", padding:"8px 0 16px" }}>
             <img src="/icon-192.png" width={64} height={64}
               style={{ borderRadius:16, marginBottom:12 }} alt="Ainos" />
-            <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>TVPC Worship</div>
+            <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>{GUEST_BUILD ? "Ainos" : "TVPC Worship"}</div>
             <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 {APP_VERSION}</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
               찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />

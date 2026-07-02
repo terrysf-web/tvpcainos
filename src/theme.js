@@ -1,9 +1,11 @@
+// 게스트(SFFBC) 빌드는 포인트색을 파랑으로 (로고 지구본 색에 맞춤). 메인은 앰버.
+const GUEST = import.meta.env.VITE_GUEST === "1";
 export const C = {
   bg:    "#f2f2f7",
   surf:  "#ffffff",
   card:  "#f8f8fb",
   bdr:   "#e5e5ea",
-  acc:   "#e8a93e",
+  acc:   GUEST ? "#2f6fd6" : "#e8a93e",
   pur:   "#6b5de7",
   grn:   "#34c759",
   txt:   "#1c1c1e",

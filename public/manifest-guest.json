@@ -1,0 +1,18 @@
+{
+  "name": "Ainos",
+  "short_name": "Ainos",
+  "description": "예배 악보 & 연습 앱",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1b30",
+  "theme_color": "#2f6fd6",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "sffbc_logo.jpg",
+      "sizes": "160x160",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}
