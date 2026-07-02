@@ -7,10 +7,10 @@ const guestBranding = {
   name: "guest-branding",
   transformIndexHtml(html) {
     return html
-      .replace(/<title>[^<]*<\/title>/, "<title>Ainos</title>")
+      .replace(/<title>[^<]*<\/title>/, "<title>SFFBC Worship</title>")
       .replace(/href="\/manifest\.json"/, 'href="/manifest-guest.json"')
       .replace(/href="\/icon-192\.png"/g, 'href="/sffbc_logo.jpg"')
-      .replace(/(<meta name="description" content=")[^"]*(")/, "$1Ainos 예배팀 악보·예배 앱$2");
+      .replace(/(<meta name="description" content=")[^"]*(")/, "$1SFFBC 예배팀 악보·예배 앱$2");
   },
 };
 
