@@ -7876,7 +7876,7 @@ function HomeSplashScreen({ user, onEnterLite }) {
       <div style={{
         position:"fixed", inset:"-20px",
         backgroundImage: GUEST_BUILD
-          ? "radial-gradient(ellipse 120% 90% at 50% 32%, #ffffff 0%, #eef4fc 42%, #dbe7f7 72%, #cadcf3 100%)"
+          ? "url('/sffbc_Ainos_background.png')"
           : portrait ? "url('/home-bg-portrait.webp')"
           : isPC ? "url('/home-bg-pc.webp')"
           :        "url('/home-bg.webp')",
@@ -7892,46 +7892,6 @@ function HomeSplashScreen({ user, onEnterLite }) {
         pointerEvents:"none", zIndex:1,
       }} />
 
-      {/* 게스트(SFFBC) 홈 배경 웨이브 */}
-      {GUEST_BUILD && (
-        <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice"
-          style={{ position:"fixed", inset:0, width:"100%", height:"100%", zIndex:0, pointerEvents:"none" }}>
-          <defs>
-            <linearGradient id="sffbcWave" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="#ffffff" stopOpacity="0.75" />
-              <stop offset="1" stopColor="#c6d7f2" stopOpacity="0.35" />
-            </linearGradient>
-          </defs>
-          {/* 우상단 은은한 아크 */}
-          <g fill="none" stroke="#ffffff" strokeOpacity="0.5">
-            <path d="M1180,-40 A 360,360 0 0 1 1500,300" strokeWidth="2" />
-            <path d="M1240,-40 A 300,300 0 0 1 1490,220" strokeWidth="1.5" strokeOpacity="0.35" />
-          </g>
-          {/* 하단 웨이브 */}
-          <path d="M0,600 C 360,520 560,700 820,630 C 1080,560 1260,690 1440,620 L1440,900 L0,900 Z" fill="url(#sffbcWave)" opacity="0.55" />
-          <path d="M0,690 C 300,630 620,770 900,690 C 1160,620 1300,730 1440,690 L1440,900 L0,900 Z" fill="#ffffff" opacity="0.4" />
-          <path d="M0,760 C 400,700 700,825 1040,760 C 1240,724 1340,785 1440,760 L1440,900 L0,900 Z" fill="#e6eefb" opacity="0.6" />
-        </svg>
-      )}
-
-      {/* 게스트(SFFBC) 홈 중앙 브랜딩 — 지구본 + SFFBC Ainos + SFFBC WORSHIP */}
-      {GUEST_BUILD && (
-        <div style={{
-          position:"fixed", inset:0, display:"flex", flexDirection:"column",
-          alignItems:"center", justifyContent:"center",
-          pointerEvents:"none", zIndex:0, transform:"translateY(-6%)",
-        }}>
-          <img src="/sffbc_logo.jpg" alt="SFFBC"
-            style={{ width:110, height:110, borderRadius:"50%", background:"#fff", objectFit:"cover",
-              boxShadow:"0 0 0 7px rgba(255,255,255,0.6), 0 14px 36px rgba(60,90,160,0.20)", marginBottom:18 }} />
-          <div style={{ fontSize:44, fontWeight:800, letterSpacing:"-0.01em", lineHeight:1 }}>
-            <span style={{ color:"#1c2b50" }}>SFFBC</span>{" "}
-            <span style={{ color:"#6f8fc4", fontWeight:600 }}>Ainos</span>
-          </div>
-          <div style={{ marginTop:12, fontSize:16, fontWeight:700, letterSpacing:"0.42em",
-            color:"#9fb4d6", paddingLeft:"0.42em" }}>SFFBC WORSHIP</div>
-        </div>
-      )}
 
       {/* Schedule cards — always shown; portrait=top strip, landscape=left/right center */}
       <ScheduleCard
