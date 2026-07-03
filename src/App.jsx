@@ -624,8 +624,9 @@ function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
       <div className="wFadeIn" style={{ textAlign:"center", marginBottom:40 }}>
         {GUEST_BUILD ? (
           <img src="/sffbc_logo.jpg" alt="SFFBC Worship"
-            style={{ width:80, height:80, borderRadius:22, margin:"0 auto 16px", display:"block",
-              objectFit:"cover", background:"#fff", boxShadow:`0 0 40px ${C.acc}44` }} />
+            style={{ width:100, height:100, borderRadius:"50%", margin:"0 auto 18px", display:"block",
+              objectFit:"cover", background:"#fff",
+              boxShadow:"0 0 0 7px rgba(255,255,255,0.7), 0 14px 36px rgba(60,90,160,0.22)" }} />
         ) : (
           <div style={{
             width:76, height:76,
