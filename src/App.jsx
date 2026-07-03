@@ -8828,7 +8828,7 @@ export default function App() {
     const fields = {};
     for (const [k, v] of Object.entries(data)) fields[k] = toVal(v);
     const fieldPaths = Object.keys(fields).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join("&");
-    const docPath = `projects/tvpcainos/databases/(default)/documents/services/${svcId}`;
+    const docPath = `projects/${firebaseConfigObj.projectId}/databases/(default)/documents/services/${svcId}`;
     const resp = await fetch(`https://firestore.googleapis.com/v1/${docPath}?${fieldPaths}`, {
       method: "PATCH",
       headers: { "Authorization": `Bearer ${idToken}`, "Content-Type": "application/json" },

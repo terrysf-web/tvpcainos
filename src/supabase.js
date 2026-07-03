@@ -139,8 +139,8 @@ export async function detectChordsViaEdge(imageData, userApiKey) {
 }
 
 export async function uploadPdf(file, songId) {
-  const { auth } = await import("./firebase.js");
-  const BUCKET = "tvpcainos.firebasestorage.app";
+  const { auth, firebaseConfigObj } = await import("./firebase.js");
+  const BUCKET = firebaseConfigObj.storageBucket;
 
   // ── 1차: Firebase Storage REST API (fetch 사용 — iOS Safari XHR 우회)
   try {
@@ -269,8 +269,8 @@ async function _compressImage(file, maxPx = 1920, quality = 0.85) {
 }
 
 export async function uploadImage(file, songId) {
-  const { auth } = await import("./firebase.js");
-  const BUCKET = "tvpcainos.firebasestorage.app";
+  const { auth, firebaseConfigObj } = await import("./firebase.js");
+  const BUCKET = firebaseConfigObj.storageBucket;
   const isPng = file.type === "image/png";
   const ext = isPng ? "png" : "jpg";
   const contentType = isPng ? "image/png" : "image/jpeg";
