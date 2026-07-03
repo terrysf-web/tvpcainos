@@ -1,8 +1,8 @@
 // Google Drive Picker — Firebase Auth Google OAuth 토큰 사용
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { auth } from "./firebase.js";
+import { auth, firebaseConfigObj } from "./firebase.js";
 
-const DEVELOPER_KEY = "AIzaSyAzXyQA-BbL_0KsTnukODBfMBkIZINxiNM";
+const DEVELOPER_KEY = firebaseConfigObj.apiKey;
 
 function loadScript(src) {
   if (document.querySelector(`script[src="${src}"]`)) return Promise.resolve();
