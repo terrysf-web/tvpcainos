@@ -9,7 +9,7 @@ const guestBranding = {
     return html
       .replace(/<title>[^<]*<\/title>/, "<title>SFFBC Worship</title>")
       .replace(/href="\/manifest\.json"/, 'href="/manifest-guest.json"')
-      .replace(/href="\/icon-192\.png"/g, 'href="/sffbc_logo.jpg"')
+      .replace(/href="\/icon-192\.png"/g, 'href="/sffbc-icon-192.png"')
       .replace(/(<meta name="description" content=")[^"]*(")/, "$1SFFBC 예배팀 악보·예배 앱$2");
   },
 };

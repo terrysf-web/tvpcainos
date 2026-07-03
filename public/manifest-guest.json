@@ -9,10 +9,22 @@
   "orientation": "any",
   "icons": [
     {
-      "src": "sffbc_logo.jpg",
-      "sizes": "160x160",
-      "type": "image/jpeg",
+      "src": "sffbc-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "sffbc-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "sffbc-icon-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
