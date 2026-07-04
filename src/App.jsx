@@ -9239,7 +9239,7 @@ export default function App() {
         )}
         {view === "profile" && (
           <ProfileScreen user={user} onLogout={() => signOut(auth)}
-            onRoleUpdate={() => setUser(u => ({ ...u, role: "leader" }))}
+            onRoleUpdate={() => setUser(u => ({ ...u, role: "admin" }))}
             sharedGeminiKey={sharedGeminiKey} />
         )}
         </FohErrorBoundary>
