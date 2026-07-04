@@ -696,7 +696,9 @@ function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
 /* ══════════════════════════════════════════════════════════════════
    CREATE / EDIT SERVICE MODAL
 ══════════════════════════════════════════════════════════════════ */
-const SERVICE_TYPES = ["주일 2부", "주일 1부", "금요 예배", "특별 예배", "새벽 예배", "직접 입력"];
+const SERVICE_TYPES = GUEST_BUILD
+  ? ["주일 예배", "금요 예배", "특별 예배", "새벽 예배", "직접 입력"]
+  : ["주일 2부", "주일 1부", "금요 예배", "특별 예배", "새벽 예배", "직접 입력"];
 
 function ServiceTitleField({ value, onChange }) {
   const isCustom = !SERVICE_TYPES.slice(0, -1).includes(value);
@@ -734,7 +736,10 @@ function ServiceTitleField({ value, onChange }) {
   );
 }
 
-const SVC_TIME_PRESETS = [
+const SVC_TIME_PRESETS = GUEST_BUILD ? [
+  { label:"주일 예배", time:"11:00" },
+  { label:"금요 예배", time:"19:30" },
+] : [
   { label:"주일 2부", time:"11:00" },
   { label:"주일 1부", time:"09:00" },
   { label:"금요 예배", time:"20:00" },
@@ -778,9 +783,9 @@ function TimeSelector({ time, setTime, showCustom, setShowCustom }) {
 }
 
 function CreateServiceModal({ songs, onClose, onCreate }) {
-  const [title,      setTitle]      = useState("주일 2부");
+  const [title,      setTitle]      = useState(GUEST_BUILD ? "주일 예배" : "주일 2부");
   const [date,       setDate]       = useState(() => localDateStr());
-  const [time,       setTime]       = useState("11:00");  // 주일 2부 기본값
+  const [time,       setTime]       = useState("11:00");
   const [showCustom, setShowCustom] = useState(false);
   const [selected,   setSelected]   = useState([]);
   const [saving,     setSaving]     = useState(false);
@@ -847,7 +852,7 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
    EDIT SERVICE MODAL
 ══════════════════════════════════════════════════════════════════ */
 function EditServiceModal({ svc, onClose, onSave, onPracticeUrlSaved }) {
-  const [title,             setTitle]             = useState(svc.title || "주일 2부");
+  const [title,             setTitle]             = useState(svc.title || (GUEST_BUILD ? "주일 예배" : "주일 2부"));
   const [date,              setDate]              = useState(svc.date  || "");
   const [time,              setTime]              = useState(svc.time  || "");
   const [practiceUrl,       setPracticeUrl]       = useState("");
