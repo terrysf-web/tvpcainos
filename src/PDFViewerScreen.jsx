@@ -3434,7 +3434,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload  = () => { imageRef.current = img; setNumPages(1); };
-    img.onerror = () => setLoadErr("이미지를 불러올 수 없습니다");
+    img.onerror = () => {
+      // CORS 헤더 없는 이미지(예: Supabase public URL) → crossOrigin 없이 재시도 (표시는 됨)
+      const img2 = new Image();
+      img2.onload  = () => { imageRef.current = img2; setNumPages(1); setLoadErr(""); };
+      img2.onerror = () => setLoadErr("이미지를 불러올 수 없습니다");
+      img2.src = song.imageUrl;
+    };
     img.src = song.imageUrl;
   }, [song?.imageUrl, selectedSongId, dual, song?.pdfUrl]);
 
