@@ -948,7 +948,7 @@ function AddSongModal({ onClose, onAdd }) {
   const fileRef    = useRef(null);
   const imgFileRef = useRef(null);
   const imgPasteRef = useRef(null);
-  const KEYS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  const KEYS = ["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B"];
 
   const applyImageFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
@@ -3802,7 +3802,7 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
 /* ══════════════════════════════════════════════════════════════════
    SERVICE DETAIL SCREEN
 ══════════════════════════════════════════════════════════════════ */
-const QUICK_KEYS = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const QUICK_KEYS = ["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B"];
 
 function SongPickerModal({ songs, currentIds, onClose, onSave, addSong, user }) {
   const [selected,     setSelected]     = useState([...currentIds]);
