@@ -8917,6 +8917,32 @@ export default function App() {
     );
   };
 
+  // ── 자동 업데이트: 배포된 version.json(항상 네트워크 최신)이 현재 로드된 코드보다
+  //    신버전이면, 사파리 등에서 예전 캐시를 서빙 중인 것 → SW·캐시 비우고 새로고침
+  useEffect(() => {
+    fetch(`/version.json?t=${Date.now()}`, { cache: "no-store" })
+      .then(r => r.json())
+      .then(async ({ version }) => {
+        if (!version || version === APP_VERSION) return;
+        const nv = parseFloat(version), cv = parseFloat(APP_VERSION);
+        if (!(nv > cv)) return;                                   // 신버전일 때만
+        if (sessionStorage.getItem("tvpc_autoupdated") === version) return; // 루프 방지
+        sessionStorage.setItem("tvpc_autoupdated", version);
+        try {
+          if ("serviceWorker" in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+          }
+          if ("caches" in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+          }
+        } catch {}
+        window.location.reload();
+      })
+      .catch(() => {});
+  }, []);
+
   // ── 버전 업데이트 체크 (Firestore 기반 — 어드민 파이널 승인 시만 사용자 알림)
   const isAdmin = user?.role === "admin";
   const [updateAvailable, setUpdateAvailable] = useState(false);
