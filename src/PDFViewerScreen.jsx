@@ -784,6 +784,33 @@ function detectContentBounds(pdfCanvas, drawCanvas) {
 /* 세션 전체에서 공유되는 PDF 문서 캐시 (재파싱 방지) */
 const _pdfCache = {};
 
+/* 세션 전체에서 공유되는 이미지 악보 캐시 (재다운로드/재디코드 방지)
+   { img, tainted } — tainted=true면 CORS 헤더가 없어 crossOrigin 없이 로드됨
+   (캔버스가 오염되어 createImageBitmap/getImageData 불가, drawImage 표시는 정상) */
+const _imgCache = new Map();
+const _imgLoading = new Map();
+function loadSheetImage(url) {
+  if (!url) return Promise.resolve(null);
+  if (_imgCache.has(url)) return Promise.resolve(_imgCache.get(url));
+  if (_imgLoading.has(url)) return _imgLoading.get(url);
+  const p = new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => { const r = { img, tainted: false }; _imgCache.set(url, r); resolve(r); };
+    img.onerror = () => {
+      // CORS 헤더 없는 버킷(예: CORS 미설정 Storage) → crossOrigin 없이 재시도.
+      // 표시는 되지만 캔버스가 오염되므로 tainted 로 표시.
+      const img2 = new Image();
+      img2.onload = () => { const r = { img: img2, tainted: true }; _imgCache.set(url, r); resolve(r); };
+      img2.onerror = () => resolve(null);
+      img2.src = url;
+    };
+    img.src = url;
+  }).finally(() => _imgLoading.delete(url));
+  _imgLoading.set(url, p);
+  return p;
+}
+
 function RecordingsModal({ songId, songTitle, userGeminiKey, sharedGeminiKey, onClose }) {
   const [recs,     setRecs]     = useState([]);
   const [playing,  setPlaying]  = useState(null); // id of currently playing
@@ -3440,17 +3467,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (dual || song?.pdfUrl || !song?.imageUrl) return;
     imageRef.current = null;
     setNumPages(0); setLoadErr("");
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload  = () => { imageRef.current = img; setNumPages(1); };
-    img.onerror = () => {
-      // CORS 헤더 없는 이미지(예: Supabase public URL) → crossOrigin 없이 재시도 (표시는 됨)
-      const img2 = new Image();
-      img2.onload  = () => { imageRef.current = img2; setNumPages(1); setLoadErr(""); };
-      img2.onerror = () => setLoadErr("이미지를 불러올 수 없습니다");
-      img2.src = song.imageUrl;
-    };
-    img.src = song.imageUrl;
+    let cancelled = false;
+    const url = song.imageUrl;
+    loadSheetImage(url).then(r => {
+      if (cancelled || song?.imageUrl !== url) return;
+      if (r?.img) { imageRef.current = r.img; setNumPages(1); setLoadErr(""); }
+      else setLoadErr("이미지를 불러올 수 없습니다");
+    });
+    return () => { cancelled = true; };
   }, [song?.imageUrl, selectedSongId, dual, song?.pdfUrl]);
 
   // PDF 로드 (듀얼 모드) — Promise.all로 두 곡 동시 로드, 완료 후 한 번만 렌더 트리거
@@ -3473,14 +3497,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         .then(pdf => { _pdfCache[url] = pdf; return pdf; })
         .catch(() => null);
     };
-    const loadImg = (url) => new Promise(resolve => {
-      if (!url) return resolve(null);
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload  = () => resolve(img);
-      img.onerror = () => resolve(null);
-      img.src = url;
-    });
+    const loadImg = (url) => loadSheetImage(url).then(r => r?.img || null);
     Promise.all([
       loadPdf(dualLeftUrl), loadPdf(dualRightUrl),
       loadImg(dualLeftImageUrl), loadImg(dualRightImageUrl),
@@ -3569,6 +3586,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const id = targetSong.id;
     if (preBitmapRef.current[id] || preRenderBusy.current.has(id)) return;
     preRenderBusy.current.add(id);
+    let tainted = false;
     try {
       const availW = slotW;
       const availH = cSize.h;
@@ -3607,12 +3625,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           await page.render({ canvasContext: off.getContext("2d"), viewport: page.getViewport({ scale: sc }) }).promise;
         }
       } else if (targetSong.imageUrl) {
-        const img = await new Promise(resolve => {
-          const i = new Image(); i.crossOrigin = "anonymous";
-          i.onload = () => resolve(i); i.onerror = () => resolve(null);
-          i.src = targetSong.imageUrl;
-        });
+        const loaded = await loadSheetImage(targetSong.imageUrl);
+        const img = loaded?.img;
         if (!img) return;
+        tainted = !!loaded.tainted;
         const cb = targetSong.cropBox &&
           (targetSong.cropBox.left > 0.001 || targetSong.cropBox.top > 0.001 ||
            targetSong.cropBox.right < 0.999 || targetSong.cropBox.bottom < 0.999)
@@ -3627,9 +3643,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         off.getContext("2d").drawImage(img, srcX, srcY, srcW, srcH, 0, 0, off.width, off.height);
       }
       if (off.width > 0 && off.height > 0) {
-        if (typeof createImageBitmap === "function") {
+        if (typeof createImageBitmap === "function" && !tainted) {
           // GPU-resident texture: drawImage(ImageBitmap) is a zero-copy GPU blit
-          createImageBitmap(off).then(bmp => { preBitmapRef.current[id] = bmp; });
+          // (tainted 캔버스는 createImageBitmap 이 SecurityError → off 캔버스를 그대로 캐시)
+          createImageBitmap(off).then(bmp => { preBitmapRef.current[id] = bmp; })
+            .catch(() => { preBitmapRef.current[id] = off; });
         } else {
           preBitmapRef.current[id] = off;
         }
