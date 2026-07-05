@@ -1918,6 +1918,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [cueSecInk,     setCueSecInk]     = useState(false); // 섹션 손글씨 입력 모드
   const [cueMarkMode,   setCueMarkMode]   = useState(false); // 악보 위치 찍기 모드
   const [cueMark,       setCueMark]       = useState(null);  // {x,y} 표시 좌표(0~1, 크롭된 화면 기준) + page
+  const [showSheetCues, setShowSheetCues] = useState(true);  // 리더 큐노트를 악보 위에 내용째 표시(팀원 공유)
   const [cueEditId,     setCueEditId]     = useState(null);
   const [cueEditTxt,    setCueEditTxt]    = useState("");
   const [cueTopics,     setCueTopics]     = useState([]);   // 리더가 만든 타이틀(주제) 목록 (곡별 공유)
@@ -2649,6 +2650,60 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         transform:"translate(-50%,-50%)", zIndex:26, pointerEvents:"none",
         width:24, height:24, borderRadius:"50%", border:"3px solid #ff6f00",
         background:"rgba(255,111,0,0.22)", boxShadow:"0 0 12px rgba(255,111,0,0.75)" }} />
+    );
+  };
+
+  // ── 리더 큐노트 악보 표시 (팀원 공유) — 핀+내용을 악보 위에 바로 표시, 읽기 전용
+  //    저장 좌표는 전체 페이지 기준(0~1) → 현재 크롭 화면 좌표로 역변환해서 정렬
+  const sheetCueLayer = (songId, cropBox, page) => {
+    if (!showSheetCues || !songId) return null;
+    const cues = (songCues?.[songId] || []).filter(
+      c => c.byLeader && c.markX != null && !c.panic && (c.markPage || 1) === (page || 1)
+    );
+    if (cues.length === 0) return null;
+    const cb = cropBox && (cropBox.left > 0.001 || cropBox.top > 0.001 ||
+      cropBox.right < 0.999 || cropBox.bottom < 0.999) ? cropBox : null;
+    const items = cues.map(c => {
+      let x = c.markX, y = c.markY;
+      if (cb) {
+        x = (c.markX - cb.left) / (cb.right - cb.left);
+        y = (c.markY - cb.top)  / (cb.bottom - cb.top);
+      }
+      return { c, x, y };
+    }).filter(it => it.x >= -0.02 && it.x <= 1.02 && it.y >= -0.02 && it.y <= 1.02);
+    if (items.length === 0) return null;
+    return (
+      <div style={{ position:"absolute", inset:0, pointerEvents:"none", zIndex:24,
+        overflow:"hidden", borderRadius:4 }}>
+        {items.map(({ c, x, y }) => {
+          const leftPct = Math.max(0, Math.min(100, x * 100));
+          const below   = y < 0.5; // 위쪽 지점이면 아래로, 아래쪽 지점이면 위로 펼침(악보 밖으로 안 나가게)
+          const anchor  = leftPct < 18 ? "L" : leftPct > 82 ? "R" : "C";
+          const tx = anchor === "C" ? "translateX(-50%)" : anchor === "R" ? "translateX(-100%)" : "translateX(0)";
+          const label = (c.section && c.section.trim()) ? c.section.trim() : "";
+          return (
+            <div key={c.id} style={{ position:"absolute", left:`${leftPct}%`, top:`${y*100}%` }}>
+              {/* 정확한 지점 표시 점 */}
+              <div style={{ position:"absolute", left:0, top:0, transform:"translate(-50%,-50%)",
+                width:9, height:9, borderRadius:"50%", background:"#ff6f00",
+                border:"2px solid #fff", boxShadow:"0 0 6px rgba(255,111,0,0.9)" }} />
+              {/* 내용 콜아웃 — 반투명(악보 비침), 연주 중 바로 읽힘 */}
+              <div style={{ position:"absolute", left:0,
+                [below ? "top" : "bottom"]: 9,
+                transform:tx, width:"max-content", maxWidth:200,
+                background:"rgba(255,111,0,0.9)", color:"#fff", borderRadius:8,
+                padding:"3px 9px", fontSize:12, fontWeight:800, lineHeight:1.35,
+                whiteSpace:"normal", overflowWrap:"anywhere",
+                boxShadow:"0 2px 10px rgba(0,0,0,0.3)", textShadow:"0 1px 2px rgba(0,0,0,0.28)" }}>
+                {label && <span style={{ display:"inline-block", background:"#fff", color:"#e65c00",
+                  borderRadius:6, padding:"0 6px", marginRight:5, fontSize:10, fontWeight:900,
+                  verticalAlign:"1px" }}>{label}</span>}
+                {c.text}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     );
   };
 
@@ -5337,6 +5392,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   fontWeight:700, fontSize:11, fontFamily:"inherit",
                 }}>큐노트</button>
               )}
+              {!isLibraryMode && (
+                <button onClick={() => setShowSheetCues(p=>!p)}
+                  title="리더 큐노트를 악보 위에 표시" style={{
+                  height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                  background: showSheetCues ? "#ff6f0022" : "transparent",
+                  border:`1px solid ${showSheetCues ? "#ff6f00" : C.bdr}`,
+                  color: showSheetCues ? "#e65c00" : C.dim,
+                  fontWeight:700, fontSize:11, fontFamily:"inherit",
+                }}>📍{showSheetCues ? "큐표시" : "큐숨김"}</button>
+              )}
               <button onClick={() => { const n = !cropMode; setCropMode(n); if (n) { setDrawMode(false); cancelPaste(); showToast("복사할 필기·스탬프 영역을 드래그하세요"); } }} style={{
                 height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
                 background: (cropMode || pasteMode) ? `${C.acc}22` : "transparent",
@@ -6404,6 +6469,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       {cropMode && cropOverlay(1)}
                       {cueMarkMode && cueMarkOverlay()}
                       {cueMarkerDot()}
+                      {sheetCueLayer(svcSongs[dualIdx]?.id, svcSongs[dualIdx]?.cropBox, svcSongs[dualIdx]?.pdfPage || 1)}
                       {addChordMode && addChordOverlay(1)}
                       {chordPicker(1)}
                       {pasteMode && pasteRef.current?.side === 1 && pasteOverlay(1)}
@@ -6489,6 +6555,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                             오른쪽에 포인팅하면 싱글 모드 팀원에게 표시되지 않으므로
                             포인터는 왼쪽 패널에서만 사용 (악보를 왼쪽으로 넘겨서 포인팅) */}
                         {cropMode && cropOverlay(2)}
+                        {sheetCueLayer(svcSongs[dualIdx + 1]?.id, svcSongs[dualIdx + 1]?.cropBox, svcSongs[dualIdx + 1]?.pdfPage || 1)}
                         {addChordMode && addChordOverlay(2)}
                         {chordPicker(2)}
                         {pasteMode && pasteRef.current?.side === 2 && pasteOverlay(2)}
@@ -6596,6 +6663,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       {cropMode && cropOverlay(1)}
                       {cueMarkMode && cueMarkOverlay()}
                       {cueMarkerDot()}
+                      {sheetCueLayer(selectedSongId, song?.cropBox, pageNum)}
                       {addChordMode && addChordOverlay(1)}
                       {chordPicker(1)}
                       {pasteMode && pasteRef.current?.side === 1 && pasteOverlay(1)}

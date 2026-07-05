@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.751";
+const APP_VERSION = "3.752";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -8875,6 +8875,8 @@ export default function App() {
       userPart,
       text: text.trim(),
       section: opts.section || "",
+      // 작성자가 리더/어드민인지 — 악보 위 큐 표시(팀원 공유)는 리더 것만 보여줌
+      byLeader: isLeader(user?.role),
       // 악보 위치 마커 (작성자가 악보에서 찍은 지점, 전체 페이지 기준 0~1 + 페이지)
       ...(opts.mark ? { markX: opts.mark.x, markY: opts.mark.y, markPage: opts.mark.page || 1 } : {}),
       createdAt: serverTimestamp(),
