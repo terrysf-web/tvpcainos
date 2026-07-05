@@ -182,6 +182,186 @@ jobs:
               # CORS 실패해도 배포 멈추지 않음
           EOF
 
+  # ── Job 1b: 게스트(SFFBC / sffbcainos) Hosting (SFFBC_SERVICE_ACCOUNT 있을 때만)
+  guest:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 시크릿 확인
+        id: check
+        env:
+          SA: ${{ secrets.SFFBC_SERVICE_ACCOUNT }}
+        run: |
+          if [ -n "$SA" ]; then echo "has_sa=true" >> $GITHUB_OUTPUT; else echo "has_sa=false" >> $GITHUB_OUTPUT; fi
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.has_sa == 'true'
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: 패키지 설치
+        if: steps.check.outputs.has_sa == 'true'
+        run: npm ci
+
+      - name: 게스트 Gemini 키 주입 (.env.guest.local)
+        if: steps.check.outputs.has_sa == 'true'
+        env:
+          GKEY: ${{ secrets.SFFBC_GEMINI_API_KEY }}
+        run: |
+          echo "VITE_GEMINI_API_KEY=${GKEY}" > .env.guest.local
+
+      - name: 게스트 빌드 (--mode guest)
+        if: steps.check.outputs.has_sa == 'true'
+        run: npx vite build --mode guest
+
+      - name: 게스트 Hosting 배포 (sffbcainos)
+        if: steps.check.outputs.has_sa == 'true'
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.SFFBC_SERVICE_ACCOUNT }}
+        run: |
+          echo "$SERVICE_ACCOUNT_JSON" > /tmp/sffbc-sa.json
+          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sffbc-sa.json npx firebase-tools deploy \
+            --only hosting \
+            --project sffbcainos \
+            --non-interactive
+
+      - name: 게스트 Firestore Rules 배포 (REST API)
+        if: steps.check.outputs.has_sa == 'true'
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.SFFBC_SERVICE_ACCOUNT }}
+        run: |
+          pip install google-auth --quiet
+          python3 - <<'EOF'
+          import json, os, urllib.request, sys
+          import google.oauth2.service_account, google.auth.transport.requests
+
+          sa = json.loads(os.environ["SERVICE_ACCOUNT_JSON"])
+          pid = sa.get("project_id", "sffbcainos")
+          creds = google.oauth2.service_account.Credentials.from_service_account_info(
+              sa, scopes=["https://www.googleapis.com/auth/cloud-platform",
+                          "https://www.googleapis.com/auth/firebase"])
+          creds.refresh(google.auth.transport.requests.Request())
+          tok = creds.token
+
+          with open("firestore.rules") as f:
+              rules = f.read()
+
+          def call(url, method, body=None):
+              req = urllib.request.Request(url,
+                  data=json.dumps(body).encode() if body else None,
+                  headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json"},
+                  method=method)
+              try:
+                  return json.loads(urllib.request.urlopen(req).read())
+              except urllib.error.HTTPError as e:
+                  print(f"HTTP {e.code} {method} {url}: {e.read().decode()}", file=sys.stderr)
+                  raise
+
+          rs = call(f"https://firebaserules.googleapis.com/v1/projects/{pid}/rulesets",
+                    "POST", {"source": {"files": [{"name": "firestore.rules", "content": rules}]}})
+          rs_name = rs["name"]
+          inner = {"name": f"projects/{pid}/releases/cloud.firestore", "rulesetName": rs_name}
+          rel_url = f"https://firebaserules.googleapis.com/v1/projects/{pid}/releases/cloud.firestore"
+          try:
+              call(rel_url + "?updateMask=rulesetName", "PATCH", {"release": inner})
+              print("✓ 게스트 Firestore Rules 배포 (updated)")
+          except urllib.error.HTTPError as e:
+              if e.code == 404:
+                  call(f"https://firebaserules.googleapis.com/v1/projects/{pid}/releases", "POST", inner)
+                  print("✓ 게스트 Firestore Rules 배포 (created)")
+              else:
+                  raise
+          EOF
+
+      - name: 게스트 Storage Rules 배포 (REST API)
+        if: steps.check.outputs.has_sa == 'true'
+        continue-on-error: true
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.SFFBC_SERVICE_ACCOUNT }}
+        run: |
+          pip install google-auth --quiet
+          python3 - <<'EOF'
+          import json, os, urllib.request, sys
+          import google.oauth2.service_account, google.auth.transport.requests
+
+          sa = json.loads(os.environ["SERVICE_ACCOUNT_JSON"])
+          pid = sa.get("project_id", "sffbcainos")
+          creds = google.oauth2.service_account.Credentials.from_service_account_info(
+              sa, scopes=["https://www.googleapis.com/auth/cloud-platform",
+                          "https://www.googleapis.com/auth/firebase"])
+          creds.refresh(google.auth.transport.requests.Request())
+          tok = creds.token
+
+          with open("storage.rules") as f:
+              rules = f.read()
+
+          def call(url, method, body=None):
+              req = urllib.request.Request(url,
+                  data=json.dumps(body).encode() if body else None,
+                  headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json"},
+                  method=method)
+              try:
+                  return json.loads(urllib.request.urlopen(req).read())
+              except urllib.error.HTTPError as e:
+                  print(f"HTTP {e.code} {method} {url}: {e.read().decode()}", file=sys.stderr)
+                  raise
+
+          rs = call(f"https://firebaserules.googleapis.com/v1/projects/{pid}/rulesets",
+                    "POST", {"source": {"files": [{"name": "storage.rules", "content": rules}]}})
+          rs_name = rs["name"]
+          inner = {"name": f"projects/{pid}/releases/firebase.storage", "rulesetName": rs_name}
+          rel_url = f"https://firebaserules.googleapis.com/v1/projects/{pid}/releases/firebase.storage"
+          try:
+              call(rel_url + "?updateMask=rulesetName", "PATCH", {"release": inner})
+              print("✓ 게스트 Storage Rules 배포 (updated)")
+          except urllib.error.HTTPError as e:
+              if e.code == 404:
+                  call(f"https://firebaserules.googleapis.com/v1/projects/{pid}/releases", "POST", inner)
+                  print("✓ 게스트 Storage Rules 배포 (created)")
+              else:
+                  raise
+          EOF
+
+      - name: 게스트 Storage CORS 설정 (악보 이미지 프리페치·업로드 허용)
+        if: steps.check.outputs.has_sa == 'true'
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.SFFBC_SERVICE_ACCOUNT }}
+        run: |
+          pip install google-auth --quiet
+          python3 - <<'EOF'
+          import json, os, urllib.request, sys
+          import google.oauth2.service_account, google.auth.transport.requests
+
+          sa = json.loads(os.environ["SERVICE_ACCOUNT_JSON"])
+          bucket = sa.get("project_id", "sffbcainos") + ".firebasestorage.app"
+          creds = google.oauth2.service_account.Credentials.from_service_account_info(
+              sa, scopes=["https://www.googleapis.com/auth/cloud-platform",
+                          "https://www.googleapis.com/auth/devstorage.full_control"])
+          creds.refresh(google.auth.transport.requests.Request())
+          tok = creds.token
+
+          cors = [{"origin": ["*"],
+                   "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+                   "responseHeader": ["Content-Type", "Authorization", "Content-Length",
+                                      "User-Agent", "x-goog-resumable", "Accept-Ranges",
+                                      "Content-Range", "Range"],
+                   "maxAgeSeconds": 3600}]
+
+          url = f"https://storage.googleapis.com/storage/v1/b/{bucket}?fields=cors"
+          req = urllib.request.Request(url,
+              data=json.dumps({"cors": cors}).encode(),
+              headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json"},
+              method="PATCH")
+          try:
+              resp = urllib.request.urlopen(req)
+              print("✓ 게스트 Storage CORS 설정 완료:", resp.read().decode()[:200])
+          except urllib.error.HTTPError as e:
+              print(f"게스트 CORS 설정 실패 HTTP {e.code}: {e.read().decode()}", file=sys.stderr)
+          EOF
+
   # ── Job 2: Supabase Edge Function (SUPABASE_ACCESS_TOKEN 있을 때만)
   supabase:
     runs-on: ubuntu-latest
