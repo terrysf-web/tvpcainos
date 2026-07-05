@@ -709,6 +709,13 @@ function getYoutubeEmbed(url) {
   return `https://www.youtube.com/embed/${id}?${p}`;
 }
 
+// 곡의 유효 유튜브 URL — youtubeUrl 우선, 없으면 예전 youtubeId로 폴백
+function effectiveYtUrl(song) {
+  if (song?.youtubeUrl) return song.youtubeUrl;
+  if (song?.youtubeId)  return `https://youtu.be/${song.youtubeId}`;
+  return null;
+}
+
 // 악보 캔버스에서 실제 콘텐츠 영역(여백 제외)의 픽셀 바운드를 반환
 // 코드 라벨 겹침 해소: 같은 행(y 근사) 내에서 좌우로 밀어 최소 간격 확보
 function resolveChordOverlaps(chords, containerW, containerH, fontSize) {
@@ -5371,7 +5378,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   display:"flex", alignItems:"center", gap:4,
                 }}>
                 MEDIA
-                {!!getYoutubeId(song?.youtubeUrl) && (
+                {!!getYoutubeId(effectiveYtUrl(song)) && (
                   <span style={{ fontSize:8, fontWeight:800, borderRadius:3, padding:"1px 3px",
                     background: media ? `${C.acc}33` : `${C.red}22`,
                     color: media ? C.acc : C.red }}>YT</span>
@@ -6683,10 +6690,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             borderLeft:`1px solid ${C.bdr}`, background:C.surf,
             display:"flex", flexDirection:"column" }}>
             {/* YouTube 플레이어 */}
-            {getYoutubeId(song?.youtubeUrl) && (() => {
+            {getYoutubeId(effectiveYtUrl(song)) && (() => {
               const startSec = mmssToSec(ytRange.start);
               const endSec   = mmssToSec(ytRange.end);
-              const baseEmbed = getYoutubeEmbed(song.youtubeUrl);
+              const baseEmbed = getYoutubeEmbed(effectiveYtUrl(song));
               const src = baseEmbed
                 + (startSec ? `&start=${startSec}` : "")
                 + (endSec   ? `&end=${endSec}`     : "");
