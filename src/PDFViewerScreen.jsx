@@ -1740,37 +1740,39 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // ── 예배 곡 순서
   const svc      = (!isLibraryMode && selectedSvcId) ? services.find(s => s.id === selectedSvcId) : null;
-  // 유효 곡만 포함 — 삭제된 ID 제외, 중복 ID(복사) 허용
-  const baseSvcSongs = svc
-    ? (svc.songIds || []).map(id => songs.find(s => s.id === id)).filter(Boolean)
-    : [];
-  // 개인 곡 (본인만) — {id, after} 앵커에 따라 예배 곡 사이/앞/뒤 원하는 위치에 삽입
-  const baseIdSet0 = new Set(baseSvcSongs.map(s => s.id));
-  const mySongIdSet = new Set((svc && canManageMine)
-    ? myItems.map(i => i.id).filter(id => !baseIdSet0.has(id)) : []);
-  const svcSongs = (() => {
-    if (!svc) return [];
-    const merged = [...baseSvcSongs];
-    if (canManageMine) {
-      for (const it of myItems) {
-        const s = songs.find(x => x.id === it.id);
-        if (!s || merged.some(m => m.id === s.id)) continue;
-        if (!it.after) { merged.unshift(s); continue; }         // 맨 앞
-        const ai = merged.findIndex(m => m.id === it.after);
-        if (ai < 0) merged.push(s);                             // 앵커 없으면 맨 뒤
-        else merged.splice(ai + 1, 0, s);                       // 앵커 다음에
-      }
-    }
-    return merged;
-  })();
-  const myCount = mySongIdSet.size;
-  // filter(Boolean) shifts indices — track which raw svc.songIds indices survived (개인 곡은 파트 라벨 없음)
-  const rawSvcIdxs = svc
+  // 유효 곡만 포함 — 삭제된 ID 제외, 중복 ID(복사) 허용. {s, raw} = 곡 + 원래 songIds 인덱스(파트 라벨용)
+  const baseEntries = svc
     ? (svc.songIds || []).reduce((acc, id, ri) => {
-        if (songs.find(s => s.id === id)) acc.push(ri);
+        const s = songs.find(x => x.id === id);
+        if (s) acc.push({ s, raw: ri });
         return acc;
       }, [])
     : [];
+  const baseSvcSongs = baseEntries.map(e => e.s);
+  // 개인 곡 (본인만) — {id, after} 앵커에 따라 예배 곡 사이/앞/뒤 원하는 위치에 삽입 (파트 라벨 없음: raw -1)
+  const baseIdSet0 = new Set(baseSvcSongs.map(s => s.id));
+  const mySongIdSet = new Set((svc && canManageMine)
+    ? myItems.map(i => i.id).filter(id => !baseIdSet0.has(id)) : []);
+  const mergedEntries = (() => {
+    if (!svc) return [];
+    const arr = [...baseEntries];
+    if (canManageMine) {
+      for (const it of myItems) {
+        const s = songs.find(x => x.id === it.id);
+        if (!s || arr.some(m => m.s.id === s.id)) continue;
+        const entry = { s, raw: -1 };
+        if (!it.after) { arr.unshift(entry); continue; }        // 맨 앞
+        const ai = arr.findIndex(m => m.s.id === it.after);
+        if (ai < 0) arr.push(entry);                            // 앵커 없으면 맨 뒤
+        else arr.splice(ai + 1, 0, entry);                      // 앵커 다음에
+      }
+    }
+    return arr;
+  })();
+  const svcSongs = mergedEntries.map(e => e.s);
+  // 병합 배열에 정렬된 파트 인덱스 (개인 곡은 -1 → 파트 라벨 없음)
+  const rawSvcIdxs = mergedEntries.map(e => e.raw);
+  const myCount = mySongIdSet.size;
   // 전달된 인덱스 우선(복사 곡 정확한 위치), 없으면 findIndex fallback
   const songIdx  = (selectedSvcSongIdx >= 0 && selectedSvcSongIdx < svcSongs.length)
     ? selectedSvcSongIdx
