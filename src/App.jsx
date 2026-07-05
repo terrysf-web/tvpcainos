@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.752";
+const APP_VERSION = "3.753";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -8891,7 +8891,8 @@ export default function App() {
 
   const editCue = async (cueId, newText) => {
     if (!newText?.trim()) return;
-    await updateDoc(doc(db, "cueNotes", cueId), { text: newText.trim() });
+    // 리더가 수정하면 byLeader 도 갱신 — 예전(플래그 없던) 위치 큐도 수정하면 악보에 표시됨
+    await updateDoc(doc(db, "cueNotes", cueId), { text: newText.trim(), byLeader: isLeader(user?.role) });
   };
 
   const acknowledgeCue = async (cueId, alreadyAcked, opts = {}) => {
