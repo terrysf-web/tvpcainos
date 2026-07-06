@@ -3,7 +3,7 @@ import { C, keyColor } from "./theme.js";
 import {
   PARTS, VOCALIST_PART_IDS, INST_MODES,
   getUserParts, isVocalistUser,
-  isLeader, isFoh,
+  isLeader, isFoh, canPinToSheet,
 } from "./appUtils.js";
 import { Icon, Btn, Modal, ConfirmModal } from "./ui.jsx";
 import { getVoicings, getDiatonicChords, getEffectiveKey, CHORD_VOICINGS, getChordTones } from "./chordVoicings.js";
@@ -1752,7 +1752,7 @@ function HandwritePad({ accent, apiKey, onText }) {
   );
 }
 
-function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue, deleteCue, editCue, sheetLinkEnabled, sheetSyncTrigger }) {
+function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue, deleteCue, editCue, userRoleMap, sheetLinkEnabled, sheetSyncTrigger }) {
   const song = songs.find(s => s.id === selectedSongId);
   const isLibraryMode = backTo === "library"; // 라이브러리에서 열린 경우: 예배 컨텍스트 없음
   const isLiteMode    = backTo === "lite";    // Lite 뷰어: 메뉴 없음, 전체화면 악보만
@@ -2697,8 +2697,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   //    저장 좌표는 전체 페이지 기준(0~1) → 현재 크롭 화면 좌표로 역변환해서 정렬
   const sheetCueLayer = (songId, cropBox, page) => {
     if (!showSheetCues || !songId) return null;
+    // 악보 표시 자격: 작성자의 현재 권한(리더/어드민/키보드)이 우선, 권한 정보 없으면 저장된 byLeader 플래그로 폴백
+    const eligible = (c) => {
+      const r = userRoleMap?.[c.userId];
+      return r != null ? canPinToSheet(r) : !!c.byLeader;
+    };
     const cues = (songCues?.[songId] || []).filter(
-      c => c.byLeader && c.markX != null && !c.panic && (c.markPage || 1) === (page || 1)
+      c => eligible(c) && c.markX != null && !c.panic && (c.markPage || 1) === (page || 1)
     );
     if (cues.length === 0) return null;
     const cb = cropBox && (cropBox.left > 0.001 || cropBox.top > 0.001 ||

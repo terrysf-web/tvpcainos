@@ -54,6 +54,8 @@ export const getUserDisplayPart = (u) => {
 
 export const isLeader = (role) => role === "leader" || role === "admin";
 export const isBroadcast = (role) => role === "broadcast" || isLeader(role);
+// 큐노트를 악보 위에 표시할 수 있는(=리더급) 작성자 권한: 리더/어드민/키보드
+export const canPinToSheet = (role) => role === "leader" || role === "admin" || role === "keyboard";
 export const isFoh = (userOrRole) => {
   if (!userOrRole) return false;
   if (typeof userOrRole === "string") {

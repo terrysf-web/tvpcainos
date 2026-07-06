@@ -14,7 +14,7 @@ import {
   PARTS, VOCALIST_PART_IDS, SHEET_SYNC_INST_PARTS, DEFAULT_SHEET_PARTS,
   GROUP_PART_IDS, INST_MODES,
   getUserParts, isVocalistUser, getUserDisplayPart,
-  isLeader, isBroadcast, isFoh,
+  isLeader, isBroadcast, isFoh, canPinToSheet,
 } from "./appUtils.js";
 import {
   signOut,
@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.757";
+const APP_VERSION = "3.758";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -8206,6 +8206,7 @@ export default function App() {
   const [annotations,     setAnnotations]     = useState({}); // 개인 메모
   const [teamAnnotations, setTeamAnnotations] = useState({}); // 팀 공유 메모
   const [userMap,         setUserMap]         = useState({}); // uid -> displayName
+  const [userRoleMap,     setUserRoleMap]     = useState({}); // uid -> role (악보 큐 표시 권한 판단용)
   const [songDrawings,    setSongDrawings]    = useState({}); // songId -> { my: bool, team: bool }
   const [anyLiveActive,   setAnyLiveActive]   = useState(false); // 방송팀 라이브탭 표시 여부
   const [selSvcId,      setSelSvcId]      = useState(() => localStorage.getItem("tvpc_selSvcId") || null);
@@ -8646,9 +8647,14 @@ export default function App() {
   useEffect(() => {
     if (!user?.uid) return;
     getDocs(collection(db, "users")).then(snap => {
-      const m = {};
-      snap.docs.forEach(d => { m[d.id] = d.data().displayName || d.data().name || d.data().email || ""; });
+      const m = {}, rm = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        m[d.id] = data.displayName || data.name || data.email || "";
+        if (data.role) rm[d.id] = data.role;
+      });
       setUserMap(m);
+      setUserRoleMap(rm);
     }).catch(() => {});
   }, [user?.uid]);
 
@@ -8875,8 +8881,8 @@ export default function App() {
       userPart,
       text: text.trim(),
       section: opts.section || "",
-      // 작성자가 리더/어드민인지 — 악보 위 큐 표시(팀원 공유)는 리더 것만 보여줌
-      byLeader: isLeader(user?.role),
+      // 작성자가 악보에 큐를 표시할 수 있는 권한(리더/어드민/키보드)인지 — 악보 위 큐 표시용
+      byLeader: canPinToSheet(user?.role),
       // 악보 위치 마커 (작성자가 악보에서 찍은 지점, 전체 페이지 기준 0~1 + 페이지)
       ...(opts.mark ? { markX: opts.mark.x, markY: opts.mark.y, markPage: opts.mark.page || 1 } : {}),
       createdAt: serverTimestamp(),
@@ -8891,8 +8897,8 @@ export default function App() {
 
   const editCue = async (cueId, newText) => {
     if (!newText?.trim()) return;
-    // 리더가 수정하면 byLeader 도 갱신 — 예전(플래그 없던) 위치 큐도 수정하면 악보에 표시됨
-    await updateDoc(doc(db, "cueNotes", cueId), { text: newText.trim(), byLeader: isLeader(user?.role) });
+    // 수정하면 byLeader(악보표시 권한) 도 갱신 — 예전(플래그 없던) 위치 큐도 수정하면 악보에 표시됨
+    await updateDoc(doc(db, "cueNotes", cueId), { text: newText.trim(), byLeader: canPinToSheet(user?.role) });
   };
 
   const acknowledgeCue = async (cueId, alreadyAcked, opts = {}) => {
@@ -9105,6 +9111,7 @@ export default function App() {
             selectedSvcSongIdx={liteSong.svcSongIdx} backTo="lite"
             pdfjsReady={pdfjsReady} sharedGeminiKey={sharedGeminiKey}
             songCues={songCues} sendCue={sendCue} deleteCue={deleteCue} editCue={editCue}
+            userRoleMap={userRoleMap}
             sheetLinkEnabled={sheetLinkEnabled} sheetSyncTrigger={sheetSyncTrigger}
           />
         </Suspense>
@@ -9138,7 +9145,7 @@ export default function App() {
     onDeleteAnnotation: deleteAnnotation,
     markNotifRead, markAllNotifRead,
     nav, bgmChannel,
-    songCues, sendCue, deleteCue, editCue, acknowledgeCue,
+    songCues, sendCue, deleteCue, editCue, acknowledgeCue, userRoleMap,
     sheetLinkEnabled, sheetSyncTrigger, sheetSyncAllowedParts,
   };
 
