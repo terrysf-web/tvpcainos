@@ -1539,6 +1539,14 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   );
 }
 
+/* 손가락 터치 필기를 막을지 판단 (기기 단위)
+   - 메인 빌드: 항상 막음(애플펜슬/액티브펜 전제)
+   - 게스트 빌드: 이 기기에서 펜이 감지된 적 있으면 막고(팜리젝션), 아니면 손가락 필기 허용 */
+function deviceRejectsFinger() {
+  if (!GUEST_BUILD) return true;
+  try { return localStorage.getItem("tvpc_penSeen") === "1"; } catch { return false; }
+}
+
 /* 손글씨 패드 — 쓰는 동안 잉크 그대로 유지, 「변환」 버튼을 눌러야만 Gemini가 활자로 변환 */
 function HandwritePad({ accent, apiKey, onText }) {
   const wrapRef    = useRef(null);
@@ -1597,15 +1605,16 @@ function HandwritePad({ accent, apiKey, onText }) {
   const down = e => {
     e.preventDefault();
     e.stopPropagation(); // 아래 악보 화면의 탭/스와이프 핸들러로 전파 차단
-    // 손가락·손바닥 터치는 완전 무시 — 펜슬(또는 마우스)로만 필기
-    if (e.pointerType === "touch") return;
+    if (e.pointerType === "pen") { try { localStorage.setItem("tvpc_penSeen", "1"); } catch {} }
+    // 손가락·손바닥 터치 무시 — 메인은 항상, 게스트는 펜 기기에서만 (펜 없는 기기는 손가락 필기 허용)
+    if (e.pointerType === "touch" && deviceRejectsFinger()) return;
     cvsRef.current.setPointerCapture?.(e.pointerId);
     curRef.current = [pos(e)];
   };
   const move = e => {
     e.stopPropagation();
     if (!curRef.current) return;
-    if (e.pointerType === "touch") return;
+    if (e.pointerType === "touch" && deviceRejectsFinger()) return;
     const pts = curRef.current;
     // 펜슬 240Hz 샘플 모두 수집 (코어레스드 이벤트) — 획이 각지거나 빠지는 것 방지
     const evs = e.getCoalescedEvents?.() || [e];
@@ -1621,7 +1630,7 @@ function HandwritePad({ accent, apiKey, onText }) {
   const up = e => {
     e?.stopPropagation?.();
     if (!curRef.current) return;
-    if (e && e.pointerType === "touch") return;
+    if (e && e.pointerType === "touch" && deviceRejectsFinger()) return;
     if (curRef.current.length > 1) {
       strokesRef.current.push(curRef.current);
       setHasInk(true);
@@ -1878,6 +1887,24 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const lastTapTime    = useRef(0);
   const toastTimer  = useRef(null);
   const penDownRef  = useRef(false); // 애플펜슬 터치 중 여부
+  // 이 기기에서 액티브 펜이 감지된 적 있는지 (게스트: 펜 기기면 손가락 팜리젝션, 아니면 손가락 필기 허용)
+  const penSeenRef  = useRef(false);
+  useEffect(() => {
+    try { penSeenRef.current = localStorage.getItem("tvpc_penSeen") === "1"; } catch {}
+  }, []);
+  // 펜이 감지되면 기록(게스트 팜리젝션용). 획 시작마다 호출 — 다른 곳(손글씨 패드)에서
+  // 먼저 펜을 썼어도 localStorage 로 반영되게 동기화.
+  const syncPenSeen = (e) => {
+    if (e?.pointerType === "pen") {
+      penSeenRef.current = true;
+      try { localStorage.setItem("tvpc_penSeen", "1"); } catch {}
+    } else if (GUEST_BUILD && !penSeenRef.current) {
+      try { if (localStorage.getItem("tvpc_penSeen") === "1") penSeenRef.current = true; } catch {}
+    }
+  };
+  // 손가락 터치 필기를 막을지 — 메인은 항상 막음(펜 전제), 게스트는 펜 감지된 기기만 막음
+  const rejectFingerDraw = (e) =>
+    e.pointerType === "touch" && !isLiteMode && (!GUEST_BUILD || penSeenRef.current);
   const dualFitModeRef   = useRef(false); // 듀얼 FIT 모드: 페이지 이동마다 자동 재적용
   const needsFitRef      = useRef(false); // 다음 렌더 후 FIT 실행 예약 (듀얼)
   const [tapNav,   setTapNav]   = useState(() => localStorage.getItem("tvpc_tapNav")   !== "0");
@@ -3189,7 +3216,12 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // 애플펜슬 터치 추적 — 펜슬로 페이지 스와이프 방지
   useEffect(() => {
-    const onDown = (e) => { if (e.pointerType === "pen") penDownRef.current = true; };
+    const onDown = (e) => {
+      if (e.pointerType === "pen") {
+        penDownRef.current = true;
+        if (!penSeenRef.current) { penSeenRef.current = true; try { localStorage.setItem("tvpc_penSeen", "1"); } catch {} }
+      }
+    };
     const onUp   = (e) => { if (e.pointerType === "pen") penDownRef.current = false; };
     window.addEventListener("pointerdown", onDown);
     window.addEventListener("pointerup",   onUp);
@@ -4342,7 +4374,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // ── Canvas 1 handlers (single mode + dual left)
   const handleDraw1Down = (e) => {
     if (drawTool === "eraser") updateEraserCursor(e, drawCanvas1Ref.current);
-    if (e.pointerType === "touch" && !isLiteMode && !["text","stamp","select"].includes(drawTool)) return;
+    syncPenSeen(e);
+    if (rejectFingerDraw(e) && !["text","stamp","select"].includes(drawTool)) return;
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
     e.preventDefault(); e.stopPropagation();
@@ -4423,7 +4456,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
   const handleDraw1Move = (e) => {
     if (drawTool === "eraser") updateEraserCursor(e, drawCanvas1Ref.current);
-    if (e.pointerType === "touch" && !isLiteMode && drawTool !== "select" && !(drawTool === "stamp" && selDragRef.current)) return;
+    if (rejectFingerDraw(e) && drawTool !== "select" && !(drawTool === "stamp" && selDragRef.current)) return;
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
     e.preventDefault();
@@ -4569,7 +4602,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // ── Canvas 2 handlers (dual right)
   const handleDraw2Down = (e) => {
     if (drawTool === "eraser") updateEraserCursor(e, drawCanvas2Ref.current);
-    if (e.pointerType === "touch" && !["text","stamp","select"].includes(drawTool)) return;
+    syncPenSeen(e);
+    if (rejectFingerDraw(e) && !["text","stamp","select"].includes(drawTool)) return;
     const canvas = drawCanvas2Ref.current;
     if (!canvas) return;
     e.preventDefault(); e.stopPropagation();
@@ -4650,7 +4684,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   };
   const handleDraw2Move = (e) => {
     if (drawTool === "eraser") updateEraserCursor(e, drawCanvas2Ref.current);
-    if (e.pointerType === "touch" && drawTool !== "select" && !(drawTool === "stamp" && selDragRef.current)) return;
+    if (rejectFingerDraw(e) && drawTool !== "select" && !(drawTool === "stamp" && selDragRef.current)) return;
     const canvas = drawCanvas2Ref.current;
     if (!canvas) return;
     e.preventDefault();
