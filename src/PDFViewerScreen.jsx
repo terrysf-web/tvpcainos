@@ -4392,7 +4392,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const canvas = drawCanvas1Ref.current;
     if (!canvas) return;
     e.preventDefault(); e.stopPropagation();
-    e.target.setPointerCapture(e.pointerId);
+    try { e.target.setPointerCapture(e.pointerId); } catch {} // 일부 안드로이드 터치에서 예외 → 무시하고 계속
     lastSideRef.current = 1;
     if (drawTool === "select") {
       const pt = getCanvasPt(e, canvas);
@@ -4597,11 +4597,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     { const canvas = teamDrawMode ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current;
       if (canvas) drawStrokes(canvas, sRef1.current); }
   };
-  const handleDraw1Cancel = () => {
+  const handleDraw1Cancel = async () => {
     clearEraserCursor();
     setLoupePos(null);
     stampPressed1Ref.current = false;
     shapeStart1Ref.current = null;
+    // 안드로이드 손가락 필기 중 pointercancel 이 떠도 그린 획을 버리지 않고 커밋 (자유필기/지우개)
+    if (isDrawing1Ref.current && curStroke1Ref.current?.points?.length > 0) {
+      const stroke = curStroke1Ref.current;
+      isDrawing1Ref.current = false; curStroke1Ref.current = null;
+      const sRef1 = teamDrawMode ? teamStrokes1Ref : strokes1Ref;
+      const committed1 = teamDrawMode ? { ...stroke, team: true } : stroke;
+      const next = [...sRef1.current, committed1];
+      sRef1.current = next;
+      const songId = dual ? dualLeftSongId : selectedSongId;
+      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(songId, dual ? (svcSongs[dualIdx]?.pdfPage || 1) : pageNum, next);
+      const canvas1c = teamDrawMode ? teamDrawCanvas1Ref.current : drawCanvas1Ref.current;
+      if (canvas1c) drawStrokes(canvas1c, next);
+      return;
+    }
     isDrawing1Ref.current = false; curStroke1Ref.current = null;
     selDragRef.current = null;
     const sel1 = selAnnotRef.current?.canvasNum === 1 ? selAnnotRef.current : null;
@@ -4620,7 +4634,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const canvas = drawCanvas2Ref.current;
     if (!canvas) return;
     e.preventDefault(); e.stopPropagation();
-    e.target.setPointerCapture(e.pointerId);
+    try { e.target.setPointerCapture(e.pointerId); } catch {} // 일부 안드로이드 터치에서 예외 → 무시하고 계속
     lastSideRef.current = 2;
     if (drawTool === "select") {
       const pt = getCanvasPt(e, canvas);
@@ -4820,11 +4834,24 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     { const canvas = teamDrawMode ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
       if (canvas) drawStrokes(canvas, sRef2.current); }
   };
-  const handleDraw2Cancel = () => {
+  const handleDraw2Cancel = async () => {
     clearEraserCursor();
     setLoupePos(null);
     stampPressed2Ref.current = false;
     shapeStart2Ref.current = null;
+    // 안드로이드 손가락 필기 중 pointercancel 이 떠도 그린 획을 버리지 않고 커밋 (자유필기/지우개)
+    if (isDrawing2Ref.current && curStroke2Ref.current?.points?.length > 0) {
+      const stroke = curStroke2Ref.current;
+      isDrawing2Ref.current = false; curStroke2Ref.current = null;
+      const sRef2 = teamDrawMode ? teamStrokes2Ref : strokes2Ref;
+      const committed2 = teamDrawMode ? { ...stroke, team: true } : stroke;
+      const next = [...sRef2.current, committed2];
+      sRef2.current = next;
+      await (teamDrawMode ? saveTeamDrawing : saveDrawing)(dualRightSongId, svcSongs[dualIdx + 1]?.pdfPage || 1, next);
+      const canvas2c = teamDrawMode ? teamDrawCanvas2Ref.current : drawCanvas2Ref.current;
+      if (canvas2c) drawStrokes(canvas2c, next);
+      return;
+    }
     isDrawing2Ref.current = false; curStroke2Ref.current = null;
     selDragRef.current = null;
     const sel2 = selAnnotRef.current?.canvasNum === 2 ? selAnnotRef.current : null;
