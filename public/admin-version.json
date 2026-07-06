@@ -1,8 +1,15 @@
 {
-  "build": "3.753",
-  "buildTime": "2026-07-05T02:00:00Z",
+  "build": "3.754",
+  "buildTime": "2026-07-05T03:00:00Z",
   "showWhatsNew": true,
   "whatsNew": [
+    {
+      "tag": "수정",
+      "tagColor": "#1c8a46",
+      "icon": "✍️",
+      "title": "필기 안정성 개선",
+      "desc": "필기 중 터치가 중간에 끊겨(pointercancel) 그리던 획이 통째로 사라지던 경우를 고쳤습니다. 이제 끊겨도 그린 데까지 유지됩니다. 일부 기기에서 필기 시작이 막히던 예외도 방어했습니다."
+    },
     {
       "tag": "신기능",
       "tagColor": "#c0392b",
