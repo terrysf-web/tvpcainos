@@ -5449,7 +5449,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 border:`1px solid ${drawMode ? C.pur : C.bdr}`,
                 color: drawMode ? C.pur : C.dim,
                 fontWeight:700, fontSize:11, fontFamily:"inherit",
-              }}>필기</button>
+              }}>{GUEST_BUILD ? (drawMode ? "✏️ 그리는 중" : "✏️ 그리기") : "필기"}</button>
               <button onClick={() => setShowNotePanel(p=>!p)} style={{
                 height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
                 background: showNotePanel ? `${C.acc}22` : "transparent",
