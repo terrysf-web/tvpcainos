@@ -2790,6 +2790,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 onPointerMove={canDragCue ? (e) => moveCueDrag(e, side) : undefined}
                 onPointerUp={canDragCue ? (e) => endCueDrag(e, side) : undefined}
                 onPointerCancel={canDragCue ? (e) => endCueDrag(e, side) : undefined}
+                onTouchStart={canDragCue ? (e) => e.stopPropagation() : undefined}
+                onTouchMove={canDragCue ? (e) => e.stopPropagation() : undefined}
+                onTouchEnd={canDragCue ? (e) => e.stopPropagation() : undefined}
                 style={{ position:"absolute", ...boxStyle,
                   width:"max-content", maxWidth:200,
                   background: dragging ? "rgba(255,111,0,0.96)" : "rgba(255,111,0,0.9)",
