@@ -2022,9 +2022,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const selDragRef   = useRef(null);
   const [stampPanel, setStampPanel] = useState(null); // { x, y } screen coords of selected stamp
 
-  // ── [임시 진단] 손가락 필기 문제 추적용 (게스트 전용, 확인 후 제거)
-  const [dbg, setDbg] = useState("");
-
   // ── 레이저 포인터 (리더 전용)
   const [pointerOn,          setPointerOn]          = useState(false);
   const [showPointerPanel,   setShowPointerPanel]   = useState(false);
@@ -3229,22 +3226,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     el.addEventListener("touchmove", prevent, { passive: false });
     return () => el.removeEventListener("touchmove", prevent);
   }, []);
-
-  // ── [임시 진단] 캡처 단계에서 모든 pointerdown 을 잡아 어느 요소로 가는지/차단되는지 표시
-  useEffect(() => {
-    if (!GUEST_BUILD) return;
-    const el = containerRef.current;
-    if (!el) return;
-    const onDbg = (e) => {
-      const t = e.target;
-      const tag = (t?.tagName || "?").toLowerCase();
-      const isDraw = t === drawCanvas1Ref.current || t === drawCanvas2Ref.current;
-      const reject = e.pointerType === "touch" && !isLiteMode && !fingerDrawOn && (!GUEST_BUILD || penSeenRef.current);
-      setDbg(`b755 dm=${drawModeRef.current ? 1 : 0} lite=${isLiteMode ? 1 : 0} pen=${penSeenRef.current ? 1 : 0} fdraw=${fingerDrawOn ? 1 : 0} | ${e.pointerType} tgt=${tag}${isDraw ? "★DRAW" : ""} pe=${t?.style?.pointerEvents || "-"} rej=${reject ? 1 : 0}`);
-    };
-    el.addEventListener("pointerdown", onDbg, true); // capture — 가로채기 이전에 먼저 기록
-    return () => el.removeEventListener("pointerdown", onDbg, true);
-  }, [isLiteMode, fingerDrawOn]);
 
   // 애플펜슬 터치 추적 — 펜슬로 페이지 스와이프 방지
   useEffect(() => {
@@ -6512,16 +6493,6 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}>
-
-          {/* [임시 진단] 손가락 필기 추적 — 게스트 전용, 확인 후 제거 */}
-          {GUEST_BUILD && (
-            <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:99999,
-              background:"rgba(0,0,0,0.82)", color:"#3f6", fontSize:10, lineHeight:1.3,
-              fontFamily:"monospace", padding:"3px 6px", pointerEvents:"none",
-              whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-              {dbg || "b755 진단 대기 — 필기 모드 켜고 악보를 손가락으로 눌러보세요"}
-            </div>
-          )}
 
           {/* 로딩 중 표시 — numPages=0이고 컨텐츠 있을 때 */}
           {!dual && !loadErr && numPages === 0 && (song?.pdfUrl || song?.imageUrl) && (
