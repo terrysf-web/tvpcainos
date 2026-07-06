@@ -1544,7 +1544,10 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
    - 게스트 빌드: 이 기기에서 펜이 감지된 적 있으면 막고(팜리젝션), 아니면 손가락 필기 허용 */
 function deviceRejectsFinger() {
   if (!GUEST_BUILD) return true;
-  try { return localStorage.getItem("tvpc_penSeen") === "1"; } catch { return false; }
+  try {
+    if (localStorage.getItem("tvpc_fingerDraw") === "1") return false; // 수동 '손가락' 토글 ON → 항상 허용
+    return localStorage.getItem("tvpc_penSeen") === "1";
+  } catch { return false; }
 }
 
 /* 손글씨 패드 — 쓰는 동안 잉크 그대로 유지, 「변환」 버튼을 눌러야만 Gemini가 활자로 변환 */
@@ -1889,6 +1892,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const penDownRef  = useRef(false); // 애플펜슬 터치 중 여부
   // 이 기기에서 액티브 펜이 감지된 적 있는지 (게스트: 펜 기기면 손가락 팜리젝션, 아니면 손가락 필기 허용)
   const penSeenRef  = useRef(false);
+  // 수동 '손가락 필기' 토글 (게스트 전용) — 펜 기기에서도 켜면 손가락으로 그릴 수 있음
+  const [fingerDrawOn, setFingerDrawOn] = useState(() => {
+    try { return localStorage.getItem("tvpc_fingerDraw") === "1"; } catch { return false; }
+  });
+  const toggleFingerDraw = () => setFingerDrawOn(v => {
+    const nv = !v;
+    try { localStorage.setItem("tvpc_fingerDraw", nv ? "1" : "0"); } catch {}
+    return nv;
+  });
   useEffect(() => {
     try { penSeenRef.current = localStorage.getItem("tvpc_penSeen") === "1"; } catch {}
   }, []);
@@ -1902,9 +1914,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       try { if (localStorage.getItem("tvpc_penSeen") === "1") penSeenRef.current = true; } catch {}
     }
   };
-  // 손가락 터치 필기를 막을지 — 메인은 항상 막음(펜 전제), 게스트는 펜 감지된 기기만 막음
+  // 손가락 터치 필기를 막을지 — 메인은 항상 막음(펜 전제). 게스트는 '손가락' 토글이 켜져 있으면
+  // 항상 허용, 아니면 펜이 감지된 기기만 막음(자동 팜리젝션).
   const rejectFingerDraw = (e) =>
-    e.pointerType === "touch" && !isLiteMode && (!GUEST_BUILD || penSeenRef.current);
+    e.pointerType === "touch" && !isLiteMode && !fingerDrawOn && (!GUEST_BUILD || penSeenRef.current);
   const dualFitModeRef   = useRef(false); // 듀얼 FIT 모드: 페이지 이동마다 자동 재적용
   const needsFitRef      = useRef(false); // 다음 렌더 후 FIT 실행 예약 (듀얼)
   const [tapNav,   setTapNav]   = useState(() => localStorage.getItem("tvpc_tapNav")   !== "0");
@@ -5435,6 +5448,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   color: showSheetCues ? "#e65c00" : C.dim,
                   fontWeight:700, fontSize:11, fontFamily:"inherit",
                 }}>📍{showSheetCues ? "큐표시" : "큐숨김"}</button>
+              )}
+              {GUEST_BUILD && (
+                <button onClick={() => { toggleFingerDraw(); showToast(fingerDrawOn ? "손가락 필기 끔 (펜 전용)" : "손가락 필기 켬"); }}
+                  title="펜 없이 손가락으로 필기 (켜면 팜리젝션 해제)" style={{
+                  height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                  background: fingerDrawOn ? `${C.pur}22` : "transparent",
+                  border:`1px solid ${fingerDrawOn ? C.pur : C.bdr}`,
+                  color: fingerDrawOn ? C.pur : C.dim,
+                  fontWeight:700, fontSize:11, fontFamily:"inherit",
+                }}>✋ 손가락</button>
               )}
               <button onClick={() => { const n = !cropMode; setCropMode(n); if (n) { setDrawMode(false); cancelPaste(); showToast("복사할 필기·스탬프 영역을 드래그하세요"); } }} style={{
                 height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
