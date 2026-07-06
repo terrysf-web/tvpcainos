@@ -33,7 +33,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.758";
+const APP_VERSION = "3.759";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -8901,6 +8901,12 @@ export default function App() {
     await updateDoc(doc(db, "cueNotes", cueId), { text: newText.trim(), byLeader: canPinToSheet(user?.role) });
   };
 
+  // 악보 위 큐 글자 상자 위치 이동 (핀은 그대로, 글자만 빈 곳으로) — 리더/어드민/키보드만
+  const moveCueLabel = async (cueId, labelX, labelY) => {
+    if (!canPinToSheet(user?.role)) return;
+    await updateDoc(doc(db, "cueNotes", cueId), { labelX, labelY });
+  };
+
   const acknowledgeCue = async (cueId, alreadyAcked, opts = {}) => {
     if (!user?.uid) return;
     await updateDoc(doc(db, "cueNotes", cueId), { acknowledged: !alreadyAcked });
@@ -9111,7 +9117,7 @@ export default function App() {
             selectedSvcSongIdx={liteSong.svcSongIdx} backTo="lite"
             pdfjsReady={pdfjsReady} sharedGeminiKey={sharedGeminiKey}
             songCues={songCues} sendCue={sendCue} deleteCue={deleteCue} editCue={editCue}
-            userRoleMap={userRoleMap}
+            userRoleMap={userRoleMap} moveCueLabel={moveCueLabel}
             sheetLinkEnabled={sheetLinkEnabled} sheetSyncTrigger={sheetSyncTrigger}
           />
         </Suspense>
@@ -9145,7 +9151,7 @@ export default function App() {
     onDeleteAnnotation: deleteAnnotation,
     markNotifRead, markAllNotifRead,
     nav, bgmChannel,
-    songCues, sendCue, deleteCue, editCue, acknowledgeCue, userRoleMap,
+    songCues, sendCue, deleteCue, editCue, acknowledgeCue, userRoleMap, moveCueLabel,
     sheetLinkEnabled, sheetSyncTrigger, sheetSyncAllowedParts,
   };
 

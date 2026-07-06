@@ -1752,7 +1752,7 @@ function HandwritePad({ accent, apiKey, onText }) {
   );
 }
 
-function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue, deleteCue, editCue, userRoleMap, sheetLinkEnabled, sheetSyncTrigger }) {
+function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue, deleteCue, editCue, userRoleMap, moveCueLabel, sheetLinkEnabled, sheetSyncTrigger }) {
   const song = songs.find(s => s.id === selectedSongId);
   const isLibraryMode = backTo === "library"; // 라이브러리에서 열린 경우: 예배 컨텍스트 없음
   const isLiteMode    = backTo === "lite";    // Lite 뷰어: 메뉴 없음, 전체화면 악보만
@@ -1959,6 +1959,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [cueMarkMode,   setCueMarkMode]   = useState(false); // 악보 위치 찍기 모드
   const [cueMark,       setCueMark]       = useState(null);  // {x,y} 표시 좌표(0~1, 크롭된 화면 기준) + page
   const [showSheetCues, setShowSheetCues] = useState(true);  // 리더 큐노트를 악보 위에 내용째 표시(팀원 공유)
+  const [cueLabelDrag, setCueLabelDrag] = useState(null);    // 악보 위 큐 글자 상자 끌기 {id, side, x, y}(표시좌표 0~1)
+  const cueDragRef = useRef(null);
   const [cueEditId,     setCueEditId]     = useState(null);
   const [cueEditTxt,    setCueEditTxt]    = useState("");
   const [cueTopics,     setCueTopics]     = useState([]);   // 리더가 만든 타이틀(주제) 목록 (곡별 공유)
@@ -2695,7 +2697,37 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // ── 리더 큐노트 악보 표시 (팀원 공유) — 핀+내용을 악보 위에 바로 표시, 읽기 전용
   //    저장 좌표는 전체 페이지 기준(0~1) → 현재 크롭 화면 좌표로 역변환해서 정렬
-  const sheetCueLayer = (songId, cropBox, page) => {
+  // 큐 글자 상자 끌기 (리더/어드민/키보드만) — 핀은 그대로, 글자만 빈 곳으로 이동
+  const canDragCue = canPinToSheet(user?.role);
+  const startCueDrag = (e, c, side, cb) => {
+    if (!canDragCue) return;
+    e.preventDefault(); e.stopPropagation();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    const p = cropPt(e, side);
+    cueDragRef.current = { id: c.id, side, cb };
+    if (p) setCueLabelDrag({ id: c.id, side, x: p.x, y: p.y });
+  };
+  const moveCueDrag = (e, side) => {
+    if (!cueDragRef.current || cueDragRef.current.side !== side) return;
+    e.preventDefault(); e.stopPropagation();
+    const p = cropPt(e, side); if (!p) return;
+    setCueLabelDrag(d => (d ? { ...d, x: p.x, y: p.y } : d));
+  };
+  const endCueDrag = (e, side) => {
+    const d = cueDragRef.current; if (!d || d.side !== side) return;
+    e.preventDefault(); e.stopPropagation();
+    const p = cropPt(e, side);
+    cueDragRef.current = null;
+    const cur = p || (cueLabelDrag && cueLabelDrag.id === d.id ? { x: cueLabelDrag.x, y: cueLabelDrag.y } : null);
+    setCueLabelDrag(null);
+    if (!cur) return;
+    const cb = d.cb;
+    const fullX = cb ? cb.left + cur.x * (cb.right - cb.left) : cur.x;
+    const fullY = cb ? cb.top  + cur.y * (cb.bottom - cb.top) : cur.y;
+    moveCueLabel?.(d.id, Math.max(0, Math.min(1, fullX)), Math.max(0, Math.min(1, fullY)));
+  };
+
+  const sheetCueLayer = (songId, cropBox, page, side = 1) => {
     if (!showSheetCues || !songId) return null;
     // 악보 표시 자격: 작성자의 현재 권한(리더/어드민/키보드)이 우선, 권한 정보 없으면 저장된 byLeader 플래그로 폴백
     const eligible = (c) => {
@@ -2708,38 +2740,66 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (cues.length === 0) return null;
     const cb = cropBox && (cropBox.left > 0.001 || cropBox.top > 0.001 ||
       cropBox.right < 0.999 || cropBox.bottom < 0.999) ? cropBox : null;
+    const toDisp = (fx, fy) => cb
+      ? { x: (fx - cb.left) / (cb.right - cb.left), y: (fy - cb.top) / (cb.bottom - cb.top) }
+      : { x: fx, y: fy };
     const items = cues.map(c => {
-      let x = c.markX, y = c.markY;
-      if (cb) {
-        x = (c.markX - cb.left) / (cb.right - cb.left);
-        y = (c.markY - cb.top)  / (cb.bottom - cb.top);
-      }
-      return { c, x, y };
+      const pin = toDisp(c.markX, c.markY);
+      return { c, x: pin.x, y: pin.y };
     }).filter(it => it.x >= -0.02 && it.x <= 1.02 && it.y >= -0.02 && it.y <= 1.02);
     if (items.length === 0) return null;
     return (
       <div style={{ position:"absolute", inset:0, pointerEvents:"none", zIndex:24,
-        overflow:"hidden", borderRadius:4 }}>
+        overflow:"visible", borderRadius:4 }}>
         {items.map(({ c, x, y }) => {
-          const leftPct = Math.max(0, Math.min(100, x * 100));
-          const below   = y < 0.5; // 위쪽 지점이면 아래로, 아래쪽 지점이면 위로 펼침(악보 밖으로 안 나가게)
-          const anchor  = leftPct < 18 ? "L" : leftPct > 82 ? "R" : "C";
-          const tx = anchor === "C" ? "translateX(-50%)" : anchor === "R" ? "translateX(-100%)" : "translateX(0)";
+          // 글자 상자 위치: 끌고 있으면 실시간, 저장된 labelX 있으면 그 위치, 없으면 핀 근처(기존)
+          const dragging = cueLabelDrag && cueLabelDrag.id === c.id;
+          let lx, ly, moved;
+          if (dragging)               { lx = cueLabelDrag.x; ly = cueLabelDrag.y; moved = true; }
+          else if (c.labelX != null)  { const p = toDisp(c.labelX, c.labelY); lx = p.x; ly = p.y; moved = true; }
+          else                        { lx = x; ly = y; moved = false; }
           const label = (c.section && c.section.trim()) ? c.section.trim() : "";
+          // 안 옮긴 경우: 핀 아래(위쪽 지점)/위(아래쪽 지점)로, 가로 앵커. 옮긴 경우: 그 지점 중앙.
+          const below  = y < 0.5;
+          const lPct   = Math.max(moved ? 6 : 0, Math.min(moved ? 94 : 100, lx * 100));
+          const anchor = lPct < 18 ? "L" : lPct > 82 ? "R" : "C";
+          const txH    = anchor === "C" ? "translateX(-50%)" : anchor === "R" ? "translateX(-100%)" : "translateX(0)";
+          const xPct   = Math.max(0, Math.min(100, x * 100));
+          const boxStyle = moved
+            ? { left:`${lPct}%`, top:`${ly*100}%`, transform:"translate(-50%,-50%)" }
+            : below
+              ? { left:`${xPct}%`, top:`calc(${y*100}% + 9px)`, transform: txH }
+              : { left:`${xPct}%`, top:`calc(${y*100}% - 9px)`, transform:`${txH} translateY(-100%)` };
           return (
-            <div key={c.id} style={{ position:"absolute", left:`${leftPct}%`, top:`${y*100}%` }}>
+            <div key={c.id}>
+              {/* 옮긴 경우: 핀 ↔ 글자 연결선 */}
+              {moved && (
+                <svg style={{ position:"absolute", inset:0, width:"100%", height:"100%",
+                  pointerEvents:"none", overflow:"visible" }}>
+                  <line x1={`${x*100}%`} y1={`${y*100}%`} x2={`${lx*100}%`} y2={`${ly*100}%`}
+                    stroke="#ff6f00" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.8" />
+                </svg>
+              )}
               {/* 정확한 지점 표시 점 */}
-              <div style={{ position:"absolute", left:0, top:0, transform:"translate(-50%,-50%)",
-                width:9, height:9, borderRadius:"50%", background:"#ff6f00",
-                border:"2px solid #fff", boxShadow:"0 0 6px rgba(255,111,0,0.9)" }} />
-              {/* 내용 콜아웃 — 반투명(악보 비침), 연주 중 바로 읽힘 */}
-              <div style={{ position:"absolute", left:0,
-                [below ? "top" : "bottom"]: 9,
-                transform:tx, width:"max-content", maxWidth:200,
-                background:"rgba(255,111,0,0.9)", color:"#fff", borderRadius:8,
-                padding:"3px 9px", fontSize:12, fontWeight:800, lineHeight:1.35,
-                whiteSpace:"normal", overflowWrap:"anywhere",
-                boxShadow:"0 2px 10px rgba(0,0,0,0.3)", textShadow:"0 1px 2px rgba(0,0,0,0.28)" }}>
+              <div style={{ position:"absolute", left:`${x*100}%`, top:`${y*100}%`,
+                transform:"translate(-50%,-50%)", width:9, height:9, borderRadius:"50%",
+                background:"#ff6f00", border:"2px solid #fff", boxShadow:"0 0 6px rgba(255,111,0,0.9)" }} />
+              {/* 내용 콜아웃 — 반투명(악보 비침). 리더/어드민/키보드는 끌어서 빈 곳으로 이동 가능 */}
+              <div
+                onPointerDown={canDragCue ? (e) => startCueDrag(e, c, side, cb) : undefined}
+                onPointerMove={canDragCue ? (e) => moveCueDrag(e, side) : undefined}
+                onPointerUp={canDragCue ? (e) => endCueDrag(e, side) : undefined}
+                onPointerCancel={canDragCue ? (e) => endCueDrag(e, side) : undefined}
+                style={{ position:"absolute", ...boxStyle,
+                  width:"max-content", maxWidth:200,
+                  background: dragging ? "rgba(255,111,0,0.96)" : "rgba(255,111,0,0.9)",
+                  color:"#fff", borderRadius:8, padding:"3px 9px", fontSize:12, fontWeight:800,
+                  lineHeight:1.35, whiteSpace:"normal", overflowWrap:"anywhere",
+                  boxShadow: dragging ? "0 4px 16px rgba(0,0,0,0.45)" : "0 2px 10px rgba(0,0,0,0.3)",
+                  textShadow:"0 1px 2px rgba(0,0,0,0.28)",
+                  pointerEvents: canDragCue ? "auto" : "none",
+                  cursor: canDragCue ? "move" : "default", touchAction:"none",
+                  userSelect:"none", WebkitUserSelect:"none" }}>
                 {label && <span style={{ display:"inline-block", background:"#fff", color:"#e65c00",
                   borderRadius:6, padding:"0 6px", marginRight:5, fontSize:10, fontWeight:900,
                   verticalAlign:"1px" }}>{label}</span>}
@@ -6558,7 +6618,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       {cropMode && cropOverlay(1)}
                       {cueMarkMode && cueMarkOverlay()}
                       {cueMarkerDot()}
-                      {sheetCueLayer(svcSongs[dualIdx]?.id, svcSongs[dualIdx]?.cropBox, svcSongs[dualIdx]?.pdfPage || 1)}
+                      {sheetCueLayer(svcSongs[dualIdx]?.id, svcSongs[dualIdx]?.cropBox, svcSongs[dualIdx]?.pdfPage || 1, 1)}
                       {addChordMode && addChordOverlay(1)}
                       {chordPicker(1)}
                       {pasteMode && pasteRef.current?.side === 1 && pasteOverlay(1)}
@@ -6644,7 +6704,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                             오른쪽에 포인팅하면 싱글 모드 팀원에게 표시되지 않으므로
                             포인터는 왼쪽 패널에서만 사용 (악보를 왼쪽으로 넘겨서 포인팅) */}
                         {cropMode && cropOverlay(2)}
-                        {sheetCueLayer(svcSongs[dualIdx + 1]?.id, svcSongs[dualIdx + 1]?.cropBox, svcSongs[dualIdx + 1]?.pdfPage || 1)}
+                        {sheetCueLayer(svcSongs[dualIdx + 1]?.id, svcSongs[dualIdx + 1]?.cropBox, svcSongs[dualIdx + 1]?.pdfPage || 1, 2)}
                         {addChordMode && addChordOverlay(2)}
                         {chordPicker(2)}
                         {pasteMode && pasteRef.current?.side === 2 && pasteOverlay(2)}
@@ -6752,7 +6812,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       {cropMode && cropOverlay(1)}
                       {cueMarkMode && cueMarkOverlay()}
                       {cueMarkerDot()}
-                      {sheetCueLayer(selectedSongId, song?.cropBox, pageNum)}
+                      {sheetCueLayer(selectedSongId, song?.cropBox, pageNum, 1)}
                       {addChordMode && addChordOverlay(1)}
                       {chordPicker(1)}
                       {pasteMode && pasteRef.current?.side === 1 && pasteOverlay(1)}
