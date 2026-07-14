@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.762";
+const APP_VERSION = "3.763";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -9111,6 +9111,43 @@ export default function App() {
     finally { setReleasingBuild(false); }
   };
 
+  // ── 미디어(방송팀)↔FOH 채팅: 새 메시지 데스크톱 알림 (창이 닫혀 있을 때 우측에 뜸 → 클릭하면 창 열림)
+  const canMediaChat = !GUEST_BUILD && !!user && (user.role === "broadcast" || isFoh(user) || isLeader(user.role));
+  const mediaSvcId = useMemo(() => {
+    if (!services?.length) return null;
+    const todayStr = localDateStr();
+    const sorted = [...services].sort((a, b) => a.date.localeCompare(b.date));
+    const nearest = sorted.find(s => s.date >= todayStr)?.id ?? sorted[sorted.length - 1]?.id;
+    return selSvcId || nearest || null;
+  }, [services, selSvcId]);
+  const openChatRef      = useRef(null);   // 알림 클릭 시 채팅 열기 (openMediaChatPip 최신 참조)
+  const mediaChatOpenRef = useRef(false);  // 채팅 창(모달/PiP) 열림 여부
+  const mediaMsgSeenRef  = useRef(null);
+  useEffect(() => {
+    if (!canMediaChat || !user?.uid || !mediaSvcId) return;
+    mediaMsgSeenRef.current = null;
+    return onSnapshot(
+      query(collection(db, "mediaChat", mediaSvcId, "messages"), orderBy("createdAt", "desc"), limit(1)),
+      snap => {
+        const d = snap.docs[0]; if (!d) return;
+        if (mediaMsgSeenRef.current === null) { mediaMsgSeenRef.current = d.id; return; }
+        if (d.id === mediaMsgSeenRef.current) return;
+        mediaMsgSeenRef.current = d.id;
+        const m = d.data();
+        if (m.uid === user.uid) return;                          // 내 메시지는 알림 X
+        if (pipWinRef.current || mediaChatOpenRef.current) return; // 이미 창 열려 있으면 알림 X
+        try {
+          if ("Notification" in window && Notification.permission === "granted") {
+            const who = (m.name || "").split(" ")[0] || "FOH";
+            const n = new Notification("🖥️ 미디어 채팅 · " + who, { body: m.text || "", tag: "tvpc-mediachat", renotify: true });
+            n.onclick = () => { try { window.focus(); } catch {} openChatRef.current?.(); n.close(); };
+          }
+        } catch {}
+      },
+      () => {}
+    );
+  }, [canMediaChat, user?.uid, mediaSvcId]);
+
   // ── KakaoTalk 인앱 브라우저 감지 → 외부 브라우저 유도
   const ua = navigator.userAgent || "";
   const isKakao   = /KAKAOTALK/i.test(ua);
@@ -9228,16 +9265,11 @@ export default function App() {
 
   const unread = notifs.filter(n => !n.read).length;
 
-  // ── 미디어(방송팀)↔FOH 채팅: 대상 예배 + 접근 권한 + PiP(항상-위 작은 창) 런처
-  const canMediaChat = !GUEST_BUILD && !!user && (user.role === "broadcast" || isFoh(user) || isLeader(user.role));
-  const mediaSvc = (() => {
-    if (!services?.length) return null;
-    const todayStr = localDateStr();
-    const sorted = [...services].sort((a, b) => a.date.localeCompare(b.date));
-    const nearest = sorted.find(s => s.date >= todayStr)?.id ?? sorted[sorted.length - 1]?.id;
-    return services.find(s => s.id === (selSvcId || nearest)) || null;
-  })();
+  // ── 미디어(방송팀)↔FOH 채팅: 대상 예배 + PiP(항상-위 작은 창) 런처 (canMediaChat/mediaSvcId 는 위에서 정의)
+  const mediaSvc = services.find(s => s.id === mediaSvcId) || null;
   const openMediaChatPip = async () => {
+    // 새 메시지 데스크톱 알림용 권한 요청 (사용자 클릭 시점)
+    if ("Notification" in window && Notification.permission === "default") { try { Notification.requestPermission(); } catch {} }
     if (pipWinRef.current) { try { pipWinRef.current.focus(); } catch {} return; }
     if (!window.documentPictureInPicture?.requestWindow) {
       setMediaChatModal(true); // PiP 미지원 브라우저 → 앱 안 도킹 창
@@ -9263,6 +9295,8 @@ export default function App() {
     }
   };
   const pipSupported = typeof window !== "undefined" && !!window.documentPictureInPicture?.requestWindow;
+  openChatRef.current = openMediaChatPip;               // 알림 클릭 시 최신 런처 호출
+  mediaChatOpenRef.current = pipOpen || mediaChatModal; // 창 열림 상태(알림 중복 방지)
 
   const shared = {
     user, songs, services, servicesLoaded, notifs, annotations, teamAnnotations, userMap, songDrawings,
