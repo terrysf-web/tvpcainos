@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.763";
+const APP_VERSION = "3.764";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -8181,9 +8181,17 @@ function LiteImageViewer({ song, onHome }) {
 }
 
 // 미디어(방송팀)↔FOH 전용 채팅 — 랩탑에서 작은 창(PiP)으로 띄우기 좋게 컴팩트 구성
+const MEDIA_PRESET_KEY = "tvpc_media_chat_presets";
+const MEDIA_DEFAULT_PRESETS = ["다음 곡 준비 🎬", "가사 올려주세요", "자막 확인 요청", "화면 전환 OK", "잠시 대기 🙏", "👍 확인"];
 function MediaFohChat({ svcId, svcTitle, user }) {
   const [msgs, setMsgs]   = useState([]);
   const [input, setInput] = useState("");
+  const [presets, setPresets] = useState(() => {
+    try { const s = localStorage.getItem(MEDIA_PRESET_KEY); return s ? JSON.parse(s) : MEDIA_DEFAULT_PRESETS; }
+    catch { return MEDIA_DEFAULT_PRESETS; }
+  });
+  const [editMode, setEditMode]     = useState(false);
+  const [presetInput, setPresetInput] = useState("");
   const listRef = useRef(null);
   useEffect(() => {
     if (!svcId) { setMsgs([]); return; }
@@ -8194,16 +8202,23 @@ function MediaFohChat({ svcId, svcTitle, user }) {
     );
   }, [svcId]);
   useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs.length]);
-  const send = async () => {
-    const t = input.trim(); if (!t || !svcId || !user?.uid) return;
-    setInput("");
+  const savePresets = (next) => { setPresets(next); try { localStorage.setItem(MEDIA_PRESET_KEY, JSON.stringify(next)); } catch {} };
+  const sendText = async (t) => {
+    const txt = (t ?? "").trim(); if (!txt || !svcId || !user?.uid) return;
     try {
       await addDoc(collection(db, "mediaChat", svcId, "messages"), {
-        text: t, uid: user.uid,
+        text: txt, uid: user.uid,
         name: user.displayName || user.name || user.email || "",
         role: user.role || "", createdAt: serverTimestamp(),
       });
-    } catch { setInput(t); }
+      return true;
+    } catch { return false; }
+  };
+  const send = async () => {
+    const t = input.trim(); if (!t) return;
+    setInput("");
+    const ok = await sendText(t);
+    if (ok === false) setInput(t);
   };
   const roleTag = (r) => r === "admin" ? "어드민" : r === "leader" ? "리더"
     : r?.toLowerCase() === "foh" ? "FOH" : r === "broadcast" ? "방송" : "";
@@ -8242,6 +8257,49 @@ function MediaFohChat({ svcId, svcTitle, user }) {
           );
         })}
       </div>
+
+      {/* 퀵메시지 프리셋 (+ 편집) */}
+      {editMode ? (
+        <div style={{ flexShrink:0, padding:"8px 10px", borderTop:`1px solid ${C.bdr}`, background:C.card }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+            <span style={{ fontSize:10, fontWeight:800, color:C.dim }}>퀵메시지 편집</span>
+            <button onClick={() => { setEditMode(false); setPresetInput(""); }}
+              style={{ fontSize:11, fontWeight:700, color:C.acc, background:"none", border:"none", cursor:"pointer", fontFamily:"inherit" }}>완료</button>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:4, marginBottom:6, maxHeight:120, overflowY:"auto" }}>
+            {presets.map((p, i) => (
+              <div key={i} style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <span style={{ flex:1, fontSize:11, color:C.txt, overflowWrap:"anywhere" }}>{p}</span>
+                <button onClick={() => savePresets(presets.filter((_, idx) => idx !== i))}
+                  style={{ flexShrink:0, width:18, height:18, borderRadius:"50%", background:C.red, color:"#fff",
+                    border:"none", fontSize:12, fontWeight:900, cursor:"pointer", fontFamily:"inherit",
+                    display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1 }}>×</button>
+              </div>
+            ))}
+            {presets.length === 0 && <span style={{ fontSize:11, color:C.dim }}>퀵메시지 없음</span>}
+          </div>
+          <div style={{ display:"flex", gap:4 }}>
+            <input value={presetInput} onChange={e => setPresetInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && presetInput.trim()) { savePresets([...presets, presetInput.trim()]); setPresetInput(""); } }}
+              placeholder="새 퀵메시지 추가…"
+              style={{ flex:1, fontSize:11, padding:"5px 8px", borderRadius:8, border:`1px solid ${C.bdr}`, background:C.bg, color:C.txt, outline:"none", fontFamily:"inherit" }} />
+            <button onClick={() => { if (!presetInput.trim()) return; savePresets([...presets, presetInput.trim()]); setPresetInput(""); }}
+              style={{ flexShrink:0, padding:"5px 10px", borderRadius:8, background:C.acc, color:"#fff", border:"none", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>추가</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ flexShrink:0, padding:"6px 8px", borderTop:`1px solid ${C.bdr}`, display:"flex", flexWrap:"wrap", gap:4, background:C.surf }}>
+          {presets.map((p, i) => (
+            <button key={i} onClick={() => sendText(p)} disabled={!svcId}
+              style={{ padding:"4px 10px", borderRadius:14, fontSize:11, fontWeight:700,
+                border:`1.5px solid ${C.acc}55`, background:`${C.acc}12`, color:C.acc,
+                cursor: svcId ? "pointer" : "default", fontFamily:"inherit", opacity: svcId ? 1 : 0.5 }}>{p}</button>
+          ))}
+          <button onClick={() => setEditMode(true)} title="퀵메시지 편집"
+            style={{ padding:"4px 8px", borderRadius:14, fontSize:10, border:`1px solid ${C.bdr}`, background:"none", color:C.dim, cursor:"pointer", fontFamily:"inherit" }}>✏️</button>
+        </div>
+      )}
+
       <div style={{ flexShrink:0, display:"flex", gap:6, padding:8, borderTop:`1px solid ${C.bdr}`, background:C.surf }}>
         <input value={input} onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
