@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.761";
+const APP_VERSION = "3.762";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -9240,7 +9240,7 @@ export default function App() {
   const openMediaChatPip = async () => {
     if (pipWinRef.current) { try { pipWinRef.current.focus(); } catch {} return; }
     if (!window.documentPictureInPicture?.requestWindow) {
-      alert("이 브라우저는 '항상 위' 작은 창을 지원하지 않습니다.\nChrome 또는 Edge(데스크톱)에서 사용해 주세요.");
+      setMediaChatModal(true); // PiP 미지원 브라우저 → 앱 안 도킹 창
       return;
     }
     try {
@@ -9258,7 +9258,9 @@ export default function App() {
         try { pipRootRef.current?.unmount(); } catch {}
         pipWinRef.current = null; pipRootRef.current = null; setPipOpen(false);
       });
-    } catch (e) { alert("창을 열 수 없습니다: " + (e?.message || e)); }
+    } catch (e) {
+      setMediaChatModal(true); // PiP 실패 시에도 앱 안 창으로 폴백
+    }
   };
   const pipSupported = typeof window !== "undefined" && !!window.documentPictureInPicture?.requestWindow;
 
@@ -9410,10 +9412,10 @@ export default function App() {
         </FohErrorBoundary>
       </div>
 
-      {/* 미디어(방송팀)↔FOH 채팅 런처 — 방송팀/FOH/리더/어드민에게만 */}
+      {/* 미디어(방송팀)↔FOH 채팅 런처 — 누르면 Chrome/Edge는 항상-위 작은 창(PiP) 바로 열림 */}
       {canMediaChat && ["foh", "services", "svcDetail"].includes(view) && (
-        <button onClick={() => setMediaChatModal(true)}
-          title="미디어↔FOH 채팅"
+        <button onClick={openMediaChatPip}
+          title={pipSupported ? "항상 위에 뜨는 작은 채팅 창 열기" : "미디어↔FOH 채팅"}
           style={{ position:"fixed", right:14, bottom:"calc(env(safe-area-inset-bottom,0px) + 78px)",
             zIndex:5000, background: pipOpen ? "#16a34a" : "linear-gradient(135deg,#0c1850,#3878e0)",
             color:"#fff", border:"none", borderRadius:22, padding:"10px 15px", fontSize:13, fontWeight:800,
@@ -9423,35 +9425,31 @@ export default function App() {
         </button>
       )}
 
-      {/* 미디어↔FOH 채팅 인앱 모달 (모든 브라우저) — 여기서 'PiP 작은 창'으로도 뽑을 수 있음 */}
+      {/* PiP 미지원 브라우저용 — 배경 안 어둡게, 우측 하단 도킹 패널 (앱은 그대로 사용 가능) */}
       {canMediaChat && mediaChatModal && (
-        <div onClick={() => setMediaChatModal(false)}
-          style={{ position:"fixed", inset:0, zIndex:6000, background:"rgba(0,0,0,0.55)",
-            display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ width:"100%", maxWidth:400, height:"min(78vh, 640px)", background:C.bg,
-              borderRadius:16, overflow:"hidden", border:`1px solid ${C.bdr}`,
-              boxShadow:"0 12px 48px rgba(0,0,0,0.4)", display:"flex", flexDirection:"column" }}>
-            <div style={{ flexShrink:0, display:"flex", alignItems:"center", gap:8, padding:"8px 10px",
-              borderBottom:`1px solid ${C.bdr}`, background:C.surf }}>
-              {pipSupported && (
-                <button onClick={openMediaChatPip}
-                  style={{ padding:"6px 11px", borderRadius:9, border:"none", cursor:"pointer",
-                    background:"linear-gradient(135deg,#0c1850,#3878e0)", color:"#fff",
-                    fontSize:12, fontWeight:800, fontFamily:"inherit" }}>
-                  🖥️ 작은 창으로 (항상 위)
-                </button>
-              )}
-              {pipOpen && <span style={{ fontSize:11, color:"#16a34a", fontWeight:800 }}>작은 창 열림 ✓</span>}
-              <div style={{ flex:1 }} />
-              <button onClick={() => setMediaChatModal(false)}
-                style={{ width:30, height:30, borderRadius:"50%", border:`1px solid ${C.bdr}`,
-                  background:"transparent", color:C.dim, fontSize:15, fontWeight:800, cursor:"pointer",
-                  fontFamily:"inherit", lineHeight:1 }}>✕</button>
-            </div>
-            <div style={{ flex:1, minHeight:0 }}>
-              <MediaFohChat svcId={mediaSvc?.id} svcTitle={mediaSvc?.title} user={user} />
-            </div>
+        <div style={{ position:"fixed", right:12, bottom:12, zIndex:6000,
+          width:"min(360px, 94vw)", height:"min(70vh, 560px)", background:C.bg,
+          borderRadius:14, overflow:"hidden", border:`1px solid ${C.bdr}`,
+          boxShadow:"0 12px 48px rgba(0,0,0,0.4)", display:"flex", flexDirection:"column" }}>
+          <div style={{ flexShrink:0, display:"flex", alignItems:"center", gap:8, padding:"7px 10px",
+            borderBottom:`1px solid ${C.bdr}`, background:C.surf }}>
+            <span style={{ fontSize:11, color:C.dim, fontWeight:700 }}>미디어 ↔ FOH</span>
+            {pipSupported && (
+              <button onClick={openMediaChatPip}
+                style={{ padding:"5px 10px", borderRadius:9, border:"none", cursor:"pointer",
+                  background:"linear-gradient(135deg,#0c1850,#3878e0)", color:"#fff",
+                  fontSize:11, fontWeight:800, fontFamily:"inherit" }}>
+                🖥️ 작은 창으로
+              </button>
+            )}
+            <div style={{ flex:1 }} />
+            <button onClick={() => setMediaChatModal(false)}
+              style={{ width:28, height:28, borderRadius:"50%", border:`1px solid ${C.bdr}`,
+                background:"transparent", color:C.dim, fontSize:14, fontWeight:800, cursor:"pointer",
+                fontFamily:"inherit", lineHeight:1 }}>✕</button>
+          </div>
+          <div style={{ flex:1, minHeight:0 }}>
+            <MediaFohChat svcId={mediaSvc?.id} svcTitle={mediaSvc?.title} user={user} />
           </div>
         </div>
       )}
