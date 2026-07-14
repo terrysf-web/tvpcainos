@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, lazy, Suspense, Component, Fragment } from "react";
+import { createRoot } from "react-dom/client";
 import { C, KEY_CLR, DARK_KEY, keyColor, darkKeyColor } from "./theme.js";
 import { Icon, Btn, Badge, KeyBadge, Input, Divider, Modal, ConfirmModal } from "./ui.jsx";
 import { HelpModal } from "./HelpModal.jsx";
@@ -33,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.760";
+const APP_VERSION = "3.761";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -8179,12 +8180,95 @@ function LiteImageViewer({ song, onHome }) {
   );
 }
 
+// 미디어(방송팀)↔FOH 전용 채팅 — 랩탑에서 작은 창(PiP)으로 띄우기 좋게 컴팩트 구성
+function MediaFohChat({ svcId, svcTitle, user }) {
+  const [msgs, setMsgs]   = useState([]);
+  const [input, setInput] = useState("");
+  const listRef = useRef(null);
+  useEffect(() => {
+    if (!svcId) { setMsgs([]); return; }
+    return onSnapshot(
+      query(collection(db, "mediaChat", svcId, "messages"), orderBy("createdAt", "asc")),
+      snap => setMsgs(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      () => {}
+    );
+  }, [svcId]);
+  useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs.length]);
+  const send = async () => {
+    const t = input.trim(); if (!t || !svcId || !user?.uid) return;
+    setInput("");
+    try {
+      await addDoc(collection(db, "mediaChat", svcId, "messages"), {
+        text: t, uid: user.uid,
+        name: user.displayName || user.name || user.email || "",
+        role: user.role || "", createdAt: serverTimestamp(),
+      });
+    } catch { setInput(t); }
+  };
+  const roleTag = (r) => r === "admin" ? "어드민" : r === "leader" ? "리더"
+    : r?.toLowerCase() === "foh" ? "FOH" : r === "broadcast" ? "방송" : "";
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", minHeight:0,
+      background:C.bg, color:C.txt, fontFamily:"inherit", overflow:"hidden" }}>
+      <div style={{ flexShrink:0, padding:"7px 12px", color:"#fff", fontWeight:800, fontSize:12.5,
+        background:"linear-gradient(135deg,#0c1850 0%,#1c3c88 45%,#3878e0 100%)",
+        display:"flex", alignItems:"center", gap:6 }}>
+        🖥️ 미디어 ↔ FOH{svcTitle ? ` · ${svcTitle}` : ""}
+      </div>
+      <div ref={listRef} style={{ flex:1, minHeight:0, overflowY:"auto", padding:"10px",
+        display:"flex", flexDirection:"column", gap:6 }}>
+        {msgs.length === 0 && (
+          <div style={{ color:C.dim, fontSize:12, textAlign:"center", marginTop:24, lineHeight:1.5 }}>
+            아직 메시지가 없습니다.<br/>FOH와 여기서 주고받으세요.
+          </div>
+        )}
+        {msgs.map(m => {
+          const isMe = m.uid === user?.uid;
+          const ms = m.createdAt?.toMillis?.() ?? null;
+          const time = ms ? new Date(ms).toLocaleTimeString("ko-KR", { hour:"2-digit", minute:"2-digit" }) : "";
+          const tag = roleTag(m.role);
+          return (
+            <div key={m.id} style={{ display:"flex", flexDirection:"column", alignItems:isMe?"flex-end":"flex-start" }}>
+              <div style={{ fontSize:9, color:C.dim, marginBottom:1, display:"flex", gap:4 }}>
+                {!isMe && <span style={{ fontWeight:700 }}>{(m.name||"").split(" ")[0]}{tag?` · ${tag}`:""}</span>}
+                {time && <span>{time}</span>}
+              </div>
+              <div style={{ maxWidth:"86%", padding:"6px 10px", borderRadius:12, fontSize:13, lineHeight:1.4,
+                background: isMe ? C.acc : C.surf, color: isMe ? "#fff" : C.txt,
+                border: isMe ? "none" : `1px solid ${C.bdr}`, whiteSpace:"pre-wrap", overflowWrap:"anywhere" }}>
+                {m.text}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ flexShrink:0, display:"flex", gap:6, padding:8, borderTop:`1px solid ${C.bdr}`, background:C.surf }}>
+        <input value={input} onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+          placeholder={svcId ? "메시지 입력…" : "예배가 없습니다"} disabled={!svcId}
+          style={{ flex:1, padding:"8px 10px", borderRadius:10, border:`1px solid ${C.bdr}`,
+            background:C.bg, color:C.txt, fontSize:13, outline:"none", fontFamily:"inherit" }} />
+        <button onClick={send} disabled={!input.trim() || !svcId}
+          style={{ padding:"8px 14px", borderRadius:10, border:"none",
+            background: input.trim() && svcId ? C.acc : C.bdr, color:"#fff", fontWeight:800,
+            fontSize:13, cursor: input.trim() && svcId ? "pointer" : "default", fontFamily:"inherit" }}>
+          전송
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [liteMode, setLiteMode] = useState(() => new URLSearchParams(window.location.search).has("lite"));
   const [liteSong,    setLiteSong]    = useState(null); // { songId, svcId, svcSongIdx }
   const [user,        setUser]        = useState(undefined); // undefined = loading
   const [loginErr,        setLoginErr]        = useState("");
   const [loginBlockedUser,setLoginBlockedUser] = useState(null); // { email, name } 미등록 로그인 시도
+  const [pipOpen, setPipOpen] = useState(false);     // 미디어 채팅 PiP 창 열림 여부
+  const [mediaChatModal, setMediaChatModal] = useState(false); // 미디어 채팅 인앱 모달
+  const pipWinRef  = useRef(null);
+  const pipRootRef = useRef(null);
   const [view,        setView]        = useState(() => {
     const saved = localStorage.getItem("tvpc_view") || "home";
     // selSongId가 저장돼 있으면 pdfViewer 복원 허용
@@ -9144,6 +9228,40 @@ export default function App() {
 
   const unread = notifs.filter(n => !n.read).length;
 
+  // ── 미디어(방송팀)↔FOH 채팅: 대상 예배 + 접근 권한 + PiP(항상-위 작은 창) 런처
+  const canMediaChat = !GUEST_BUILD && !!user && (user.role === "broadcast" || isFoh(user) || isLeader(user.role));
+  const mediaSvc = (() => {
+    if (!services?.length) return null;
+    const todayStr = localDateStr();
+    const sorted = [...services].sort((a, b) => a.date.localeCompare(b.date));
+    const nearest = sorted.find(s => s.date >= todayStr)?.id ?? sorted[sorted.length - 1]?.id;
+    return services.find(s => s.id === (selSvcId || nearest)) || null;
+  })();
+  const openMediaChatPip = async () => {
+    if (pipWinRef.current) { try { pipWinRef.current.focus(); } catch {} return; }
+    if (!window.documentPictureInPicture?.requestWindow) {
+      alert("이 브라우저는 '항상 위' 작은 창을 지원하지 않습니다.\nChrome 또는 Edge(데스크톱)에서 사용해 주세요.");
+      return;
+    }
+    try {
+      const pip = await window.documentPictureInPicture.requestWindow({ width: 340, height: 560 });
+      pip.document.title = "미디어 ↔ FOH 채팅";
+      const b = pip.document.body;
+      b.style.margin = "0"; b.style.height = "100vh"; b.style.overflow = "hidden";
+      b.style.background = C.bg;
+      b.style.fontFamily = getComputedStyle(document.body).fontFamily || "system-ui, sans-serif";
+      const root = createRoot(b);
+      root.render(<MediaFohChat svcId={mediaSvc?.id} svcTitle={mediaSvc?.title} user={user} />);
+      pipWinRef.current = pip; pipRootRef.current = root; setPipOpen(true);
+      setMediaChatModal(false); // PiP 로 띄웠으면 인앱 모달은 닫음
+      pip.addEventListener("pagehide", () => {
+        try { pipRootRef.current?.unmount(); } catch {}
+        pipWinRef.current = null; pipRootRef.current = null; setPipOpen(false);
+      });
+    } catch (e) { alert("창을 열 수 없습니다: " + (e?.message || e)); }
+  };
+  const pipSupported = typeof window !== "undefined" && !!window.documentPictureInPicture?.requestWindow;
+
   const shared = {
     user, songs, services, servicesLoaded, notifs, annotations, teamAnnotations, userMap, songDrawings,
     addSong, createService, updateService,
@@ -9291,6 +9409,52 @@ export default function App() {
         )}
         </FohErrorBoundary>
       </div>
+
+      {/* 미디어(방송팀)↔FOH 채팅 런처 — 방송팀/FOH/리더/어드민에게만 */}
+      {canMediaChat && ["foh", "services", "svcDetail"].includes(view) && (
+        <button onClick={() => setMediaChatModal(true)}
+          title="미디어↔FOH 채팅"
+          style={{ position:"fixed", right:14, bottom:"calc(env(safe-area-inset-bottom,0px) + 78px)",
+            zIndex:5000, background: pipOpen ? "#16a34a" : "linear-gradient(135deg,#0c1850,#3878e0)",
+            color:"#fff", border:"none", borderRadius:22, padding:"10px 15px", fontSize:13, fontWeight:800,
+            cursor:"pointer", boxShadow:"0 4px 16px rgba(0,0,0,0.3)", fontFamily:"inherit",
+            display:"flex", gap:6, alignItems:"center", touchAction:"manipulation" }}>
+          🖥️ 미디어채팅{pipOpen ? " ✓" : ""}
+        </button>
+      )}
+
+      {/* 미디어↔FOH 채팅 인앱 모달 (모든 브라우저) — 여기서 'PiP 작은 창'으로도 뽑을 수 있음 */}
+      {canMediaChat && mediaChatModal && (
+        <div onClick={() => setMediaChatModal(false)}
+          style={{ position:"fixed", inset:0, zIndex:6000, background:"rgba(0,0,0,0.55)",
+            display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ width:"100%", maxWidth:400, height:"min(78vh, 640px)", background:C.bg,
+              borderRadius:16, overflow:"hidden", border:`1px solid ${C.bdr}`,
+              boxShadow:"0 12px 48px rgba(0,0,0,0.4)", display:"flex", flexDirection:"column" }}>
+            <div style={{ flexShrink:0, display:"flex", alignItems:"center", gap:8, padding:"8px 10px",
+              borderBottom:`1px solid ${C.bdr}`, background:C.surf }}>
+              {pipSupported && (
+                <button onClick={openMediaChatPip}
+                  style={{ padding:"6px 11px", borderRadius:9, border:"none", cursor:"pointer",
+                    background:"linear-gradient(135deg,#0c1850,#3878e0)", color:"#fff",
+                    fontSize:12, fontWeight:800, fontFamily:"inherit" }}>
+                  🖥️ 작은 창으로 (항상 위)
+                </button>
+              )}
+              {pipOpen && <span style={{ fontSize:11, color:"#16a34a", fontWeight:800 }}>작은 창 열림 ✓</span>}
+              <div style={{ flex:1 }} />
+              <button onClick={() => setMediaChatModal(false)}
+                style={{ width:30, height:30, borderRadius:"50%", border:`1px solid ${C.bdr}`,
+                  background:"transparent", color:C.dim, fontSize:15, fontWeight:800, cursor:"pointer",
+                  fontFamily:"inherit", lineHeight:1 }}>✕</button>
+            </div>
+            <div style={{ flex:1, minHeight:0 }}>
+              <MediaFohChat svcId={mediaSvc?.id} svcTitle={mediaSvc?.title} user={user} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 하단 탭바 — position:fixed 없이 flex 하단에 자연 배치 */}
       {view !== "pdfViewer" && (

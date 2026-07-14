@@ -149,6 +149,14 @@ service cloud.firestore {
       }
     }
 
+    // 미디어(방송팀)↔FOH 전용 채팅 — 인증된 모두(앱에서 방송팀/FOH/리더만 접근)
+    match /mediaChat/{svcId} {
+      allow read: if isAuthed();
+      match /messages/{messageId} {
+        allow read, write: if isAuthed();
+      }
+    }
+
     // X32 믹서 상태 — Admin SDK가 쓰고, 인증된 모두 읽기
     match /x32/{docId} {
       allow read: if isAuthed();
