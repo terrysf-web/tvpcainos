@@ -2795,24 +2795,20 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 onTouchEnd={canDragCue ? (e) => e.stopPropagation() : undefined}
                 style={{ position:"absolute", ...boxStyle,
                   width:"max-content", maxWidth:210,
-                  // 배경 없이 글자만 — 악보가 비쳐서 덜 가림. 드래그 중엔 살짝 배경 표시
-                  background: dragging ? "rgba(255,245,235,0.92)" : "transparent",
-                  border: dragging ? "1px dashed rgba(216,67,21,0.6)" : "none",
-                  borderRadius:8, padding: dragging ? "3px 8px" : "1px 2px",
-                  color:"#d84315", fontSize:13, fontWeight:900,
-                  lineHeight:1.3, whiteSpace:"normal", overflowWrap:"anywhere",
-                  // 흰 외곽선(자막 스타일) — 음표·오선 위에서도 또렷하게
-                  textShadow: dragging ? "none"
-                    : "-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff, 0 0 3px #fff, 0 0 3px #fff, 0 0 5px #fff",
-                  WebkitTextStroke: dragging ? "0" : "0.4px rgba(255,255,255,0.7)",
-                  paintOrder: "stroke fill",
+                  // 반투명 흰 배경(형광펜 느낌) — 글자는 또렷, 악보는 뒤로 비쳐 덜 가림
+                  background: dragging ? "rgba(255,251,247,0.98)" : "rgba(255,255,255,0.8)",
+                  border:"1px solid rgba(216,67,21,0.35)",
+                  borderRadius:8, padding:"2px 8px",
+                  color:"#c0392b", fontSize:13, fontWeight:800,
+                  lineHeight:1.32, whiteSpace:"normal", overflowWrap:"anywhere",
+                  textShadow:"0 1px 1px rgba(255,255,255,0.9)",
+                  boxShadow: dragging ? "0 3px 12px rgba(0,0,0,0.3)" : "0 1px 4px rgba(0,0,0,0.18)",
                   pointerEvents: canDragCue ? "auto" : "none",
                   cursor: canDragCue ? "move" : "default", touchAction:"none",
                   userSelect:"none", WebkitUserSelect:"none" }}>
                 {label && <span style={{ display:"inline-block", background:"#d84315", color:"#fff",
                   borderRadius:5, padding:"0 6px", marginRight:5, fontSize:11, fontWeight:900,
-                  verticalAlign:"1px", textShadow:"none", WebkitTextStroke:"0",
-                  boxShadow:"0 0 0 1.5px #fff" }}>{label}</span>}
+                  verticalAlign:"1px" }}>{label}</span>}
                 {c.text}
               </div>
             </div>
