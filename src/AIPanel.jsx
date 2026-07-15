@@ -176,7 +176,8 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
     if (!id) { setYtErr("올바른 YouTube URL을 입력하세요."); return; }
     if (!song?.id) { setYtErr("악보가 선택되지 않았습니다."); return; }
     try {
-      await updateDoc(doc(db, "songs", song.id), { youtubeId: id });
+      // youtubeUrl 이 effectiveYtUrl 에서 우선이므로 그쪽에 저장(+레거시 youtubeId 정리)
+      await updateDoc(doc(db, "songs", song.id), { youtubeUrl: `https://youtu.be/${id}`, youtubeId: null });
       setYtId(id);
       setEditYt(false); setYtInput(""); setYtErr("");
     } catch (e) {
@@ -187,7 +188,7 @@ export default function AIPanel({ song, user, pdfCanvasRef }) {
   const removeYtId = async () => {
     if (!song?.id) return;
     try {
-      await updateDoc(doc(db, "songs", song.id), { youtubeId: null });
+      await updateDoc(doc(db, "songs", song.id), { youtubeUrl: null, youtubeId: null });
       setYtId(null);
     } catch (e) {
       setYtErr("삭제 실패: " + e.message);
@@ -349,8 +350,50 @@ BPM: ${song.bpm || "미상"}
         </div>
       </div>
 
-      {/* ── 고정: YouTube + 구분선 + AI 컨트롤 */}
+      {/* ── 고정: YouTube 링크 추가/변경 + AI 컨트롤 */}
       <div style={{ flexShrink:0 }}>
+        {/* 유튜브 링크 — 링크 없으면 입력(리더), 있으면 리더에게 변경/삭제. 영상 자체는 MEDIA 패널 상단에 표시됨 */}
+        {(() => {
+          const hasYt = !!(song?.youtubeUrl || song?.youtubeId || ytId);
+          const showAdd = isLeader && (!hasYt || editYt);
+          const showManage = isLeader && hasYt && !editYt;
+          if (!showAdd && !showManage) return null;
+          return (
+            <div style={{ padding:"8px 12px 10px", borderBottom:`1px solid ${C.bdr}` }}>
+              {showAdd ? (
+                <>
+                  <div style={{ fontSize:10, color:C.dim, marginBottom:4, fontWeight:600 }}>🎬 유튜브 레퍼런스 링크</div>
+                  <div style={{ display:"flex", gap:5 }}>
+                    <input value={ytInput} onChange={e => setYtInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") saveYtId(); }}
+                      placeholder="유튜브 URL 붙여넣기"
+                      style={{ flex:1, fontSize:12, padding:"6px 8px", borderRadius:7, border:`1px solid ${C.bdr}`,
+                        background:C.card, color:C.txt, outline:"none", fontFamily:"inherit" }} />
+                    <button onClick={saveYtId}
+                      style={{ fontSize:12, padding:"6px 12px", borderRadius:7, cursor:"pointer", background:C.acc,
+                        color:"#fff", border:"none", fontWeight:800, fontFamily:"inherit", flexShrink:0 }}>저장</button>
+                    {editYt && (
+                      <button onClick={() => { setEditYt(false); setYtInput(""); setYtErr(""); }}
+                        style={{ fontSize:12, padding:"6px 9px", borderRadius:7, cursor:"pointer", background:C.card,
+                          color:C.dim, border:`1px solid ${C.bdr}`, fontFamily:"inherit", flexShrink:0 }}>취소</button>
+                    )}
+                  </div>
+                  {ytErr && <div style={{ fontSize:10, color:C.red, marginTop:4 }}>{ytErr}</div>}
+                </>
+              ) : (
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ fontSize:11, color:C.dim, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>🎬 유튜브 연결됨</span>
+                  <button onClick={() => { setEditYt(true); setYtInput(""); setYtErr(""); }}
+                    style={{ fontSize:11, padding:"4px 9px", borderRadius:6, cursor:"pointer", background:`${C.acc}18`,
+                      color:C.acc, border:`1px solid ${C.acc}44`, fontWeight:700, fontFamily:"inherit" }}>변경</button>
+                  <button onClick={removeYtId}
+                    style={{ fontSize:11, padding:"4px 9px", borderRadius:6, cursor:"pointer", background:`${C.red}18`,
+                      color:C.red, border:`1px solid ${C.red}44`, fontWeight:700, fontFamily:"inherit" }}>삭제</button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {/* AI 컨트롤 (버튼/메타 행) */}
         <div style={{ padding:"0 12px 10px" }}>
           {analysis ? (
