@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.765";
+const APP_VERSION = "3.766";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -4704,18 +4704,29 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
   const doKakaoSend = (text, countKey = "shareCount") => {
     const doCount = () => updateDoc(doc(db, "services", svc.id), { [countKey]: increment(1), notified: true }).catch(() => {});
-    if (window.Kakao?.isInitialized()) {
-      window.Kakao.Share.sendDefault({
-        objectType: "text",
-        text,
-        link: { mobileWebUrl: window.location.origin, webUrl: window.location.origin },
-        success: doCount,
-      });
-    } else {
-      navigator.clipboard?.writeText(text)
-        .then(() => { alert("메시지가 복사됐습니다. 카카오톡에 붙여넣기 해주세요."); doCount(); })
-        .catch(() => alert("클립보드 복사에 실패했습니다."));
-    }
+    // 공유창이 안 뜰 때(도메인 미등록·PC·팝업차단 등) 폴백: 복사 → 안 되면 프롬프트로 직접 복사
+    const fallbackCopy = () => {
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text)
+          .then(() => { alert("카카오톡 공유창을 열 수 없어 메시지를 복사했어요.\n카카오톡 채팅방에 붙여넣기 해주세요."); doCount(); })
+          .catch(() => { window.prompt("아래 메시지를 복사해 카카오톡에 붙여넣으세요:", text); doCount(); });
+      } else {
+        window.prompt("아래 메시지를 복사해 카카오톡에 붙여넣으세요:", text); doCount();
+      }
+    };
+    try {
+      if (window.Kakao?.isInitialized?.() && window.Kakao?.Share?.sendDefault) {
+        window.Kakao.Share.sendDefault({
+          objectType: "text",
+          text,
+          link: { mobileWebUrl: window.location.origin, webUrl: window.location.origin },
+          success: doCount,
+          fail: fallbackCopy,   // 카카오 공유 실패 시 복사 폴백
+        });
+      } else {
+        fallbackCopy();
+      }
+    } catch { fallbackCopy(); }
   };
 
   const shareToKakao = () => {
