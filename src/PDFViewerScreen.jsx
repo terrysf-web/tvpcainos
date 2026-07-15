@@ -2766,7 +2766,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           const txH    = anchor === "C" ? "translateX(-50%)" : anchor === "R" ? "translateX(-100%)" : "translateX(0)";
           const xPct   = Math.max(0, Math.min(100, x * 100));
           const boxStyle = moved
-            ? { left:`${lPct}%`, top:`${ly*100}%`, transform:`${txH} translateY(-50%)` }
+            ? { left:`${lx*100}%`, top:`${ly*100}%`, transform:"translate(-50%,-50%)" } // 놓은 지점 중앙 = 연결선 끝과 일치(튕김 방지)
             : below
               ? { left:`${xPct}%`, top:`calc(${y*100}% + 9px)`, transform: txH }
               : { left:`${xPct}%`, top:`calc(${y*100}% - 9px)`, transform:`${txH} translateY(-100%)` };
