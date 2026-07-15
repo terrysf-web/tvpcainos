@@ -1752,7 +1752,7 @@ function HandwritePad({ accent, apiKey, onText }) {
   );
 }
 
-function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue, deleteCue, editCue, userRoleMap, moveCueLabel, sheetLinkEnabled, sheetSyncTrigger }) {
+function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue, deleteCue, editCue, userRoleMap, moveCueLabel, resizeCueLabel, sheetLinkEnabled, sheetSyncTrigger }) {
   const song = songs.find(s => s.id === selectedSongId);
   const isLibraryMode = backTo === "library"; // 라이브러리에서 열린 경우: 예배 컨텍스트 없음
   const isLiteMode    = backTo === "lite";    // Lite 뷰어: 메뉴 없음, 전체화면 악보만
@@ -1961,6 +1961,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [showSheetCues, setShowSheetCues] = useState(true);  // 리더 큐노트를 악보 위에 내용째 표시(팀원 공유)
   const [cueLabelDrag, setCueLabelDrag] = useState(null);    // 악보 위 큐 글자 상자 끌기 {id, side, x, y}(표시좌표 0~1)
   const cueDragRef = useRef(null);
+  const [cueResize, setCueResize] = useState(null);          // 큐 글자 상자 폭 조절 라이브 {id, w}(악보 가로 대비 비율)
+  const cueResizeRef = useRef(null);
   const [cueEditId,     setCueEditId]     = useState(null);
   const [cueEditTxt,    setCueEditTxt]    = useState("");
   const [cueTopics,     setCueTopics]     = useState([]);   // 리더가 만든 타이틀(주제) 목록 (곡별 공유)
@@ -2726,6 +2728,37 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const fullY = cb ? cb.top  + cur.y * (cb.bottom - cb.top) : cur.y;
     moveCueLabel?.(d.id, Math.max(0, Math.min(1, fullX)), Math.max(0, Math.min(1, fullY)));
   };
+  // 큐 글자 상자 폭 조절 — 상자 중앙(cx) 기준 대칭. w = 악보 가로 대비 비율
+  const cueWidthFromPointer = (e, side, cx) => {
+    const cv = side === 2 ? canvas2Ref.current : canvas1Ref.current;
+    const r = cv?.getBoundingClientRect(); if (!r?.width) return null;
+    const centerX = r.left + cx * r.width;
+    const half = Math.abs(e.clientX - centerX);
+    return Math.max(0.1, Math.min(0.6, (half * 2) / r.width));
+  };
+  const startCueResize = (e, c, side, cx) => {
+    if (!canDragCue) return;
+    e.preventDefault(); e.stopPropagation();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    cueResizeRef.current = { id: c.id, side, cx };
+    const w = cueWidthFromPointer(e, side, cx);
+    if (w != null) setCueResize({ id: c.id, w });
+  };
+  const moveCueResize = (e, side) => {
+    const d = cueResizeRef.current; if (!d || d.side !== side) return;
+    e.preventDefault(); e.stopPropagation();
+    const w = cueWidthFromPointer(e, side, d.cx); if (w == null) return;
+    setCueResize({ id: d.id, w });
+  };
+  const endCueResize = (e, side) => {
+    const d = cueResizeRef.current; if (!d || d.side !== side) return;
+    e.preventDefault(); e.stopPropagation();
+    const w = cueWidthFromPointer(e, side, d.cx);
+    cueResizeRef.current = null;
+    const finalW = w ?? (cueResize && cueResize.id === d.id ? cueResize.w : null);
+    setCueResize(null);
+    if (finalW != null) resizeCueLabel?.(d.id, finalW);
+  };
 
   const sheetCueLayer = (songId, cropBox, page, side = 1) => {
     if (!showSheetCues || !songId) return null;
@@ -2759,6 +2792,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           else if (c.labelX != null)  { const p = toDisp(c.labelX, c.labelY); lx = p.x; ly = p.y; moved = true; }
           else                        { lx = x; ly = y; moved = false; }
           const label = (c.section && c.section.trim()) ? c.section.trim() : "";
+          const liveW  = (cueResize && cueResize.id === c.id) ? cueResize.w : (c.labelW ?? null); // 폭 조절 비율
           // 안 옮긴 경우: 핀 아래(위쪽 지점)/위(아래쪽 지점)로, 가로 앵커. 옮긴 경우: 그 지점 중앙.
           const below  = y < 0.5;
           const lPct   = Math.max(moved ? 6 : 0, Math.min(moved ? 94 : 100, lx * 100));
@@ -2794,7 +2828,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 onTouchMove={canDragCue ? (e) => e.stopPropagation() : undefined}
                 onTouchEnd={canDragCue ? (e) => e.stopPropagation() : undefined}
                 style={{ position:"absolute", ...boxStyle,
-                  width:"max-content", maxWidth:210,
+                  width: liveW != null ? `${(liveW*100).toFixed(1)}%` : "max-content",
+                  maxWidth: liveW != null ? "none" : 210,
                   // 반투명 흰 배경(형광펜 느낌) — 글자는 또렷, 악보는 뒤로 비쳐 덜 가림
                   background: dragging ? "rgba(255,251,247,0.98)" : "rgba(255,255,255,0.8)",
                   border:"1px solid rgba(216,67,21,0.35)",
@@ -2810,6 +2845,22 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   borderRadius:5, padding:"0 6px", marginRight:5, fontSize:11, fontWeight:900,
                   verticalAlign:"1px" }}>{label}</span>}
                 {c.text}
+                {/* 크기 조절 핸들 (리더/어드민/키보드) — 끌어서 폭 조절 → 좁은 빈 곳에 맞춤 */}
+                {canDragCue && (
+                  <div
+                    onPointerDown={(e) => startCueResize(e, c, side, lx)}
+                    onPointerMove={(e) => moveCueResize(e, side)}
+                    onPointerUp={(e) => endCueResize(e, side)}
+                    onPointerCancel={(e) => endCueResize(e, side)}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onTouchMove={(e) => e.stopPropagation()}
+                    onTouchEnd={(e) => e.stopPropagation()}
+                    title="크기 조절"
+                    style={{ position:"absolute", right:-8, bottom:-8, width:17, height:17,
+                      borderRadius:"50%", background:"#d84315", border:"2px solid #fff",
+                      boxShadow:"0 1px 3px rgba(0,0,0,0.35)", cursor:"nwse-resize",
+                      touchAction:"none", pointerEvents:"auto" }} />
+                )}
               </div>
             </div>
           );
