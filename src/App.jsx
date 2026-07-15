@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.766";
+const APP_VERSION = "3.767";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -4702,18 +4702,24 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     setShowNotifModal(false);
   };
 
-  const doKakaoSend = (text, countKey = "shareCount") => {
+  const doKakaoSend = async (text, countKey = "shareCount") => {
     const doCount = () => updateDoc(doc(db, "services", svc.id), { [countKey]: increment(1), notified: true }).catch(() => {});
-    // 공유창이 안 뜰 때(도메인 미등록·PC·팝업차단 등) 폴백: 복사 → 안 되면 프롬프트로 직접 복사
+    // 최종 폴백: 복사 → 안 되면 프롬프트로 직접 복사
     const fallbackCopy = () => {
       if (navigator.clipboard?.writeText) {
         navigator.clipboard.writeText(text)
-          .then(() => { alert("카카오톡 공유창을 열 수 없어 메시지를 복사했어요.\n카카오톡 채팅방에 붙여넣기 해주세요."); doCount(); })
+          .then(() => { alert("메시지를 복사했어요. 카카오톡 채팅방에 붙여넣기 해주세요."); doCount(); })
           .catch(() => { window.prompt("아래 메시지를 복사해 카카오톡에 붙여넣으세요:", text); doCount(); });
       } else {
         window.prompt("아래 메시지를 복사해 카카오톡에 붙여넣으세요:", text); doCount();
       }
     };
+    // 1) 기기 네이티브 공유 시트 (모바일) — 카카오톡을 골라 바로 전송. 카카오 도메인 등록 불필요
+    if (navigator.share) {
+      try { await navigator.share({ text }); doCount(); return; }
+      catch (e) { if (e?.name === "AbortError") return; /* 사용자 취소 → 폴백 안 함 */ }
+    }
+    // 2) 카카오 JS SDK 공유 (도메인 등록돼 있을 때)
     try {
       if (window.Kakao?.isInitialized?.() && window.Kakao?.Share?.sendDefault) {
         window.Kakao.Share.sendDefault({
@@ -4721,12 +4727,13 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           text,
           link: { mobileWebUrl: window.location.origin, webUrl: window.location.origin },
           success: doCount,
-          fail: fallbackCopy,   // 카카오 공유 실패 시 복사 폴백
+          fail: fallbackCopy,
         });
-      } else {
-        fallbackCopy();
+        return;
       }
-    } catch { fallbackCopy(); }
+    } catch {}
+    // 3) 복사 폴백
+    fallbackCopy();
   };
 
   const shareToKakao = () => {
