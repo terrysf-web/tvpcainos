@@ -2701,6 +2701,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   //    저장 좌표는 전체 페이지 기준(0~1) → 현재 크롭 화면 좌표로 역변환해서 정렬
   // 큐 글자 상자 끌기 (리더/어드민/키보드만) — 핀은 그대로, 글자만 빈 곳으로 이동
   const canDragCue = canPinToSheet(user?.role);
+  const canResizeCue = user?.role === "admin"; // 크기 조절은 어드민만
   const startCueDrag = (e, c, side, cb) => {
     if (!canDragCue) return;
     e.preventDefault(); e.stopPropagation();
@@ -2737,7 +2738,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     return Math.max(0.1, Math.min(0.6, (half * 2) / r.width));
   };
   const startCueResize = (e, c, side, cx) => {
-    if (!canDragCue) return;
+    if (!canResizeCue) return;
     e.preventDefault(); e.stopPropagation();
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
     cueResizeRef.current = { id: c.id, side, cx };
@@ -2845,8 +2846,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   borderRadius:5, padding:"0 6px", marginRight:5, fontSize:11, fontWeight:900,
                   verticalAlign:"1px" }}>{label}</span>}
                 {c.text}
-                {/* 크기 조절 핸들 (리더/어드민/키보드) — 끌어서 폭 조절 → 좁은 빈 곳에 맞춤 */}
-                {canDragCue && (
+                {/* 크기 조절 핸들 (어드민만) — 끌어서 폭 조절 → 좁은 빈 곳에 맞춤 */}
+                {canResizeCue && (
                   <div
                     onPointerDown={(e) => startCueResize(e, c, side, lx)}
                     onPointerMove={(e) => moveCueResize(e, side)}

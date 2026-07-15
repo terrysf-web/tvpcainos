@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.772";
+const APP_VERSION = "3.773";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -9066,9 +9066,9 @@ export default function App() {
     if (!canPinToSheet(user?.role)) return;
     await updateDoc(doc(db, "cueNotes", cueId), { labelX, labelY });
   };
-  // 악보 위 큐 글자 상자 폭 조절 (빈 공간에 맞게) — labelW = 악보 가로 대비 비율
+  // 악보 위 큐 글자 상자 폭 조절 (빈 공간에 맞게) — labelW = 악보 가로 대비 비율. 어드민만
   const resizeCueLabel = async (cueId, labelW) => {
-    if (!canPinToSheet(user?.role)) return;
+    if (user?.role !== "admin") return;
     await updateDoc(doc(db, "cueNotes", cueId), { labelW });
   };
 
