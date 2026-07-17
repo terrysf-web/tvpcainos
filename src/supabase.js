@@ -178,12 +178,19 @@ export async function uploadPdf(file, songId) {
 }
 
 // 예배 서비스 설정 (practiceUrl 등) — Supabase Storage (Firestore 할당량 우회)
+// 고정 경로 JSON 저장 — upsert(덮어쓰기)가 버킷 정책상 막혔을 때(첫 저장은 되고 재저장 실패)
+// 기존 파일 삭제 후 새로 업로드하는 폴백 포함
+async function _uploadJsonUpsert(bucket, path, obj) {
+  const blob = new Blob([JSON.stringify(obj)], { type: "application/json" });
+  const first = await supabase.storage.from(bucket).upload(path, blob, { contentType: "application/json", upsert: true });
+  if (!first.error) return;
+  await supabase.storage.from(bucket).remove([path]).catch(() => {});
+  const retry = await supabase.storage.from(bucket).upload(path, blob, { contentType: "application/json", upsert: false });
+  if (retry.error) throw new Error(retry.error.message);
+}
+
 export async function saveServiceSettings(svcId, data) {
-  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-  const { error } = await supabase.storage.from("pdfs").upload(`serviceSettings/${svcId}.json`, blob, {
-    contentType: "application/json", upsert: true,
-  });
-  if (error) throw new Error(error.message);
+  await _uploadJsonUpsert("pdfs", `serviceSettings/${svcId}.json`, data);
 }
 
 export async function loadServiceSettings(svcId) {
@@ -215,12 +222,7 @@ export async function listWorshipRecordingServiceIds() {
 }
 
 export async function saveWorshipRecording(docId, data) {
-  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-  const { error } = await supabase.storage.from(REC_BUCKET).upload(recPath(docId), blob, {
-    contentType: "application/json",
-    upsert: true,
-  });
-  if (error) throw new Error(error.message);
+  await _uploadJsonUpsert(REC_BUCKET, recPath(docId), data);
 }
 
 export async function loadWorshipRecording(docId) {
@@ -233,8 +235,7 @@ export async function deleteWorshipRecordingPart(docId, part) {
   const current = await loadWorshipRecording(docId);
   if (!current) return;
   delete current.parts[part];
-  const blob = new Blob([JSON.stringify(current)], { type: "application/json" });
-  await supabase.storage.from(REC_BUCKET).upload(recPath(docId), blob, { contentType: "application/json", upsert: true });
+  await _uploadJsonUpsert(REC_BUCKET, recPath(docId), current);
 }
 
 export async function updateWorshipRecordingPart(docId, part, driveId, title) {
@@ -243,8 +244,7 @@ export async function updateWorshipRecordingPart(docId, part, driveId, title) {
   current.parts[part] = driveId;
   if (title !== undefined) current.title = title;
   current.updatedAt = new Date().toISOString();
-  const blob = new Blob([JSON.stringify(current)], { type: "application/json" });
-  await supabase.storage.from(REC_BUCKET).upload(recPath(docId), blob, { contentType: "application/json", upsert: true });
+  await _uploadJsonUpsert(REC_BUCKET, recPath(docId), current);
 }
 
 // 이미지 업로드 전 최대 1920px로 압축 (iOS 카메라 원본 등 대용량 파일 대응)
