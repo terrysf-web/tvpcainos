@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.774";
+const APP_VERSION = "3.775";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -3498,7 +3498,7 @@ function ServiceStatusBadge({ svc }) {
   );
 }
 
-function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createService, nav, teamAnnotations }) {
+function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createService, deleteService, nav, teamAnnotations }) {
   const [showCreate,   setShowCreate]   = useState(false);
   const [pastExpanded, setPastExpanded] = useState(false);
   const unread = notifs.filter(n => !n.read).length;
@@ -3570,7 +3570,20 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
               {svc.title}{svc.time ? ` · ${svc.time}` : ""}
             </div>
           </div>
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", gap:3, flexShrink:0, marginLeft:8 }}>
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:3, flexShrink:0, marginLeft:8 }}>
+            {user?.role === "admin" && (
+              <button onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm(`"${svc.title}" (${fmtDate(svc.date)}) 예배를 삭제할까요?\n\n이 예배 일정이 목록에서 사라집니다. 되돌릴 수 없습니다.`)) {
+                    deleteService?.(svc.id);
+                  }
+                }}
+                title="예배 삭제 (어드민)"
+                style={{ width:26, height:26, borderRadius:7, cursor:"pointer", flexShrink:0,
+                  background:`${C.red}12`, border:`1px solid ${C.red}40`, color:C.red,
+                  fontSize:13, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center",
+                  fontFamily:"inherit", marginBottom:2 }}>🗑</button>
+            )}
             {svc.notified && (
               <span style={{ fontSize:10, fontWeight:700, color:"#8a4f00", background:"#e8a93e14", border:"1px solid #e8a93e40", borderRadius:4, padding:"2px 7px", whiteSpace:"nowrap" }}>알림완료</span>
             )}
@@ -8992,6 +9005,12 @@ export default function App() {
     });
   };
 
+  const deleteService = async (svcId) => {
+    if (user?.role !== "admin") { alert("예배 삭제는 어드민만 가능합니다."); return; }
+    await deleteDoc(doc(db, "services", svcId));
+    setServices(prev => prev.filter(s => s.id !== svcId));
+  };
+
   const updateService = async (svcId, data) => {
     const idToken = await auth.currentUser?.getIdToken();
     if (!idToken) throw new Error("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
@@ -9381,7 +9400,7 @@ export default function App() {
 
   const shared = {
     user, songs, services, servicesLoaded, notifs, annotations, teamAnnotations, userMap, songDrawings,
-    addSong, createService, updateService,
+    addSong, createService, updateService, deleteService,
     onAddAnnotation: addAnnotation,
     onDeleteAnnotation: deleteAnnotation,
     markNotifRead, markAllNotifRead,
