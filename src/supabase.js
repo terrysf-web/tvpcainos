@@ -182,10 +182,11 @@ export async function uploadPdf(file, songId) {
 // 기존 파일 삭제 후 새로 업로드하는 폴백 포함
 async function _uploadJsonUpsert(bucket, path, obj) {
   const blob = new Blob([JSON.stringify(obj)], { type: "application/json" });
-  const first = await supabase.storage.from(bucket).upload(path, blob, { contentType: "application/json", upsert: true });
+  const opts = { contentType: "application/json", upsert: true, cacheControl: "0" };
+  const first = await supabase.storage.from(bucket).upload(path, blob, opts);
   if (!first.error) return;
   await supabase.storage.from(bucket).remove([path]).catch(() => {});
-  const retry = await supabase.storage.from(bucket).upload(path, blob, { contentType: "application/json", upsert: false });
+  const retry = await supabase.storage.from(bucket).upload(path, blob, { ...opts, upsert: false });
   if (retry.error) throw new Error(retry.error.message);
 }
 
@@ -194,9 +195,13 @@ export async function saveServiceSettings(svcId, data) {
 }
 
 export async function loadServiceSettings(svcId) {
-  const { data, error } = await supabase.storage.from("pdfs").download(`serviceSettings/${svcId}.json`);
-  if (error || !data) return null;
-  try { return JSON.parse(await data.text()); } catch { return null; }
+  // 저장 직후 예전 캐시가 뜨는 문제 방지 — 공개 URL + 캐시 버스팅으로 항상 최신 로드
+  try {
+    const { data: { publicUrl } } = supabase.storage.from("pdfs").getPublicUrl(`serviceSettings/${svcId}.json`);
+    const r = await fetch(publicUrl + (publicUrl.includes("?") ? "&" : "?") + "t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
 }
 
 // 예배 녹음 — Supabase Storage JSON 파일로 저장/읽기 (Firestore 할당량 완전 우회)
@@ -226,9 +231,13 @@ export async function saveWorshipRecording(docId, data) {
 }
 
 export async function loadWorshipRecording(docId) {
-  const { data, error } = await supabase.storage.from(REC_BUCKET).download(recPath(docId));
-  if (error || !data) return null;
-  try { return JSON.parse(await data.text()); } catch { return null; }
+  // 저장 직후 예전 캐시가 뜨는 문제 방지 — 공개 URL + 캐시 버스팅으로 항상 최신 로드
+  try {
+    const { data: { publicUrl } } = supabase.storage.from(REC_BUCKET).getPublicUrl(recPath(docId));
+    const r = await fetch(publicUrl + (publicUrl.includes("?") ? "&" : "?") + "t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
 }
 
 export async function deleteWorshipRecordingPart(docId, part) {
