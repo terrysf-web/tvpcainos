@@ -2763,8 +2763,11 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   const sheetCueLayer = (songId, cropBox, page, side = 1) => {
     if (!showSheetCues || !songId) return null;
-    // 악보 표시 자격: 작성자의 현재 권한(리더/어드민/키보드)이 우선, 권한 정보 없으면 저장된 byLeader 플래그로 폴백
+    // 악보 표시 자격
     const eligible = (c) => {
+      // Lite: 일반 큐는 숨기고 '리드보컬'이 만든 큐만 표시
+      if (isLiteMode) return (c.userPart || "").includes("리드보컬");
+      // 일반: 작성자의 현재 권한(리더/어드민/키보드) 우선, 없으면 저장된 byLeader 폴백
       const r = userRoleMap?.[c.userId];
       return r != null ? canPinToSheet(r) : !!c.byLeader;
     };
@@ -5493,6 +5496,18 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             </svg>
             {drawTool === "eraser" ? "펜" : "지우개"}
           </>), drawTool === "eraser", 88)}
+
+          {/* 큐노트 켜짐/꺼짐 토글 (Lite) — 리드보컬 큐 표시 on/off. 필기 버튼 위에 얹음 */}
+          <button onClick={() => setShowSheetCues(v => !v)}
+            title="리드보컬 큐노트 표시/숨김"
+            style={{ position:"fixed", right:16,
+              bottom:"calc(env(safe-area-inset-bottom,0px) + 18px + 52px)", zIndex:200,
+              background: showSheetCues ? "rgba(255,111,0,0.9)" : "rgba(0,0,0,0.42)",
+              color:"#fff", border:"none", borderRadius:24, padding:"10px 16px",
+              fontSize:14, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:7,
+              backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)", letterSpacing:"-0.01em" }}>
+            📌 {showSheetCues ? "큐 켜짐" : "큐 꺼짐"}
+          </button>
 
           {/* 연습녹음 버튼 — 서비스 연습 녹음이 있을 때 (악보 보며 연습) */}
           {svcPracticeUrl && !drawMode && (
