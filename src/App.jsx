@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.778";
+const APP_VERSION = "3.779";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -4882,15 +4882,11 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const setClosingSong = async (songId) => {
     const prevIds = svc.songIds || [];
     const prevPartIds = svc.songPartIds || [];
-    // 이 곡을 원래 자리에서 빼고(중복 방지), 기존 Closing은 찬양으로 복귀, 이 곡을 끝에 Closing 으로 추가
-    const keptIds = [], keptParts = [];
-    prevIds.forEach((sid, i) => {
-      if (sid === songId) return;
-      keptIds.push(sid);
-      keptParts.push(prevPartIds[i] === "Closing" ? "찬양" : (prevPartIds[i] || "찬양"));
-    });
-    const newIds = [...keptIds, songId];
-    const newPartIds = [...keptParts, "Closing"];
+    // 원곡은 그대로 두고, 기존 Closing 복제만 제거한 뒤 이 곡을 끝에 Closing 으로 복제 추가 (중복)
+    const filteredIds = prevIds.filter((_, i) => prevPartIds[i] !== "Closing");
+    const filteredPartIds = prevPartIds.filter(p => p !== "Closing");
+    const newIds = [...filteredIds, songId];
+    const newPartIds = [...filteredPartIds, "Closing"];
     await updateDoc(doc(db, "services", svc.id), { songIds: newIds, songPartIds: newPartIds, closingSongId: songId });
   };
 
@@ -5312,7 +5308,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                         border: `1px solid ${curPart === p ? PART_COLORS[p] + "66" : C.bdr}`,
                       }}>{p}</button>
                   ))}
-                  {/* Closing 지정 — 결단뿐 아니라 찬양 등 어느 곡에서도 가능 */}
+                  {/* Closing 지정 — 결단뿐 아니라 찬양 등 어느 곡에서도 가능(나머지 동작은 기존과 동일) */}
                   <button onClick={async (e) => {
                       e.stopPropagation();
                       if (closingSongId === id) { await removeClosing(); }
