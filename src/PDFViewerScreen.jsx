@@ -2763,6 +2763,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   const sheetCueLayer = (songId, cropBox, page, side = 1) => {
     if (!showSheetCues || !songId) return null;
+    // Lite: 리드보컬(리더)이 만든 큐를 '싱어(보컬 파트)'에게만 표시 — 악기 파트는 큐가 안 보임
+    if (isLiteMode && !isVocalistUser(user)) return null;
     // 악보 표시 자격
     const eligible = (c) => {
       // Lite: 일반 큐는 숨기고 '리드보컬'이 만든 큐만 표시
@@ -5497,7 +5499,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             {drawTool === "eraser" ? "펜" : "지우개"}
           </>), drawTool === "eraser", 88)}
 
-          {/* 큐노트 켜짐/꺼짐 토글 (Lite) — 리드보컬 큐 표시 on/off. 필기 버튼 위에 얹음 */}
+          {/* 큐노트 켜짐/꺼짐 토글 (Lite) — 싱어(보컬)에게만. 리드보컬 큐 표시 on/off. 필기 버튼 위에 얹음 */}
+          {isVocalistUser(user) && (
           <button onClick={() => setShowSheetCues(v => !v)}
             title="리드보컬 큐노트 표시/숨김"
             style={{ position:"fixed", right:16,
@@ -5508,6 +5511,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)", letterSpacing:"-0.01em" }}>
             📌 {showSheetCues ? "큐 켜짐" : "큐 꺼짐"}
           </button>
+          )}
 
           {/* 연습녹음 버튼 — 서비스 연습 녹음이 있을 때 (악보 보며 연습) */}
           {svcPracticeUrl && !drawMode && (
