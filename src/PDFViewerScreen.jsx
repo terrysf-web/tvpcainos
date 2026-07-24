@@ -2817,7 +2817,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 <svg style={{ position:"absolute", inset:0, width:"100%", height:"100%",
                   pointerEvents:"none", overflow:"visible" }}>
                   <line x1={`${x*100}%`} y1={`${y*100}%`} x2={`${lx*100}%`} y2={`${ly*100}%`}
-                    stroke="#ff6f00" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.8" />
+                    stroke="#e8a33a" strokeWidth="0.8" opacity="0.35" />
                 </svg>
               )}
               {/* 정확한 지점 표시 점 */}
@@ -2835,13 +2835,13 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 onTouchEnd={canDragCue ? (e) => e.stopPropagation() : undefined}
                 style={{ position:"absolute", ...boxStyle,
                   width: liveW != null ? `${(liveW*100).toFixed(1)}%` : "max-content",
-                  maxWidth: liveW != null ? "none" : 210,
-                  // 반투명 흰 배경(형광펜 느낌) — 글자는 또렷, 악보는 뒤로 비쳐 덜 가림
-                  background: dragging ? "rgba(255,247,200,0.98)" : "rgba(255,241,150,0.68)",
-                  border:"1px solid rgba(216,67,21,0.3)",
-                  borderRadius:8, padding:"2px 8px",
-                  color:"#c0392b", fontSize:13, fontWeight:800,
-                  lineHeight:1.32, whiteSpace:"normal", overflowWrap:"anywhere",
+                  maxWidth: liveW != null ? "none" : 185,
+                  // 반투명 옅은 노랑(형광펜 느낌) — 글자는 또렷, 악보는 뒤로 비쳐 덜 가림
+                  background: dragging ? "rgba(255,247,200,0.98)" : "rgba(255,241,150,0.66)",
+                  border:"1px solid rgba(216,67,21,0.28)",
+                  borderRadius:7, padding:"1px 6px",
+                  color:"#c0392b", fontSize:12, fontWeight:800,
+                  lineHeight:1.28, whiteSpace:"normal", overflowWrap:"anywhere",
                   textShadow:"0 1px 1px rgba(255,255,255,0.9)",
                   boxShadow: dragging ? "0 3px 12px rgba(0,0,0,0.3)" : "0 1px 4px rgba(0,0,0,0.18)",
                   pointerEvents: canDragCue ? "auto" : "none",
