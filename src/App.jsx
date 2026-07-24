@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.782";
+const APP_VERSION = "3.783";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -1837,6 +1837,20 @@ function CueSheetPeek({ song, cues, onClose }) {
   const marked = list.filter(c => c.markX != null);
   const page = marked[0]?.markPage || song?.pdfPage || 1;
   const onPage = marked.filter(c => (c.markPage || 1) === page);
+  // 가까운(겹치는) 핀끼리 세로로 살짝 펼쳐 다 보이게 — 지점 중심으로 대칭 오프셋(px)
+  const pinOffsets = {};
+  {
+    const clusters = [];
+    onPage.forEach(c => {
+      let cl = clusters.find(k => Math.abs(k.x - c.markX) < 0.05 && Math.abs(k.y - c.markY) < 0.035);
+      if (!cl) { cl = { x: c.markX, y: c.markY, items: [] }; clusters.push(cl); }
+      cl.items.push(c.id);
+    });
+    clusters.forEach(cl => {
+      const n = cl.items.length;
+      cl.items.forEach((id, idx) => { pinOffsets[id] = (idx - (n - 1) / 2) * 24; });
+    });
+  }
 
   const sheetCol = (
     <div style={{ position:"relative", flexShrink:0,
@@ -1859,7 +1873,7 @@ function CueSheetPeek({ song, cues, onClose }) {
             const pinLabel = (c.section && c.section.trim()) ? c.section.trim() : `#${n}`;
             return (
               <div key={c.id} style={{ position:"absolute", left:`${c.markX * 100}%`, top:`${c.markY * 100}%`,
-                transform:"translate(-50%,-50%)", zIndex: isSel ? 4 : 2 }}>
+                transform:`translate(-50%, calc(-50% + ${pinOffsets[c.id] || 0}px))`, zIndex: isSel ? 4 : 2 }}>
                 <button onClick={(e) => { e.stopPropagation(); setSel(isSel ? null : c.id); }}
                   style={{ height:isSel?24:22, padding:"0 9px", borderRadius:12, cursor:"pointer",
                     background: isSel ? "#1c3c88" : "#ff6f00", border:"2px solid #fff", color:"#fff",
