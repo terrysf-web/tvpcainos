@@ -2042,6 +2042,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const pointerPrevSheetLink  = useRef(false); // 포인터 켜기 전 sheetLink 상태 저장
   const pointerActiveSideRef  = useRef(1);     // 현재 그리는 쪽: 1=왼쪽, 2=오른쪽
   const pointerActiveSongRef  = useRef(null);  // 현재 그리는 쪽의 songId (interval 클로저용)
+  const pointerIdleTimerRef   = useRef(null);  // 30초 미사용 시 자동 끄기 타이머
 
   // ── Stamp + loupe
   const [stampSymbol, setStampSymbol] = useState("f");
@@ -2335,6 +2336,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }, 1000);
   };
 
+  // ── 포인터 30초 미사용 자동 끄기
+  const turnPointerOff = () => {
+    if (pointerIdleTimerRef.current) { clearTimeout(pointerIdleTimerRef.current); pointerIdleTimerRef.current = null; }
+    setPointerOn(false);
+    pointerStrokesRef.current = [];
+    pointerLiveRef.current = null;
+    [pointerCanvas1Ref, pointerCanvas2Ref].forEach(r => { if (r.current) drawPointerStrokes(r.current, [], null); });
+    if (svc?.id) updateDoc(doc(db, "services", svc.id), {
+      "teamPointer.on": false, "teamPointer.strokes": [], "teamPointer.live": null,
+    }).catch(() => {});
+  };
+  const bumpPointerIdle = () => {
+    if (pointerIdleTimerRef.current) clearTimeout(pointerIdleTimerRef.current);
+    pointerIdleTimerRef.current = setTimeout(() => { turnPointerOff(); showToast?.("포인터 자동 꺼짐 (30초 미사용)"); }, 30000);
+  };
+  useEffect(() => () => { if (pointerIdleTimerRef.current) clearTimeout(pointerIdleTimerRef.current); }, []);
+
   // 포인터 아이콘 토글 — 파트 선택/악보 동기화 없음.
   // 켜면 어드민·FOH를 제외한 모든 파트가 자동으로 포인터를 봄(렌더 useEffect에서 제외 처리).
   const togglePointer = () => {
@@ -2346,12 +2364,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (turningOn) {
       pointerActiveSideRef.current = 1;
       pointerActiveSongRef.current = (dual && dualLeftSongId) ? dualLeftSongId : selectedSongId;
+      bumpPointerIdle(); // 30초 미사용 자동 끄기 타이머 시작
       if (svc?.id) updateDoc(doc(db, "services", svc.id), {
         "teamPointer.on": true,
         "teamPointer.songId": pointerActiveSongRef.current,
         "teamPointer.strokes": [], "teamPointer.live": null,
       }).catch(() => {});
     } else {
+      if (pointerIdleTimerRef.current) { clearTimeout(pointerIdleTimerRef.current); pointerIdleTimerRef.current = null; }
       if (svc?.id) updateDoc(doc(db, "services", svc.id), {
         "teamPointer.on": false, "teamPointer.strokes": [], "teamPointer.live": null,
       }).catch(() => {});
@@ -2363,6 +2383,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (!pointerOn || !canvasRef.current) return;
     if (e.pointerType === "touch") return;
     e.preventDefault();
+    bumpPointerIdle(); // 사용 중 → 자동 끄기 타이머 리셋
     const newSide = canvasRef === pointerCanvas2Ref ? 2 : 1;
     // 안전장치: 표시 캔버스가 아직 크기 0이면 PDF 캔버스 크기로 맞춤 (안 그러면 drawPointerStrokes가 무시됨)
     const baseCanvas = newSide === 2 ? canvas2Ref.current : canvas1Ref.current;
@@ -2414,6 +2435,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const handlePointerPenMove = (e, canvasRef) => {
     if (e.pointerType === "touch" || !pointerDownRef.current || !canvasRef.current) return;
     e.preventDefault();
+    bumpPointerIdle(); // 사용 중 → 자동 끄기 타이머 리셋
     const pt = { ...getCanvasPt(e, canvasRef.current), p: e.pointerType === "pen" ? (e.pressure || 0) : 0 };
     pointerCurPtsRef.current.push(pt);
     // rAF 스로틀 + fast(글로우 생략): 그리는 중 렉 방지
