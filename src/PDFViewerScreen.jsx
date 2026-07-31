@@ -7359,28 +7359,14 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 )];
                 return (
                   <div style={{ marginBottom:8, marginTop:4 }}>
-                    <div style={{ display:"flex", gap:6 }}>
-                      <input
-                        value={cueSection}
-                        onChange={e => setCueSection(e.target.value)}
-                        placeholder="또는 직접 입력 (예: 1절, 후렴, 간주)"
-                        style={{ flex:1, minWidth:0, background:C.card, border:`1.5px solid ${C.bdr}`,
-                          borderRadius:8, padding:"7px 10px", fontSize:12, color:C.txt,
-                          fontFamily:"inherit", outline:"none", boxSizing:"border-box" }}
-                      />
-                      <button onClick={() => setCueSecInk(v => !v)} title="손글씨로 섹션 입력"
-                        style={{ flexShrink:0, padding:"0 10px", borderRadius:8, cursor:"pointer",
-                          fontFamily:"inherit", fontSize:12, fontWeight:700,
-                          background: cueSecInk ? "#ff6f00" : C.card,
-                          color: cueSecInk ? "#fff" : C.dim,
-                          border:`1.5px solid ${cueSecInk ? "#ff6f00" : C.bdr}` }}>✍️</button>
-                    </div>
-                    {cueSecInk && (
-                      <div style={{ marginTop:6 }}>
-                        <HandwritePad accent="#ff6f00" apiKey={user?.geminiKey || sharedGeminiKey}
-                          onText={t => { setCueSection(t.trim()); setCueSecInk(false); }} />
-                      </div>
-                    )}
+                    <input
+                      value={cueSection}
+                      onChange={e => setCueSection(e.target.value)}
+                      placeholder="또는 직접 입력 (예: 1절, 후렴, 간주)"
+                      style={{ width:"100%", background:C.card, border:`1.5px solid ${C.bdr}`,
+                        borderRadius:8, padding:"7px 10px", fontSize:12, color:C.txt,
+                        fontFamily:"inherit", outline:"none", boxSizing:"border-box" }}
+                    />
                     {usedSections.length > 0 && (
                       <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:6 }}>
                         {usedSections.map(sec => (
