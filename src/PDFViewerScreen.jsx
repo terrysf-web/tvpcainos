@@ -1958,6 +1958,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [cueSecInk,     setCueSecInk]     = useState(false); // 섹션 손글씨 입력 모드
   const [cueMarkMode,   setCueMarkMode]   = useState(false); // 악보 위치 찍기 모드
   const [cueMark,       setCueMark]       = useState(null);  // {x,y} 표시 좌표(0~1, 크롭된 화면 기준) + page
+  const [cueRemarkId,   setCueRemarkId]   = useState(null);  // 기존 큐 위치 재지정 대상 id
   const [showSheetCues, setShowSheetCues] = useState(true);  // 리더 큐노트를 악보 위에 내용째 표시(팀원 공유)
   const [cueLabelDrag, setCueLabelDrag] = useState(null);    // 악보 위 큐 글자 상자 끌기 {id, side, x, y}(표시좌표 0~1)
   const cueDragRef = useRef(null);
@@ -1965,6 +1966,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const cueResizeRef = useRef(null);
   const [cueEditId,     setCueEditId]     = useState(null);
   const [cueEditTxt,    setCueEditTxt]    = useState("");
+  const [cueEditSection, setCueEditSection] = useState(""); // 수정 시 타이틀(섹션)
   const [cueTopics,     setCueTopics]     = useState([]);   // 리더가 만든 타이틀(주제) 목록 (곡별 공유)
   const [newTopic,      setNewTopic]      = useState("");   // 리더 타이틀 추가 입력
   const [topicAdding,   setTopicAdding]   = useState(false); // 타이틀 추가 입력창 열림
@@ -2698,7 +2700,20 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const cueMarkDown = (e) => {
     e.preventDefault(); e.stopPropagation();
     const p = cropPt(e, 1); if (!p) return; // 표시(크롭) 화면 기준 0~1
-    setCueMark({ x: p.x, y: p.y, page: dual ? (svcSongs[dualIdx]?.pdfPage || 1) : pageNum });
+    const page = dual ? (svcSongs[dualIdx]?.pdfPage || 1) : pageNum;
+    if (cueRemarkId) {
+      // 기존 큐 위치 재지정 — 표시(크롭)좌표 → 전체페이지 좌표로 변환 후 바로 저장
+      const cb = cueSong?.cropBox;
+      const cropped = cb && (cb.left > 0.001 || cb.top > 0.001 || cb.right < 0.999 || cb.bottom < 0.999);
+      const mark = cropped
+        ? { x: cb.left + p.x * (cb.right - cb.left), y: cb.top + p.y * (cb.bottom - cb.top), page }
+        : { x: p.x, y: p.y, page };
+      editCue?.(cueRemarkId, { mark });
+      setCueRemarkId(null); setCueMarkMode(false);
+      showToast("위치가 변경되었습니다");
+      return;
+    }
+    setCueMark({ x: p.x, y: p.y, page });
     setCueMarkMode(false);
     showToast("위치 표시됨 — 전송하면 함께 저장됩니다");
   };
@@ -7215,7 +7230,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                           </span>
                           {isOwn && !isEditing && (
                             <div style={{ display:"flex", gap:5 }}>
-                              <button onClick={() => { setCueEditId(cue.id); setCueEditTxt(cue.text); }}
+                              <button onClick={() => { setCueEditId(cue.id); setCueEditTxt(cue.text); setCueEditSection(cue.section || ""); }}
                                 style={{ fontSize:11, fontWeight:700, color:"#5c4000",
                                   background:"#ffe082", border:"1px solid #ffca28",
                                   borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>
@@ -7238,13 +7253,28 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 background:C.card, border:`1px solid #ff6f0055`, borderRadius:6,
                                 padding:"6px 8px", resize:"none", height:72,
                                 fontFamily:"inherit", outline:"none", boxSizing:"border-box" }} />
+                            {/* 타이틀(섹션) 수정 */}
+                            <input value={cueEditSection} onChange={e => setCueEditSection(e.target.value)}
+                              placeholder="타이틀/섹션 (예: 간주, V1)"
+                              style={{ width:"100%", fontSize:12, color:C.txt, marginTop:5,
+                                background:C.card, border:`1px solid ${C.bdr}`, borderRadius:6,
+                                padding:"6px 8px", outline:"none", fontFamily:"inherit", boxSizing:"border-box" }} />
+                            {/* 위치 재지정 */}
+                            <button onClick={() => { setCueRemarkId(cue.id); setCueMarkMode(true); showToast("악보에서 새 위치를 탭하세요"); }}
+                              style={{ width:"100%", marginTop:5, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                                padding:"6px 0", borderRadius:7,
+                                background: (cueRemarkId === cue.id) ? "#ff6f00" : `${C.grn}18`,
+                                color: (cueRemarkId === cue.id) ? "#fff" : C.grn,
+                                border:`1px solid ${(cueRemarkId === cue.id) ? "#ff6f00" : C.grn+"55"}` }}>
+                              📍 {(cueRemarkId === cue.id) ? "악보를 탭하세요" : (cue.markX != null ? "위치 다시 찍기" : "위치 찍기")}
+                            </button>
                             <div style={{ display:"flex", gap:6, marginTop:5 }}>
-                              <button onClick={async () => { await editCue?.(cue.id, cueEditTxt); setCueEditId(null); }}
+                              <button onClick={async () => { await editCue?.(cue.id, { text: cueEditTxt, section: cueEditSection }); setCueEditId(null); }}
                                 style={{ flex:1, fontSize:12, fontWeight:700, background:"#e65c00", color:"#fff",
                                   border:"none", borderRadius:7, padding:"6px 0", cursor:"pointer", fontFamily:"inherit" }}>
                                 저장
                               </button>
-                              <button onClick={() => setCueEditId(null)}
+                              <button onClick={() => { setCueEditId(null); setCueRemarkId(null); setCueMarkMode(false); }}
                                 style={{ flex:1, fontSize:12, fontWeight:700, background:C.card, color:C.dim,
                                   border:`1px solid ${C.bdr}`, borderRadius:7, padding:"6px 0", cursor:"pointer", fontFamily:"inherit" }}>
                                 취소
@@ -7304,32 +7334,20 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       <div style={{ display:"flex", gap:6 }}>
                         <input autoFocus value={newTopic}
                           onChange={e => setNewTopic(e.target.value)}
-                          onKeyDown={e => { if (e.key === "Enter") addCueTopic(newTopic); if (e.key === "Escape") { setTopicAdding(false); setNewTopic(""); setTopicInk(false); } }}
+                          onKeyDown={e => { if (e.key === "Enter") addCueTopic(newTopic); if (e.key === "Escape") { setTopicAdding(false); setNewTopic(""); } }}
                           placeholder="타이틀 (예: 인트로, 간주 강조, 엔딩)"
                           style={{ flex:1, minWidth:0, background:"#fff", border:"1.5px solid #fdba74",
                             borderRadius:8, padding:"7px 10px", fontSize:12, color:C.txt,
                             fontFamily:"inherit", outline:"none", boxSizing:"border-box" }} />
-                        <button onClick={() => setTopicInk(v => !v)} title="손글씨로 타이틀 입력"
-                          style={{ flexShrink:0, padding:"0 10px", borderRadius:8, cursor:"pointer",
-                            fontFamily:"inherit", fontSize:12, fontWeight:700,
-                            background: topicInk ? "#ff6f00" : "#fff",
-                            color: topicInk ? "#fff" : C.dim,
-                            border:`1.5px solid ${topicInk ? "#ff6f00" : C.bdr}` }}>✍️</button>
                         <button onClick={() => addCueTopic(newTopic)} disabled={!newTopic.trim()}
                           style={{ flexShrink:0, padding:"0 12px", borderRadius:8, cursor: newTopic.trim() ? "pointer" : "default",
                             fontFamily:"inherit", fontSize:12, fontWeight:800, color:"#fff",
                             background: newTopic.trim() ? "#ff6f00" : C.bdr, border:"none" }}>추가</button>
-                        <button onClick={() => { setTopicAdding(false); setNewTopic(""); setTopicInk(false); }}
+                        <button onClick={() => { setTopicAdding(false); setNewTopic(""); }}
                           style={{ flexShrink:0, padding:"0 10px", borderRadius:8, cursor:"pointer",
                             fontFamily:"inherit", fontSize:12, fontWeight:700, color:C.dim,
                             background:"#fff", border:`1px solid ${C.bdr}` }}>취소</button>
                       </div>
-                      {topicInk && (
-                        <div style={{ marginTop:6 }}>
-                          <HandwritePad accent="#ff6f00" apiKey={user?.geminiKey || sharedGeminiKey}
-                            onText={t => { setNewTopic(t.trim()); setTopicInk(false); }} />
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>

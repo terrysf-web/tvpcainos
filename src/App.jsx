@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.786";
+const APP_VERSION = "3.787";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -9157,7 +9157,19 @@ export default function App() {
   const editCue = async (cueId, newText) => {
     if (!newText?.trim()) return;
     // 수정하면 byLeader(악보표시 권한) 도 갱신 — 예전(플래그 없던) 위치 큐도 수정하면 악보에 표시됨
-    await updateDoc(doc(db, "cueNotes", cueId), { text: newText.trim(), byLeader: canPinToSheet(user?.role) });
+    const patch = { byLeader: canPinToSheet(user?.role) };
+    if (typeof newText === "string") {
+      patch.text = newText.trim();
+    } else if (newText && typeof newText === "object") {
+      if (newText.text != null)    patch.text = String(newText.text).trim();
+      if (newText.section != null) patch.section = String(newText.section).trim() || null;
+      if (newText.mark) {
+        patch.markX = newText.mark.x;
+        patch.markY = newText.mark.y;
+        patch.markPage = newText.mark.page || 1;
+      }
+    }
+    await updateDoc(doc(db, "cueNotes", cueId), patch);
   };
 
   // 악보 위 큐 글자 상자 위치 이동 (핀은 그대로, 글자만 빈 곳으로) — 리더/어드민/키보드만
