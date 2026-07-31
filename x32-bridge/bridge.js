@@ -27,6 +27,11 @@ const GROUPS = [
   { id: 'elec',   chs: [5, 6] },
   { id: 'kbd',    chs: [7, 8] },
 ];
+
+// 뮤트 깜빡 방지 알림용 마이크 채널 (앱이 켜져 있으면 경고). 채널/이름만 바꾸면 됨.
+const MICS = [
+  { id: 'pastor', ch: 29, label: '목사님' },
+];
 // ──────────────────────────────────────────────────────
 
 let serviceAccount;
@@ -92,6 +97,10 @@ function pollX32() {
       sendOsc(`/ch/${c}/mix/on`);
     }
   }
+  for (const m of MICS) {
+    const c = String(m.ch).padStart(2, '0');
+    sendOsc(`/ch/${c}/mix/on`);
+  }
 }
 
 // ── Firestore 업로드 ──────────────────────────────────
@@ -108,10 +117,16 @@ async function pushToFirestore() {
     };
   });
 
+  const mics = MICS.map(m => {
+    const c = String(m.ch).padStart(2, '0');
+    return { id: m.id, ch: m.ch, label: m.label, muted: (state[c]?.on ?? 1) === 0 };
+  });
+
   try {
     await db.collection('x32').doc('status').set({
       connected: true,
       groups,
+      mics,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     if (!lastWriteOk) {

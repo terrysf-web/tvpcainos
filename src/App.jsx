@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.784";
+const APP_VERSION = "3.785";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -3459,6 +3459,83 @@ function X32StatusBar() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/* 마이크 뮤트 깜빡 알림 — x32/status.mics 구독. 뮤트 안 된 마이크가 있으면 상단 경고, 30초↑면 빨강+소리.
+   FOH/어드민/방송팀에게만 (음향 담당). */
+function MicMuteAlert({ user }) {
+  const eligible = !GUEST_BUILD && !!user && (isFoh(user) || user.role === "admin" || user.role === "broadcast");
+  const [mics, setMics] = useState([]);
+  const [, forceTick] = useState(0);
+  const sinceRef  = useRef({}); // micId -> 언뮤트 시작 시각
+  const beepedRef = useRef({}); // micId -> 임계 넘어 비프 울림
+  const snoozeRef = useRef({}); // micId -> 소리 스누즈
+  const THRESH = 30000;         // 30초 넘게 켜져 있으면 강한 경고
+
+  useEffect(() => {
+    if (!eligible) return;
+    return onSnapshot(doc(db, "x32", "status"), snap => {
+      const d = snap.exists() ? snap.data() : {};
+      const upd = d.updatedAt?.toDate?.();
+      const stale = upd ? (Date.now() - upd.getTime() > 12000) : true;
+      setMics((d.connected && !stale && Array.isArray(d.mics)) ? d.mics : []);
+    }, () => {});
+  }, [eligible]);
+
+  useEffect(() => {
+    if (!eligible) return;
+    const run = () => {
+      const now = Date.now();
+      const unmutedIds = new Set(mics.filter(m => m.muted === false).map(m => m.id));
+      mics.forEach(m => { if (m.muted === false && !sinceRef.current[m.id]) sinceRef.current[m.id] = now; });
+      Object.keys(sinceRef.current).forEach(id => {
+        if (!unmutedIds.has(id)) { delete sinceRef.current[id]; delete beepedRef.current[id]; delete snoozeRef.current[id]; }
+      });
+      mics.filter(m => m.muted === false).forEach(m => {
+        if (now - (sinceRef.current[m.id] || now) >= THRESH && !beepedRef.current[m.id] && !snoozeRef.current[m.id]) {
+          beepedRef.current[m.id] = true;
+          try {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            const ac = new AC(); const o = ac.createOscillator(); const g = ac.createGain();
+            o.type = "square"; o.frequency.value = 880; g.gain.value = 0.12;
+            o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.4);
+          } catch {}
+        }
+      });
+      forceTick(t => t + 1);
+    };
+    run();
+    const iv = setInterval(run, 1000);
+    return () => clearInterval(iv);
+  }, [eligible, mics]);
+
+  if (!eligible) return null;
+  const now = Date.now();
+  const unmuted = mics.filter(m => m.muted === false)
+    .map(m => ({ ...m, sec: Math.max(0, Math.floor((now - (sinceRef.current[m.id] || now)) / 1000)) }));
+  if (unmuted.length === 0) return null;
+  const urgent = unmuted.some(m => m.sec * 1000 >= THRESH && !snoozeRef.current[m.id]);
+
+  return (
+    <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:9998,
+      background: urgent ? "#c0392b" : "#e67e22", color:"#fff",
+      padding:"9px 14px", paddingTop:"calc(9px + env(safe-area-inset-top))",
+      display:"flex", alignItems:"center", gap:10, boxShadow:"0 2px 12px rgba(0,0,0,0.35)",
+      animation: urgent ? "cuePulse 0.9s ease-in-out infinite" : "none" }}>
+      <span style={{ fontSize:18, flexShrink:0 }}>🎤</span>
+      <div style={{ flex:1, fontSize:13, fontWeight:800, lineHeight:1.35, overflowWrap:"anywhere" }}>
+        {unmuted.map(m => `${m.label} 마이크 ON (${m.sec}초)`).join(" · ")}
+        {urgent && " — 뮤트 잊지 마세요!"}
+      </div>
+      {urgent && (
+        <button onClick={() => { unmuted.forEach(m => { snoozeRef.current[m.id] = true; }); forceTick(t => t + 1); }}
+          style={{ background:"rgba(255,255,255,0.25)", border:"none", color:"#fff", borderRadius:8,
+            padding:"5px 11px", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
+          알림 끄기
+        </button>
+      )}
     </div>
   );
 }
@@ -9425,6 +9502,8 @@ export default function App() {
 
   return (
     <div style={{ width:"100%", height:"100dvh", background:C.bg, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      {/* 마이크 뮤트 깜빡 알림 (FOH/어드민/방송팀) */}
+      <MicMuteAlert user={user} />
       {/* 일반 사용자 업데이트 배너 */}
       {updateAvailable && (() => {
         const doUpdate = async () => {
