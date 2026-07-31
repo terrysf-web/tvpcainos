@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.788";
+const APP_VERSION = "3.789";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -8888,9 +8888,8 @@ export default function App() {
           if (!bySong[data.songId]) bySong[data.songId] = [];
           bySong[data.songId].push({ id: d.id, ...data });
         });
-        Object.values(bySong).forEach(arr =>
-          arr.sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0))
-        );
+        const ord = c => (c.order != null ? c.order : (c.createdAt?.seconds ?? 0));
+        Object.values(bySong).forEach(arr => arr.sort((a, b) => ord(a) - ord(b)));
         setSongCues(bySong);
       }
     );
@@ -9154,8 +9153,28 @@ export default function App() {
     await deleteDoc(doc(db, "cueNotes", cueId));
   };
 
+  // 큐노트 순서 변경 (리더) — 인접 큐와 order 값을 맞바꿈. dir<0 위로, dir>0 아래로
+  const reorderCue = async (songId, cueId, dir) => {
+    const arr = songCues[songId] || [];
+    const idx = arr.findIndex(c => c.id === cueId);
+    const swapIdx = dir < 0 ? idx - 1 : idx + 1;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= arr.length) return;
+    const a = arr[idx], b = arr[swapIdx];
+    const ord = c => (c.order != null ? c.order : (c.createdAt?.seconds ?? 0));
+    const oa = ord(a), ob = ord(b);
+    // 두 order 가 같으면 살짝 벌려서 확실히 뒤바뀌게
+    const newA = oa === ob ? (dir < 0 ? ob - 1 : ob + 1) : ob;
+    try {
+      await Promise.all([
+        updateDoc(doc(db, "cueNotes", a.id), { order: newA }),
+        updateDoc(doc(db, "cueNotes", b.id), { order: oa }),
+      ]);
+    } catch {}
+  };
+
   const editCue = async (cueId, newText) => {
-    if (!newText?.trim()) return;
+    if (newText == null) return;
+    if (typeof newText === "string" && !newText.trim()) return;
     // 수정하면 byLeader(악보표시 권한) 도 갱신 — 예전(플래그 없던) 위치 큐도 수정하면 악보에 표시됨
     const patch = { byLeader: canPinToSheet(user?.role) };
     if (typeof newText === "string") {
@@ -9429,7 +9448,7 @@ export default function App() {
             selectedSongId={liteSong.songId} selectedSvcId={liteSong.svcId}
             selectedSvcSongIdx={liteSong.svcSongIdx} backTo="lite"
             pdfjsReady={pdfjsReady} sharedGeminiKey={sharedGeminiKey}
-            songCues={songCues} sendCue={sendCue} deleteCue={deleteCue} editCue={editCue}
+            songCues={songCues} sendCue={sendCue} deleteCue={deleteCue} editCue={editCue} reorderCue={reorderCue}
             userRoleMap={userRoleMap} moveCueLabel={moveCueLabel} resizeCueLabel={resizeCueLabel}
             sheetLinkEnabled={sheetLinkEnabled} sheetSyncTrigger={sheetSyncTrigger}
           />
@@ -9497,7 +9516,7 @@ export default function App() {
     onDeleteAnnotation: deleteAnnotation,
     markNotifRead, markAllNotifRead,
     nav, bgmChannel,
-    songCues, sendCue, deleteCue, editCue, acknowledgeCue, userRoleMap, moveCueLabel, resizeCueLabel,
+    songCues, sendCue, deleteCue, editCue, reorderCue, acknowledgeCue, userRoleMap, moveCueLabel, resizeCueLabel,
     sheetLinkEnabled, sheetSyncTrigger, sheetSyncAllowedParts,
   };
 

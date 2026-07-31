@@ -1752,7 +1752,7 @@ function HandwritePad({ accent, apiKey, onText }) {
   );
 }
 
-function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue, deleteCue, editCue, userRoleMap, moveCueLabel, resizeCueLabel, sheetLinkEnabled, sheetSyncTrigger }) {
+function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, onAddAnnotation, onDeleteAnnotation, nav, selectedSongId, selectedSvcId, selectedSvcSongIdx, backTo, pdfjsReady, sharedGeminiKey, songCues, sendCue, deleteCue, editCue, reorderCue, userRoleMap, moveCueLabel, resizeCueLabel, sheetLinkEnabled, sheetSyncTrigger }) {
   const song = songs.find(s => s.id === selectedSongId);
   const isLibraryMode = backTo === "library"; // 라이브러리에서 열린 경우: 예배 컨텍스트 없음
   const isLiteMode    = backTo === "lite";    // Lite 뷰어: 메뉴 없음, 전체화면 악보만
@@ -7213,9 +7213,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               {/* 기존 큐 목록 */}
               {(songCues?.[cueSongId] || []).length > 0 && (
                 <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:10 }}>
-                  {(songCues[cueSongId]).map(cue => {
+                  {(songCues[cueSongId]).map((cue, cueIdx, cueArr) => {
                     const isOwn = !!(user?.uid && cue.userId && cue.userId === user.uid);
                     const isEditing = cueEditId === cue.id;
+                    const canReorder = isLeader(user?.role) && !isEditing && cueArr.length > 1;
                     return (
                       <div key={cue.id} style={{ padding:"8px 10px", borderRadius:8,
                         background: isOwn ? "#ff6f0018" : "#ff6f0008",
@@ -7228,8 +7229,22 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                 borderRadius:10, padding:"1px 7px" }}>{cue.section}</span>
                             )}
                           </span>
-                          {isOwn && !isEditing && (
-                            <div style={{ display:"flex", gap:5 }}>
+                          <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+                            {canReorder && (
+                              <div style={{ display:"flex", gap:2 }}>
+                                <button onClick={() => reorderCue?.(cueSongId, cue.id, -1)} disabled={cueIdx === 0} title="위로"
+                                  style={{ width:24, height:22, fontSize:12, fontWeight:800, color: cueIdx === 0 ? C.bdr : "#5c4000",
+                                    background:"#fff3d6", border:"1px solid #ffca28", borderRadius:6,
+                                    cursor: cueIdx === 0 ? "default" : "pointer", fontFamily:"inherit", lineHeight:1,
+                                    opacity: cueIdx === 0 ? 0.4 : 1 }}>▲</button>
+                                <button onClick={() => reorderCue?.(cueSongId, cue.id, 1)} disabled={cueIdx === cueArr.length - 1} title="아래로"
+                                  style={{ width:24, height:22, fontSize:12, fontWeight:800, color: cueIdx === cueArr.length - 1 ? C.bdr : "#5c4000",
+                                    background:"#fff3d6", border:"1px solid #ffca28", borderRadius:6,
+                                    cursor: cueIdx === cueArr.length - 1 ? "default" : "pointer", fontFamily:"inherit", lineHeight:1,
+                                    opacity: cueIdx === cueArr.length - 1 ? 0.4 : 1 }}>▼</button>
+                              </div>
+                            )}
+                            {isOwn && !isEditing && (<>
                               <button onClick={() => { setCueEditId(cue.id); setCueEditTxt(cue.text); setCueEditSection(cue.section || ""); }}
                                 style={{ fontSize:11, fontWeight:700, color:"#5c4000",
                                   background:"#ffe082", border:"1px solid #ffca28",
@@ -7242,8 +7257,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                                   borderRadius:6, padding:"2px 8px", cursor:"pointer", fontFamily:"inherit" }}>
                                 🗑️ 삭제
                               </button>
-                            </div>
-                          )}
+                            </>)}
+                          </div>
                         </div>
                         {isEditing ? (
                           <div>
