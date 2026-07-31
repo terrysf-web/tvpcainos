@@ -28,10 +28,11 @@ const GROUPS = [
   { id: 'kbd',    chs: [7, 8] },
 ];
 
-// 뮤트 깜빡 방지 알림용 마이크 채널 (앱이 켜져 있으면 경고). 채널/이름만 바꾸면 됨.
+// 뮤트 깜빡 방지 알림용 마이크 채널 (켜져 있는데 무음이 지속되면 앱이 경고). 채널/이름만 바꾸면 됨.
 const MICS = [
   { id: 'pastor', ch: 29, label: '목사님' },
 ];
+const MIC_LEVEL_THRESH = 0.06; // 이 값보다 크면 "소리 있음"으로 판단 (미터 0~1). 필요시 튜닝
 // ──────────────────────────────────────────────────────
 
 let serviceAccount;
@@ -61,6 +62,25 @@ sock.on('error', err => {
 sock.on('message', buf => {
   let msg;
   try { msg = osc.fromBuffer(buf); } catch { return; }
+
+  // /meters/1 → 입력 채널 레벨 블롭 (int32 count + float32 × count). 마이크 무음 감지용
+  if (msg.address === '/meters/1') {
+    const blob = msg.args?.[0]?.value;
+    if (Buffer.isBuffer(blob) && blob.length >= 4) {
+      const count = blob.readInt32LE(0);
+      for (const mic of MICS) {
+        const idx = mic.ch - 1; // 입력 채널 1..32 → 인덱스 0..31
+        const off = 4 + idx * 4;
+        if (idx >= 0 && idx < count && off + 4 <= blob.length) {
+          const lvl = blob.readFloatLE(off);
+          const c = String(mic.ch).padStart(2, '0');
+          if (!state[c]) state[c] = { fader: 0, on: 1 };
+          if (lvl > MIC_LEVEL_THRESH) state[c].lastActiveMs = Date.now();
+        }
+      }
+    }
+    return;
+  }
 
   // /ch/01/mix/fader  →  fader 값 (float 0~1)
   // /ch/01/mix/on     →  on/off (int 1=켜짐, 0=뮤트)
@@ -103,6 +123,15 @@ function pollX32() {
   }
 }
 
+// 미터(레벨) 요청 — /meters/1 블롭을 받아 무음 감지에 사용
+// 펌웨어별로 방식이 달라 폴링(/meters)과 구독(/subscribe) 둘 다 시도
+function pollMeters() {
+  if (MICS.length) sendOsc('/meters', [{ type: 's', value: '/meters/1' }]);
+}
+function renewMeterSub() {
+  if (MICS.length) sendOsc('/subscribe', [{ type: 's', value: '/meters/1' }, { type: 'i', value: 1 }]);
+}
+
 // ── Firestore 업로드 ──────────────────────────────────
 let lastWriteOk = false;
 
@@ -117,9 +146,14 @@ async function pushToFirestore() {
     };
   });
 
+  const now = Date.now();
   const mics = MICS.map(m => {
     const c = String(m.ch).padStart(2, '0');
-    return { id: m.id, ch: m.ch, label: m.label, muted: (state[c]?.on ?? 1) === 0 };
+    const st = state[c] || {};
+    const muted = (st.on ?? 1) === 0;
+    // 켜져 있는데 마지막 소리 이후 몇 초 지났나 (무음 지속 시간). 뮤트면 0.
+    const silentSec = muted ? 0 : Math.max(0, Math.round((now - (st.lastActiveMs ?? now)) / 1000));
+    return { id: m.id, ch: m.ch, label: m.label, muted, silentSec };
   });
 
   try {
@@ -209,7 +243,10 @@ sock.bind(MY_PORT, () => {
   console.log(`   Firebase: ${serviceAccount.project_id}`);
 
   pollX32();
-  setInterval(pollX32,          1000);   // 1초마다 X32 폴링
+  renewMeterSub();
+  setInterval(pollX32,          1000);   // 1초마다 X32 폴링 (fader/mute)
+  setInterval(pollMeters,        250);   // 0.25초마다 레벨 미터 요청 (무음 감지)
+  setInterval(renewMeterSub,    8000);   // 8초마다 미터 구독 갱신 (백업)
   setInterval(pushToFirestore,  1000);   // 1초마다 Firestore 갱신
   listenAutomation();                    // Automation 명령 구독
 });

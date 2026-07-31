@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.785";
+const APP_VERSION = "3.786";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -3469,10 +3469,9 @@ function MicMuteAlert({ user }) {
   const eligible = !GUEST_BUILD && !!user && (isFoh(user) || user.role === "admin" || user.role === "broadcast");
   const [mics, setMics] = useState([]);
   const [, forceTick] = useState(0);
-  const sinceRef  = useRef({}); // micId -> 언뮤트 시작 시각
-  const beepedRef = useRef({}); // micId -> 임계 넘어 비프 울림
-  const snoozeRef = useRef({}); // micId -> 소리 스누즈
-  const THRESH = 30000;         // 30초 넘게 켜져 있으면 강한 경고
+  const beepedRef = useRef({}); // micId -> 비프 울림
+  const snoozeRef = useRef({}); // micId -> 소리·배너 스누즈
+  const SILENCE_SEC = 20;       // 켜진 채 이만큼 무음이면 경고 (설교 중 짧은 멈춤엔 안 울림)
 
   useEffect(() => {
     if (!eligible) return;
@@ -3484,58 +3483,48 @@ function MicMuteAlert({ user }) {
     }, () => {});
   }, [eligible]);
 
+  // 알림 대상: 켜져 있고(무뮤트) 무음이 SILENCE_SEC 이상
+  const alerting = eligible ? mics.filter(m => m.muted === false && (m.silentSec ?? 0) >= SILENCE_SEC) : [];
+
   useEffect(() => {
     if (!eligible) return;
-    const run = () => {
-      const now = Date.now();
-      const unmutedIds = new Set(mics.filter(m => m.muted === false).map(m => m.id));
-      mics.forEach(m => { if (m.muted === false && !sinceRef.current[m.id]) sinceRef.current[m.id] = now; });
-      Object.keys(sinceRef.current).forEach(id => {
-        if (!unmutedIds.has(id)) { delete sinceRef.current[id]; delete beepedRef.current[id]; delete snoozeRef.current[id]; }
-      });
-      mics.filter(m => m.muted === false).forEach(m => {
-        if (now - (sinceRef.current[m.id] || now) >= THRESH && !beepedRef.current[m.id] && !snoozeRef.current[m.id]) {
-          beepedRef.current[m.id] = true;
-          try {
-            const AC = window.AudioContext || window.webkitAudioContext;
-            const ac = new AC(); const o = ac.createOscillator(); const g = ac.createGain();
-            o.type = "square"; o.frequency.value = 880; g.gain.value = 0.12;
-            o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.4);
-          } catch {}
-        }
-      });
-      forceTick(t => t + 1);
-    };
-    run();
-    const iv = setInterval(run, 1000);
-    return () => clearInterval(iv);
-  }, [eligible, mics]);
+    const alertIds = new Set(alerting.map(m => m.id));
+    // 더 이상 알림 아님(뮤트됐거나 다시 소리남) → 비프·스누즈 리셋
+    Object.keys(beepedRef.current).forEach(id => { if (!alertIds.has(id)) delete beepedRef.current[id]; });
+    Object.keys(snoozeRef.current).forEach(id => { if (!alertIds.has(id)) delete snoozeRef.current[id]; });
+    // 새 알림 → 한 번 비프
+    alerting.forEach(m => {
+      if (!beepedRef.current[m.id] && !snoozeRef.current[m.id]) {
+        beepedRef.current[m.id] = true;
+        try {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          const ac = new AC(); const o = ac.createOscillator(); const g = ac.createGain();
+          o.type = "square"; o.frequency.value = 880; g.gain.value = 0.12;
+          o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.45);
+        } catch {}
+      }
+    });
+  }, [eligible, mics]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!eligible) return null;
-  const now = Date.now();
-  const unmuted = mics.filter(m => m.muted === false)
-    .map(m => ({ ...m, sec: Math.max(0, Math.floor((now - (sinceRef.current[m.id] || now)) / 1000)) }));
-  if (unmuted.length === 0) return null;
-  const urgent = unmuted.some(m => m.sec * 1000 >= THRESH && !snoozeRef.current[m.id]);
+  const visible = alerting.filter(m => !snoozeRef.current[m.id]);
+  if (visible.length === 0) return null;
 
   return (
     <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:9998,
-      background: urgent ? "#c0392b" : "#e67e22", color:"#fff",
+      background:"#c0392b", color:"#fff",
       padding:"9px 14px", paddingTop:"calc(9px + env(safe-area-inset-top))",
       display:"flex", alignItems:"center", gap:10, boxShadow:"0 2px 12px rgba(0,0,0,0.35)",
-      animation: urgent ? "cuePulse 0.9s ease-in-out infinite" : "none" }}>
+      animation:"cuePulse 0.9s ease-in-out infinite" }}>
       <span style={{ fontSize:18, flexShrink:0 }}>🎤</span>
       <div style={{ flex:1, fontSize:13, fontWeight:800, lineHeight:1.35, overflowWrap:"anywhere" }}>
-        {unmuted.map(m => `${m.label} 마이크 ON (${m.sec}초)`).join(" · ")}
-        {urgent && " — 뮤트 잊지 마세요!"}
+        {visible.map(m => `${m.label} 마이크 켜짐·무음 ${m.silentSec}초`).join(" · ")} — 뮤트 잊지 마세요!
       </div>
-      {urgent && (
-        <button onClick={() => { unmuted.forEach(m => { snoozeRef.current[m.id] = true; }); forceTick(t => t + 1); }}
-          style={{ background:"rgba(255,255,255,0.25)", border:"none", color:"#fff", borderRadius:8,
-            padding:"5px 11px", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
-          알림 끄기
-        </button>
-      )}
+      <button onClick={() => { visible.forEach(m => { snoozeRef.current[m.id] = true; }); forceTick(t => t + 1); }}
+        style={{ background:"rgba(255,255,255,0.25)", border:"none", color:"#fff", borderRadius:8,
+          padding:"5px 11px", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
+        알림 끄기
+      </button>
     </div>
   );
 }
