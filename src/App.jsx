@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.789";
+const APP_VERSION = "3.790";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -2266,9 +2266,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
 
       // 자동화 phase 트리거 — X32는 건드리지 않음 (페이더/뮤트 수동 복구 문제).
       // BGM은 PP 소스 자체를 페이드하므로 예배실·송출 모두 함께 줄어듦.
-      if (diff <= 10_000) {
-        firePhase("piano_on", null);
-      } else if (diff <= 15_000) {
+      // 피아노 연주자 Piano ON 알림 제거 — 자동 전송 안 함
+      if (diff <= 15_000) {
         firePhase("bgm_fade", null); // PP BGM 페이드아웃 시작 (pp-bridge가 처리)
       } else if (within1h && !phaseFiredRef.current.bgm_playing) {
         firePhase("bgm_playing", null);
@@ -2522,21 +2521,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         : <span style={{ flexShrink:0 }}><ServiceStatusBadge svc={nextSvc} /></span>
                       }
                     </div>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:6 }}>
-                      <button onClick={async () => {
-                        try {
-                          await setDoc(doc(db, "liveStatus", "automation"), {
-                            phase: "piano_on", svcId: nextSvc?.id || null, updatedAt: serverTimestamp(),
-                          });
-                          fetch("http://192.168.1.21:5004/v1/stage/message", {
-                            method: "PUT", headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify("PIANO ON"),
-                          }).catch(() => {});
-                        } catch {}
-                      }} style={{
-                        fontSize:11, fontWeight:800, color:"#fff", background:"#b71c1c",
-                        border:"none", borderRadius:6, padding:"4px 12px", cursor:"pointer", fontFamily:"inherit",
-                      }}>🎹 Piano ON 알림 보내기</button>
+                    <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", marginTop:6 }}>
                       <button onClick={() => setTestPhase(p => (p + 1) % 4)} style={{
                         fontSize:10, fontWeight:700, color:C.dim,
                         background:"transparent", border:`1px solid ${C.bdr}`,
