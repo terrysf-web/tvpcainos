@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.790";
+const APP_VERSION = "3.791";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -6700,6 +6700,20 @@ function TeamManagementModal({ currentUserId, onClose }) {
     }
   };
 
+  // 팀원 삭제 (어드민만) — 계정 doc + 로그인 허용 이메일 제거
+  const deleteMember = async (m) => {
+    if (!window.confirm(`"${m.name || m.email}" 팀원을 삭제할까요?\n\n계정과 로그인 권한이 제거됩니다. 되돌릴 수 없습니다.`)) return;
+    try {
+      await deleteDoc(doc(db, "users", m.id));
+      if (m.email) await deleteDoc(doc(db, "allowedEmails", m.email)).catch(() => {});
+      setMembers(p => p.filter(u => u.id !== m.id));
+      setAllowedEmails(p => p.filter(e => e.email !== m.email));
+    } catch (e) {
+      alert("삭제 실패: " + (e.code === "permission-denied" ? "어드민만 삭제할 수 있습니다." : e.message));
+    }
+  };
+  const iAmAdmin = members.find(u => u.id === currentUserId)?.role === "admin";
+
   const changeRole = async (uid, newRole) => {
     setSaving(uid + newRole);
     await updateDoc(doc(db, "users", uid), { role: newRole });
@@ -6951,6 +6965,14 @@ function TeamManagementModal({ currentUserId, onClose }) {
                       }}>{label}</button>
                   ))}
                 </div>
+              )}
+              {/* 팀원 삭제 (어드민만, 자기 자신 제외) */}
+              {iAmAdmin && m.id !== currentUserId && (
+                <button onClick={() => deleteMember(m)} style={{
+                  marginTop:8, width:"100%", padding:"6px 0", borderRadius:7,
+                  background:`${C.red}12`, border:`1px solid ${C.red}40`, color:C.red,
+                  fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                }}>🗑 팀원 삭제</button>
               )}
             </div>
           ))}
