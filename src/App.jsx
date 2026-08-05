@@ -8152,16 +8152,20 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
   ];
   const isHome = view === "home";
   const navPur = "#2d2460";
+  // 커스텀 팀은 사진 배경(예: 성찬 이미지)이 하단 메뉴를 가려서, 네비 뒤에 위로 사라지는 스크림을 깖
+  const navScrim = CUSTOM_BRAND && isHome;
   return (
     <div style={{
       flexShrink:0,
       width:"100%", maxWidth:640, margin:"0 auto",
-      background: "transparent",
-      backdropFilter: "none",
-      WebkitBackdropFilter: "none",
+      background: navScrim
+        ? "linear-gradient(to top, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.92) 55%, rgba(255,255,255,0.5) 82%, rgba(255,255,255,0) 100%)"
+        : "transparent",
+      backdropFilter: navScrim ? "blur(6px)" : "none",
+      WebkitBackdropFilter: navScrim ? "blur(6px)" : "none",
       borderTop: "none",
       display:"flex", alignItems:"center",
-      padding:"4px 0",
+      padding: navScrim ? "14px 0 4px" : "4px 0",
       paddingBottom:"calc(4px + env(safe-area-inset-bottom))",
       zIndex:500,
     }}>
