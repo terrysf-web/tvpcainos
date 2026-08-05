@@ -4,7 +4,7 @@ import { C, KEY_CLR, DARK_KEY, keyColor, darkKeyColor } from "./theme.js";
 import { Icon, Btn, Badge, KeyBadge, Input, Divider, Modal, ConfirmModal } from "./ui.jsx";
 import { HelpModal } from "./HelpModal.jsx";
 import { getVoicings, getDiatonicChords, getEffectiveKey, getChordTones, CHORD_VOICINGS } from "./chordVoicings.js";
-import { auth, db, storage, messagingPromise, firebaseConfigObj, GUEST_BUILD, APP_TITLE, APP_LOGO, CUSTOM_BRAND, APP_BG } from "./firebase.js";
+import { auth, db, storage, messagingPromise, firebaseConfigObj, GUEST_BUILD, APP_TITLE, APP_LOGO, CUSTOM_BRAND, APP_BG, APP_YOUTUBE } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
 import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart, saveServiceSettings, loadServiceSettings, listWorshipRecordingServiceIds } from "./supabase.js";
@@ -7529,8 +7529,17 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
       {showInfo && (
         <Modal title="앱 정보" onClose={() => setShowInfo(false)}>
           <div style={{ textAlign:"center", padding:"8px 0 16px" }}>
-            <img src="/icon-192.png" width={64} height={64}
-              style={{ borderRadius:16, marginBottom:12 }} alt="SFFBC Worship" />
+            {CUSTOM_BRAND ? (
+              <div style={{ width:64, height:64, borderRadius:16, margin:"0 auto 12px",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                background:"linear-gradient(135deg,#3a2b9e 0%,#6b5de7 100%)",
+                color:"#fff", fontSize:30, fontWeight:900, letterSpacing:"-0.02em" }}>
+                {APP_TITLE.trim().charAt(0).toUpperCase()}
+              </div>
+            ) : (
+              <img src="/icon-192.png" width={64} height={64}
+                style={{ borderRadius:16, marginBottom:12 }} alt={APP_TITLE} />
+            )}
             <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>{APP_TITLE}</div>
             <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 {APP_VERSION}</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
@@ -8061,7 +8070,8 @@ function HomeSplashScreen({ user, onEnterLite }) {
         onAdd={() => setSchedModal("band")}
       />
 
-      {/* YouTube + Lite — centered above 악보 tab */}
+      {/* YouTube + Lite — centered above 악보 tab
+          유튜브 링크: 커스텀 팀은 VITE_APP_YOUTUBE 있을 때만, 게스트=SFFBC, 메인=Ainos 재생목록 */}
       <div style={{
         position:"fixed",
         bottom:"calc(72px + env(safe-area-inset-bottom))",
@@ -8069,8 +8079,14 @@ function HomeSplashScreen({ user, onEnterLite }) {
         display:"flex", alignItems:"center", gap:6,
         zIndex:10,
       }}>
+        {(CUSTOM_BRAND
+          ? APP_YOUTUBE
+          : GUEST_BUILD
+          ? "https://www.youtube.com/@KFBCSF-SFUNITED"
+          : "https://m.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ"
+        ) && (
         <a
-          href={GUEST_BUILD ? "https://www.youtube.com/@KFBCSF-SFUNITED" : "https://m.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ"}
+          href={CUSTOM_BRAND ? APP_YOUTUBE : GUEST_BUILD ? "https://www.youtube.com/@KFBCSF-SFUNITED" : "https://m.youtube.com/playlist?list=PLbDbHDX38DM2DLSk57Ei6BGg-mvzs_1HZ"}
           target="_blank" rel="noopener noreferrer"
           style={{
             display:"flex", alignItems:"center", gap:6,
@@ -8088,6 +8104,7 @@ function HomeSplashScreen({ user, onEnterLite }) {
           </svg>
           {APP_TITLE}
         </a>
+        )}
         <button
           onClick={onEnterLite}
           style={{

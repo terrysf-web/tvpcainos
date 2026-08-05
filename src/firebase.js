@@ -27,6 +27,8 @@ export const APP_LOGO = E.VITE_APP_LOGO || (GUEST_BUILD ? "/sffbc_logo.jpg" : "/
 export const CUSTOM_BRAND = !!E.VITE_APP_TITLE && !E.VITE_APP_LOGO;
 // 커스텀 팀 홈 배경 이미지(선택) — 없으면 그라디언트 배경 사용(Ainos/TVPC 그림 안 씀)
 export const APP_BG = E.VITE_APP_BG || "";
+// 팀 유튜브 채널/재생목록(선택) — 커스텀 팀은 이 값 없으면 유튜브 버튼 숨김(SFFBC 채널 안 씀)
+export const APP_YOUTUBE = E.VITE_APP_YOUTUBE || "";
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
