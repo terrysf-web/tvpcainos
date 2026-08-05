@@ -18,7 +18,7 @@
     color:#fff;
     font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Segoe UI",sans-serif;
     display:flex;flex-direction:column;align-items:center;
-    padding:calc(env(safe-area-inset-top,0px) + 48px) 22px 40px;
+    padding:calc(env(safe-area-inset-top,0px) + 52px) 22px 40px;
     -webkit-font-smoothing:antialiased;
   }
   .brand{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:34px;text-align:center;}
@@ -55,35 +55,7 @@
   .card .sub{font-size:12.5px;color:rgba(255,255,255,.62);margin-top:3px;font-weight:600;}
   .card .arrow{font-size:22px;color:rgba(255,255,255,.5);flex-shrink:0;}
 
-  .remember{
-    display:flex;align-items:center;justify-content:center;gap:9px;
-    margin-top:22px;font-size:13px;color:rgba(255,255,255,.72);font-weight:600;
-    cursor:pointer;user-select:none;
-  }
-  .remember input{width:17px;height:17px;accent-color:#8b7dff;cursor:pointer;}
-
-  .foot{margin-top:auto;padding-top:34px;font-size:11.5px;color:rgba(255,255,255,.4);text-align:center;}
-  .foot a{color:rgba(255,255,255,.55);text-decoration:none;}
-
-  /* 자동 이동 오버레이 */
-  #auto{
-    position:fixed;inset:0;background:var(--grad);
-    display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;
-    z-index:10;text-align:center;padding:24px;
-  }
-  #auto.on{display:flex;}
-  #auto .spin{
-    width:34px;height:34px;border-radius:50%;
-    border:3px solid rgba(255,255,255,.25);border-top-color:#fff;
-    animation:sp .8s linear infinite;
-  }
-  @keyframes sp{to{transform:rotate(360deg);}}
-  #auto .msg{font-size:15px;font-weight:700;color:rgba(255,255,255,.9);}
-  #auto button{
-    margin-top:6px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);
-    color:#fff;font-size:13px;font-weight:800;font-family:inherit;
-    padding:9px 18px;border-radius:12px;cursor:pointer;
-  }
+  .foot{margin-top:auto;padding-top:40px;font-size:11.5px;color:rgba(255,255,255,.4);text-align:center;}
 </style>
 </head>
 <body>
@@ -94,7 +66,7 @@
   </div>
 
   <div class="cards">
-    <a class="card" href="https://tvpcainos.web.app" data-team="ainos">
+    <a class="card" href="https://tvpcainos.web.app">
       <div class="badge" style="background:linear-gradient(135deg,#6b5de7,#8b7dff);">A</div>
       <div class="txt">
         <div class="name">아이노스</div>
@@ -103,7 +75,7 @@
       <div class="arrow">›</div>
     </a>
 
-    <a class="card" href="https://anamnesisworship.web.app" data-team="anamnesis">
+    <a class="card" href="https://anamnesisworship.web.app">
       <div class="badge" style="background:linear-gradient(135deg,#c8912f,#e0b45a);color:#2a1c04;">✝</div>
       <div class="txt">
         <div class="name">아남네시스</div>
@@ -113,72 +85,6 @@
     </a>
   </div>
 
-  <label class="remember">
-    <input type="checkbox" id="remember" checked />
-    이 팀 기억하기 (다음부턴 바로 이동)
-  </label>
-
-  <div class="foot">
-    worship.tvpc.church<br/>
-    <a href="?choose=1" id="reset">다른 팀 선택 초기화</a>
-  </div>
-
-  <!-- 자동 이동 화면 -->
-  <div id="auto">
-    <div class="spin"></div>
-    <div class="msg" id="autoMsg">이동 중…</div>
-    <button id="stay">여기 머무르기 / 팀 바꾸기</button>
-  </div>
-
-<script>
-(function(){
-  var KEY = "tvpc_worship_team";
-  var URLS = {
-    ainos:     "https://tvpcainos.web.app",
-    anamnesis: "https://anamnesisworship.web.app"
-  };
-  var NAMES = { ainos:"아이노스", anamnesis:"아남네시스" };
-
-  var params = new URLSearchParams(location.search);
-  var forceChoose = params.has("choose");
-  var remember = document.getElementById("remember");
-
-  // "다른 팀 선택 초기화" → 저장 지우고 선택 화면
-  document.getElementById("reset").addEventListener("click", function(e){
-    e.preventDefault();
-    try{ localStorage.removeItem(KEY); }catch(_){}
-    location.href = location.pathname + "?choose=1";
-  });
-
-  // 저장된 팀이 있으면 자동 이동(단, ?choose 로 들어오면 무시)
-  var saved = null;
-  try{ saved = localStorage.getItem(KEY); }catch(_){}
-  if(saved && URLS[saved] && !forceChoose){
-    var auto = document.getElementById("auto");
-    document.getElementById("autoMsg").textContent = NAMES[saved] + " 앱으로 이동 중…";
-    auto.classList.add("on");
-    var t = setTimeout(function(){ location.replace(URLS[saved]); }, 900);
-    document.getElementById("stay").addEventListener("click", function(){
-      clearTimeout(t);
-      try{ localStorage.removeItem(KEY); }catch(_){}
-      auto.classList.remove("on");
-    });
-  }
-
-  // 카드 클릭 → (기억 체크 시) 저장 후 이동
-  var cards = document.querySelectorAll(".card");
-  for(var i=0;i<cards.length;i++){
-    cards[i].addEventListener("click", function(e){
-      var team = this.getAttribute("data-team");
-      if(remember && remember.checked){
-        try{ localStorage.setItem(KEY, team); }catch(_){}
-      } else {
-        try{ localStorage.removeItem(KEY); }catch(_){}
-      }
-      // 기본 링크 이동 그대로 진행
-    });
-  }
-})();
-</script>
+  <div class="foot">worship.tvpc.church</div>
 </body>
 </html>
