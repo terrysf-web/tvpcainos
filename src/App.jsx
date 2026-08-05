@@ -8002,7 +8002,7 @@ function HomeSplashScreen({ user, onEnterLite }) {
     <>
       <div style={{
         position:"fixed", inset:"-20px",
-        backgroundImage: GUEST_BUILD
+        backgroundImage: (GUEST_BUILD && !CUSTOM_BRAND)
           ? "url('/sffbc_Ainos_background.png')"
           : portrait ? "url('/home-bg-portrait.webp')"
           : isPC ? "url('/home-bg-pc.webp')"
@@ -9286,7 +9286,7 @@ export default function App() {
   }, []);
   useEffect(() => {
     // 어드민 전용: buildTime vs releasedAt 비교 — 새 빌드가 마지막 배포보다 최신이면 배너 표시
-    if (!isAdmin) return;
+    if (!isAdmin || CUSTOM_BRAND) return; // 커스텀 팀(Anamnesis 등)엔 TVPC 배포 배너 안 뜸
     Promise.all([
       fetch(`/admin-version.json?t=${Date.now()}`).then(r => r.json()),
       getDoc(doc(db, "appConfig", "release")),
@@ -9303,6 +9303,7 @@ export default function App() {
     }).catch(() => {});
   }, [isAdmin]);
   useEffect(() => {
+    if (CUSTOM_BRAND) return; // 커스텀 팀엔 TVPC 변경사항 팝업 안 뜸
     // What's New 모달: admin-version.json에 showWhatsNew:true이고 이 빌드를 아직 안 본 경우 표시
     fetch(`/admin-version.json?t=${Date.now()}`).then(r => r.json()).then(data => {
       if (!data?.showWhatsNew) return;
