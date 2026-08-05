@@ -16,8 +16,13 @@ const firebaseConfig = {
   appId:             E.VITE_FB_APP_ID         || "1:721441022829:web:45a0ee8fc152090b09f064",
 };
 
-// 게스트(무료 테스트) 빌드 여부 — AI·PP7·X32 등 비용/장비 기능 숨김
+// 게스트/라이트 빌드 여부 — PP7·X32 등 장비 기능 숨김
 export const GUEST_BUILD = E.VITE_GUEST === "1";
+
+// 앱 브랜딩 — VITE_APP_TITLE(팀별) 우선. 없으면 게스트=SFFBC, 기본=TVPC
+export const APP_TITLE = E.VITE_APP_TITLE || (GUEST_BUILD ? "SFFBC Worship" : "TVPC Worship");
+// 로고 이미지 — 커스텀 팀(VITE_APP_TITLE)이고 자체 로고 없으면 기본 앱 아이콘 사용(SFFBC 로고 안 씀)
+export const APP_LOGO = E.VITE_APP_LOGO || (E.VITE_APP_TITLE ? "/icon-192.png" : (GUEST_BUILD ? "/sffbc_logo.jpg" : "/ainos-logo.jpg"));
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { C } from "./theme.js";
-import { GUEST_BUILD } from "./firebase.js";
+import { GUEST_BUILD, APP_TITLE, APP_LOGO } from "./firebase.js";
 
 const PART_COLOR  = { "결단": "#e07a60", "Closing": "#34c759" };
 const PART_TINT   = { "결단": "rgba(224,122,96,0.10)", "Closing": "rgba(52,199,89,0.09)", "찬양": "rgba(107,93,231,0.06)" };
@@ -66,14 +66,14 @@ export default function LiteScreen({ user, services, songs, onOpenSong, onGoToAp
           {/* 로고 — 메인은 Ainos 스크립트(screen 블렌드), 게스트는 지구본 배지+Ainos */}
           {GUEST_BUILD ? (
             <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-              <img src="/sffbc_logo.jpg" alt="SFFBC Worship"
+              <img src={APP_LOGO} alt="SFFBC Worship"
                 style={{ width:26, height:26, borderRadius:"50%", background:"#fff", objectFit:"cover", flexShrink:0 }} />
-              <span style={{ fontSize:14, fontWeight:800, color:"#fff", letterSpacing:"0.2px", whiteSpace:"nowrap" }}>SFFBC Worship</span>
+              <span style={{ fontSize:14, fontWeight:800, color:"#fff", letterSpacing:"0.2px", whiteSpace:"nowrap" }}>{APP_TITLE}</span>
             </div>
           ) : (
             <div style={{ height:28, overflow:"hidden", flexShrink:0 }}>
               <img
-                src="/ainos-logo.jpg"
+                src={APP_LOGO}
                 alt="SFFBC Worship"
                 style={{
                   height:46,

@@ -4,7 +4,7 @@ import { C, KEY_CLR, DARK_KEY, keyColor, darkKeyColor } from "./theme.js";
 import { Icon, Btn, Badge, KeyBadge, Input, Divider, Modal, ConfirmModal } from "./ui.jsx";
 import { HelpModal } from "./HelpModal.jsx";
 import { getVoicings, getDiatonicChords, getEffectiveKey, getChordTones, CHORD_VOICINGS } from "./chordVoicings.js";
-import { auth, db, storage, messagingPromise, firebaseConfigObj, GUEST_BUILD } from "./firebase.js";
+import { auth, db, storage, messagingPromise, firebaseConfigObj, GUEST_BUILD, APP_TITLE, APP_LOGO } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
 import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart, saveServiceSettings, loadServiceSettings, listWorshipRecordingServiceIds } from "./supabase.js";
@@ -624,7 +624,7 @@ function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
     }}>
       <div className="wFadeIn" style={{ textAlign:"center", marginBottom:40 }}>
         {GUEST_BUILD ? (
-          <img src="/sffbc_logo.jpg" alt="SFFBC Worship"
+          <img src={APP_LOGO} alt="SFFBC Worship"
             style={{ width:100, height:100, borderRadius:"50%", margin:"0 auto 18px", display:"block",
               objectFit:"cover", background:"#fff",
               boxShadow:"0 0 0 7px rgba(255,255,255,0.7), 0 14px 36px rgba(60,90,160,0.22)" }} />
@@ -639,7 +639,7 @@ function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
             <span style={{ fontSize:36 }}>🎵</span>
           </div>
         )}
-        <div style={{ fontWeight:800, fontSize:22, letterSpacing:"-0.03em" }}>{GUEST_BUILD ? "SFFBC Worship" : "TVPC Worship"}</div>
+        <div style={{ fontWeight:800, fontSize:22, letterSpacing:"-0.03em" }}>{APP_TITLE}</div>
         <div style={{ fontSize:13, color:C.dim, marginTop:4 }}>예배 악보 & 연습 앱</div>
       </div>
 
@@ -2297,13 +2297,13 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
           {GUEST_BUILD ? (
             <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-              <img src="/sffbc_logo.jpg" alt="SFFBC Worship"
+              <img src={APP_LOGO} alt="SFFBC Worship"
                 style={{ width:26, height:26, borderRadius:"50%", background:"#fff", objectFit:"cover", flexShrink:0 }} />
-              <span style={{ fontSize:15, fontWeight:800, color:"#fff", letterSpacing:"0.2px", whiteSpace:"nowrap" }}>SFFBC Worship</span>
+              <span style={{ fontSize:15, fontWeight:800, color:"#fff", letterSpacing:"0.2px", whiteSpace:"nowrap" }}>{APP_TITLE}</span>
             </div>
           ) : (
             <div style={{ height:28, overflow:"hidden", flexShrink:0 }}>
-              <img src="/ainos-logo.jpg" alt="SFFBC Worship"
+              <img src={APP_LOGO} alt="SFFBC Worship"
                 style={{ height:46, width:"auto", display:"block", filter:"brightness(9)", mixBlendMode:"screen" }} />
             </div>
           )}
@@ -3709,7 +3709,7 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
         paddingTop:"calc(16px + env(safe-area-inset-top))",
         display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div>
-          <div style={{ fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.75)", marginBottom:2 }}>{GUEST_BUILD ? "SFFBC Worship" : "TVPC Worship"}</div>
+          <div style={{ fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.75)", marginBottom:2 }}>{APP_TITLE}</div>
           <div style={{ fontWeight:900, fontSize:20, color:"#fff" }}>예배 일정</div>
         </div>
         <div style={{ display:"flex", gap:6, alignItems:"center" }}>
@@ -7529,7 +7529,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
           <div style={{ textAlign:"center", padding:"8px 0 16px" }}>
             <img src="/icon-192.png" width={64} height={64}
               style={{ borderRadius:16, marginBottom:12 }} alt="SFFBC Worship" />
-            <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>{GUEST_BUILD ? "SFFBC Worship" : "TVPC Worship"}</div>
+            <div style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>{APP_TITLE}</div>
             <div style={{ fontSize:13, color:C.dim, marginBottom:16 }}>버전 {APP_VERSION}</div>
             <div style={{ fontSize:12, color:C.dim, lineHeight:1.8, textAlign:"left" }}>
               찬양팀 악보 관리 및 예배 준비를 위한 앱입니다.<br />
@@ -8063,7 +8063,7 @@ function HomeSplashScreen({ user, onEnterLite }) {
             <rect width="18" height="13" rx="3" fill="#FF0000"/>
             <path d="M7 9.5V3.5L13 6.5L7 9.5Z" fill="white"/>
           </svg>
-          {GUEST_BUILD ? "SFFBC" : "TVPC"}
+          {APP_TITLE}
         </a>
         <button
           onClick={onEnterLite}
@@ -8791,7 +8791,7 @@ export default function App() {
       });
       // 앱이 포그라운드일 때 FCM 메시지 수신
       unsubMsg = onMessage(m, payload => {
-        const title = payload.notification?.title || (GUEST_BUILD ? "SFFBC Worship" : "TVPC Worship");
+        const title = payload.notification?.title || (APP_TITLE);
         const body  = payload.notification?.body  || "";
         if (Notification.permission === "granted") {
           new Notification(title, { body, icon: "/icon-192.png" });
@@ -8815,7 +8815,7 @@ export default function App() {
         // 새로 도착한 읽지 않은 알림 → 브라우저 팝업
         if (knownNotifIdsRef.current !== null && Notification.permission === "granted") {
           docs.filter(n => !n.read && !knownNotifIdsRef.current.has(n.id))
-            .forEach(n => new Notification(n.title || (GUEST_BUILD ? "SFFBC Worship" : "TVPC Worship"), {
+            .forEach(n => new Notification(n.title || (APP_TITLE), {
               body: n.body || "", icon: "/icon-192.png", tag: n.id,
             }));
         }
