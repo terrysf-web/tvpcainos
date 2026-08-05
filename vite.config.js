@@ -88,6 +88,8 @@ export default defineConfig(({ mode }) => {
         workbox: {
           globPatterns: ["**/*.{js,css,html,ico,png,svg,json,woff2}"],
           globIgnores: ["**/version.json", "**/clear-cache.html"],
+          // 팀 배경 이미지 등 큰 PNG(>2MB) 프리캐시 허용 (기본 2MiB → 빌드 실패 방지)
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           skipWaiting: true,
           clientsClaim: true,
           // FCM 서비스 워커는 별도 등록 — 충돌 방지
