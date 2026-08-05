@@ -4,7 +4,7 @@ import { C, KEY_CLR, DARK_KEY, keyColor, darkKeyColor } from "./theme.js";
 import { Icon, Btn, Badge, KeyBadge, Input, Divider, Modal, ConfirmModal } from "./ui.jsx";
 import { HelpModal } from "./HelpModal.jsx";
 import { getVoicings, getDiatonicChords, getEffectiveKey, getChordTones, CHORD_VOICINGS } from "./chordVoicings.js";
-import { auth, db, storage, messagingPromise, firebaseConfigObj, GUEST_BUILD, APP_TITLE, APP_LOGO, CUSTOM_BRAND } from "./firebase.js";
+import { auth, db, storage, messagingPromise, firebaseConfigObj, GUEST_BUILD, APP_TITLE, APP_LOGO, CUSTOM_BRAND, APP_BG } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
 import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart, saveServiceSettings, loadServiceSettings, listWorshipRecordingServiceIds } from "./supabase.js";
@@ -8004,6 +8004,8 @@ function HomeSplashScreen({ user, onEnterLite }) {
         position:"fixed", inset:"-20px",
         backgroundImage: (GUEST_BUILD && !CUSTOM_BRAND)
           ? "url('/sffbc_Ainos_background.png')"
+          : CUSTOM_BRAND
+          ? (APP_BG ? `url('${APP_BG}')` : "linear-gradient(160deg,#f5f3fc 0%,#eae5f8 52%,#dcd5f2 100%)")
           : portrait ? "url('/home-bg-portrait.webp')"
           : isPC ? "url('/home-bg-pc.webp')"
           :        "url('/home-bg.webp')",
@@ -8011,6 +8013,25 @@ function HomeSplashScreen({ user, onEnterLite }) {
         backgroundPosition:"center center",
         backgroundRepeat:"no-repeat",
       }} />
+      {/* 커스텀 팀(자체 배경 이미지 없음) — 홈 중앙에 팀 이름 표시 */}
+      {CUSTOM_BRAND && !APP_BG && (
+        <div style={{
+          position:"fixed", inset:0, display:"flex",
+          flexDirection:"column", alignItems:"center", justifyContent:"center",
+          pointerEvents:"none", zIndex:0, padding:"0 24px", textAlign:"center",
+        }}>
+          <div style={{
+            fontSize:"clamp(38px,11vw,88px)", fontWeight:900, color:"#241a7d",
+            letterSpacing:"-0.02em", lineHeight:1.05,
+            textShadow:"0 2px 16px rgba(80,60,180,0.14)",
+          }}>{APP_TITLE}</div>
+          <div style={{
+            marginTop:14, fontSize:"clamp(12px,3.4vw,16px)", fontWeight:800,
+            color:"rgba(58,43,158,0.55)", letterSpacing:"0.28em",
+            textTransform:"uppercase",
+          }}>Worship</div>
+        </div>
+      )}
       {/* Dark gradient so status bar text is readable on the light background */}
       <div style={{
         position:"fixed", top:0, left:0, right:0,

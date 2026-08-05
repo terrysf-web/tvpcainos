@@ -25,6 +25,8 @@ export const APP_TITLE = E.VITE_APP_TITLE || (GUEST_BUILD ? "SFFBC Worship" : "T
 export const APP_LOGO = E.VITE_APP_LOGO || (GUEST_BUILD ? "/sffbc_logo.jpg" : "/ainos-logo.jpg");
 // 커스텀 팀(자체 로고 없음) — 로고 이미지 대신 이름 텍스트/이니셜 표시
 export const CUSTOM_BRAND = !!E.VITE_APP_TITLE && !E.VITE_APP_LOGO;
+// 커스텀 팀 홈 배경 이미지(선택) — 없으면 그라디언트 배경 사용(Ainos/TVPC 그림 안 씀)
+export const APP_BG = E.VITE_APP_BG || "";
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
