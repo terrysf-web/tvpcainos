@@ -22,7 +22,9 @@ export const GUEST_BUILD = E.VITE_GUEST === "1";
 // 앱 브랜딩 — VITE_APP_TITLE(팀별) 우선. 없으면 게스트=SFFBC, 기본=TVPC
 export const APP_TITLE = E.VITE_APP_TITLE || (GUEST_BUILD ? "SFFBC Worship" : "TVPC Worship");
 // 로고 이미지 — 커스텀 팀(VITE_APP_TITLE)이고 자체 로고 없으면 기본 앱 아이콘 사용(SFFBC 로고 안 씀)
-export const APP_LOGO = E.VITE_APP_LOGO || (E.VITE_APP_TITLE ? "/icon-192.png" : (GUEST_BUILD ? "/sffbc_logo.jpg" : "/ainos-logo.jpg"));
+export const APP_LOGO = E.VITE_APP_LOGO || (GUEST_BUILD ? "/sffbc_logo.jpg" : "/ainos-logo.jpg");
+// 커스텀 팀(자체 로고 없음) — 로고 이미지 대신 이름 텍스트/이니셜 표시
+export const CUSTOM_BRAND = !!E.VITE_APP_TITLE && !E.VITE_APP_LOGO;
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);

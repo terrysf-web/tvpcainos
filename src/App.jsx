@@ -4,7 +4,7 @@ import { C, KEY_CLR, DARK_KEY, keyColor, darkKeyColor } from "./theme.js";
 import { Icon, Btn, Badge, KeyBadge, Input, Divider, Modal, ConfirmModal } from "./ui.jsx";
 import { HelpModal } from "./HelpModal.jsx";
 import { getVoicings, getDiatonicChords, getEffectiveKey, getChordTones, CHORD_VOICINGS } from "./chordVoicings.js";
-import { auth, db, storage, messagingPromise, firebaseConfigObj, GUEST_BUILD, APP_TITLE, APP_LOGO } from "./firebase.js";
+import { auth, db, storage, messagingPromise, firebaseConfigObj, GUEST_BUILD, APP_TITLE, APP_LOGO, CUSTOM_BRAND } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
 import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart, saveServiceSettings, loadServiceSettings, listWorshipRecordingServiceIds } from "./supabase.js";
@@ -623,8 +623,8 @@ function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
       alignItems:"center", justifyContent:"center", padding:24,
     }}>
       <div className="wFadeIn" style={{ textAlign:"center", marginBottom:40 }}>
-        {GUEST_BUILD ? (
-          <img src={APP_LOGO} alt="SFFBC Worship"
+        {(GUEST_BUILD && !CUSTOM_BRAND) ? (
+          <img src={APP_LOGO} alt={APP_TITLE}
             style={{ width:100, height:100, borderRadius:"50%", margin:"0 auto 18px", display:"block",
               objectFit:"cover", background:"#fff",
               boxShadow:"0 0 0 7px rgba(255,255,255,0.7), 0 14px 36px rgba(60,90,160,0.22)" }} />
@@ -2295,15 +2295,17 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
         display:"flex", alignItems:"center", justifyContent:"space-between",
       }}>
         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-          {GUEST_BUILD ? (
+          {CUSTOM_BRAND ? (
+            <span style={{ fontSize:16, fontWeight:900, color:"#fff", letterSpacing:"0.2px", whiteSpace:"nowrap" }}>{APP_TITLE}</span>
+          ) : GUEST_BUILD ? (
             <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-              <img src={APP_LOGO} alt="SFFBC Worship"
+              <img src={APP_LOGO} alt={APP_TITLE}
                 style={{ width:26, height:26, borderRadius:"50%", background:"#fff", objectFit:"cover", flexShrink:0 }} />
               <span style={{ fontSize:15, fontWeight:800, color:"#fff", letterSpacing:"0.2px", whiteSpace:"nowrap" }}>{APP_TITLE}</span>
             </div>
           ) : (
             <div style={{ height:28, overflow:"hidden", flexShrink:0 }}>
-              <img src={APP_LOGO} alt="SFFBC Worship"
+              <img src={APP_LOGO} alt={APP_TITLE}
                 style={{ height:46, width:"auto", display:"block", filter:"brightness(9)", mixBlendMode:"screen" }} />
             </div>
           )}
