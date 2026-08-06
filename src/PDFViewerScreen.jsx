@@ -1759,7 +1759,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // 개인 예배 악보 목록 — 키보드(건반)/어드민만, 본인만 보임 (예배 곡 뒤에 이어서 넘김)
   const canManageMine = !isLibraryMode && (user?.role === "admin" ||
-    getUserParts(user).some(p => ["키보드","건반","피아노"].includes(p)));
+    getUserParts(user).some(p => ["키보드","건반","피아노","신디"].includes(p)));
   const [myItems, setMyItems] = useState([]); // 개인 추가 곡 [{id, after}] — after=이 곡 뒤에 삽입(null=맨 앞)
   const [showMyPicker, setShowMyPicker] = useState(false);
   const [myPickerQ, setMyPickerQ] = useState("");
@@ -5408,7 +5408,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 {mkGrp("보기", viewActive, C.acc, 0)}
                 {mkGrp("필기", writeActive, drawMode ? C.pur : C.acc, 0)}
                 {mkGrp("악보", scoreActive, transposeMode ? C.grn : C.acc, 0)}
-                {!isLibraryMode && (getUserParts(user).some(p => ["키보드","피아노"].includes(p)) || isFoh(user)) && (() => {
+                {!isLibraryMode && (getUserParts(user).some(p => ["키보드","피아노","신디"].includes(p)) || isFoh(user)) && (() => {
                   const isOpen = activeGroup === "팀채팅";
                   return (
                     <button
@@ -5434,7 +5434,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     </button>
                   );
                 })()}
-                {(getUserParts(user).some(p => ["키보드","피아노"].includes(p)) || isFoh(user) || user?.role === "admin") && (
+                {(getUserParts(user).some(p => ["키보드","피아노","신디"].includes(p)) || isFoh(user) || user?.role === "admin") && (
                   <button
                     onClick={() => { setShowImprov(true); setActiveGroup(null); }}
                     title="즉흥 코드 생성"
@@ -6206,7 +6206,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             const divH = <div style={{ width:1, height:30, background:C.bdr, flexShrink:0, marginBottom:2 }} />;
             const isGuitar = getUserParts(user).includes("기타") || getUserParts(user).includes("일렉기타");
             const showCapo = isGuitar || user?.role === "admin";
-            const showDict = ["기타","일렉기타","베이스","키보드","피아노"].some(p => getUserParts(user).includes(p)) || leader;
+            const showDict = ["기타","일렉기타","베이스","키보드","피아노","신디"].some(p => getUserParts(user).includes(p)) || leader;
 
             // 싱글 모드 UI 한 섹션 — 듀얼/싱글 공통 사용
             const renderSection = (songKey, steps, saveFn, capoVal, setCapo, chords, detectFn, side) => {
@@ -7703,7 +7703,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       )}
 
       {/* 팀 채팅 패널 */}
-      {showChat && !isLibraryMode && effectiveSvcId && (getUserParts(user).some(p => ["키보드","피아노"].includes(p)) || isFoh(user)) && (() => {
+      {showChat && !isLibraryMode && effectiveSvcId && (getUserParts(user).some(p => ["키보드","피아노","신디"].includes(p)) || isFoh(user)) && (() => {
         const sendMsg = async (text) => {
           if (!text?.trim()) return;
           await addDoc(collection(db, "liveChat", effectiveSvcId, "messages"), {
@@ -8936,7 +8936,7 @@ function ChordDictModal({ onClose, songChords, songKey, effectiveSteps, userPart
   const defaultTab = (() => {
     if (!userParts) return "guitar";
     if (userParts.includes("베이스")) return "bass";
-    if (userParts.some(p => ["키보드","피아노"].includes(p))) return "keyboard";
+    if (userParts.some(p => ["키보드","피아노","신디"].includes(p))) return "keyboard";
     return "guitar";
   })();
   const [tab, setTab] = useState(defaultTab);

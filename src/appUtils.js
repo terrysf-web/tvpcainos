@@ -1,5 +1,8 @@
 // 게스트(SFFBC) 빌드는 보컬 구성이 달라 이름 있는 보컬을 빼고 보컬/리드보컬/보컬그룹만 사용
 const GUEST_BUILD = import.meta.env.VITE_GUEST === "1";
+// 커스텀 팀(예: 아남네시스)은 건반 파트를 "신디"로 표기 (그 외 팀은 "피아노")
+const CUSTOM_BRAND = !!import.meta.env.VITE_APP_TITLE && !import.meta.env.VITE_APP_LOGO;
+const KEY2 = CUSTOM_BRAND ? "신디" : "피아노";
 
 const VOCAL_PARTS = GUEST_BUILD
   ? [
@@ -23,14 +26,14 @@ export const PARTS = [
   { id:"베이스",    emoji:"🎶", label:"베이스" },
   { id:"드럼",      emoji:"🥁", label:"드럼" },
   { id:"키보드",    emoji:"🎹", label:"키보드" },
-  { id:"피아노",    emoji:"🎹", label:"피아노" },
+  { id:KEY2,        emoji:"🎹", label:KEY2 },
   { id:"일렉기타",  emoji:"⚡", label:"일렉기타" },
   { id:"FOH",       emoji:"🎚", label:"FOH" },
 ];
 
 export const VOCALIST_PART_IDS = new Set(VOCAL_PARTS.map(p => p.id));
-export const SHEET_SYNC_INST_PARTS = ["밴드","기타","베이스","드럼","키보드","피아노","일렉기타"];
-export const DEFAULT_SHEET_PARTS   = ["밴드","기타","베이스","드럼","키보드","피아노","일렉기타"];
+export const SHEET_SYNC_INST_PARTS = ["밴드","기타","베이스","드럼","키보드",KEY2,"일렉기타"];
+export const DEFAULT_SHEET_PARTS   = ["밴드","기타","베이스","드럼","키보드",KEY2,"일렉기타"];
 export const GROUP_PART_IDS = new Set(["밴드", "보컬그룹"]);
 
 export const CUE_SECTIONS = ["전체","Intro","Verse","Chorus","Bridge","Outro"];
