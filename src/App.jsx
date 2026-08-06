@@ -4,7 +4,7 @@ import { C, KEY_CLR, DARK_KEY, keyColor, darkKeyColor } from "./theme.js";
 import { Icon, Btn, Badge, KeyBadge, Input, Divider, Modal, ConfirmModal } from "./ui.jsx";
 import { HelpModal } from "./HelpModal.jsx";
 import { getVoicings, getDiatonicChords, getEffectiveKey, getChordTones, CHORD_VOICINGS } from "./chordVoicings.js";
-import { auth, db, storage, messagingPromise, firebaseConfigObj, GUEST_BUILD, APP_TITLE, APP_LOGO, CUSTOM_BRAND, APP_BG, APP_BG_PC, APP_YOUTUBE } from "./firebase.js";
+import { auth, db, storage, messagingPromise, firebaseConfigObj, GUEST_BUILD, APP_TITLE, APP_LOGO, CUSTOM_BRAND, APP_BG, APP_BG_PC, APP_YOUTUBE, APP_YOUTUBE_LABEL } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
 import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart, saveServiceSettings, loadServiceSettings, listWorshipRecordingServiceIds } from "./supabase.js";
@@ -8012,11 +8012,13 @@ function HomeSplashScreen({ user, onEnterLite }) {
   return (
     <>
       {(CUSTOM_BRAND && teamBg) ? (
-        /* 모든 기기에서 꽉 채움(cover). 폰=세로이미지(아래 기준), 아이패드/PC=가로이미지 */
-        <div style={{ position:"fixed", inset:0, backgroundColor:"#e7dcc4",
+        /* 배경은 하단 메뉴 '위쪽'까지만 채움 → 빵·잔이 메뉴에 안 가리고 온전히 보임.
+           메뉴 자리(하단 띠)는 크림색. 이미지는 아래(빵·잔) 기준 cover. */
+        <div style={{ position:"fixed", top:0, left:0, right:0,
+          bottom:"calc(64px + env(safe-area-inset-bottom))",
+          backgroundColor:"#e7dcc4",
           backgroundImage:`url('${teamBg}')`, backgroundSize:"cover",
-          backgroundPosition: portrait ? "center bottom" : "center",
-          backgroundRepeat:"no-repeat" }} />
+          backgroundPosition:"center bottom", backgroundRepeat:"no-repeat" }} />
       ) : (
         <div style={{
           position:"fixed", inset:"-20px",
@@ -8119,7 +8121,7 @@ function HomeSplashScreen({ user, onEnterLite }) {
             <rect width="18" height="13" rx="3" fill="#FF0000"/>
             <path d="M7 9.5V3.5L13 6.5L7 9.5Z" fill="white"/>
           </svg>
-          {APP_TITLE}
+          {APP_YOUTUBE_LABEL || APP_TITLE}
         </a>
         )}
         <button
@@ -8177,18 +8179,15 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
   return (
     <div style={{
       flexShrink:0, width:"100%",
-      background: chip ? "rgba(250,247,240,0.72)" : "transparent",
-      backdropFilter: chip ? "blur(20px) saturate(1.15)" : "none",
-      WebkitBackdropFilter: chip ? "blur(20px) saturate(1.15)" : "none",
-      borderTop: chip ? "1px solid rgba(45,36,96,0.10)" : "none",
-      boxShadow: chip ? "0 -1px 12px rgba(0,0,0,0.05)" : "none",
+      background: chip ? "#ebe1cd" : "transparent",
+      borderTop: chip ? "1px solid rgba(45,36,96,0.12)" : "none",
       zIndex:500,
     }}>
       <div style={{
         width:"100%", maxWidth:640, margin:"0 auto",
         display:"flex", alignItems:"center",
-        padding:"5px 0",
-        paddingBottom:"calc(5px + env(safe-area-inset-bottom))",
+        padding:"2px 0",
+        paddingBottom:"calc(2px + env(safe-area-inset-bottom))",
       }}>
       {tabs.map(t => {
         const active = view === t.id;

@@ -31,6 +31,8 @@ export const APP_BG = E.VITE_APP_BG || "";
 export const APP_BG_PC = E.VITE_APP_BG_PC || "";
 // 팀 유튜브 채널/재생목록(선택) — 커스텀 팀은 이 값 없으면 유튜브 버튼 숨김(SFFBC 채널 안 씀)
 export const APP_YOUTUBE = E.VITE_APP_YOUTUBE || "";
+// 유튜브 버튼에 표시할 이름(선택) — 없으면 APP_TITLE. (예: 교회 공용 유튜브 → "TVPC")
+export const APP_YOUTUBE_LABEL = E.VITE_APP_YOUTUBE_LABEL || "";
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
