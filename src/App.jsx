@@ -8104,8 +8104,11 @@ function HomeSplashScreen({ user, onEnterLite }) {
           target="_blank" rel="noopener noreferrer"
           style={{
             display:"flex", alignItems:"center", gap:6,
-            background:"transparent",
-            border:"1.5px solid rgba(80,80,110,0.35)",
+            background: CUSTOM_BRAND ? "rgba(255,255,255,0.85)" : "transparent",
+            backdropFilter: CUSTOM_BRAND ? "blur(8px)" : "none",
+            WebkitBackdropFilter: CUSTOM_BRAND ? "blur(8px)" : "none",
+            boxShadow: CUSTOM_BRAND ? "0 2px 8px rgba(0,0,0,0.14)" : "none",
+            border: CUSTOM_BRAND ? "1px solid rgba(80,80,110,0.18)" : "1.5px solid rgba(80,80,110,0.35)",
             color:"#333", textDecoration:"none",
             borderRadius:20, padding:"5px 13px",
             fontSize:12, fontWeight:700, letterSpacing:"0.01em",
@@ -8123,7 +8126,10 @@ function HomeSplashScreen({ user, onEnterLite }) {
           onClick={onEnterLite}
           style={{
             display:"flex", alignItems:"center", gap:5,
-            background:"transparent",
+            background: CUSTOM_BRAND ? "rgba(255,255,255,0.85)" : "transparent",
+            backdropFilter: CUSTOM_BRAND ? "blur(8px)" : "none",
+            WebkitBackdropFilter: CUSTOM_BRAND ? "blur(8px)" : "none",
+            boxShadow: CUSTOM_BRAND ? "0 2px 8px rgba(0,0,0,0.14)" : "none",
             border:"1.5px solid rgba(107,93,231,0.5)",
             color:"#6b5de7",
             borderRadius:20, padding:"5px 13px",
@@ -8166,25 +8172,24 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
   ];
   const isHome = view === "home";
   const navPur = "#2d2460";
-  // 하단 메뉴는 투명 — 배경이 그대로 비치도록 (스크림 없음)
-  const navScrim = false;
-  // 커스텀 팀 홈(사진 배경) 위에선 아이콘/글씨가 묻히므로, 아이콘별 반투명 흰 칩 + 글씨 그림자로 또렷하게
+  // 커스텀 팀 홈(사진 배경) 위에선 하단을 전체폭 프로스티드 바로 — 네이티브 탭바처럼 자연스럽고 또렷
   const chip = CUSTOM_BRAND && isHome;
   return (
     <div style={{
-      flexShrink:0,
-      width:"100%", maxWidth:640, margin:"0 auto",
-      background: navScrim
-        ? "linear-gradient(to top, rgba(244,238,224,0.96) 0%, rgba(244,238,224,0.82) 52%, rgba(244,238,224,0.38) 80%, rgba(244,238,224,0) 100%)"
-        : "transparent",
-      backdropFilter: navScrim ? "blur(6px)" : "none",
-      WebkitBackdropFilter: navScrim ? "blur(6px)" : "none",
-      borderTop: "none",
-      display:"flex", alignItems:"center",
-      padding: navScrim ? "14px 0 4px" : "4px 0",
-      paddingBottom:"calc(4px + env(safe-area-inset-bottom))",
+      flexShrink:0, width:"100%",
+      background: chip ? "rgba(250,247,240,0.72)" : "transparent",
+      backdropFilter: chip ? "blur(20px) saturate(1.15)" : "none",
+      WebkitBackdropFilter: chip ? "blur(20px) saturate(1.15)" : "none",
+      borderTop: chip ? "1px solid rgba(45,36,96,0.10)" : "none",
+      boxShadow: chip ? "0 -1px 12px rgba(0,0,0,0.05)" : "none",
       zIndex:500,
     }}>
+      <div style={{
+        width:"100%", maxWidth:640, margin:"0 auto",
+        display:"flex", alignItems:"center",
+        padding:"5px 0",
+        paddingBottom:"calc(5px + env(safe-area-inset-bottom))",
+      }}>
       {tabs.map(t => {
         const active = view === t.id;
         return (
@@ -8194,11 +8199,9 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
             <div style={{ position:"relative" }}>
               <div style={{
                 width:44, height:44, borderRadius:12,
-                background: active ? navPur : (chip ? "rgba(255,255,255,0.86)" : "transparent"),
-                border: `2px solid ${active ? navPur : (chip ? "rgba(45,36,96,0.35)" : "rgba(45,36,96,0.55)")}`,
-                boxShadow: active ? "none" : (chip ? "0 2px 8px rgba(0,0,0,0.22)" : "0 1px 5px rgba(0,0,0,0.12)"),
-                backdropFilter: chip && !active ? "blur(4px)" : "none",
-                WebkitBackdropFilter: chip && !active ? "blur(4px)" : "none",
+                background: active ? navPur : "transparent",
+                border: `2px solid ${active ? navPur : "rgba(45,36,96,0.5)"}`,
+                boxShadow: (active || chip) ? "none" : "0 1px 5px rgba(0,0,0,0.12)",
                 display:"flex", alignItems:"center", justifyContent:"center",
                 transition:"background .15s",
               }}>
@@ -8208,7 +8211,7 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
                 <span style={{
                   position:"absolute", top:-4, right:-6,
                   minWidth:16, height:16, padding:"0 4px",
-                  background:C.red, borderRadius:8, border:`2px solid ${isHome ? "transparent" : C.surf}`,
+                  background:C.red, borderRadius:8, border:`2px solid ${chip ? "rgba(250,247,240,0.95)" : (isHome ? "transparent" : C.surf)}`,
                   fontSize:10, fontWeight:700, color:"#fff",
                   display:"flex", alignItems:"center", justifyContent:"center",
                   lineHeight:1, boxSizing:"border-box",
@@ -8217,10 +8220,9 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
                 </span>
               )}
             </div>
-            <span style={{ fontSize:11, fontWeight: chip ? 800 : (active ? 700 : 600),
-              color: active ? navPur : (chip ? navPur : "rgba(45,36,96,0.65)"),
-              letterSpacing:"0.01em",
-              textShadow: chip ? "0 1px 3px rgba(255,255,255,0.95), 0 0 6px rgba(255,255,255,0.8)" : "none" }}>
+            <span style={{ fontSize:11, fontWeight: active ? 800 : 600,
+              color: active ? navPur : "rgba(45,36,96,0.72)",
+              letterSpacing:"0.01em" }}>
               {t.label}
             </span>
           </button>
@@ -8229,17 +8231,13 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
       <button onClick={() => { localStorage.setItem("tvpc_view", view); window.location.reload(); }}
         style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2,
           background:"none", border:"none", cursor:"pointer", padding:"2px 8px", flexShrink:0 }}>
-        <div style={{ width:44, height:44, borderRadius:12,
-          background: chip ? "rgba(255,255,255,0.86)" : `${C.pur}18`,
-          boxShadow: chip ? "0 2px 8px rgba(0,0,0,0.22)" : "none",
-          backdropFilter: chip ? "blur(4px)" : "none",
-          WebkitBackdropFilter: chip ? "blur(4px)" : "none",
+        <div style={{ width:44, height:44, borderRadius:12, background:`${C.pur}18`,
           display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <Icon n="refresh" size={20} color={chip ? navPur : `${C.pur}88`} />
+          <Icon n="refresh" size={20} color={`${C.pur}88`} />
         </div>
-        <span style={{ fontSize:9, color: chip ? navPur : C.dim, letterSpacing:"0.02em",
-          textShadow: chip ? "0 1px 3px rgba(255,255,255,0.95)" : "none" }}>v{APP_VERSION}</span>
+        <span style={{ fontSize:9, color:C.dim, letterSpacing:"0.02em" }}>v{APP_VERSION}</span>
       </button>
+      </div>
     </div>
   );
 }
