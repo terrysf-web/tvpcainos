@@ -8164,6 +8164,8 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
   const navPur = "#2d2460";
   // 하단 메뉴는 투명 — 배경이 그대로 비치도록 (스크림 없음)
   const navScrim = false;
+  // 커스텀 팀 홈(사진 배경) 위에선 아이콘/글씨가 묻히므로, 아이콘별 반투명 흰 칩 + 글씨 그림자로 또렷하게
+  const chip = CUSTOM_BRAND && isHome;
   return (
     <div style={{
       flexShrink:0,
@@ -8188,9 +8190,11 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
             <div style={{ position:"relative" }}>
               <div style={{
                 width:44, height:44, borderRadius:12,
-                background: active ? navPur : "transparent",
-                border: `2px solid ${active ? navPur : "rgba(45,36,96,0.55)"}`,
-                boxShadow: !active ? "0 1px 5px rgba(0,0,0,0.12)" : "none",
+                background: active ? navPur : (chip ? "rgba(255,255,255,0.86)" : "transparent"),
+                border: `2px solid ${active ? navPur : (chip ? "rgba(45,36,96,0.35)" : "rgba(45,36,96,0.55)")}`,
+                boxShadow: active ? "none" : (chip ? "0 2px 8px rgba(0,0,0,0.22)" : "0 1px 5px rgba(0,0,0,0.12)"),
+                backdropFilter: chip && !active ? "blur(4px)" : "none",
+                WebkitBackdropFilter: chip && !active ? "blur(4px)" : "none",
                 display:"flex", alignItems:"center", justifyContent:"center",
                 transition:"background .15s",
               }}>
@@ -8209,9 +8213,10 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
                 </span>
               )}
             </div>
-            <span style={{ fontSize:11, fontWeight: active ? 700 : 600,
-              color: active ? navPur : "rgba(45,36,96,0.65)",
-              letterSpacing:"0.01em" }}>
+            <span style={{ fontSize:11, fontWeight: chip ? 800 : (active ? 700 : 600),
+              color: active ? navPur : (chip ? navPur : "rgba(45,36,96,0.65)"),
+              letterSpacing:"0.01em",
+              textShadow: chip ? "0 1px 3px rgba(255,255,255,0.95), 0 0 6px rgba(255,255,255,0.8)" : "none" }}>
               {t.label}
             </span>
           </button>
@@ -8220,11 +8225,16 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
       <button onClick={() => { localStorage.setItem("tvpc_view", view); window.location.reload(); }}
         style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2,
           background:"none", border:"none", cursor:"pointer", padding:"2px 8px", flexShrink:0 }}>
-        <div style={{ width:44, height:44, borderRadius:12, background:`${C.pur}18`,
+        <div style={{ width:44, height:44, borderRadius:12,
+          background: chip ? "rgba(255,255,255,0.86)" : `${C.pur}18`,
+          boxShadow: chip ? "0 2px 8px rgba(0,0,0,0.22)" : "none",
+          backdropFilter: chip ? "blur(4px)" : "none",
+          WebkitBackdropFilter: chip ? "blur(4px)" : "none",
           display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <Icon n="refresh" size={20} color={`${C.pur}88`} />
+          <Icon n="refresh" size={20} color={chip ? navPur : `${C.pur}88`} />
         </div>
-        <span style={{ fontSize:9, color:C.dim, letterSpacing:"0.02em" }}>v{APP_VERSION}</span>
+        <span style={{ fontSize:9, color: chip ? navPur : C.dim, letterSpacing:"0.02em",
+          textShadow: chip ? "0 1px 3px rgba(255,255,255,0.95)" : "none" }}>v{APP_VERSION}</span>
       </button>
     </div>
   );
