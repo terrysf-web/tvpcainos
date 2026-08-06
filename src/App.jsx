@@ -8267,6 +8267,9 @@ function InstallPrompt() {
   const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
   const isIOS = /iphone|ipad|ipod/i.test(ua) ||
     (typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  // 사파리(아이폰·아이패드·맥)는 '공유 → 홈 화면에 추가' 방식
+  const isSafari = /safari/i.test(ua) && !/chrome|crios|android|fxios|edg|opr/i.test(ua);
+  const shareMethod = isIOS || isSafari;
 
   const [dismissed, setDismissed] = useState(() => {
     try { return localStorage.getItem("tvpc_install_dismissed") === "1"; } catch { return false; }
@@ -8324,25 +8327,33 @@ function InstallPrompt() {
           <button onClick={doInstall}
             style={{ width:"100%", padding:"11px 0", borderRadius:11, border:"none", cursor:"pointer",
               background:C.pur, color:"#fff", fontSize:14, fontWeight:800, fontFamily:"inherit" }}>
-            설치하기
+            설치하기 (Install)
           </button>
-        ) : isIOS ? (
-          <div style={{ fontSize:13, color:C.txt, lineHeight:1.7,
-            background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:11, padding:"10px 12px" }}>
-            <span style={{ display:"inline-flex", alignItems:"center", gap:5, verticalAlign:"middle" }}>
-              사파리 아래(또는 위)의 <b>공유
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ display:"inline-block" }}>
-                <path d="M12 3v12M12 3l-4 4M12 3l4 4" stroke={C.pur} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M6 12v7a1 1 0 001 1h10a1 1 0 001-1v-7" stroke={C.pur} strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-              </b>
-            </span>
-            {" "}→ <b style={{ color:C.pur }}>"홈 화면에 추가"</b> 를 누르세요.
+        ) : shareMethod ? (
+          <div style={{ fontSize:13, color:C.txt, lineHeight:1.8,
+            background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:11, padding:"11px 13px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+              <b>①</b> 아래(또는 위)의
+              <span style={{ display:"inline-flex", alignItems:"center", gap:4 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3v12M12 3l-4 4M12 3l4 4" stroke={C.pur} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M6 12v7a1 1 0 001 1h10a1 1 0 001-1v-7" stroke={C.pur} strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <b style={{ color:C.pur }}>공유 (Share)</b>
+              </span>
+              누르기
+            </div>
+            <div style={{ marginTop:4 }}>
+              <b>②</b> <b style={{ color:C.pur }}>「홈 화면에 추가」</b> = <b style={{ color:C.pur }}>Add to Home Screen</b> 선택
+            </div>
           </div>
         ) : (
-          <div style={{ fontSize:13, color:C.txt, lineHeight:1.7,
-            background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:11, padding:"10px 12px" }}>
-            브라우저 메뉴 <b>⋮</b> → <b style={{ color:C.pur }}>"홈 화면에 추가"</b>(또는 "앱 설치")를 누르세요.
+          <div style={{ fontSize:13, color:C.txt, lineHeight:1.8,
+            background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:11, padding:"11px 13px" }}>
+            <div><b>①</b> 브라우저 메뉴 <b style={{ color:C.pur }}>⋮</b> 열기</div>
+            <div style={{ marginTop:4 }}>
+              <b>②</b> <b style={{ color:C.pur }}>「홈 화면에 추가」/「앱 설치」</b> = <b style={{ color:C.pur }}>Add to Home Screen / Install app</b>
+            </div>
           </div>
         )}
         <button onClick={() => close(true)}
