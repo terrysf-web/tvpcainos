@@ -7426,6 +7426,9 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
             </div>
           ))}
         </div>
+        <div style={{ fontSize:11, color:C.dim, marginTop:7, lineHeight:1.55, paddingLeft:2 }}>
+          💡 둘 다 켤 수 있지만, <b style={{ color:C.txt }}>하나만</b> 켜두는 걸 권장해요. (둘 다 켜면 페이지 넘김이 겹쳐 헷갈릴 수 있어요.)
+        </div>
       </div>
 
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
