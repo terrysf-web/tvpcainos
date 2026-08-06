@@ -4,7 +4,7 @@ import { C, KEY_CLR, DARK_KEY, keyColor, darkKeyColor } from "./theme.js";
 import { Icon, Btn, Badge, KeyBadge, Input, Divider, Modal, ConfirmModal } from "./ui.jsx";
 import { HelpModal } from "./HelpModal.jsx";
 import { getVoicings, getDiatonicChords, getEffectiveKey, getChordTones, CHORD_VOICINGS } from "./chordVoicings.js";
-import { auth, db, storage, messagingPromise, firebaseConfigObj, GUEST_BUILD, APP_TITLE, APP_LOGO, CUSTOM_BRAND, APP_BG, APP_YOUTUBE } from "./firebase.js";
+import { auth, db, storage, messagingPromise, firebaseConfigObj, GUEST_BUILD, APP_TITLE, APP_LOGO, CUSTOM_BRAND, APP_BG, APP_BG_PC, APP_YOUTUBE } from "./firebase.js";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
 import { uploadPdf, sendFcmPush, detectChordsViaEdge, uploadImage, saveWorshipRecording, loadWorshipRecording, deleteWorshipRecordingPart, saveServiceSettings, loadServiceSettings, listWorshipRecordingServiceIds } from "./supabase.js";
@@ -8007,21 +8007,36 @@ function HomeSplashScreen({ user, onEnterLite }) {
 
   // (hover:hover) and (pointer:fine) = mouse/trackpad → real PC, not iPad/tablet
   const isPC = !portrait && screenW >= 1200 && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  // 커스텀 팀 배경: 세로화면(폰)=APP_BG, 가로화면(PC)=APP_BG_PC(없으면 APP_BG)
+  const teamBg = CUSTOM_BRAND ? (portrait ? APP_BG : (APP_BG_PC || APP_BG)) : "";
   return (
     <>
-      <div style={{
-        position:"fixed", inset:"-20px",
-        backgroundImage: (GUEST_BUILD && !CUSTOM_BRAND)
-          ? "url('/sffbc_Ainos_background.png')"
-          : CUSTOM_BRAND
-          ? (APP_BG ? `url('${APP_BG}')` : "linear-gradient(160deg,#f5f3fc 0%,#eae5f8 52%,#dcd5f2 100%)")
-          : portrait ? "url('/home-bg-portrait.webp')"
-          : isPC ? "url('/home-bg-pc.webp')"
-          :        "url('/home-bg.webp')",
-        backgroundSize:"cover",
-        backgroundPosition:"center center",
-        backgroundRepeat:"no-repeat",
-      }} />
+      {(CUSTOM_BRAND && teamBg) ? (
+        <>
+          {/* 뒤: 같은 이미지를 흐리게 꽉 채워 여백을 자연스럽게 채움 */}
+          <div style={{ position:"fixed", inset:"-20px", backgroundColor:"#e7dcc4",
+            backgroundImage:`url('${teamBg}')`, backgroundSize:"cover",
+            backgroundPosition:"center", backgroundRepeat:"no-repeat",
+            filter:"blur(34px)", transform:"scale(1.12)" }} />
+          {/* 앞: 이미지 전체가 잘리지 않게(contain) 표시 */}
+          <div style={{ position:"fixed", inset:0, backgroundImage:`url('${teamBg}')`,
+            backgroundSize:"contain", backgroundPosition:"center", backgroundRepeat:"no-repeat" }} />
+        </>
+      ) : (
+        <div style={{
+          position:"fixed", inset:"-20px",
+          backgroundImage: (GUEST_BUILD && !CUSTOM_BRAND)
+            ? "url('/sffbc_Ainos_background.png')"
+            : CUSTOM_BRAND
+            ? "linear-gradient(160deg,#f5f3fc 0%,#eae5f8 52%,#dcd5f2 100%)"
+            : portrait ? "url('/home-bg-portrait.webp')"
+            : isPC ? "url('/home-bg-pc.webp')"
+            :        "url('/home-bg.webp')",
+          backgroundSize:"cover",
+          backgroundPosition:"center center",
+          backgroundRepeat:"no-repeat",
+        }} />
+      )}
       {/* 커스텀 팀(자체 배경 이미지 없음) — 홈 중앙에 팀 이름 표시 */}
       {CUSTOM_BRAND && !APP_BG && (
         <div style={{

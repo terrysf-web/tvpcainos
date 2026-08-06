@@ -26,7 +26,9 @@ export const APP_LOGO = E.VITE_APP_LOGO || (GUEST_BUILD ? "/sffbc_logo.jpg" : "/
 // 커스텀 팀(자체 로고 없음) — 로고 이미지 대신 이름 텍스트/이니셜 표시
 export const CUSTOM_BRAND = !!E.VITE_APP_TITLE && !E.VITE_APP_LOGO;
 // 커스텀 팀 홈 배경 이미지(선택) — 없으면 그라디언트 배경 사용(Ainos/TVPC 그림 안 씀)
+// APP_BG=세로(폰), APP_BG_PC=가로(PC/가로화면). PC용 없으면 APP_BG 사용.
 export const APP_BG = E.VITE_APP_BG || "";
+export const APP_BG_PC = E.VITE_APP_BG_PC || "";
 // 팀 유튜브 채널/재생목록(선택) — 커스텀 팀은 이 값 없으면 유튜브 버튼 숨김(SFFBC 채널 안 씀)
 export const APP_YOUTUBE = E.VITE_APP_YOUTUBE || "";
 
