@@ -34,7 +34,9 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.791";
+const APP_VERSION = "3.792";
+// 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
+const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
 function getYoutubeId(url) {
   if (!url) return null;
@@ -9427,27 +9429,34 @@ export default function App() {
   // ── 자동 업데이트: 배포된 version.json(항상 네트워크 최신)이 현재 로드된 코드보다
   //    신버전이면, 사파리 등에서 예전 캐시를 서빙 중인 것 → SW·캐시 비우고 새로고침
   useEffect(() => {
-    fetch(`/version.json?t=${Date.now()}`, { cache: "no-store" })
-      .then(r => r.json())
-      .then(async ({ version }) => {
-        if (!version || version === APP_VERSION) return;
-        const nv = parseFloat(version), cv = parseFloat(APP_VERSION);
-        if (!(nv > cv)) return;                                   // 신버전일 때만
-        if (sessionStorage.getItem("tvpc_autoupdated") === version) return; // 루프 방지
-        sessionStorage.setItem("tvpc_autoupdated", version);
-        try {
-          if ("serviceWorker" in navigator) {
-            const regs = await navigator.serviceWorker.getRegistrations();
-            await Promise.all(regs.map(r => r.unregister()));
-          }
-          if ("caches" in window) {
-            const keys = await caches.keys();
-            await Promise.all(keys.map(k => caches.delete(k)));
-          }
-        } catch {}
-        window.location.reload();
-      })
-      .catch(() => {});
+    const check = () => {
+      fetch(`/version.json?t=${Date.now()}`, { cache: "no-store" })
+        .then(r => r.json())
+        .then(async ({ version, build }) => {
+          // 빌드ID가 다르면(=새 배포) 신버전. 구버전 앱 호환용으로 version 숫자 비교도 함께.
+          const buildNewer = !!build && !!BUILD_ID && build !== BUILD_ID;
+          const verNewer   = !!version && parseFloat(version) > parseFloat(APP_VERSION);
+          if (!buildNewer && !verNewer) return;
+          const key = String(build || version);
+          if (sessionStorage.getItem("tvpc_autoupdated") === key) return; // 한 세션 1회(루프 방지)
+          sessionStorage.setItem("tvpc_autoupdated", key);
+          try {
+            if ("serviceWorker" in navigator) {
+              const regs = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(regs.map(r => r.unregister()));
+            }
+            if ("caches" in window) {
+              const keys = await caches.keys();
+              await Promise.all(keys.map(k => caches.delete(k)));
+            }
+          } catch {}
+          window.location.reload();
+        })
+        .catch(() => {});
+    };
+    check();
+    const id = setInterval(check, 90000); // 열려 있는 동안 1.5분마다 새 배포 확인
+    return () => clearInterval(id);
   }, []);
 
   // ── 버전 업데이트 체크 (Firestore 기반 — 어드민 파이널 승인 시만 사용자 알림)

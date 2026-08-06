@@ -74,14 +74,31 @@ function teamBranding(env) {
   };
 }
 
+// 빌드마다 고유 ID — 배포 시 version.json에 기록, 앱은 이 값과 비교해 새 버전 자동 감지
+function writeBuildId(buildId) {
+  return {
+    name: "write-build-id",
+    closeBundle() {
+      const p = path.resolve("dist/version.json");
+      let obj = {};
+      try { obj = JSON.parse(fs.readFileSync(p, "utf8")); } catch { /* 없으면 새로 */ }
+      obj.build = buildId;
+      fs.writeFileSync(p, JSON.stringify(obj));
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const isNamedTeam = mode !== "guest" && mode !== "production" && mode !== "development";
+  const BUILD_ID = String(Date.now());
   return {
+    define: { __BUILD_ID__: JSON.stringify(BUILD_ID) },
     plugins: [
       react(),
       mode === "guest" && guestBranding(env),
       isNamedTeam && env.VITE_FB_PROJECT_ID && teamBranding(env),
+      writeBuildId(BUILD_ID),
       VitePWA({
         registerType: "autoUpdate",
         manifest: false, // public/manifest.json 유지
