@@ -7664,8 +7664,9 @@ function ScheduleCard({ title, icon, events, side, ldr, onAdd, portrait, screenW
       }
     : {
         [side]: isPC ? 36 : isMid ? 22 : 14,
-        top: "50%",
-        transform: "translateY(-55%)",
+        // 커스텀 팀(성찬 배경)은 잔·빵을 안 가리도록 카드를 위쪽에 배치, 그 외는 중앙
+        top: CUSTOM_BRAND ? "calc(env(safe-area-inset-top, 44px) + 16px)" : "50%",
+        transform: CUSTOM_BRAND ? "none" : "translateY(-55%)",
         width: isPC ? 220 : isMid ? 190 : 156,
         maxHeight: "calc(100dvh - 160px)",
       };
@@ -8012,8 +8013,7 @@ function HomeSplashScreen({ user, onEnterLite }) {
   return (
     <>
       {(CUSTOM_BRAND && teamBg) ? (
-        /* 배경은 하단 메뉴 '위쪽'까지만 채움 → 빵·잔이 메뉴에 안 가리고 온전히 보임.
-           메뉴 자리(하단 띠)는 크림색. 이미지는 아래(빵·잔) 기준 cover. */
+        /* 배경은 하단 메뉴 '위쪽'까지만 채움 → 빵·잔이 메뉴에 안 가림. 메뉴 자리는 크림 띠. */
         <div style={{ position:"fixed", top:0, left:0, right:0,
           bottom:"calc(64px + env(safe-area-inset-bottom))",
           backgroundColor:"#e7dcc4",
