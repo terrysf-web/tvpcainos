@@ -8257,6 +8257,95 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
     </div>
   );
 }
+// 홈 화면 설치 안내 — 브라우저로 접속했을 때만(설치=standalone이면 숨김).
+// iOS: 공유→홈 화면에 추가 안내 / Android·Chrome: 실제 설치 버튼(beforeinstallprompt)
+function InstallPrompt() {
+  const standalone = typeof window !== "undefined" &&
+    ((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+     window.navigator.standalone === true);
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const isIOS = /iphone|ipad|ipod/i.test(ua) ||
+    (typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem("tvpc_install_dismissed") === "1"; } catch { return false; }
+  });
+  const [deferred, setDeferred] = useState(null);
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (standalone || dismissed) return;
+    const onBip = (e) => { e.preventDefault(); setDeferred(e); setShow(true); };
+    window.addEventListener("beforeinstallprompt", onBip);
+    let t;
+    if (isIOS) t = setTimeout(() => setShow(true), 1600); // iOS는 beforeinstallprompt 없음
+    return () => { window.removeEventListener("beforeinstallprompt", onBip); if (t) clearTimeout(t); };
+  }, [standalone, dismissed, isIOS]);
+
+  if (standalone || dismissed || !show) return null;
+
+  const close = (remember) => {
+    setShow(false);
+    if (remember) { try { localStorage.setItem("tvpc_install_dismissed", "1"); } catch {} setDismissed(true); }
+  };
+  const doInstall = async () => {
+    if (!deferred) return;
+    deferred.prompt();
+    try { await deferred.userChoice; } catch {}
+    setDeferred(null);
+    close(true);
+  };
+
+  return (
+    <div style={{ position:"fixed", left:0, right:0, bottom:0, zIndex:9000,
+      display:"flex", justifyContent:"center",
+      padding:"0 12px calc(12px + env(safe-area-inset-bottom))", pointerEvents:"none" }}>
+      <div style={{ pointerEvents:"auto", width:"100%", maxWidth:430,
+        background:C.surf, borderRadius:16, border:`1px solid ${C.bdr}`,
+        boxShadow:"0 10px 40px rgba(0,0,0,0.28)", padding:16 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+          <span style={{ fontSize:22 }}>📲</span>
+          <span style={{ fontWeight:800, fontSize:15, flex:1, color:C.txt }}>홈 화면에 추가하세요</span>
+          <button onClick={() => close(false)} aria-label="닫기"
+            style={{ background:"none", border:"none", color:C.dim, fontSize:22, lineHeight:1, cursor:"pointer" }}>×</button>
+        </div>
+        <div style={{ fontSize:13, color:C.dim, lineHeight:1.6, marginBottom:12 }}>
+          앱처럼 빠르게 열 수 있고, <b style={{ color:C.txt }}>알림</b>도 받을 수 있어요.
+        </div>
+        {deferred ? (
+          <button onClick={doInstall}
+            style={{ width:"100%", padding:"11px 0", borderRadius:11, border:"none", cursor:"pointer",
+              background:C.pur, color:"#fff", fontSize:14, fontWeight:800, fontFamily:"inherit" }}>
+            설치하기
+          </button>
+        ) : isIOS ? (
+          <div style={{ fontSize:13, color:C.txt, lineHeight:1.7,
+            background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:11, padding:"10px 12px" }}>
+            <span style={{ display:"inline-flex", alignItems:"center", gap:5, verticalAlign:"middle" }}>
+              사파리 아래(또는 위)의 <b>공유
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ display:"inline-block" }}>
+                <path d="M12 3v12M12 3l-4 4M12 3l4 4" stroke={C.pur} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M6 12v7a1 1 0 001 1h10a1 1 0 001-1v-7" stroke={C.pur} strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              </b>
+            </span>
+            {" "}→ <b style={{ color:C.pur }}>"홈 화면에 추가"</b> 를 누르세요.
+          </div>
+        ) : (
+          <div style={{ fontSize:13, color:C.txt, lineHeight:1.7,
+            background:C.bg, border:`1px solid ${C.bdr}`, borderRadius:11, padding:"10px 12px" }}>
+            브라우저 메뉴 <b>⋮</b> → <b style={{ color:C.pur }}>"홈 화면에 추가"</b>(또는 "앱 설치")를 누르세요.
+          </div>
+        )}
+        <button onClick={() => close(true)}
+          style={{ width:"100%", marginTop:8, padding:"8px 0", background:"none", border:"none",
+            color:C.dim, fontSize:12.5, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+          다시 보지 않기
+        </button>
+      </div>
+    </div>
+  );
+}
 function WhatsNewModal({ items, version, onClose, C }) {
   return (
     <div
@@ -9795,6 +9884,9 @@ export default function App() {
       {view !== "pdfViewer" && (
         <BottomNav view={view} nav={nav} unread={unread} user={user} anyLiveActive={anyLiveActive} />
       )}
+
+      {/* 홈 화면 설치 안내 (브라우저 접속자에게만) */}
+      {view !== "pdfViewer" && <InstallPrompt />}
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
