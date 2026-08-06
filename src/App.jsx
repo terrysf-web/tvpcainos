@@ -6726,6 +6726,12 @@ function TeamManagementModal({ currentUserId, onClose }) {
     setSaving(uid + newRole);
     await updateDoc(doc(db, "users", uid), { role: newRole });
     setMembers(p => p.map(u => u.id === uid ? { ...u, role: newRole } : u));
+    // 아래 '로그인 허용 이메일' 목록(allowedEmails)도 같은 역할로 동기화
+    const m = members.find(u => u.id === uid);
+    if (m?.email) {
+      updateDoc(doc(db, "allowedEmails", m.email), { role: newRole }).catch(() => {});
+      setAllowedEmails(p => p.map(e => e.email === m.email ? { ...e, role: newRole } : e));
+    }
     setSaving(null);
   };
 
@@ -6742,6 +6748,11 @@ function TeamManagementModal({ currentUserId, onClose }) {
       .then(() => {
         setPartSaveOk(uid);
         setTimeout(() => setPartSaveOk(v => v === uid ? null : v), 2500);
+        // '로그인 허용 이메일' 목록의 파트도 동기화
+        if (origParts?.email) {
+          updateDoc(doc(db, "allowedEmails", origParts.email), updates).catch(() => {});
+          setAllowedEmails(p => p.map(e => e.email === origParts.email ? { ...e, ...updates } : e));
+        }
       })
       .catch(e => {
         // 원본값으로 롤백
