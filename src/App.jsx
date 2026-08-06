@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.792";
+const APP_VERSION = "3.793";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -705,7 +705,9 @@ function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
 /* ══════════════════════════════════════════════════════════════════
    CREATE / EDIT SERVICE MODAL
 ══════════════════════════════════════════════════════════════════ */
-const SERVICE_TYPES = GUEST_BUILD
+const SERVICE_TYPES = CUSTOM_BRAND
+  ? ["성찬예배", "주일 예배", "특별 예배", "직접 입력"]
+  : GUEST_BUILD
   ? ["주일 예배", "금요 예배", "특별 예배", "새벽 예배", "직접 입력"]
   : ["주일 2부", "주일 1부", "금요 예배", "특별 예배", "새벽 예배", "직접 입력"];
 
@@ -745,7 +747,9 @@ function ServiceTitleField({ value, onChange }) {
   );
 }
 
-const SVC_TIME_PRESETS = GUEST_BUILD ? [
+const SVC_TIME_PRESETS = CUSTOM_BRAND ? [
+  { label:"성찬예배", time:"11:00" },
+] : GUEST_BUILD ? [
   { label:"주일 예배", time:"11:00" },
   { label:"금요 예배", time:"19:30" },
 ] : [
@@ -792,7 +796,7 @@ function TimeSelector({ time, setTime, showCustom, setShowCustom }) {
 }
 
 function CreateServiceModal({ songs, onClose, onCreate }) {
-  const [title,      setTitle]      = useState(GUEST_BUILD ? "주일 예배" : "주일 2부");
+  const [title,      setTitle]      = useState(CUSTOM_BRAND ? "성찬예배" : GUEST_BUILD ? "주일 예배" : "주일 2부");
   const [date,       setDate]       = useState(() => localDateStr());
   const [time,       setTime]       = useState("11:00");
   const [showCustom, setShowCustom] = useState(false);
@@ -861,7 +865,7 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
    EDIT SERVICE MODAL
 ══════════════════════════════════════════════════════════════════ */
 function EditServiceModal({ svc, onClose, onSave, onPracticeUrlSaved }) {
-  const [title,             setTitle]             = useState(svc.title || (GUEST_BUILD ? "주일 예배" : "주일 2부"));
+  const [title,             setTitle]             = useState(svc.title || (CUSTOM_BRAND ? "성찬예배" : GUEST_BUILD ? "주일 예배" : "주일 2부"));
   const [date,              setDate]              = useState(svc.date  || "");
   const [time,              setTime]              = useState(svc.time  || "");
   const [practiceUrl,       setPracticeUrl]       = useState("");
