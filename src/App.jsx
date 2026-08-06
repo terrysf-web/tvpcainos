@@ -471,6 +471,12 @@ function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
         requestedAt: serverTimestamp(),
         status: "pending",
       });
+      // 관리자에게 푸시 알림 (관리자 앱이 닫혀 있어도 받음)
+      sendFcmPush(
+        "🙋 새 액세스 신청",
+        `${reqName.trim()}님이 접속을 신청했어요${reqPart.trim() ? ` · ${reqPart.trim()}` : ""}`,
+        { adminOnly: true },
+      );
       setReqDone(true);
     } catch (e) {
       setReqErr("신청 실패: " + e.message);

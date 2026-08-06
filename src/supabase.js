@@ -104,12 +104,15 @@ async function detectWithGroq(imageData, apiKey) {
 }
 
 // FCM 푸시 알림 전송 — Supabase Edge Function 경유
-export async function sendFcmPush(title, body) {
+// opts.adminOnly=true → 관리자(admin/leader)에게만. project는 현재 Firebase 프로젝트로 자동.
+export async function sendFcmPush(title, body, opts = {}) {
   try {
+    let project;
+    try { project = (await import("./firebase.js")).firebaseConfigObj?.projectId; } catch { /* noop */ }
     const res = await fetch(`${SUPABASE_URL}/functions/v1/send-fcm`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_ANON}` },
-      body: JSON.stringify({ title, body }),
+      body: JSON.stringify({ title, body, project, adminOnly: !!opts.adminOnly, link: opts.link }),
     });
     return await res.json();
   } catch (e) {

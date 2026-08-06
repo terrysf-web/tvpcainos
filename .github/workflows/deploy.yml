@@ -592,6 +592,8 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          ANAMNESIS_SA: ${{ secrets.ANAMNESIS_SERVICE_ACCOUNT }}
+          SFFBC_SA: ${{ secrets.SFFBC_SERVICE_ACCOUNT }}
           GEMINI_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
           GROQ_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
@@ -603,6 +605,11 @@ jobs:
             {"name": "GEMINI_API_KEY",            "value": os.environ.get("GEMINI_KEY","")},
             {"name": "GROQ_API_KEY",              "value": os.environ.get("GROQ_KEY","")},
           ]
+          # 팀별 프로젝트 서비스계정(있을 때만) — send-fcm이 프로젝트별 푸시에 사용
+          if os.environ.get("ANAMNESIS_SA"):
+            secrets.append({"name": "ANAMNESIS_SERVICE_ACCOUNT", "value": os.environ["ANAMNESIS_SA"]})
+          if os.environ.get("SFFBC_SA"):
+            secrets.append({"name": "SFFBC_SERVICE_ACCOUNT", "value": os.environ["SFFBC_SA"]})
           req = urllib.request.Request(
             "https://api.supabase.com/v1/projects/byvbrsuvporwhlapecja/secrets",
             data=json.dumps(secrets).encode(),
