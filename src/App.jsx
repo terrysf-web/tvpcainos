@@ -9341,8 +9341,10 @@ export default function App() {
       userPart,
       text: text.trim(),
       section: opts.section || "",
-      // 작성자가 악보에 큐를 표시할 수 있는 권한(리더/어드민/키보드)인지 — 악보 위 큐 표시용
-      byLeader: canPinToSheet(user?.role),
+      // 작성자가 악보에 큐를 표시할 수 있는 권한(리더/어드민/키보드) 또는 MD 파트인지 — 악보 위 큐 표시용
+      byLeader: canPinToSheet(user?.role) || getUserParts(user).includes("MD"),
+      // 대상 파트 (없거나 '전체'면 저장 안 함 = 모두에게)
+      ...(opts.targetPart && opts.targetPart !== "전체" ? { targetPart: opts.targetPart } : {}),
       // 악보 위치 마커 (작성자가 악보에서 찍은 지점, 전체 페이지 기준 0~1 + 페이지)
       ...(opts.mark ? { markX: opts.mark.x, markY: opts.mark.y, markPage: opts.mark.page || 1 } : {}),
       createdAt: serverTimestamp(),

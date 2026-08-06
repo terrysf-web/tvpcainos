@@ -9,7 +9,7 @@ import { Icon, Btn, Modal, ConfirmModal } from "./ui.jsx";
 import { getVoicings, getDiatonicChords, getEffectiveKey, CHORD_VOICINGS, getChordTones } from "./chordVoicings.js";
 import { generateProgression, KEYS as IMPROV_KEYS, MOODS as IMPROV_MOODS } from "./improvChords.js";
 import { HelpModal } from "./HelpModal.jsx";
-import { db, storage, GUEST_BUILD } from "./firebase.js";
+import { db, storage, GUEST_BUILD, CUSTOM_BRAND } from "./firebase.js";
 import {
   collection, doc, onSnapshot, addDoc, updateDoc, setDoc, getDoc,
   query, orderBy, limit, serverTimestamp, where, deleteDoc, deleteField,
@@ -1955,6 +1955,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   const [cueTxt,        setCueTxt]        = useState("");
   const [cueScr,        setCueScr]        = useState("");
   const [cueSection,    setCueSection]    = useState("");
+  const [cueTarget,     setCueTarget]     = useState("전체");  // 큐 대상 파트(아남네시스) — 전체 or 특정 파트
   const [cueSecInk,     setCueSecInk]     = useState(false); // 섹션 손글씨 입력 모드
   const [cueMarkMode,   setCueMarkMode]   = useState(false); // 악보 위치 찍기 모드
   const [cueMark,       setCueMark]       = useState(null);  // {x,y} 표시 좌표(0~1, 크롭된 화면 기준) + page
@@ -2138,6 +2139,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
   // myNotes / teamNotes / effectiveNoteSongId computed after dualLeftSongId (see below)
   const leader    = isLeader(user.role);
+  // 아남네시스(커스텀 팀): 큐노트 작성 = 리더 + MD 파트만. 멤버는 보기만. (그 외 팀은 기존대로 누구나)
+  const myCueParts  = getUserParts(user);
+  const isMD        = myCueParts.includes("MD");
+  const canWriteCue = !CUSTOM_BRAND || leader || isMD;
   const worshipStarted = (() => {
     const svc = services?.find(s => s.id === selectedSvcId);
     if (!svc?.time?.includes(":") || !svc?.date) return false;
@@ -2808,7 +2813,15 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       if (isLiteMode) return (c.userPart || "").includes("리드보컬");
       // 일반: 작성자의 현재 권한(리더/어드민/키보드) 우선, 없으면 저장된 byLeader 폴백
       const r = userRoleMap?.[c.userId];
-      return r != null ? canPinToSheet(r) : !!c.byLeader;
+      let pinnable = r != null ? canPinToSheet(r) : !!c.byLeader;
+      if (CUSTOM_BRAND) {
+        // MD가 만든 큐도 악보에 표시
+        pinnable = pinnable || !!c.byLeader || (c.userPart || "").includes("MD");
+        // 대상 파트 필터: 지정된 파트(또는 리더/MD)만 봄 → 각자 자기 큐만
+        const tp = c.targetPart;
+        if (tp && tp !== "전체" && !myCueParts.includes(tp) && !leader && !isMD) return false;
+      }
+      return pinnable;
     };
     const cues = (songCues?.[songId] || []).filter(
       c => eligible(c) && c.markX != null && !c.panic && (c.markPage || 1) === (page || 1)
@@ -5636,7 +5649,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 color: showNotePanel ? C.acc : C.dim,
                 fontWeight:700, fontSize:11, fontFamily:"inherit",
               }}>메모</button>
-              {!isLibraryMode && (
+              {!isLibraryMode && canWriteCue && (
                 <button onClick={() => setShowCueInput(p=>!p)} style={{
                   height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
                   background: showCueInput ? "#ff6f0022" : "transparent",
@@ -7497,6 +7510,23 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             </div>{/* /스크롤 콘텐츠 */}
             {/* 하단 전송 버튼 */}
             <div style={{ padding:"10px 16px", borderTop:`1px solid ${C.bdr}`, flexShrink:0 }}>
+              {CUSTOM_BRAND && (
+                <div style={{ marginBottom:8 }}>
+                  <div style={{ fontSize:10, color:C.dim, fontWeight:700, marginBottom:4 }}>대상 파트 (누구에게 보일지)</div>
+                  <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+                    {["전체","보컬","리드보컬","기타","베이스","드럼","키보드","신디","일렉기타"].map(pt => {
+                      const sel = cueTarget === pt;
+                      return (
+                        <button key={pt} onClick={() => setCueTarget(pt)}
+                          style={{ padding:"3px 9px", borderRadius:14, cursor:"pointer", fontFamily:"inherit",
+                            fontSize:11, fontWeight:700,
+                            background: sel ? "#ff6f00" : "#fff", color: sel ? "#fff" : "#b35309",
+                            border:`1.5px solid ${sel ? "#ff6f00" : "#fdba74"}` }}>{pt}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <Btn label="전송" variant="primary"
                 onClick={() => {
                   const final = (cueTxt + (cueScr.trim() ? (cueTxt ? " " : "") + cueScr.trim() : "")).trim();
@@ -7510,7 +7540,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                       ? { x: cb.left + cueMark.x * (cb.right - cb.left), y: cb.top + cueMark.y * (cb.bottom - cb.top), page: cueMark.page }
                       : { x: cueMark.x, y: cueMark.y, page: cueMark.page };
                   }
-                  sendCue?.(selectedSvcId, cueSongId, final, { section: cueSection.trim(), mark });
+                  sendCue?.(selectedSvcId, cueSongId, final, { section: cueSection.trim(), mark, targetPart: cueTarget });
                   setCueTxt(""); setCueScr(""); setCueSection(""); setCueMark(null); setCueMarkMode(false);
                   showToast("큐노트 전송됨"); /* 패널 유지 — 여러 개 연속 작성, 끝나면 X로 닫기 */
                 }}
