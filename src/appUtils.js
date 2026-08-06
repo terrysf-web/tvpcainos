@@ -29,6 +29,8 @@ export const PARTS = [
   { id:KEY2,        emoji:"🎹", label:KEY2 },
   { id:"일렉기타",  emoji:"⚡", label:"일렉기타" },
   { id:"FOH",       emoji:"🎚", label:"FOH" },
+  // 커스텀 팀(아남네시스)만 MD(음악감독/트랙) 파트 추가
+  ...(CUSTOM_BRAND ? [{ id:"MD", emoji:"🎛", label:"MD" }] : []),
 ];
 
 export const VOCALIST_PART_IDS = new Set(VOCAL_PARTS.map(p => p.id));
