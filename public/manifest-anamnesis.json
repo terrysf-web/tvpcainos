@@ -1,0 +1,16 @@
+{
+  "name": "Anamnesis",
+  "short_name": "Anamnesis",
+  "description": "성찬주일 찬양팀 · 예배 악보 앱",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#e7dcc4",
+  "theme_color": "#b9832a",
+  "orientation": "any",
+  "icons": [
+    { "src": "anamnesis-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "anamnesis-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "anamnesis-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "anamnesis-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

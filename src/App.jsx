@@ -8012,23 +8012,11 @@ function HomeSplashScreen({ user, onEnterLite }) {
   return (
     <>
       {(CUSTOM_BRAND && teamBg) ? (
-        portrait ? (
-          /* 폰(세로): 원본처럼 꽉 채움(cover). 아래 기준이라 빈 윗벽만 잘리고 잔·빵·말씀은 유지 */
-          <div style={{ position:"fixed", inset:0, backgroundColor:"#e7dcc4",
-            backgroundImage:`url('${teamBg}')`, backgroundSize:"cover",
-            backgroundPosition:"center bottom", backgroundRepeat:"no-repeat" }} />
-        ) : (
-          <>
-            {/* PC(가로): 뒤에 같은 이미지를 흐리게 깔아 여백 채움 */}
-            <div style={{ position:"fixed", inset:"-20px", backgroundColor:"#e7dcc4",
-              backgroundImage:`url('${teamBg}')`, backgroundSize:"cover",
-              backgroundPosition:"center", backgroundRepeat:"no-repeat",
-              filter:"blur(30px)", transform:"scale(1.12)" }} />
-            {/* 앞: 가로 이미지 전체가 잘리지 않게(contain) */}
-            <div style={{ position:"fixed", inset:0, backgroundImage:`url('${teamBg}')`,
-              backgroundSize:"contain", backgroundPosition:"center", backgroundRepeat:"no-repeat" }} />
-          </>
-        )
+        /* 모든 기기에서 꽉 채움(cover). 폰=세로이미지(아래 기준), 아이패드/PC=가로이미지 */
+        <div style={{ position:"fixed", inset:0, backgroundColor:"#e7dcc4",
+          backgroundImage:`url('${teamBg}')`, backgroundSize:"cover",
+          backgroundPosition: portrait ? "center bottom" : "center",
+          backgroundRepeat:"no-repeat" }} />
       ) : (
         <div style={{
           position:"fixed", inset:"-20px",
@@ -8181,7 +8169,7 @@ function BottomNav({ view, nav, unread, user, anyLiveActive }) {
       flexShrink:0,
       width:"100%", maxWidth:640, margin:"0 auto",
       background: navScrim
-        ? "linear-gradient(to top, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.92) 55%, rgba(255,255,255,0.5) 82%, rgba(255,255,255,0) 100%)"
+        ? "linear-gradient(to top, rgba(244,238,224,0.96) 0%, rgba(244,238,224,0.82) 52%, rgba(244,238,224,0.38) 80%, rgba(244,238,224,0) 100%)"
         : "transparent",
       backdropFilter: navScrim ? "blur(6px)" : "none",
       WebkitBackdropFilter: navScrim ? "blur(6px)" : "none",
