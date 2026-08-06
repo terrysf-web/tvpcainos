@@ -7213,7 +7213,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               <div>
                 <div style={{ fontWeight:700, fontSize:13 }}>🎯 큐 노트</div>
                 <div style={{ fontSize:11, color:"#e65c00", marginTop:2 }}>{cueSong?.title}</div>
-                <div style={{ fontSize:10, color:C.dim, marginTop:1 }}>FOH에게 전달하는 요청 / 알림{dual ? " (왼쪽 악보 기준)" : ""}</div>
+                <div style={{ fontSize:10, color:C.dim, marginTop:1 }}>{CUSTOM_BRAND ? "각 파트에 전달하는 지시 · 알림" : "FOH에게 전달하는 요청 / 알림"}{dual ? " (왼쪽 악보 기준)" : ""}</div>
               </div>
               <button onClick={() => { setShowCueInput(false); setCueTxt(""); setCueScr(""); }}
                 style={{ flexShrink:0, background:"transparent", border:`1px solid ${C.bdr}`,
