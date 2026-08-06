@@ -8012,16 +8012,23 @@ function HomeSplashScreen({ user, onEnterLite }) {
   return (
     <>
       {(CUSTOM_BRAND && teamBg) ? (
-        <>
-          {/* 뒤: 같은 이미지를 흐리게 꽉 채워 여백을 자연스럽게 채움 */}
-          <div style={{ position:"fixed", inset:"-20px", backgroundColor:"#e7dcc4",
+        portrait ? (
+          /* 폰(세로): 원본처럼 꽉 채움(cover). 아래 기준이라 빈 윗벽만 잘리고 잔·빵·말씀은 유지 */
+          <div style={{ position:"fixed", inset:0, backgroundColor:"#e7dcc4",
             backgroundImage:`url('${teamBg}')`, backgroundSize:"cover",
-            backgroundPosition:"center", backgroundRepeat:"no-repeat",
-            filter:"blur(30px)", transform:"scale(1.12)" }} />
-          {/* 앞: 이미지 전체가 잘리지 않게(contain) — 빵·잔·십자가 다 보임 */}
-          <div style={{ position:"fixed", inset:0, backgroundImage:`url('${teamBg}')`,
-            backgroundSize:"contain", backgroundPosition:"center", backgroundRepeat:"no-repeat" }} />
-        </>
+            backgroundPosition:"center bottom", backgroundRepeat:"no-repeat" }} />
+        ) : (
+          <>
+            {/* PC(가로): 뒤에 같은 이미지를 흐리게 깔아 여백 채움 */}
+            <div style={{ position:"fixed", inset:"-20px", backgroundColor:"#e7dcc4",
+              backgroundImage:`url('${teamBg}')`, backgroundSize:"cover",
+              backgroundPosition:"center", backgroundRepeat:"no-repeat",
+              filter:"blur(30px)", transform:"scale(1.12)" }} />
+            {/* 앞: 가로 이미지 전체가 잘리지 않게(contain) */}
+            <div style={{ position:"fixed", inset:0, backgroundImage:`url('${teamBg}')`,
+              backgroundSize:"contain", backgroundPosition:"center", backgroundRepeat:"no-repeat" }} />
+          </>
+        )
       ) : (
         <div style={{
           position:"fixed", inset:"-20px",
