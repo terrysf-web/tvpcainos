@@ -366,6 +366,8 @@ jobs:
   #            (ANAMNESIS_SERVICE_ACCOUNT 시크릿 있을 때만)
   anamnesis:
     runs-on: ubuntu-latest
+    # firebase 잡 뒤에 순차 실행 — 동시 러너 수요를 줄여 러너 확보 실패(취소) 방지
+    needs: firebase
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
