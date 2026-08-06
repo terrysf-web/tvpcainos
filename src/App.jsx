@@ -8051,11 +8051,15 @@ function HomeSplashScreen({ user, onEnterLite }) {
           }}>Worship</div>
         </div>
       )}
-      {/* Dark gradient so status bar text is readable on the light background */}
+      {/* 상단 그라디언트: 상태바(시계·배터리) 가독성.
+          커스텀 팀(밝은 성찬 배경)은 밝게 깔아 상태바 글씨가 양쪽 다 검게 나오도록,
+          그 외는 기존 어두운 그라디언트. */}
       <div style={{
         position:"fixed", top:0, left:0, right:0,
-        height:"calc(env(safe-area-inset-top, 44px) + 12px)",
-        background:"linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 100%)",
+        height:"calc(env(safe-area-inset-top, 44px) + 16px)",
+        background: CUSTOM_BRAND
+          ? "linear-gradient(to bottom, rgba(255,251,242,0.75) 0%, rgba(255,251,242,0) 100%)"
+          : "linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 100%)",
         pointerEvents:"none", zIndex:1,
       }} />
 
