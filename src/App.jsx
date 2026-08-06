@@ -7429,6 +7429,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
       <div style={{ background:C.card, borderRadius:12, overflow:"hidden",
         border:`1px solid ${C.bdr}`, marginBottom:16 }}>
         {[
+          { label:"📲 홈 화면에 추가 (앱처럼 · 알림)", action: () => window.dispatchEvent(new Event("tvpc-show-install")) },
           { label:`앱 정보 (v${APP_VERSION})`, action: () => setShowInfo(true) },
           { label: user?.geminiKey ? "AI 분석 키 (설정됨 ✓)" : sharedGeminiKey ? "AI 분석 키 설정 (공유 키 사용 중)" : "AI 분석 키 설정", action: () => { setApiKeyInput(user?.geminiKey || ""); setShowApiKey(true); } },
           ...(isLeader(user?.role) ? [{ label:"🔑 공유 AI 키 설정 (멤버용)", action: async () => { setSharedKeyInput(""); setSharedKeyErr(""); setShowSharedKey(true); try { const d = await getDoc(doc(db,"settings","app")); setSharedKeyInput(d.exists() ? (d.data().sharedGeminiKey||"") : ""); } catch(e) {} } }] : []),
@@ -8277,12 +8278,19 @@ function InstallPrompt() {
     if (standalone || dismissed) return;
     const onBip = (e) => { e.preventDefault(); setDeferred(e); setShow(true); };
     window.addEventListener("beforeinstallprompt", onBip);
-    let t;
-    if (isIOS) t = setTimeout(() => setShow(true), 1600); // iOS는 beforeinstallprompt 없음
-    return () => { window.removeEventListener("beforeinstallprompt", onBip); if (t) clearTimeout(t); };
-  }, [standalone, dismissed, isIOS]);
+    // 플랫폼 무관하게 잠깐 뒤 안내 표시(안드로이드는 beforeinstallprompt 오면 '설치' 버튼으로 업그레이드)
+    const t = setTimeout(() => setShow(true), 1400);
+    return () => { window.removeEventListener("beforeinstallprompt", onBip); clearTimeout(t); };
+  }, [standalone, dismissed]);
 
-  if (standalone || dismissed || !show) return null;
+  // 프로필의 '홈 화면에 추가' 버튼 등에서 수동으로 열기 (설치/닫기 여부 무시)
+  useEffect(() => {
+    const onManual = () => setShow(true);
+    window.addEventListener("tvpc-show-install", onManual);
+    return () => window.removeEventListener("tvpc-show-install", onManual);
+  }, []);
+
+  if (!show) return null;
 
   const close = (remember) => {
     setShow(false);
