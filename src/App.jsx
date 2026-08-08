@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.798";
+const APP_VERSION = "3.799";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -712,7 +712,7 @@ const SERVICE_TYPES = CUSTOM_BRAND
   : ["주일 2부", "주일 1부", "금요 예배", "특별 예배", "새벽 예배", "직접 입력"];
 
 // 예배 곡 순서(섹션) — 아남네시스는 입례·경배와찬양·파송, 그 외는 찬양·결단
-const SONG_SECTIONS = CUSTOM_BRAND ? ["입례", "경배와찬양", "파송"] : ["찬양", "결단"];
+const SONG_SECTIONS = CUSTOM_BRAND ? ["경배와찬양", "입례", "파송"] : ["찬양", "결단"];
 const DEFAULT_SECTION = CUSTOM_BRAND ? "경배와찬양" : "찬양";
 const SECTION_COLORS = {
   "찬양": "#6b5de7", "결단": "#e07a60", "Closing": "#34c759",
