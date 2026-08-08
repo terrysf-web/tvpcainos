@@ -5336,13 +5336,22 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
               textOverflow:"ellipsis", whiteSpace:"nowrap", color:"#fff" }}>{song.title}</div>
             {!tbNarrow && (
               <div style={{ fontSize:11, color:"rgba(255,255,255,0.65)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                Key {transposeMode && transposeSteps !== 0
-                  ? `${song.key} → ${keyName(song.key, transposeSteps)}`
-                  : song.key}
-                {song.bpm ? ` · ♩${song.bpm}` : ""}
-                {numPages > 0 ? ` · ${pageNum}/${numPages}p` : ""}
-                {!isLibraryMode && svcSongs.length > 1 ? ` · 곡 ${songIdx+1}/${svcSongs.length}` : ""}
-                {mySongIdSet.has(song?.id) ? " · 개인" : ""}
+                {CUSTOM_BRAND ? (
+                  <>
+                    {numPages > 0 ? `${pageNum}/${numPages}p` : ""}
+                    {!isLibraryMode && svcSongs.length > 1 ? `${numPages > 0 ? " · " : ""}곡 ${songIdx+1}/${svcSongs.length}` : ""}
+                  </>
+                ) : (
+                  <>
+                    Key {transposeMode && transposeSteps !== 0
+                      ? `${song.key} → ${keyName(song.key, transposeSteps)}`
+                      : song.key}
+                    {song.bpm ? ` · ♩${song.bpm}` : ""}
+                    {numPages > 0 ? ` · ${pageNum}/${numPages}p` : ""}
+                    {!isLibraryMode && svcSongs.length > 1 ? ` · 곡 ${songIdx+1}/${svcSongs.length}` : ""}
+                    {mySongIdSet.has(song?.id) ? " · 개인" : ""}
+                  </>
+                )}
               </div>
             )}
           </div>

@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.795";
+const APP_VERSION = "3.796";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -803,21 +803,50 @@ function TimeSelector({ time, setTime, showCustom, setShowCustom }) {
   );
 }
 
-function CreateServiceModal({ songs, onClose, onCreate }) {
+function CreateServiceModal({ songs, onClose, onCreate, addSong }) {
   const [title,      setTitle]      = useState(CUSTOM_BRAND ? "성찬예배" : GUEST_BUILD ? "주일 예배" : "주일 2부");
   const [date,       setDate]       = useState(() => localDateStr());
   const [time,       setTime]       = useState("11:00");
   const [showCustom, setShowCustom] = useState(false);
   const [selected,   setSelected]   = useState([]);
   const [saving,     setSaving]     = useState(false);
+  // 성찬주일팀(커스텀 브랜드): 통합 PDF 1개 + 곡 이름 여러 개 직접 입력
+  const [pdfFile,    setPdfFile]    = useState(null);
+  const [songNames,  setSongNames]  = useState(["", "", ""]);
 
   const toggle = id =>
     setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
 
+  const setName    = (i, v) => setSongNames(p => p.map((x, idx) => idx === i ? v : x));
+  const addNameRow = ()     => setSongNames(p => [...p, ""]);
+  const removeName = i      => setSongNames(p => p.length > 1 ? p.filter((_, idx) => idx !== i) : p);
+  const cleanNames = songNames.map(s => s.trim()).filter(Boolean);
+
   const handleCreate = async () => {
+    // ── 성찬주일팀: PDF 업로드 + 입력한 곡 이름마다 항목 생성(같은 PDF 공유) ──
+    if (CUSTOM_BRAND) {
+      if (!title || !cleanNames.length) return;
+      setSaving(true);
+      try {
+        let url = null;
+        const ids = [];
+        for (let i = 0; i < cleanNames.length; i++) {
+          const ref = await addSong({ title: cleanNames[i], key: "", artist: "", bpm: null, timeSig: "4/4" });
+          if (i === 0 && pdfFile) url = await uploadPdf(pdfFile, ref.id);
+          if (url) await updateDoc(doc(db, "songs", ref.id), { pdfUrl: url, pdfPage: 1 });
+          ids.push(ref.id);
+        }
+        await onCreate({ title, date, time, songIds: ids, partsEnabled: false, songPartIds: [], closingSongId: null });
+        onClose();
+      } catch (e) {
+        alert("예배 생성 실패: " + (e?.message || e));
+      }
+      setSaving(false);
+      return;
+    }
     if (!title || !selected.length) return;
     setSaving(true);
-    await onCreate({ title, date, time, songIds: selected, partsEnabled: !CUSTOM_BRAND, songPartIds: CUSTOM_BRAND ? [] : selected.map(() => DEFAULT_SECTION), closingSongId: null });
+    await onCreate({ title, date, time, songIds: selected, partsEnabled: true, songPartIds: selected.map(() => DEFAULT_SECTION), closingSongId: null });
     setSaving(false);
     onClose();
   };
@@ -828,43 +857,88 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
       <Input label="날짜" value={date} onChange={setDate} type="date" />
       <TimeSelector time={time} setTime={setTime} showCustom={showCustom} setShowCustom={setShowCustom} />
 
-      <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
-        textTransform:"uppercase", marginBottom:8 }}>
-        곡 선택 · {selected.length}곡
-      </div>
-      <div style={{ maxHeight:220, overflowY:"auto", marginBottom:16 }}>
-        {songs.length === 0 && (
-          <div style={{ textAlign:"center", padding:"20px 0", color:C.dim, fontSize:13 }}>
-            먼저 악보 라이브러리에서 곡을 추가해주세요
+      {CUSTOM_BRAND ? (
+        <>
+          {/* 통합 악보 PDF 1개 업로드 */}
+          <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+            textTransform:"uppercase", marginBottom:8 }}>악보 PDF</div>
+          <label style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 14px",
+            borderRadius:10, cursor:"pointer", marginBottom:16, background:C.card,
+            border:`1.5px dashed ${pdfFile ? C.acc : C.bdr}` }}>
+            <Icon n={pdfFile ? "check" : "plus"} size={16} color={pdfFile ? C.acc : C.dim} />
+            <span style={{ flex:1, fontSize:14, fontWeight:600, color: pdfFile ? C.txt : C.dim,
+              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {pdfFile ? pdfFile.name : "PDF 파일 선택 (통합 악보)"}
+            </span>
+            <input type="file" accept="application/pdf" hidden
+              onChange={e => { const f = e.target.files?.[0]; if (f) setPdfFile(f); e.target.value = ""; }} />
+          </label>
+
+          {/* 곡 이름 목록 → 카드에 칩으로 표시 */}
+          <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+            textTransform:"uppercase", marginBottom:8 }}>곡 목록 · {cleanNames.length}곡</div>
+          <div style={{ marginBottom:16 }}>
+            {songNames.map((nm, i) => (
+              <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                <span style={{ fontSize:12, color:C.dim, width:18, textAlign:"right" }}>{i + 1}.</span>
+                <input value={nm} onChange={e => setName(i, e.target.value)} placeholder="곡 제목"
+                  autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
+                  style={{ flex:1, background:C.card, border:`1.5px solid ${C.bdr}`, color:C.txt,
+                    padding:"9px 12px", borderRadius:9, fontSize:14, outline:"none", fontFamily:"inherit" }} />
+                <button onClick={() => removeName(i)} style={{ background:"none", border:"none",
+                  cursor:"pointer", padding:4, display:"flex" }}>
+                  <Icon n="xmark" size={15} color={C.dim} />
+                </button>
+              </div>
+            ))}
+            <button onClick={addNameRow} style={{ marginTop:2, background:`${C.acc}12`,
+              border:`1px solid ${C.acc}44`, borderRadius:8, cursor:"pointer", padding:"7px 12px",
+              fontSize:12, fontWeight:700, color:C.acc, fontFamily:"inherit" }}>＋ 곡 추가</button>
           </div>
-        )}
-        {songs.map(s => {
-          const sel = selected.includes(s.id);
-          return (
-            <div key={s.id} onClick={() => toggle(s.id)} style={{
-              display:"flex", alignItems:"center", gap:10, padding:"10px 12px",
-              borderRadius:10, cursor:"pointer", marginBottom:4,
-              background: sel ? `${C.acc}1a` : C.card,
-              border:`1.5px solid ${sel ? C.acc : C.bdr}`,
-            }}>
-              <div style={{
-                width:20, height:20, borderRadius:5, flexShrink:0,
-                border:`2px solid ${sel ? C.acc : C.bdr}`,
-                background: sel ? C.acc : "transparent",
-                display:"flex", alignItems:"center", justifyContent:"center",
-              }}>
-                {sel && <Icon n="check" size={11} color="#111" sw={3} />}
+          <Btn label={saving ? "저장 중..." : "예배 만들기"} icon="check"
+            onClick={handleCreate} full disabled={saving || !title || !cleanNames.length} />
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+            textTransform:"uppercase", marginBottom:8 }}>
+            곡 선택 · {selected.length}곡
+          </div>
+          <div style={{ maxHeight:220, overflowY:"auto", marginBottom:16 }}>
+            {songs.length === 0 && (
+              <div style={{ textAlign:"center", padding:"20px 0", color:C.dim, fontSize:13 }}>
+                먼저 악보 라이브러리에서 곡을 추가해주세요
               </div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontWeight:600, fontSize:14 }}>{s.title}</div>
-                <div style={{ fontSize:12, color:C.dim }}>{s.artist} · Key {s.key}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <Btn label={saving ? "저장 중..." : "예배 만들기"} icon="check"
-        onClick={handleCreate} full disabled={saving || !title || !selected.length} />
+            )}
+            {songs.map(s => {
+              const sel = selected.includes(s.id);
+              return (
+                <div key={s.id} onClick={() => toggle(s.id)} style={{
+                  display:"flex", alignItems:"center", gap:10, padding:"10px 12px",
+                  borderRadius:10, cursor:"pointer", marginBottom:4,
+                  background: sel ? `${C.acc}1a` : C.card,
+                  border:`1.5px solid ${sel ? C.acc : C.bdr}`,
+                }}>
+                  <div style={{
+                    width:20, height:20, borderRadius:5, flexShrink:0,
+                    border:`2px solid ${sel ? C.acc : C.bdr}`,
+                    background: sel ? C.acc : "transparent",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    {sel && <Icon n="check" size={11} color="#111" sw={3} />}
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:600, fontSize:14 }}>{s.title}</div>
+                    <div style={{ fontSize:12, color:C.dim }}>{s.artist} · Key {s.key}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <Btn label={saving ? "저장 중..." : "예배 만들기"} icon="check"
+            onClick={handleCreate} full disabled={saving || !title || !selected.length} />
+        </>
+      )}
     </Modal>
   );
 }
@@ -3585,7 +3659,7 @@ function ServiceStatusBadge({ svc }) {
   );
 }
 
-function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createService, deleteService, nav, teamAnnotations }) {
+function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createService, deleteService, nav, teamAnnotations, addSong }) {
   const [showCreate,   setShowCreate]   = useState(false);
   const [pastExpanded, setPastExpanded] = useState(false);
   const unread = notifs.filter(n => !n.read).length;
@@ -3894,7 +3968,7 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
 
       {showCreate && (
         <CreateServiceModal songs={songs} onClose={() => setShowCreate(false)}
-          onCreate={createService} />
+          onCreate={createService} addSong={addSong} />
       )}
     </div>
   );
@@ -5226,7 +5300,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
           const btnEl = (
             <div style={{ display:"flex", flexDirection: landscape ? "row" : "column", gap:9, flexShrink:0, alignItems:"center" }}>
-              {leader && (
+              {leader && !CUSTOM_BRAND && (
                 <button onClick={e => { e.stopPropagation(); openEditInfo(song); }}
                   title="곡 정보 편집 (BPM·Key)"
                   style={{ background:`${C.acc}15`, border:`1px solid ${C.acc}55`,
@@ -5237,6 +5311,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                   수정
                 </button>
               )}
+              {!CUSTOM_BRAND && (
               <button onClick={e => { e.stopPropagation(); setRecSong({ id: song.id, title: song.title }); }}
                 title={hasRec ? "녹음 재생 준비 완료" : "녹음 파일 없음"}
                 style={{ background: hasRec ? `${C.grn}12` : `${C.dim}10`,
@@ -5248,6 +5323,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                 <Icon n="play" size={11} color={hasRec ? C.grn : C.dim} />
                 재생
               </button>
+              )}
               {leader && <>
                 <button onClick={() => duplicateSong(i)} style={{
                   background:`${C.pur}15`, border:`1px solid ${C.pur}44`,
@@ -5273,15 +5349,15 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                 <div style={{ display:"flex", alignItems:"baseline", gap:6, flexWrap:"wrap" }}>
                   <span style={{ fontWeight:700, fontSize:14, overflow:"hidden",
                     textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"40vw" }}>{song.title}</span>
-                  {song.artist && <span style={{ fontSize:11, color:C.dim, whiteSpace:"nowrap" }}>{song.artist}</span>}
-                  {song.bpm ? <span style={{ fontSize:11, color:C.dim }}>♩{song.bpm}</span> : null}
-                  <KeyBadge k={song.key} />
+                  {!CUSTOM_BRAND && song.artist && <span style={{ fontSize:11, color:C.dim, whiteSpace:"nowrap" }}>{song.artist}</span>}
+                  {!CUSTOM_BRAND && song.bpm ? <span style={{ fontSize:11, color:C.dim }}>♩{song.bpm}</span> : null}
+                  {!CUSTOM_BRAND && <KeyBadge k={song.key} />}
                   {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF·${song.pdfPage}p` : "PDF"} color={C.grn} />}
                   {!song.pdfUrl && song.imageUrl && <Badge label="🖼️" color={C.acc} />}
-                  {user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1" && (
+                  {!CUSTOM_BRAND && user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1" && (
                     <Badge label="전조" color={C.pur} />
                   )}
-                  {leader && (
+                  {leader && !CUSTOM_BRAND && (
                     <button onClick={e => { e.stopPropagation(); setSvcLyricsModal({ song, text: song.lyrics || "" }); }}
                       style={{ background: song.lyrics ? `${C.grn}22` : `${C.pur}12`,
                         border:`1px solid ${song.lyrics ? C.grn+"55" : C.pur+"33"}`,
@@ -5296,17 +5372,19 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                 <>
                   <div style={{ fontWeight:700, fontSize:15, overflow:"hidden",
                     textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{song.title}</div>
+                  {!CUSTOM_BRAND && (song.artist || song.bpm) && (
                   <div style={{ fontSize:12, color:C.dim, marginTop:2 }}>
                     {song.artist}{song.bpm ? ` · ♩${song.bpm}` : ""}
                   </div>
+                  )}
                   <div style={{ display:"flex", gap:5, marginTop:5, flexWrap:"wrap", alignItems:"center" }}>
-                    <KeyBadge k={song.key} />
+                    {!CUSTOM_BRAND && <KeyBadge k={song.key} />}
                     {song.pdfUrl && <Badge label={song.pdfPage > 1 ? `PDF · 페이지${song.pdfPage}` : "PDF"} color={C.grn} />}
                     {!song.pdfUrl && song.imageUrl && <Badge label="🖼️ 이미지" color={C.acc} />}
-                    {user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1" && (
+                    {!CUSTOM_BRAND && user?.uid && localStorage.getItem(`tvpc_tm_${user.uid}_${song.id}`) === "1" && (
                       <Badge label="전조" color={C.pur} />
                     )}
-                    {leader && (
+                    {leader && !CUSTOM_BRAND && (
                       <button onClick={e => { e.stopPropagation(); setSvcLyricsModal({ song, text: song.lyrics || "" }); }}
                         style={{ background: song.lyrics ? `${C.grn}22` : `${C.pur}12`,
                           border:`1px solid ${song.lyrics ? C.grn+"55" : C.pur+"33"}`,
