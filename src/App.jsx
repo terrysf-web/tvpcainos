@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.796";
+const APP_VERSION = "3.797";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -4715,7 +4715,9 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [removeSongConfirm,     setRemoveSongConfirm]     = useState(null); // { idx, songTitle }
   const [showKakaoFormatPicker, setShowKakaoFormatPicker] = useState(false);
   const [landscape, setLandscape] = useState(() => window.innerWidth > window.innerHeight);
-  const partsEnabled = !!svc?.partsEnabled;
+  // 성찬주일팀: 통합 PDF 1개에 순서가 들어있으므로 앱 섹션(입례/경배와찬양/파송)은
+  // 저장값과 무관하게 항상 끔 → 기존에 만든 예배도 섹션 헤더 없이 평평하게 표시.
+  const partsEnabled = !CUSTOM_BRAND && !!svc?.partsEnabled;
   const songPartIds = svc?.songPartIds || [];
   const closingSongId = svc?.closingSongId || null;
   useEffect(() => {
@@ -5247,7 +5249,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             {leader && <span style={{ fontSize:10, color:C.dim, fontWeight:500,
               marginLeft:6, textTransform:"none" }}>≡ 드래그로 순서 변경</span>}
           </div>
-          {leader && !partsEnabled && totalCount > 0 && (
+          {leader && !CUSTOM_BRAND && !partsEnabled && totalCount > 0 && (
             <button onClick={activateParts} style={{
               fontSize:11, fontWeight:700, color:"#6b5de7",
               background:"#6b5de71a", border:"1px solid #6b5de744",
