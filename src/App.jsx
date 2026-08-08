@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.799";
+const APP_VERSION = "3.800";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -963,7 +963,7 @@ function CreateServiceModal({ songs, onClose, onCreate, addSong }) {
 /* ══════════════════════════════════════════════════════════════════
    EDIT SERVICE MODAL
 ══════════════════════════════════════════════════════════════════ */
-function EditServiceModal({ svc, onClose, onSave, onPracticeUrlSaved }) {
+function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlSaved }) {
   const [title,             setTitle]             = useState(svc.title || (CUSTOM_BRAND ? "성찬예배" : GUEST_BUILD ? "주일 예배" : "주일 2부"));
   const [date,              setDate]              = useState(svc.date  || "");
   const [time,              setTime]              = useState(svc.time  || "");
@@ -971,6 +971,24 @@ function EditServiceModal({ svc, onClose, onSave, onPracticeUrlSaved }) {
   const [practiceUrlLoaded, setPracticeUrlLoaded] = useState(false);
   const [showCustom,        setShowCustom]        = useState(!SVC_TIME_PRESETS.some(p => p.time === (svc.time || "")));
   const [saving,            setSaving]            = useState(false);
+  // 성찬주일팀: 파트별 곡 편집(추가/이름수정/삭제) + PDF 교체
+  const songMap = Object.fromEntries((songs || []).map(s => [s.id, s]));
+  const existingPdfUrl = (svc.songIds || []).map(id => songMap[id]?.pdfUrl).find(Boolean) || null;
+  const [partRows, setPartRows] = useState(() => {
+    const map = Object.fromEntries(SONG_SECTIONS.map(p => [p, []]));
+    (svc.songIds || []).forEach((id, i) => {
+      const raw = (svc.songPartIds || [])[i];
+      const part = SONG_SECTIONS.includes(raw) ? raw : DEFAULT_SECTION;
+      map[part].push({ id, title: songMap[id]?.title || "" });
+    });
+    SONG_SECTIONS.forEach(p => { if (!map[p].length) map[p].push({ id: null, title: "" }); });
+    return map;
+  });
+  const [newPdf, setNewPdf] = useState(null);
+  const setRowTitle = (part, i, v) => setPartRows(p => ({ ...p, [part]: p[part].map((r, idx) => idx === i ? { ...r, title: v } : r) }));
+  const addRow      = (part)       => setPartRows(p => ({ ...p, [part]: [...p[part], { id: null, title: "" }] }));
+  const removeRow   = (part, i)    => setPartRows(p => ({ ...p, [part]: p[part].length > 1 ? p[part].filter((_, idx) => idx !== i) : p[part] }));
+  const totalRows   = SONG_SECTIONS.reduce((n, part) => n + partRows[part].filter(r => r.title.trim()).length, 0);
 
   // Supabase Storage에서 기존 practiceUrl 로드 (완료 전 저장하면 덮어쓰는 버그 방지)
   useEffect(() => {
@@ -1000,18 +1018,122 @@ function EditServiceModal({ svc, onClose, onSave, onPracticeUrlSaved }) {
     }
   };
 
+  // ── 성찬주일팀: 파트별 곡 + PDF까지 반영 저장 ──
+  const handleSaveCustom = async () => {
+    if (!title || !totalRows) return;
+    setSaving(true);
+    try {
+      // 곡/파트 재구성 (기존 곡은 이름만 수정, 새 곡은 생성, 빠진 곡은 삭제)
+      const newIds = [], newParts = [], createdIds = [];
+      let uploadTargetId = null;
+      for (const part of SONG_SECTIONS) {
+        for (const r of partRows[part]) {
+          const t = r.title.trim();
+          if (!t) continue;
+          let id = r.id;
+          if (!id) {
+            const ref = await addSong({ title: t, key: "", artist: "", bpm: null, timeSig: "4/4" });
+            id = ref.id; createdIds.push(id);
+          } else if (songMap[id] && songMap[id].title !== t) {
+            await updateDoc(doc(db, "songs", id), { title: t });
+          }
+          newIds.push(id); newParts.push(part);
+          if (!uploadTargetId) uploadTargetId = id;
+        }
+      }
+      // PDF: 새로 선택하면 전체 교체, 아니면 새로 만든 곡에만 기존 공유 URL 부여
+      let pdfUrl = existingPdfUrl;
+      if (newPdf && uploadTargetId) {
+        pdfUrl = await uploadPdf(newPdf, uploadTargetId);
+        for (const id of newIds) await updateDoc(doc(db, "songs", id), { pdfUrl, pdfPage: 1 });
+      } else if (pdfUrl) {
+        for (const id of createdIds) await updateDoc(doc(db, "songs", id), { pdfUrl, pdfPage: 1 });
+      }
+      // 서비스 갱신 (곡 필드는 직접 write — saveSongs와 동일 경로)
+      await updateDoc(doc(db, "services", svc.id), { songIds: newIds, songPartIds: newParts, partsEnabled: true, closingSongId: null });
+      // 제거된 곡 문서 삭제 (예배 전용 곡이므로 정리)
+      const removed = (svc.songIds || []).filter(id => !newIds.includes(id));
+      for (const id of removed) await deleteDoc(doc(db, "songs", id)).catch(() => {});
+      // 제목/날짜/시간 변경분
+      const changed = title !== svc.title || date !== svc.date || time !== (svc.time || "");
+      if (changed) await onSave(svc.id, { title, date, time });
+      onClose();
+    } catch (e) {
+      alert("저장 실패\n" + (e.message || e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Modal title="예배 정보 수정" onClose={onClose}>
       <ServiceTitleField value={title} onChange={setTitle} />
       <Input label="날짜" value={date} onChange={setDate} type="date" />
       <TimeSelector time={time} setTime={setTime} showCustom={showCustom} setShowCustom={setShowCustom} />
-      <Input label="예배 연습 녹음 링크 (Google Drive)"
-        value={practiceUrlLoaded ? practiceUrl : ""}
-        onChange={setPracticeUrl}
-        placeholder={practiceUrlLoaded ? "https://drive.google.com/file/d/..." : "불러오는 중..."}
-        disabled={!practiceUrlLoaded} />
-      <Btn label={saving ? "저장 중..." : "저장"} icon="check"
-        onClick={handleSave} full disabled={saving || !title} />
+
+      {CUSTOM_BRAND ? (
+        <>
+          {/* 통합 악보 PDF 교체 (선택 안 하면 기존 유지) */}
+          <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+            textTransform:"uppercase", marginBottom:8 }}>악보 PDF</div>
+          <label style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 14px",
+            borderRadius:10, cursor:"pointer", marginBottom:16, background:C.card,
+            border:`1.5px dashed ${newPdf ? C.acc : C.bdr}` }}>
+            <Icon n={newPdf ? "check" : "plus"} size={16} color={newPdf ? C.acc : C.dim} />
+            <span style={{ flex:1, fontSize:14, fontWeight:600, color: newPdf ? C.txt : C.dim,
+              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {newPdf ? newPdf.name : (existingPdfUrl ? "PDF 교체 (선택 안 하면 유지)" : "PDF 파일 선택")}
+            </span>
+            <input type="file" accept="application/pdf" hidden
+              onChange={e => { const f = e.target.files?.[0]; if (f) setNewPdf(f); e.target.value = ""; }} />
+          </label>
+
+          {/* 파트별 곡 편집 */}
+          <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+            textTransform:"uppercase", marginBottom:10 }}>곡 목록 · {totalRows}곡</div>
+          <div style={{ marginBottom:16 }}>
+            {SONG_SECTIONS.map(part => {
+              const partColor = SECTION_COLORS[part] || C.acc;
+              return (
+                <div key={part} style={{ marginBottom:14 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:7 }}>
+                    <span style={{ width:8, height:8, borderRadius:"50%", background:partColor, flexShrink:0 }} />
+                    <span style={{ fontSize:13, fontWeight:800, color:partColor, letterSpacing:"0.04em" }}>{part}</span>
+                  </div>
+                  {partRows[part].map((r, i) => (
+                    <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, paddingLeft:15 }}>
+                      <input value={r.title} onChange={e => setRowTitle(part, i, e.target.value)} placeholder="곡 제목"
+                        autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
+                        style={{ flex:1, background:C.card, border:`1.5px solid ${C.bdr}`, color:C.txt,
+                          padding:"9px 12px", borderRadius:9, fontSize:14, outline:"none", fontFamily:"inherit" }} />
+                      <button onClick={() => removeRow(part, i)} style={{ background:"none", border:"none",
+                        cursor:"pointer", padding:4, display:"flex" }}>
+                        <Icon n="xmark" size={15} color={C.dim} />
+                      </button>
+                    </div>
+                  ))}
+                  <button onClick={() => addRow(part)} style={{ marginLeft:15, marginTop:2,
+                    background:`${partColor}14`, border:`1px solid ${partColor}44`, borderRadius:8,
+                    cursor:"pointer", padding:"6px 11px", fontSize:12, fontWeight:700,
+                    color:partColor, fontFamily:"inherit" }}>＋ {part} 곡 추가</button>
+                </div>
+              );
+            })}
+          </div>
+          <Btn label={saving ? "저장 중..." : "저장"} icon="check"
+            onClick={handleSaveCustom} full disabled={saving || !title || !totalRows} />
+        </>
+      ) : (
+        <>
+          <Input label="예배 연습 녹음 링크 (Google Drive)"
+            value={practiceUrlLoaded ? practiceUrl : ""}
+            onChange={setPracticeUrl}
+            placeholder={practiceUrlLoaded ? "https://drive.google.com/file/d/..." : "불러오는 중..."}
+            disabled={!practiceUrlLoaded} />
+          <Btn label={saving ? "저장 중..." : "저장"} icon="check"
+            onClick={handleSave} full disabled={saving || !title} />
+        </>
+      )}
     </Modal>
   );
 }
@@ -5122,7 +5244,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             {svc.title}{svc.time ? ` · ${svc.time}` : ""}
           </div>
         </div>
-        {leader && (
+        {leader && !CUSTOM_BRAND && (
           <button onClick={() => setShowPicker(true)} title="곡 추가" style={{
             width:36, height:36, borderRadius:9, cursor:"pointer",
             background:"rgba(255,255,255,0.18)", border:"1px solid rgba(255,255,255,0.35)",
@@ -5640,7 +5762,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           addSong={addSong} user={user} />
       )}
       {showEdit && (
-        <EditServiceModal svc={svc} onClose={() => setShowEdit(false)} onSave={onUpdateService}
+        <EditServiceModal svc={svc} songs={songs} addSong={addSong} onClose={() => setShowEdit(false)} onSave={onUpdateService}
           onPracticeUrlSaved={url => setSvcPracticeUrl(url)} />
       )}
       {recSong && (
