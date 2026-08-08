@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.800";
+const APP_VERSION = "3.801";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -824,25 +824,21 @@ function CreateServiceModal({ songs, onClose, onCreate, addSong }) {
   const totalNames    = SONG_SECTIONS.reduce((n, part) => n + partNames[part].filter(s => s.trim()).length, 0);
 
   const handleCreate = async () => {
-    // ── 성찬주일팀: PDF 업로드 + 파트별로 입력한 곡마다 항목 생성(같은 PDF 공유) ──
+    // ── 성찬주일팀: PDF 1개 = 항목 하나. 파트별 곡 이름은 목차(songOutline)로 저장 ──
     if (CUSTOM_BRAND) {
-      if (!title || !totalNames) return;
+      const outline = SONG_SECTIONS
+        .map(part => ({ part, names: partNames[part].map(s => s.trim()).filter(Boolean) }))
+        .filter(g => g.names.length);
+      if (!title || !outline.length) return;
       setSaving(true);
       try {
-        let url = null, uploaded = false;
-        const ids = [], partIds = [];
-        for (const part of SONG_SECTIONS) {
-          for (const nm of partNames[part]) {
-            const t = nm.trim();
-            if (!t) continue;
-            const ref = await addSong({ title: t, key: "", artist: "", bpm: null, timeSig: "4/4" });
-            if (!uploaded && pdfFile) { url = await uploadPdf(pdfFile, ref.id); uploaded = true; }
-            if (url) await updateDoc(doc(db, "songs", ref.id), { pdfUrl: url, pdfPage: 1 });
-            ids.push(ref.id);
-            partIds.push(part);
-          }
+        const songTitle = date ? date.replace(/-/g, "").slice(2) : (title || "성찬예배");
+        const ref = await addSong({ title: songTitle, key: "", artist: "", bpm: null, timeSig: "4/4" });
+        if (pdfFile) {
+          const url = await uploadPdf(pdfFile, ref.id);
+          await updateDoc(doc(db, "songs", ref.id), { pdfUrl: url, pdfPage: 1 });
         }
-        await onCreate({ title, date, time, songIds: ids, partsEnabled: true, songPartIds: partIds, closingSongId: null });
+        await onCreate({ title, date, time, songIds: [ref.id], partsEnabled: false, songPartIds: [], songOutline: outline, closingSongId: null });
         onClose();
       } catch (e) {
         alert("예배 생성 실패: " + (e?.message || e));
@@ -971,24 +967,29 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
   const [practiceUrlLoaded, setPracticeUrlLoaded] = useState(false);
   const [showCustom,        setShowCustom]        = useState(!SVC_TIME_PRESETS.some(p => p.time === (svc.time || "")));
   const [saving,            setSaving]            = useState(false);
-  // 성찬주일팀: 파트별 곡 편집(추가/이름수정/삭제) + PDF 교체
+  // 성찬주일팀: PDF 1개 + 파트별 목차(songOutline) 편집. partNames = { part: [names] }
   const songMap = Object.fromEntries((songs || []).map(s => [s.id, s]));
   const existingPdfUrl = (svc.songIds || []).map(id => songMap[id]?.pdfUrl).find(Boolean) || null;
-  const [partRows, setPartRows] = useState(() => {
+  const [partNames, setPartNames] = useState(() => {
     const map = Object.fromEntries(SONG_SECTIONS.map(p => [p, []]));
-    (svc.songIds || []).forEach((id, i) => {
-      const raw = (svc.songPartIds || [])[i];
-      const part = SONG_SECTIONS.includes(raw) ? raw : DEFAULT_SECTION;
-      map[part].push({ id, title: songMap[id]?.title || "" });
-    });
-    SONG_SECTIONS.forEach(p => { if (!map[p].length) map[p].push({ id: null, title: "" }); });
+    if (Array.isArray(svc.songOutline) && svc.songOutline.length) {
+      svc.songOutline.forEach(g => { if (map[g.part]) g.names.forEach(n => map[g.part].push(n)); });
+    } else {
+      // 레거시(곡마다 항목이던 예배) → 곡 제목을 파트별로 모음
+      (svc.songIds || []).forEach((id, i) => {
+        const raw = (svc.songPartIds || [])[i];
+        const part = SONG_SECTIONS.includes(raw) ? raw : DEFAULT_SECTION;
+        if (map[part] && songMap[id]?.title) map[part].push(songMap[id].title);
+      });
+    }
+    SONG_SECTIONS.forEach(p => { if (!map[p].length) map[p].push(""); });
     return map;
   });
   const [newPdf, setNewPdf] = useState(null);
-  const setRowTitle = (part, i, v) => setPartRows(p => ({ ...p, [part]: p[part].map((r, idx) => idx === i ? { ...r, title: v } : r) }));
-  const addRow      = (part)       => setPartRows(p => ({ ...p, [part]: [...p[part], { id: null, title: "" }] }));
-  const removeRow   = (part, i)    => setPartRows(p => ({ ...p, [part]: p[part].length > 1 ? p[part].filter((_, idx) => idx !== i) : p[part] }));
-  const totalRows   = SONG_SECTIONS.reduce((n, part) => n + partRows[part].filter(r => r.title.trim()).length, 0);
+  const setPartName   = (part, i, v) => setPartNames(p => ({ ...p, [part]: p[part].map((x, idx) => idx === i ? v : x) }));
+  const addPartRow    = (part)       => setPartNames(p => ({ ...p, [part]: [...p[part], ""] }));
+  const removePartRow = (part, i)    => setPartNames(p => ({ ...p, [part]: p[part].length > 1 ? p[part].filter((_, idx) => idx !== i) : p[part] }));
+  const totalNames    = SONG_SECTIONS.reduce((n, part) => n + partNames[part].filter(s => s.trim()).length, 0);
 
   // Supabase Storage에서 기존 practiceUrl 로드 (완료 전 저장하면 덮어쓰는 버그 방지)
   useEffect(() => {
@@ -1018,43 +1019,29 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
     }
   };
 
-  // ── 성찬주일팀: 파트별 곡 + PDF까지 반영 저장 ──
+  // ── 성찬주일팀: PDF 1개 항목 유지 + 파트별 목차(songOutline) + PDF 교체 저장 ──
   const handleSaveCustom = async () => {
-    if (!title || !totalRows) return;
+    const outline = SONG_SECTIONS
+      .map(part => ({ part, names: partNames[part].map(s => s.trim()).filter(Boolean) }))
+      .filter(g => g.names.length);
+    if (!title || !outline.length) return;
     setSaving(true);
     try {
-      // 곡/파트 재구성 (기존 곡은 이름만 수정, 새 곡은 생성, 빠진 곡은 삭제)
-      const newIds = [], newParts = [], createdIds = [];
-      let uploadTargetId = null;
-      for (const part of SONG_SECTIONS) {
-        for (const r of partRows[part]) {
-          const t = r.title.trim();
-          if (!t) continue;
-          let id = r.id;
-          if (!id) {
-            const ref = await addSong({ title: t, key: "", artist: "", bpm: null, timeSig: "4/4" });
-            id = ref.id; createdIds.push(id);
-          } else if (songMap[id] && songMap[id].title !== t) {
-            await updateDoc(doc(db, "songs", id), { title: t });
-          }
-          newIds.push(id); newParts.push(part);
-          if (!uploadTargetId) uploadTargetId = id;
-        }
+      // 항목은 항상 하나(PDF). 첫 곡만 남기고 레거시 다곡은 삭제.
+      const ids = svc.songIds || [];
+      let songId = ids[0] || null;
+      if (!songId) {
+        const st = date ? date.replace(/-/g, "").slice(2) : (title || "성찬예배");
+        const ref = await addSong({ title: st, key: "", artist: "", bpm: null, timeSig: "4/4" });
+        songId = ref.id;
       }
-      // PDF: 새로 선택하면 전체 교체, 아니면 새로 만든 곡에만 기존 공유 URL 부여
-      let pdfUrl = existingPdfUrl;
-      if (newPdf && uploadTargetId) {
-        pdfUrl = await uploadPdf(newPdf, uploadTargetId);
-        for (const id of newIds) await updateDoc(doc(db, "songs", id), { pdfUrl, pdfPage: 1 });
-      } else if (pdfUrl) {
-        for (const id of createdIds) await updateDoc(doc(db, "songs", id), { pdfUrl, pdfPage: 1 });
+      if (newPdf) {
+        const url = await uploadPdf(newPdf, songId);
+        await updateDoc(doc(db, "songs", songId), { pdfUrl: url, pdfPage: 1 });
       }
-      // 서비스 갱신 (곡 필드는 직접 write — saveSongs와 동일 경로)
-      await updateDoc(doc(db, "services", svc.id), { songIds: newIds, songPartIds: newParts, partsEnabled: true, closingSongId: null });
-      // 제거된 곡 문서 삭제 (예배 전용 곡이므로 정리)
-      const removed = (svc.songIds || []).filter(id => !newIds.includes(id));
-      for (const id of removed) await deleteDoc(doc(db, "songs", id)).catch(() => {});
-      // 제목/날짜/시간 변경분
+      for (const id of ids.slice(1)) await deleteDoc(doc(db, "songs", id)).catch(() => {});
+      // 서비스 갱신: 단일 항목 + 목차 저장
+      await updateDoc(doc(db, "services", svc.id), { songIds: [songId], songPartIds: [], partsEnabled: false, songOutline: outline, closingSongId: null });
       const changed = title !== svc.title || date !== svc.date || time !== (svc.time || "");
       if (changed) await onSave(svc.id, { title, date, time });
       onClose();
@@ -1088,9 +1075,9 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
               onChange={e => { const f = e.target.files?.[0]; if (f) setNewPdf(f); e.target.value = ""; }} />
           </label>
 
-          {/* 파트별 곡 편집 */}
+          {/* 파트별 목차 편집 (경배와찬양/입례/파송) — 카드에만 표시됨 */}
           <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
-            textTransform:"uppercase", marginBottom:10 }}>곡 목록 · {totalRows}곡</div>
+            textTransform:"uppercase", marginBottom:10 }}>곡 목차 · {totalNames}곡</div>
           <div style={{ marginBottom:16 }}>
             {SONG_SECTIONS.map(part => {
               const partColor = SECTION_COLORS[part] || C.acc;
@@ -1100,19 +1087,19 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
                     <span style={{ width:8, height:8, borderRadius:"50%", background:partColor, flexShrink:0 }} />
                     <span style={{ fontSize:13, fontWeight:800, color:partColor, letterSpacing:"0.04em" }}>{part}</span>
                   </div>
-                  {partRows[part].map((r, i) => (
+                  {partNames[part].map((nm, i) => (
                     <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, paddingLeft:15 }}>
-                      <input value={r.title} onChange={e => setRowTitle(part, i, e.target.value)} placeholder="곡 제목"
+                      <input value={nm} onChange={e => setPartName(part, i, e.target.value)} placeholder="곡 제목"
                         autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
                         style={{ flex:1, background:C.card, border:`1.5px solid ${C.bdr}`, color:C.txt,
                           padding:"9px 12px", borderRadius:9, fontSize:14, outline:"none", fontFamily:"inherit" }} />
-                      <button onClick={() => removeRow(part, i)} style={{ background:"none", border:"none",
+                      <button onClick={() => removePartRow(part, i)} style={{ background:"none", border:"none",
                         cursor:"pointer", padding:4, display:"flex" }}>
                         <Icon n="xmark" size={15} color={C.dim} />
                       </button>
                     </div>
                   ))}
-                  <button onClick={() => addRow(part)} style={{ marginLeft:15, marginTop:2,
+                  <button onClick={() => addPartRow(part)} style={{ marginLeft:15, marginTop:2,
                     background:`${partColor}14`, border:`1px solid ${partColor}44`, borderRadius:8,
                     cursor:"pointer", padding:"6px 11px", fontSize:12, fontWeight:700,
                     color:partColor, fontFamily:"inherit" }}>＋ {part} 곡 추가</button>
@@ -1121,7 +1108,7 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
             })}
           </div>
           <Btn label={saving ? "저장 중..." : "저장"} icon="check"
-            onClick={handleSaveCustom} full disabled={saving || !title || !totalRows} />
+            onClick={handleSaveCustom} full disabled={saving || !title || !totalNames} />
         </>
       ) : (
         <>
@@ -3895,27 +3882,46 @@ function ServicesScreen({ user, services, servicesLoaded, songs, notifs, createS
             )}
           </div>
         </div>
-        <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:8 }}>
-          {svcSongs.map((s, i) => (
-            <span key={s.id} style={{
-              fontSize:12, background:C.bg, border:`1px solid ${C.bdr}`,
-              borderRadius:6, padding:"3px 8px", color:C.txt,
-              display:"flex", alignItems:"center", gap:4,
-            }}>
-              <span style={{ color:C.dim, fontSize:11 }}>{i+1}.</span>
-              {s.title}
-              <span style={{
-                background:`${keyColor(s.key)}22`, color:darkKeyColor(s.key),
-                borderRadius:4, padding:"0 4px", fontSize:10, fontWeight:700,
-              }}>Key {s.key}</span>
-            </span>
-          ))}
-        </div>
+        {CUSTOM_BRAND && Array.isArray(svc.songOutline) && svc.songOutline.length ? (
+          /* 성찬주일팀: 파트별 목차 (경배와찬양/입례/파송) */
+          <div style={{ marginBottom:8 }}>
+            {svc.songOutline.map(g => (
+              <div key={g.part} style={{ display:"flex", gap:8, marginBottom:4, alignItems:"baseline" }}>
+                <span style={{ fontSize:11, fontWeight:800, color:SECTION_COLORS[g.part] || C.acc,
+                  flexShrink:0, minWidth:62 }}>{g.part}</span>
+                <span style={{ fontSize:12.5, color:C.txt, lineHeight:1.5 }}>{g.names.join(" · ")}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:8 }}>
+            {svcSongs.map((s, i) => (
+              <span key={s.id} style={{
+                fontSize:12, background:C.bg, border:`1px solid ${C.bdr}`,
+                borderRadius:6, padding:"3px 8px", color:C.txt,
+                display:"flex", alignItems:"center", gap:4,
+              }}>
+                <span style={{ color:C.dim, fontSize:11 }}>{i+1}.</span>
+                {s.title}
+                {!CUSTOM_BRAND && (
+                  <span style={{
+                    background:`${keyColor(s.key)}22`, color:darkKeyColor(s.key),
+                    borderRadius:4, padding:"0 4px", fontSize:10, fontWeight:700,
+                  }}>Key {s.key}</span>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
         {(() => {
           const totalMemos = svcSongs.reduce((acc, s) => acc + ((teamAnnotations || {})[s.id]?.length || 0), 0);
           return (
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-              <span style={{ fontSize:12, color:C.dim }}>{svcSongs.length}곡 선택됨</span>
+              <span style={{ fontSize:12, color:C.dim }}>{
+                CUSTOM_BRAND && Array.isArray(svc.songOutline)
+                  ? `${svc.songOutline.reduce((n, g) => n + g.names.length, 0)}곡`
+                  : `${svcSongs.length}곡 선택됨`
+              }</span>
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                 {totalMemos > 0 && (
                   <span style={{
@@ -4854,7 +4860,9 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [removeSongConfirm,     setRemoveSongConfirm]     = useState(null); // { idx, songTitle }
   const [showKakaoFormatPicker, setShowKakaoFormatPicker] = useState(false);
   const [landscape, setLandscape] = useState(() => window.innerWidth > window.innerHeight);
-  const partsEnabled = !!svc?.partsEnabled;
+  // 성찬주일팀: 상세 화면엔 PDF 1개만 보이면 되므로 섹션(파트) 표시를 항상 끔.
+  // 파트별 곡 이름은 예배 카드의 목차(songOutline)로만 노출된다.
+  const partsEnabled = !CUSTOM_BRAND && !!svc?.partsEnabled;
   const songPartIds = svc?.songPartIds || [];
   const closingSongId = svc?.closingSongId || null;
   useEffect(() => {
@@ -5386,7 +5394,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             {leader && <span style={{ fontSize:10, color:C.dim, fontWeight:500,
               marginLeft:6, textTransform:"none" }}>≡ 드래그로 순서 변경</span>}
           </div>
-          {leader && !partsEnabled && totalCount > 0 && (
+          {leader && !CUSTOM_BRAND && !partsEnabled && totalCount > 0 && (
             <button onClick={activateParts} style={{
               fontSize:11, fontWeight:700, color:"#6b5de7",
               background:"#6b5de71a", border:"1px solid #6b5de744",
@@ -5600,7 +5608,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                   </>
                 </div>
               </div>
-              {partsEnabled && leader && curPart !== "Closing" && (
+              {!CUSTOM_BRAND && partsEnabled && leader && curPart !== "Closing" && (
                 <div style={{ display:"flex", gap:4, padding:"4px 12px 8px", alignItems:"center" }}>
                   {SONG_SECTIONS.map(p => (
                     <button key={p} onClick={async (e) => { e.stopPropagation(); await setSongPart(i, p); }}
