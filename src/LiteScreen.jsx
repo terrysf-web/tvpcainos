@@ -2,9 +2,12 @@ import { useState, useEffect } from "react";
 import { C } from "./theme.js";
 import { GUEST_BUILD, APP_TITLE, APP_LOGO, CUSTOM_BRAND } from "./firebase.js";
 
-const PART_COLOR  = { "결단": "#e07a60", "Closing": "#34c759" };
-const PART_TINT   = { "결단": "rgba(224,122,96,0.10)", "Closing": "rgba(52,199,89,0.09)", "찬양": "rgba(107,93,231,0.06)" };
-const PART_BORDER = { "결단": "#e07a60", "Closing": "#34c759", "찬양": "#6b5de7" };
+const PART_COLOR  = { "결단": "#e07a60", "Closing": "#34c759", "입례": "#3a86ff", "파송": "#2a9d8f", "경배와찬양": "#6b5de7" };
+const PART_TINT   = { "결단": "rgba(224,122,96,0.10)", "Closing": "rgba(52,199,89,0.09)", "찬양": "rgba(107,93,231,0.06)", "입례": "rgba(58,134,255,0.08)", "파송": "rgba(42,157,143,0.09)", "경배와찬양": "rgba(107,93,231,0.06)" };
+const PART_BORDER = { "결단": "#e07a60", "Closing": "#34c759", "찬양": "#6b5de7", "입례": "#3a86ff", "파송": "#2a9d8f", "경배와찬양": "#6b5de7" };
+
+// 섹션 구분선을 표시할 특별 섹션 (기본 섹션 찬양/경배와찬양 제외)
+const DIVIDER_SECTIONS = CUSTOM_BRAND ? ["입례", "파송"] : ["결단", "Closing"];
 
 const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -135,7 +138,7 @@ export default function LiteScreen({ user, services, songs, onOpenSong, onGoToAp
           ) : svcSongs.map((song, fi) => {
             const part     = getPart(fi);
             const prevPart = fi > 0 ? getPart(fi-1) : null;
-            const showDiv  = part && part !== prevPart && (part === "결단" || part === "Closing");
+            const showDiv  = part && part !== prevPart && DIVIDER_SECTIONS.includes(part);
             const pc       = PART_COLOR[part]  || "#6b5de7";
             const tint     = PART_TINT[part]   || "transparent";
             const border   = PART_BORDER[part] || "#6b5de7";

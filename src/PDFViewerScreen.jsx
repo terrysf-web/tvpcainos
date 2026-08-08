@@ -1847,8 +1847,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     setMyItems(items); saveMyItems(items);
   };
 
-  // 파트 레이블 (결단·Closing만 표시)
-  const PART_LABEL_COLORS = { "결단": "#e07a60", "Closing": "#34c759" };
+  // 파트 레이블 (특별 섹션만 표시 — 기본 섹션 찬양/경배와찬양은 표시 안 함)
+  const PART_LABEL_COLORS = { "결단": "#e07a60", "Closing": "#34c759", "입례": "#3a86ff", "파송": "#2a9d8f" };
   const curSongPart = svc?.partsEnabled && songIdx >= 0 ? (svc.songPartIds?.[rawSvcIdxs[songIdx] ?? songIdx] || null) : null;
 
   // ── PDF.js refs / state

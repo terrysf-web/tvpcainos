@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.793";
+const APP_VERSION = "3.794";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -711,6 +711,14 @@ const SERVICE_TYPES = CUSTOM_BRAND
   ? ["주일 예배", "금요 예배", "특별 예배", "새벽 예배", "직접 입력"]
   : ["주일 2부", "주일 1부", "금요 예배", "특별 예배", "새벽 예배", "직접 입력"];
 
+// 예배 곡 순서(섹션) — 아남네시스는 입례·경배와찬양·파송, 그 외는 찬양·결단
+const SONG_SECTIONS = CUSTOM_BRAND ? ["입례", "경배와찬양", "파송"] : ["찬양", "결단"];
+const DEFAULT_SECTION = CUSTOM_BRAND ? "경배와찬양" : "찬양";
+const SECTION_COLORS = {
+  "찬양": "#6b5de7", "결단": "#e07a60", "Closing": "#34c759",
+  "입례": "#3a86ff", "경배와찬양": "#6b5de7", "파송": "#2a9d8f",
+};
+
 function ServiceTitleField({ value, onChange }) {
   const isCustom = !SERVICE_TYPES.slice(0, -1).includes(value);
   const [type, setType] = useState(isCustom ? "직접 입력" : value);
@@ -809,7 +817,7 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
   const handleCreate = async () => {
     if (!title || !selected.length) return;
     setSaving(true);
-    await onCreate({ title, date, time, songIds: selected, partsEnabled: true, songPartIds: selected.map(() => "찬양"), closingSongId: null });
+    await onCreate({ title, date, time, songIds: selected, partsEnabled: true, songPartIds: selected.map(() => DEFAULT_SECTION), closingSongId: null });
     setSaving(false);
     onClose();
   };
@@ -4937,8 +4945,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       const used = new Array(oldIds.length).fill(false);
       updates.songPartIds = ids.map(id => {
         const ri = oldIds.findIndex((oid, i) => oid === id && !used[i]);
-        if (ri >= 0) { used[ri] = true; return oldParts[ri] || "찬양"; }
-        return "찬양";
+        if (ri >= 0) { used[ri] = true; return oldParts[ri] || DEFAULT_SECTION; }
+        return DEFAULT_SECTION;
       });
       const closingPos = updates.songPartIds.indexOf("Closing");
       updates.closingSongId = closingPos >= 0 ? ids[closingPos] : null;
@@ -4948,7 +4956,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   };
 
   const activateParts = async () => {
-    const partIds = (svc.songIds || []).map(() => "찬양");
+    const partIds = (svc.songIds || []).map(() => DEFAULT_SECTION);
     await updateDoc(doc(db, "services", svc.id), { partsEnabled: true, songPartIds: partIds, closingSongId: null });
   };
 
@@ -5184,10 +5192,10 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
         {entries.map(({ id, song, i }) => {
           if (!song) return null;
-          const curPart = partsEnabled ? (songPartIds[i] || "찬양") : null;
-          const prevPart = partsEnabled && i > 0 ? (songPartIds[i - 1] || "찬양") : null;
+          const curPart = partsEnabled ? (songPartIds[i] || DEFAULT_SECTION) : null;
+          const prevPart = partsEnabled && i > 0 ? (songPartIds[i - 1] || DEFAULT_SECTION) : null;
           const isFirstOfPart = partsEnabled && curPart !== prevPart;
-          const PART_COLORS = { "찬양": "#6b5de7", "결단": "#e07a60", "Closing": "#34c759" };
+          const PART_COLORS = SECTION_COLORS;
           const partColor = PART_COLORS[curPart] || C.acc;
           const teamNotes = (teamAnnotations || {})[song.id] || [];
           const isDragging = drag?.fromIdx === i;
@@ -5377,7 +5385,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
               </div>
               {partsEnabled && leader && curPart !== "Closing" && (
                 <div style={{ display:"flex", gap:4, padding:"4px 12px 8px", alignItems:"center" }}>
-                  {["찬양", "결단"].map(p => (
+                  {SONG_SECTIONS.map(p => (
                     <button key={p} onClick={async (e) => { e.stopPropagation(); await setSongPart(i, p); }}
                       style={{
                         fontSize:10, fontWeight:700, padding:"2px 9px", borderRadius:6, cursor:"pointer",
@@ -5387,8 +5395,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                         border: `1px solid ${curPart === p ? PART_COLORS[p] + "66" : C.bdr}`,
                       }}>{p}</button>
                   ))}
-                  {/* Closing 지정 — 결단뿐 아니라 찬양 등 어느 곡에서도 가능(나머지 동작은 기존과 동일) */}
-                  <button onClick={async (e) => {
+                  {/* Closing 지정 — 결단뿐 아니라 찬양 등 어느 곡에서도 가능(아남네시스는 '파송'이 대신하므로 숨김) */}
+                  {!CUSTOM_BRAND && <button onClick={async (e) => {
                       e.stopPropagation();
                       if (closingSongId === id) { await removeClosing(); }
                       else { await setClosingSong(id); }
@@ -5398,7 +5406,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                       background: closingSongId === id ? "#34c75922" : "transparent",
                       color: closingSongId === id ? "#34c759" : C.dim,
                       border: `1px solid ${closingSongId === id ? "#34c75966" : C.bdr}`,
-                    }}>{closingSongId === id ? "🔁 Closing 지정됨" : "Closing 지정"}</button>
+                    }}>{closingSongId === id ? "🔁 Closing 지정됨" : "Closing 지정"}</button>}
                 </div>
               )}
             </div>
