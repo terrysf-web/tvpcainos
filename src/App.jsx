@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.794";
+const APP_VERSION = "3.795";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -817,7 +817,7 @@ function CreateServiceModal({ songs, onClose, onCreate }) {
   const handleCreate = async () => {
     if (!title || !selected.length) return;
     setSaving(true);
-    await onCreate({ title, date, time, songIds: selected, partsEnabled: true, songPartIds: selected.map(() => DEFAULT_SECTION), closingSongId: null });
+    await onCreate({ title, date, time, songIds: selected, partsEnabled: !CUSTOM_BRAND, songPartIds: CUSTOM_BRAND ? [] : selected.map(() => DEFAULT_SECTION), closingSongId: null });
     setSaving(false);
     onClose();
   };
@@ -5383,7 +5383,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                   </>
                 </div>
               </div>
-              {partsEnabled && leader && curPart !== "Closing" && (
+              {!CUSTOM_BRAND && partsEnabled && leader && curPart !== "Closing" && (
                 <div style={{ display:"flex", gap:4, padding:"4px 12px 8px", alignItems:"center" }}>
                   {SONG_SECTIONS.map(p => (
                     <button key={p} onClick={async (e) => { e.stopPropagation(); await setSongPart(i, p); }}
