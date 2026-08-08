@@ -5172,6 +5172,25 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     }, "image/png");
   };
 
+  // 원본 PDF 전체 다운로드 (모든 페이지) — 통합 악보용
+  const downloadFullPdf = async () => {
+    if (!song?.pdfUrl) { showToast("PDF 파일이 없습니다"); return; }
+    try {
+      const res = await fetch(song.pdfUrl);
+      if (!res.ok) throw new Error("fetch 실패");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(song?.title || "score").replace(/[\\/:*?"<>|]/g, "_")}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (e) {
+      // CORS 등으로 실패하면 새 탭으로 열어 사용자가 저장하게
+      window.open(song.pdfUrl, "_blank");
+    }
+  };
+
   // leader toggles download permission for members (per service)
   const toggleDownloadEnabled = async () => {
     if (!svc) return;
@@ -5700,12 +5719,19 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           {/* 다운로드: 악보 PDF · 멤버 허용 */}
           {activeGroup === "다운로드" && (
             <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap", justifyContent:"flex-end" }}>
+              {canDownload && song?.pdfUrl && (
+                <button onClick={downloadFullPdf} style={{
+                  height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
+                  background:`${C.grn}18`, border:`1px solid ${C.grn}`,
+                  color:C.grn, fontWeight:700, fontSize:11, fontFamily:"inherit",
+                }}>전체 PDF</button>
+              )}
               {canDownload && (
                 <button onClick={downloadAnnotatedScore} style={{
                   height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
                   background:"transparent", border:`1px solid ${C.bdr}`,
                   color:C.dim, fontWeight:700, fontSize:11, fontFamily:"inherit",
-                }}>악보 PDF</button>
+                }}>이 페이지(필기)</button>
               )}
               {!isLibraryMode && leader && svc && (
                 <button onClick={toggleDownloadEnabled} style={{
