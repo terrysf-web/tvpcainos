@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.804";
+const APP_VERSION = "3.805";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -988,6 +988,23 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
   const [newPdf, setNewPdf] = useState(null);
   const [pickedSongId, setPickedSongId] = useState(null);  // 기존 라이브러리 악보 재연결
   const pdfLibrary = (songs || []).filter(s => s.pdfUrl);  // PDF 있는 기존 악보들
+  // 기존 악보 PDF 원본 다운로드 (재연결 없이 파일만 받기)
+  const downloadSongPdf = async (s) => {
+    if (!s?.pdfUrl) return;
+    try {
+      const res = await fetch(s.pdfUrl);
+      if (!res.ok) throw new Error("fetch 실패");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(s.title || "score").replace(/[\\/:*?"<>|]/g, "_")}.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch {
+      window.open(s.pdfUrl, "_blank");
+    }
+  };
   const setPartName   = (part, i, v) => setPartNames(p => ({ ...p, [part]: p[part].map((x, idx) => idx === i ? v : x) }));
   const addPartRow    = (part)       => setPartNames(p => ({ ...p, [part]: [...p[part], ""] }));
   const removePartRow = (part, i)    => setPartNames(p => ({ ...p, [part]: p[part].length > 1 ? p[part].filter((_, idx) => idx !== i) : p[part] }));
@@ -1104,6 +1121,11 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
                       <div style={{ flex:1, fontWeight:600, fontSize:14, overflow:"hidden",
                         textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.title}</div>
                       <Badge label="PDF" color={C.grn} />
+                      <button onClick={(e) => { e.stopPropagation(); downloadSongPdf(s); }}
+                        title="이 PDF 원본 다운로드" style={{ background:"none", border:"none",
+                        cursor:"pointer", padding:4, display:"flex", flexShrink:0 }}>
+                        <Icon n="download" size={16} color={C.grn} />
+                      </button>
                     </div>
                   );
                 })}
