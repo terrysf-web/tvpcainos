@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.807";
+const APP_VERSION = "3.808";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -1861,11 +1861,6 @@ function CropModal({ pdfFile, pdfUrl, imageUrl, onClose, onConfirm, initialCrop 
   );
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   PIANO ON OVERLAY
-══════════════════════════════════════════════════════════════════ */
-const PIANO_TOAST_MS = 8000;
-
 /* ── FOH 팀 메시지 토스트 ── */
 const FOH_MSG_MS = 3000;
 function FohMsgToast({ message, fromName, onDismiss }) {
@@ -1892,50 +1887,12 @@ function FohMsgToast({ message, fromName, onDismiss }) {
       animation:"pianoToastSlide 0.35s cubic-bezier(0.22,1,0.36,1)",
       cursor:"pointer",
     }}>
+      <style>{`@keyframes pianoToastSlide{from{transform:translateY(-110%)}to{transform:translateY(0)}}`}</style>
       <div style={{ display:"flex", alignItems:"center", gap:14, padding:"14px 20px" }}>
         <span style={{ fontSize:34, lineHeight:1 }}>📢</span>
         <div style={{ flex:1 }}>
           {fromName && <div style={{ fontSize:12, opacity:0.7, marginBottom:3, fontWeight:700 }}>{String(fromName).split(" ")[0]}</div>}
           <div style={{ fontWeight:900, fontSize:20, letterSpacing:"0.03em", lineHeight:1.1 }}>{message}</div>
-        </div>
-        <div style={{ fontSize:12, opacity:0.55, flexShrink:0 }}>탭하면 닫힘</div>
-      </div>
-      <div style={{ height:3, background:"rgba(255,255,255,0.2)" }}>
-        <div style={{ height:"100%", background:"rgba(255,255,255,0.7)", width:`${pct}%`, transition:"none" }} />
-      </div>
-    </div>
-  );
-}
-function PianoOnOverlay({ onDismiss }) {
-  const [pct, setPct] = useState(100);
-  useEffect(() => {
-    const start = Date.now();
-    const tick = () => {
-      const elapsed = Date.now() - start;
-      const remaining = Math.max(0, 100 - (elapsed / PIANO_TOAST_MS) * 100);
-      setPct(remaining);
-      if (elapsed >= PIANO_TOAST_MS) { onDismiss(); return; }
-      requestAnimationFrame(tick);
-    };
-    const raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [onDismiss]);
-  return (
-    <div onClick={onDismiss} style={{
-      position:"fixed", top:0, left:0, right:0, zIndex:99999,
-      background:"linear-gradient(135deg, #b71c1c, #c62828)",
-      color:"#fff",
-      paddingTop:"env(safe-area-inset-top, 0px)",
-      boxShadow:"0 4px 24px rgba(183,28,28,0.5)",
-      animation:"pianoToastSlide 0.35s cubic-bezier(0.22,1,0.36,1)",
-      cursor:"pointer",
-    }}>
-      <style>{`@keyframes pianoToastSlide{from{transform:translateY(-110%)}to{transform:translateY(0)}}`}</style>
-      <div style={{ display:"flex", alignItems:"center", gap:14, padding:"14px 20px" }}>
-        <span style={{ fontSize:34, lineHeight:1 }}>🎹</span>
-        <div style={{ flex:1 }}>
-          <div style={{ fontWeight:900, fontSize:20, letterSpacing:"0.03em", lineHeight:1.1 }}>Piano ON</div>
-          <div style={{ fontSize:13, opacity:0.8, marginTop:2 }}>반주 시작해주세요</div>
         </div>
         <div style={{ fontSize:12, opacity:0.55, flexShrink:0 }}>탭하면 닫힘</div>
       </div>
@@ -8974,11 +8931,6 @@ export default function App() {
   const notifPopupShownRef = useRef(false);
   const [sharedGeminiKey, setSharedGeminiKey] = useState("");
   const [bgmChannel,      setBgmChannel]      = useState("09");
-  const [autoPhaseGlobal, setAutoPhaseGlobal] = useState(null); // { phase, svcId }
-  const [pianoOverlayDismissed, setPianoOverlayDismissed] = useState(false);
-  const pianoOverlayDismissedTsRef = useRef(
-    parseInt(localStorage.getItem("tvpc_pianoOverlay_dismissed_ts") || "0")
-  );
   const autoLiveTriggeredRef = useRef(null);
   const keolDanFiredRef      = useRef(false);
 
@@ -9071,22 +9023,6 @@ export default function App() {
     return unsub;
   }, [user?.uid]);
 
-  // ── Piano ON phase 전체 구독
-  useEffect(() => {
-    return onSnapshot(doc(db, "liveStatus", "automation"), snap => {
-      const data = snap.exists() ? snap.data() : null;
-      setAutoPhaseGlobal(data);
-      if (data?.phase === "piano_on") {
-        // updatedAt 기반 비교 — 버튼을 다시 누를 때마다 새 timestamp로 오버레이 재표시
-        const ts = data.updatedAt?.toMillis?.() ?? 0;
-        if (ts > pianoOverlayDismissedTsRef.current) {
-          setPianoOverlayDismissed(false);
-        } else {
-          setPianoOverlayDismissed(true);
-        }
-      }
-    }, () => {});
-  }, []);
 
   // (removed: --app-h resize listener — app root is now position:fixed so no resize jumps)
 
@@ -10222,17 +10158,6 @@ export default function App() {
       {view !== "pdfViewer" && <InstallPrompt />}
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-
-      {/* Piano ON 반주 시작 팝업 제거 — 팀원 화면 알람 안 뜨게 함.
-          (FOH의 ProPresenter "PIANO ON" 스테이지 메시지 자동화는 그대로 유지) */}
-      {false && autoPhaseGlobal?.phase === "piano_on" && !pianoOverlayDismissed && (
-        <PianoOnOverlay onDismiss={() => {
-          const ts = autoPhaseGlobal?.updatedAt?.toMillis?.() ?? Date.now();
-          pianoOverlayDismissedTsRef.current = ts;
-          localStorage.setItem("tvpc_pianoOverlay_dismissed_ts", String(ts));
-          setPianoOverlayDismissed(true);
-        }} />
-      )}
 
       {/* FOH → 멤버 메시지 배너 */}
       {fohMsgBanner && (
