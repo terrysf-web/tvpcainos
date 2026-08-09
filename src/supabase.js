@@ -172,12 +172,17 @@ export async function uploadPdf(file, songId) {
 
   // ── 2차: Supabase Storage fallback
   const sbPath = `pdfs/${songId}.pdf`;
-  const { data, error } = await supabase.storage.from("pdfs").upload(sbPath, file, {
-    contentType: "application/pdf", upsert: true,
-  });
-  if (error) throw new Error(error.message);
+  const opts = { contentType: "application/pdf", upsert: true };
+  const first = await supabase.storage.from("pdfs").upload(sbPath, file, opts);
+  if (first.error) {
+    // 교체(재업로드) 시 버킷 정책상 덮어쓰기가 막히는 경우 → 기존 파일 삭제 후 재시도
+    await supabase.storage.from("pdfs").remove([sbPath]).catch(() => {});
+    const retry = await supabase.storage.from("pdfs").upload(sbPath, file, { ...opts, upsert: false });
+    if (retry.error) throw new Error(retry.error.message);
+  }
   const { data: { publicUrl } } = supabase.storage.from("pdfs").getPublicUrl(sbPath);
-  return publicUrl;
+  // 같은 경로라 캐시가 옛 파일을 보여주지 않도록 버전값 부착
+  return `${publicUrl}?v=${Date.now()}`;
 }
 
 // 예배 서비스 설정 (practiceUrl 등) — Supabase Storage (Firestore 할당량 우회)
