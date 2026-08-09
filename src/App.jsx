@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.811";
+const APP_VERSION = "3.812";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -1006,6 +1006,20 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
       window.open(s.pdfUrl, "_blank");
     }
   };
+  // 기존 악보(라이브러리 곡) 삭제 — 목록 정리용 (26-0908 같은 잔여/중복 제거)
+  const deleteLibrarySong = async (s) => {
+    const used = (svc.songIds || []).includes(s.id);
+    const msg = used
+      ? `"${s.title}"은(는) 지금 이 예배에 연결된 악보예요. 삭제하면 이 예배의 악보가 사라집니다. 삭제할까요?`
+      : `"${s.title}" 악보를 삭제할까요? 되돌릴 수 없습니다.`;
+    if (!window.confirm(msg)) return;
+    try {
+      await deleteDoc(doc(db, "songs", s.id));
+      if (pickedSongId === s.id) setPickedSongId(null);
+    } catch (e) {
+      alert("삭제 실패: " + (e?.message || e));
+    }
+  };
   const setPartName   = (part, i, v) => setPartNames(p => ({ ...p, [part]: p[part].map((x, idx) => idx === i ? v : x) }));
   const addPartRow    = (part)       => setPartNames(p => ({ ...p, [part]: [...p[part], ""] }));
   const removePartRow = (part, i)    => setPartNames(p => ({ ...p, [part]: p[part].length > 1 ? p[part].filter((_, idx) => idx !== i) : p[part] }));
@@ -1128,6 +1142,10 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
                         cursor:"pointer", padding:4, display:"flex", flexShrink:0 }}>
                         <Icon n="download" size={16} color={C.grn} />
                       </button>
+                      <button onClick={(e) => { e.stopPropagation(); deleteLibrarySong(s); }}
+                        title="이 악보 삭제" style={{ background:`${C.red}12`, border:`1px solid ${C.red}40`,
+                        borderRadius:6, cursor:"pointer", padding:"3px 6px", flexShrink:0,
+                        fontSize:13, lineHeight:1, color:C.red, fontFamily:"inherit" }}>🗑</button>
                     </div>
                   );
                 })}
