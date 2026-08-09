@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.806";
+const APP_VERSION = "3.807";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -10223,7 +10223,9 @@ export default function App() {
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
-      {autoPhaseGlobal?.phase === "piano_on" && !pianoOverlayDismissed && (
+      {/* Piano ON 반주 시작 팝업 제거 — 팀원 화면 알람 안 뜨게 함.
+          (FOH의 ProPresenter "PIANO ON" 스테이지 메시지 자동화는 그대로 유지) */}
+      {false && autoPhaseGlobal?.phase === "piano_on" && !pianoOverlayDismissed && (
         <PianoOnOverlay onDismiss={() => {
           const ts = autoPhaseGlobal?.updatedAt?.toMillis?.() ?? Date.now();
           pianoOverlayDismissedTsRef.current = ts;
