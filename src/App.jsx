@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.803";
+const APP_VERSION = "3.804";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -986,6 +986,8 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
     return map;
   });
   const [newPdf, setNewPdf] = useState(null);
+  const [pickedSongId, setPickedSongId] = useState(null);  // 기존 라이브러리 악보 재연결
+  const pdfLibrary = (songs || []).filter(s => s.pdfUrl);  // PDF 있는 기존 악보들
   const setPartName   = (part, i, v) => setPartNames(p => ({ ...p, [part]: p[part].map((x, idx) => idx === i ? v : x) }));
   const addPartRow    = (part)       => setPartNames(p => ({ ...p, [part]: [...p[part], ""] }));
   const removePartRow = (part, i)    => setPartNames(p => ({ ...p, [part]: p[part].length > 1 ? p[part].filter((_, idx) => idx !== i) : p[part] }));
@@ -1024,12 +1026,14 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
     const outline = SONG_SECTIONS
       .map(part => ({ part, names: partNames[part].map(s => s.trim()).filter(Boolean) }))
       .filter(g => g.names.length);
-    if (!title || !outline.length) return;
+    // 목차가 없어도 PDF(가져오기/교체/기존)만 있으면 저장 허용 (복구 목적)
+    const hasSong = outline.length || pickedSongId || newPdf || (svc.songIds || []).some(id => songMap[id]);
+    if (!title || !hasSong) return;
     setSaving(true);
     try {
-      // 항목은 항상 하나(PDF). 첫 곡만 남기고 레거시 다곡은 삭제.
+      // 항목은 항상 하나(PDF). 기존 라이브러리 악보를 골랐으면 그걸 재연결.
       const ids = svc.songIds || [];
-      let songId = ids[0] || null;
+      let songId = pickedSongId || ids[0] || null;
       // songId가 없거나 문서가 이미 삭제된(고아) 경우 새로 생성
       if (!songId || !songMap[songId]) {
         const st = date ? date.replace(/-/g, "").slice(2) : (title || "성찬예배");
@@ -1040,7 +1044,8 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
         const url = await uploadPdf(newPdf, songId);
         await updateDoc(doc(db, "songs", songId), { pdfUrl: url, pdfPage: 1 });
       }
-      for (const id of ids.slice(1)) await deleteDoc(doc(db, "songs", id)).catch(() => {});
+      // 이 예배가 쓰던 다른(고아) 곡 정리 — 지금 쓰는 곡은 유지
+      for (const id of ids) { if (id !== songId) await deleteDoc(doc(db, "songs", id)).catch(() => {}); }
       // 서비스 갱신: 단일 항목 + 목차 저장
       await updateDoc(doc(db, "services", svc.id), { songIds: [songId], songPartIds: [], partsEnabled: false, songOutline: outline, closingSongId: null });
       const changed = title !== svc.title || date !== svc.date || time !== (svc.time || "");
@@ -1076,6 +1081,36 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
               onChange={e => { const f = e.target.files?.[0]; if (f) setNewPdf(f); e.target.value = ""; }} />
           </label>
 
+          {/* 기존 라이브러리 악보 재연결 (재업로드 없이 가져오기) */}
+          {pdfLibrary.length > 0 && (
+            <>
+              <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
+                textTransform:"uppercase", marginBottom:8 }}>또는 기존 악보 가져오기</div>
+              <div style={{ maxHeight:150, overflowY:"auto", marginBottom:16 }}>
+                {pdfLibrary.map(s => {
+                  const sel = pickedSongId === s.id;
+                  return (
+                    <div key={s.id} onClick={() => setPickedSongId(sel ? null : s.id)} style={{
+                      display:"flex", alignItems:"center", gap:10, padding:"9px 12px",
+                      borderRadius:10, cursor:"pointer", marginBottom:4,
+                      background: sel ? `${C.acc}1a` : C.card,
+                      border:`1.5px solid ${sel ? C.acc : C.bdr}`,
+                    }}>
+                      <div style={{ width:18, height:18, borderRadius:5, flexShrink:0,
+                        border:`2px solid ${sel ? C.acc : C.bdr}`, background: sel ? C.acc : "transparent",
+                        display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        {sel && <Icon n="check" size={10} color="#fff" sw={3} />}
+                      </div>
+                      <div style={{ flex:1, fontWeight:600, fontSize:14, overflow:"hidden",
+                        textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.title}</div>
+                      <Badge label="PDF" color={C.grn} />
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
           {/* 파트별 목차 편집 (경배와찬양/입례/파송) — 카드에만 표시됨 */}
           <div style={{ fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
             textTransform:"uppercase", marginBottom:10 }}>곡 목차 · {totalNames}곡</div>
@@ -1109,7 +1144,7 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
             })}
           </div>
           <Btn label={saving ? "저장 중..." : "저장"} icon="check"
-            onClick={handleSaveCustom} full disabled={saving || !title || !totalNames} />
+            onClick={handleSaveCustom} full disabled={saving || !title || (!totalNames && !pickedSongId && !newPdf)} />
         </>
       ) : (
         <>
