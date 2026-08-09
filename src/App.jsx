@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.802";
+const APP_VERSION = "3.803";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -1030,7 +1030,8 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
       // 항목은 항상 하나(PDF). 첫 곡만 남기고 레거시 다곡은 삭제.
       const ids = svc.songIds || [];
       let songId = ids[0] || null;
-      if (!songId) {
+      // songId가 없거나 문서가 이미 삭제된(고아) 경우 새로 생성
+      if (!songId || !songMap[songId]) {
         const st = date ? date.replace(/-/g, "").slice(2) : (title || "성찬예배");
         const ref = await addSong({ title: st, key: "", artist: "", bpm: null, timeSig: "4/4" });
         songId = ref.id;
@@ -5407,7 +5408,9 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           <div style={{ textAlign:"center", padding:"40px 0", color:C.dim }}>
             <div style={{ fontSize:36, marginBottom:10 }}>🎵</div>
             <div style={{ fontWeight:600, marginBottom:4 }}>곡이 없습니다</div>
-            <div style={{ fontSize:13 }}>헤더의 "라이브러리에서 곡 추가" 버튼으로 추가하세요</div>
+            <div style={{ fontSize:13 }}>{CUSTOM_BRAND
+              ? "상단 ✏️ 예배 수정에서 PDF와 곡을 추가하세요"
+              : '헤더의 "라이브러리에서 곡 추가" 버튼으로 추가하세요'}</div>
           </div>
         )}
 
