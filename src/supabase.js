@@ -144,12 +144,15 @@ export async function detectChordsViaEdge(imageData, userApiKey) {
 export async function uploadPdf(file, songId) {
   const { auth, firebaseConfigObj } = await import("./firebase.js");
   const BUCKET = firebaseConfigObj.storageBucket;
+  // 교체 시마다 새 파일명 → 같은 경로 덮어쓰기(정책 차단)·캐시(서비스워커/브라우저)
+  // 문제를 근본적으로 회피. 뷰어는 song.pdfUrl(전체 URL)만 쓰므로 경로가 바뀌어도 안전.
+  const objName = `pdfs/${songId}-${Date.now()}.pdf`;
 
   // ── 1차: Firebase Storage REST API (fetch 사용 — iOS Safari XHR 우회)
   try {
     const token = await auth.currentUser?.getIdToken(true);
     if (!token) throw new Error("unauthenticated");
-    const path = `pdfs/${songId}.pdf`;
+    const path = objName;
     const encodedPath = encodeURIComponent(path);
     const res = await fetch(
       `https://firebasestorage.googleapis.com/v0/b/${BUCKET}/o?uploadType=media&name=${encodedPath}`,
@@ -171,7 +174,7 @@ export async function uploadPdf(file, songId) {
   }
 
   // ── 2차: Supabase Storage fallback
-  const sbPath = `pdfs/${songId}.pdf`;
+  const sbPath = objName;
   const opts = { contentType: "application/pdf", upsert: true };
   const first = await supabase.storage.from("pdfs").upload(sbPath, file, opts);
   if (first.error) {
