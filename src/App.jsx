@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.805";
+const APP_VERSION = "3.806";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -835,7 +835,8 @@ function CreateServiceModal({ songs, onClose, onCreate, addSong }) {
         const songTitle = date ? date.replace(/-/g, "").slice(2) : (title || "성찬예배");
         const ref = await addSong({ title: songTitle, key: "", artist: "", bpm: null, timeSig: "4/4" });
         if (pdfFile) {
-          const url = await uploadPdf(pdfFile, ref.id);
+          let url = await uploadPdf(pdfFile, ref.id);
+          url += (url.includes("?") ? "&" : "?") + "v=" + Date.now();  // 캐시 무효화
           await updateDoc(doc(db, "songs", ref.id), { pdfUrl: url, pdfPage: 1 });
         }
         await onCreate({ title, date, time, songIds: [ref.id], partsEnabled: false, songPartIds: [], songOutline: outline, closingSongId: null });
@@ -1058,7 +1059,8 @@ function EditServiceModal({ svc, songs, addSong, onClose, onSave, onPracticeUrlS
         songId = ref.id;
       }
       if (newPdf) {
-        const url = await uploadPdf(newPdf, songId);
+        let url = await uploadPdf(newPdf, songId);
+        url += (url.includes("?") ? "&" : "?") + "v=" + Date.now();  // 캐시 무효화(교체 반영)
         await updateDoc(doc(db, "songs", songId), { pdfUrl: url, pdfPage: 1 });
       }
       // 이 예배가 쓰던 다른(고아) 곡 정리 — 지금 쓰는 곡은 유지
