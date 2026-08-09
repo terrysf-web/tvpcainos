@@ -784,6 +784,15 @@ function detectContentBounds(pdfCanvas, drawCanvas) {
 /* 세션 전체에서 공유되는 PDF 문서 캐시 (재파싱 방지) */
 const _pdfCache = {};
 
+// 임베드 안 된 한글(Type0 CJK) 글꼴도 대체 렌더되도록 cMap/표준글꼴 데이터 제공.
+// (아이폰/맥에서 만든 순서 PDF는 AppleSDGothicNeo 등이 임베드 안 돼 빈 페이지로 보임)
+const _PDFJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+const PDF_LOAD_OPTS = {
+  cMapUrl: _PDFJS_CDN + "cmaps/",
+  cMapPacked: true,
+  standardFontDataUrl: _PDFJS_CDN + "standard_fonts/",
+};
+
 /* 세션 전체에서 공유되는 이미지 악보 캐시 (재다운로드/재디코드 방지)
    { img, tainted } — tainted=true면 CORS 헤더가 없어 crossOrigin 없이 로드됨
    (캔버스가 오염되어 createImageBitmap/getImageData 불가, drawImage 표시는 정상) */
@@ -3735,7 +3744,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       setNumPages(_pdfCache[url].numPages);
       return;
     }
-    window.pdfjsLib.getDocument({ url }).promise
+    window.pdfjsLib.getDocument({ url, ...PDF_LOAD_OPTS }).promise
       .then(pdf => { _pdfCache[url] = pdf; pdfDocRef.current = pdf; setNumPages(pdf.numPages); })
       .catch(() => setLoadErr("PDF를 불러올 수 없습니다"));
   }, [song?.pdfUrl, pdfjsReady, selectedSongId, dual]);
@@ -3771,7 +3780,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     const loadPdf = (url) => {
       if (!url || !pdfjsReady || !window.pdfjsLib) return Promise.resolve(null);
       if (_pdfCache[url]) return Promise.resolve(_pdfCache[url]);
-      return window.pdfjsLib.getDocument({ url }).promise
+      return window.pdfjsLib.getDocument({ url, ...PDF_LOAD_OPTS }).promise
         .then(pdf => { _pdfCache[url] = pdf; return pdf; })
         .catch(() => null);
     };
@@ -3873,7 +3882,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
         const url = targetSong.pdfUrl;
         let pdf = _pdfCache[url];
         if (!pdf) {
-          pdf = await window.pdfjsLib.getDocument({ url }).promise;
+          pdf = await window.pdfjsLib.getDocument({ url, ...PDF_LOAD_OPTS }).promise;
           _pdfCache[url] = pdf;
         }
         const pageN = targetSong.pdfPage || 1;
