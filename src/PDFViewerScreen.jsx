@@ -5457,7 +5457,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 scrollbarWidth:"none", msOverflowStyle:"none" }}>
                 {mkGrp("보기", viewActive, C.acc, 0)}
                 {mkGrp("필기", writeActive, drawMode ? C.pur : C.acc, 0)}
-                {mkGrp("악보", scoreActive, transposeMode ? C.grn : C.acc, 0)}
+                {!CUSTOM_BRAND && mkGrp("악보", scoreActive, transposeMode ? C.grn : C.acc, 0)}
                 {!isLibraryMode && (getUserParts(user).some(p => ["키보드","피아노","신디"].includes(p)) || isFoh(user)) && (() => {
                   const isOpen = activeGroup === "팀채팅";
                   return (
@@ -5501,7 +5501,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                     🎹 코드
                   </button>
                 )}
-                {mkGrp("녹음", recActive, recording ? C.red : C.acc, 0, !isLibraryMode && !!svcPracticeUrl)}
+                {!CUSTOM_BRAND && mkGrp("녹음", recActive, recording ? C.red : C.acc, 0, !isLibraryMode && !!svcPracticeUrl)}
                 {dlActive && mkGrp("다운로드", false, C.acc, 0)}
                 {(leader || user?.role === "admin") && !isLibraryMode && (
                   <button onClick={togglePointer} style={{
@@ -5686,7 +5686,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 color: showNotePanel ? C.acc : C.dim,
                 fontWeight:700, fontSize:11, fontFamily:"inherit",
               }}>메모</button>
-              {!isLibraryMode && canWriteCue && (
+              {!isLibraryMode && canWriteCue && !CUSTOM_BRAND && (
                 <button onClick={() => setShowCueInput(p=>!p)} style={{
                   height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
                   background: showCueInput ? "#ff6f0022" : "transparent",
@@ -5695,7 +5695,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   fontWeight:700, fontSize:11, fontFamily:"inherit",
                 }}>큐노트</button>
               )}
-              {!isLibraryMode && (
+              {!isLibraryMode && !CUSTOM_BRAND && (
                 <button onClick={() => setShowSheetCues(p=>!p)}
                   title="리더 큐노트를 악보 위에 표시" style={{
                   height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
