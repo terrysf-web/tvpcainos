@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.818";
+const APP_VERSION = "3.819";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -2985,7 +2985,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                       </div>
                     </div>
                     )}
-                    {/* 2행: 악보 싱크 */}
+                    {/* 2행: 악보 싱크 (성찬주일팀 제외) */}
+                    {!CUSTOM_BRAND && (
                     <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px 8px" }}>
                       <span style={{ fontSize:11, fontWeight:800, color:C.pur, flexShrink:0, whiteSpace:"nowrap" }}>🔗 악보 싱크</span>
                       <button onClick={svcSongs.length > 0 ? toggleLink : undefined} style={{
@@ -3031,6 +3032,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                         }}>▶</button>
                       </div>
                     </div>
+                    )}
                   </div>
 
                 </div>
