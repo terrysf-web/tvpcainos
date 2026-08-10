@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.819";
+const APP_VERSION = "3.820";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -9571,8 +9571,9 @@ export default function App() {
     if (autoSheetFiredRef.current) return;
     if (!user?.uid || !servicesLoaded || !songs.length) return;
     if (isLeader(user?.role)) return;
+    const isChoir = getUserParts(user).includes("성가대");
     const cur = localStorage.getItem("tvpc_view") || "home";
-    if (cur !== "home" && cur !== "services") return;  // 이미 다른 화면이면 방해 안 함
+    if (!isChoir && cur !== "home" && cur !== "services") return;  // 찬양팀: 다른 화면 탐색 중이면 방해 안 함
 
     const today = localDateStr();
     const withSheet = services
@@ -9583,7 +9584,7 @@ export default function App() {
     const songId = (target.songIds || [])[0];
 
     autoSheetFiredRef.current = true;
-    if (getUserParts(user).includes("성가대")) {
+    if (isChoir) {
       // 성가대 → LITE 모드(간단 뷰어 + LITE 필기)로 이번 주 악보 열기
       setLiteMode(true);
       setLiteSong({ songId, svcId: target.id, svcSongIdx: 0 });
@@ -9592,6 +9593,14 @@ export default function App() {
       navRef.current("pdfViewer", { songId, svcId: target.id, svcSongIdx: 0, backTo: "services" });
     }
   }, [user?.uid, user?.role, user?.part, servicesLoaded, services, songs]);
+
+  // ── 성가대 멤버(커스텀)는 항상 LITE 모드 (찬양팀과 다른 간단 화면).
+  //    파트를 성가대로 바꾸는 즉시 반영되도록 별도 효과로 강제.
+  useEffect(() => {
+    if (!CUSTOM_BRAND) return;
+    if (!user?.uid || isLeader(user?.role)) return;
+    if (getUserParts(user).includes("성가대")) setLiteMode(true);
+  }, [user?.uid, user?.role, getUserParts(user).join(",")]);
 
   // ── CRUD helpers
   const addSong = async (data) => {
