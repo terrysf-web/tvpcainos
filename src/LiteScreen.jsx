@@ -27,7 +27,7 @@ function fmtDate(dateStr) {
     .toLocaleDateString("ko-KR", { month:"long", day:"numeric", weekday:"short" });
 }
 
-export default function LiteScreen({ user, services, songs, onOpenSong, onGoToApp }) {
+export default function LiteScreen({ user, services, songs, onOpenSong, onGoToApp, onLogout }) {
   const [, tick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => tick(n => n+1), 30000);
@@ -104,6 +104,14 @@ export default function LiteScreen({ user, services, songs, onOpenSong, onGoToAp
               borderRadius:12, padding:"3px 10px",
               letterSpacing:"-0.01em", cursor:"pointer", fontFamily:"inherit",
             }}>{GUEST_BUILD ? "앱으로 →" : "아이노스 앱 →"}</button>
+            {onLogout && (
+              <button onClick={onLogout} style={{
+                fontSize:10, fontWeight:800, color:"rgba(255,255,255,0.9)",
+                background:"rgba(255,255,255,0.14)", border:"1px solid rgba(255,255,255,0.22)",
+                borderRadius:12, padding:"3px 10px",
+                letterSpacing:"-0.01em", cursor:"pointer", fontFamily:"inherit",
+              }}>로그아웃</button>
+            )}
           </div>
         </div>
 
