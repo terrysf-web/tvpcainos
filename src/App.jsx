@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.816";
+const APP_VERSION = "3.817";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -581,7 +581,6 @@ function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
             outline:"none", fontFamily:"inherit", marginBottom:14, cursor:"pointer",
           }}>
           <option value="">파트를 선택하세요</option>
-          {CUSTOM_BRAND && <option value="성가대">성가대</option>}
           {PARTS.filter(p => p.id !== "전체").map(p => (
             <option key={p.id} value={p.label}>{p.label}</option>
           ))}
@@ -7466,7 +7465,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
   };
   const [noLeader,    setNoLeader]    = useState(false);
   const [myPartSel,   setMyPartSel]   = useState(() => getUserParts(user));
-  const [sundayPart,  setSundayPart]  = useState(user.sundayPart || "찬양팀");  // 성찬주일팀 전용
+  const [sundayPart,  setSundayPart]  = useState(getUserParts(user).includes("성가대") ? "성가대" : "찬양팀");  // 성찬주일팀 전용(파트 기준)
   const [sundaySaving, setSundaySaving] = useState(false);
   const [partSaving,  setPartSaving]  = useState(false);
   // 어드민이 Firestore에서 파트를 변경하면 로컬 선택값도 동기화
@@ -7531,12 +7530,14 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
       await setDoc(doc(db, "users", user.uid), { parts: myPartSel, part: myPartSel[0] || "" }, { merge: true });
     } finally { setPartSaving(false); }
   };
-  // 성찬주일팀: 찬양팀/성가대 선택 저장 (성가대는 로그인 시 LITE로 이번 주 악보 열림)
+  // 성찬주일팀: 찬양팀/성가대 선택 = '성가대' 파트 추가/제거로 저장(어드민 지정과 동일 소스)
   const saveSundayPart = async (v) => {
     setSundayPart(v);
     setSundaySaving(true);
     try {
-      await setDoc(doc(db, "users", user.uid), { sundayPart: v }, { merge: true });
+      const base = getUserParts(user).filter(p => p !== "성가대");
+      const next = v === "성가대" ? [...base, "성가대"] : base;
+      await setDoc(doc(db, "users", user.uid), { parts: next, part: next[0] || "" }, { merge: true });
     } finally { setSundaySaving(false); }
   };
   const toggleNav = (key, val, setter) => {
@@ -9580,7 +9581,7 @@ export default function App() {
     const songId = (target.songIds || [])[0];
 
     autoSheetFiredRef.current = true;
-    if (user.sundayPart === "성가대") {
+    if (getUserParts(user).includes("성가대")) {
       // 성가대 → LITE 모드(간단 뷰어 + LITE 필기)로 이번 주 악보 열기
       setLiteMode(true);
       setLiteSong({ songId, svcId: target.id, svcSongIdx: 0 });
@@ -9588,7 +9589,7 @@ export default function App() {
       // 찬양팀(기본) → 기존 뷰어(기존 필기)
       navRef.current("pdfViewer", { songId, svcId: target.id, svcSongIdx: 0, backTo: "services" });
     }
-  }, [user?.uid, user?.role, user?.sundayPart, servicesLoaded, services, songs]);
+  }, [user?.uid, user?.role, user?.part, servicesLoaded, services, songs]);
 
   // ── CRUD helpers
   const addSong = async (data) => {
