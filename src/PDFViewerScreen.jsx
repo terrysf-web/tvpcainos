@@ -5208,7 +5208,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     } catch(e) { console.error(e); }
   };
 
-  const canDownload = isLibraryMode || leader || svc?.downloadEnabled;
+  const canDownload = isLibraryMode || leader || svc?.downloadEnabled || CUSTOM_BRAND;
 
   const tbNarrow = (cSize.w || window.innerWidth) < 600;
   const tbIconSz = tbNarrow ? 17 : 18;
@@ -5742,7 +5742,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                   color:C.dim, fontWeight:700, fontSize:11, fontFamily:"inherit",
                 }}>이 페이지(필기)</button>
               )}
-              {!isLibraryMode && leader && svc && (
+              {!isLibraryMode && leader && svc && !CUSTOM_BRAND && (
                 <button onClick={toggleDownloadEnabled} style={{
                   height:28, padding:"0 8px", borderRadius:7, cursor:"pointer", flexShrink:0,
                   background: svc.downloadEnabled ? `${C.grn}22` : "transparent",
