@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.812";
+const APP_VERSION = "3.813";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -8951,6 +8951,7 @@ export default function App() {
   const [bgmChannel,      setBgmChannel]      = useState("09");
   const autoLiveTriggeredRef = useRef(null);
   const keolDanFiredRef      = useRef(false);
+  const autoSheetFiredRef    = useRef(false);  // 성찬주일팀: 로그인 후 이번 주 악보 자동 열기(1회)
 
   // Lite 모드 진입: pushState로 React 상태만 전환 (리로드 없음)
   const enterLite = () => {
@@ -9519,6 +9520,28 @@ export default function App() {
 
     return () => clearTimeout(timer);
   }, [user?.uid, user?.role, services, songs]);
+
+  // ── 성찬주일팀: 로그인 후 첫 진입 시 '이번 주(다가오는) 예배 악보' 자동 열기.
+  //    리더/어드민은 관리 위해 제외. 세션당 1회만(뒤로가면 다시 안 열림).
+  useEffect(() => {
+    if (!CUSTOM_BRAND) return;
+    if (autoSheetFiredRef.current) return;
+    if (!user?.uid || !servicesLoaded || !songs.length) return;
+    if (isLeader(user?.role)) return;
+    const cur = localStorage.getItem("tvpc_view") || "home";
+    if (cur !== "home" && cur !== "services") return;  // 이미 다른 화면이면 방해 안 함
+
+    const today = localDateStr();
+    const withSheet = services
+      .filter(s => (s.songIds || [])[0] && songs.find(x => x.id === (s.songIds || [])[0]))
+      .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    if (!withSheet.length) return;
+    const target = withSheet.find(s => (s.date || "") >= today) || withSheet[withSheet.length - 1];
+    const songId = (target.songIds || [])[0];
+
+    autoSheetFiredRef.current = true;
+    navRef.current("pdfViewer", { songId, svcId: target.id, svcSongIdx: 0, backTo: "services" });
+  }, [user?.uid, user?.role, servicesLoaded, services, songs]);
 
   // ── CRUD helpers
   const addSong = async (data) => {
