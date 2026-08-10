@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.813";
+const APP_VERSION = "3.814";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -7461,6 +7461,8 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
   };
   const [noLeader,    setNoLeader]    = useState(false);
   const [myPartSel,   setMyPartSel]   = useState(() => getUserParts(user));
+  const [sundayPart,  setSundayPart]  = useState(user.sundayPart || "찬양팀");  // 성찬주일팀 전용
+  const [sundaySaving, setSundaySaving] = useState(false);
   const [partSaving,  setPartSaving]  = useState(false);
   // 어드민이 Firestore에서 파트를 변경하면 로컬 선택값도 동기화
   const prevPartsKey = useRef(getUserParts(user).sort().join(","));
@@ -7523,6 +7525,14 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
     try {
       await setDoc(doc(db, "users", user.uid), { parts: myPartSel, part: myPartSel[0] || "" }, { merge: true });
     } finally { setPartSaving(false); }
+  };
+  // 성찬주일팀: 찬양팀/성가대 선택 저장 (성가대는 로그인 시 LITE로 이번 주 악보 열림)
+  const saveSundayPart = async (v) => {
+    setSundayPart(v);
+    setSundaySaving(true);
+    try {
+      await setDoc(doc(db, "users", user.uid), { sundayPart: v }, { merge: true });
+    } finally { setSundaySaving(false); }
   };
   const toggleNav = (key, val, setter) => {
     if (!val && key === "tvpc_tapNav"   && !swipeOn) return;
@@ -7594,7 +7604,31 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
           </div>
         </div>
 
+        {/* 성찬주일팀: 내 팀 선택 (찬양팀/성가대) */}
+        {CUSTOM_BRAND && (
+          <div style={{ marginTop:14, borderTop:`1px solid ${C.bdr}`, paddingTop:12 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:8, letterSpacing:".04em" }}>내 팀</div>
+            <div style={{ display:"flex", gap:8 }}>
+              {["찬양팀", "성가대"].map(t => {
+                const sel = sundayPart === t;
+                return (
+                  <button key={t} onClick={() => saveSundayPart(t)} disabled={sundaySaving} style={{
+                    flex:1, padding:"11px 12px", borderRadius:10, fontSize:14, fontWeight:700,
+                    cursor:"pointer", fontFamily:"inherit",
+                    background: sel ? `${C.acc}22` : C.bg, color: sel ? C.acc : C.dim,
+                    border:`1.5px solid ${sel ? C.acc : C.bdr}`,
+                  }}>{t}</button>
+                );
+              })}
+            </div>
+            <div style={{ fontSize:11, color:C.dim, marginTop:7, lineHeight:1.5 }}>
+              성가대는 로그인하면 이번 주 악보가 <b>간단(LITE) 화면</b>으로 열려요. 찬양팀은 기존 화면 그대로예요.
+            </div>
+          </div>
+        )}
+
         {/* 내 파트 선택 */}
+        {!CUSTOM_BRAND && (
         <div style={{ marginTop:14, borderTop:`1px solid ${C.bdr}`, paddingTop:12 }}>
           <div style={{ fontSize:11, fontWeight:700, color:C.dim, marginBottom:8, letterSpacing:".04em" }}>내 파트 선택</div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:8 }}>
@@ -7644,6 +7678,7 @@ function ProfileScreen({ user, onLogout, onRoleUpdate, sharedGeminiKey }) {
             }}>{partSaving ? "저장 중..." : "저장"}</button>
           )}
         </div>
+        )}
       </div>
 
       {/* 리더 권한 설정 (리더가 없을 때만 표시) */}
@@ -9540,8 +9575,15 @@ export default function App() {
     const songId = (target.songIds || [])[0];
 
     autoSheetFiredRef.current = true;
-    navRef.current("pdfViewer", { songId, svcId: target.id, svcSongIdx: 0, backTo: "services" });
-  }, [user?.uid, user?.role, servicesLoaded, services, songs]);
+    if (user.sundayPart === "성가대") {
+      // 성가대 → LITE 모드(간단 뷰어 + LITE 필기)로 이번 주 악보 열기
+      setLiteMode(true);
+      setLiteSong({ songId, svcId: target.id, svcSongIdx: 0 });
+    } else {
+      // 찬양팀(기본) → 기존 뷰어(기존 필기)
+      navRef.current("pdfViewer", { songId, svcId: target.id, svcSongIdx: 0, backTo: "services" });
+    }
+  }, [user?.uid, user?.role, user?.sundayPart, servicesLoaded, services, songs]);
 
   // ── CRUD helpers
   const addSong = async (data) => {
