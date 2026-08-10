@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.814";
+const APP_VERSION = "3.815";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -573,14 +573,19 @@ function LoginScreen({ loginErr = "", onClearErr, blockedUser = null }) {
         <div style={{ fontSize:12, fontWeight:600, color:C.dim, marginBottom:6, letterSpacing:".03em" }}>
           소속 파트 <span style={{ color:C.dim, fontWeight:400 }}>(선택)</span>
         </div>
-        <input value={reqPart} onChange={e => setReqPart(e.target.value)}
-          placeholder="예: 보컬, 기타, 건반..."
+        <select value={reqPart} onChange={e => setReqPart(e.target.value)}
           style={{
             width:"100%", boxSizing:"border-box",
             background:C.card, border:`1px solid ${C.bdr}`, borderRadius:10,
-            padding:"10px 12px", color:C.txt, fontSize:14,
-            outline:"none", fontFamily:"inherit", marginBottom:14,
-          }} />
+            padding:"10px 12px", color: reqPart ? C.txt : C.dim, fontSize:14,
+            outline:"none", fontFamily:"inherit", marginBottom:14, cursor:"pointer",
+          }}>
+          <option value="">파트를 선택하세요</option>
+          {CUSTOM_BRAND && <option value="성가대">성가대</option>}
+          {PARTS.filter(p => p.id !== "전체").map(p => (
+            <option key={p.id} value={p.label}>{p.label}</option>
+          ))}
+        </select>
 
         {/* 메시지 */}
         <div style={{ fontSize:12, fontWeight:600, color:C.dim, marginBottom:6, letterSpacing:".03em" }}>
