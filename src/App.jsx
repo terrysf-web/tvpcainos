@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.822";
+const APP_VERSION = "3.823";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -2947,7 +2947,8 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                   {/* 큐노트 악보 피크 모달 */}
                   {cuePeek && <CueSheetPeek song={cuePeek.song} cues={cuePeek.cues} onClose={() => setCuePeek(null)} />}
 
-                  {/* ── 싱크바 카드 ── */}
+                  {/* ── 싱크바 카드 (성찬주일팀 제외 — 라이브 싱크/PP7 불필요) ── */}
+                  {!CUSTOM_BRAND && (
                   <div style={{ flexShrink:0, background:C.surf, borderRadius:12, border:`1px solid ${C.bdr}` }}>
                     {/* 1행: 예배순서 자동감지 (PP7) — 게스트 빌드 숨김 */}
                     {!GUEST_BUILD && (
@@ -3034,6 +3035,7 @@ function HomeScreen({ user, services, songs, notifs, teamAnnotations, userMap, n
                     </div>
                     )}
                   </div>
+                  )}
 
                 </div>
 
