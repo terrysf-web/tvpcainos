@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.825";
+const APP_VERSION = "3.826";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -8267,7 +8267,7 @@ function ScheduleEditModal({ group, schedules, onClose }) {
 /* ══════════════════════════════════════════════════════════════════
    HOME SPLASH SCREEN
 ══════════════════════════════════════════════════════════════════ */
-function HomeSplashScreen({ user, onEnterLite, nav }) {
+function HomeSplashScreen({ user, onEnterLite }) {
   const [portrait, setPortrait] = useState(
     () => window.matchMedia("(orientation: portrait)").matches
   );
@@ -8430,37 +8430,6 @@ function HomeSplashScreen({ user, onEnterLite, nav }) {
         />
       </>}
 
-      {/* 성찬주일팀: 파트 구분 없이 '이번 주 예배 · 악보 보기' 카드 하나 */}
-      {CUSTOM_BRAND && (() => {
-        const nextSvc = svcList
-          .filter(s => new Date(`${s.date}T${s.time ? s.time : "23:59"}:00`) > now)
-          .sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")))[0];
-        if (!nextSvc) return null;
-        const songId = (nextSvc.songIds || [])[0];
-        const d = new Date(nextSvc.date + "T00:00:00");
-        const dateStr = d.toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" });
-        return (
-          <button
-            onClick={() => songId
-              ? nav?.("pdfViewer", { songId, svcId: nextSvc.id, svcSongIdx: 0, backTo: "home" })
-              : onEnterLite?.()}
-            style={{
-              position: "fixed", top: "calc(env(safe-area-inset-top, 44px) + 18px)",
-              left: "50%", transform: "translateX(-50%)", zIndex: 10,
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-              background: "rgba(255,255,255,0.92)", backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)",
-              border: "1px solid rgba(80,80,110,0.16)", boxShadow: "0 6px 22px rgba(80,60,180,0.16)",
-              borderRadius: 18, padding: "13px 26px", cursor: "pointer", fontFamily: "inherit",
-              maxWidth: "92vw",
-            }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: "#6b5de7", letterSpacing: "0.08em" }}>이번 주 예배</span>
-            <span style={{ fontSize: 18, fontWeight: 900, color: "#241a7d", lineHeight: 1.2 }}>{dateStr}</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#666" }}>{nextSvc.title || "성찬예배"}{nextSvc.time ? ` · ${nextSvc.time}` : ""}</span>
-            <span style={{ marginTop: 7, fontSize: 12.5, fontWeight: 800, color: "#fff", background: "#6b5de7", borderRadius: 20, padding: "6px 18px" }}>악보 보기 →</span>
-          </button>
-        );
-      })()}
 
       {/* YouTube + Lite — centered above 악보 tab
           유튜브 링크: 커스텀 팀은 VITE_APP_YOUTUBE 있을 때만, 게스트=SFFBC, 메인=Ainos 재생목록 */}
@@ -10214,7 +10183,7 @@ export default function App() {
       {/* 스크린 영역 — flex:1 로 남은 공간 차지, 각 스크린이 내부 스크롤 담당 */}
       <div style={{ flex:1, overflow:"hidden", position:"relative", display:"flex", flexDirection:"column" }}>
         <FohErrorBoundary key={view}>
-        {view === "home"          && <HomeSplashScreen user={user} onEnterLite={enterLite} nav={nav} />}
+        {view === "home"          && <HomeSplashScreen user={user} onEnterLite={enterLite} />}
         {view === "services"      && <ServicesScreen      {...shared} />}
         {view === "foh"           && <HomeScreen           {...shared} onEnterLite={enterLite} />}
         {view === "svcDetail"     && <ServiceDetailScreen {...shared} selectedSvcId={selSvcId} onUpdateService={updateService} />}
