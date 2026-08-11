@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.821";
+const APP_VERSION = "3.822";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -9003,9 +9003,13 @@ export default function App() {
     setLiteSong(null);
   };
   // Lite 모드 탈출: SW 캐시 리로드 (인증·데이터 캐시됨 → ~0.5초)
+  // 성가대라도 '앱으로' 명시 탈출 시 이 세션엔 LITE 강제 안 함(아래 효과가 존중).
   const exitLite = () => {
+    try { sessionStorage.setItem("tvpc_liteExit", "1"); } catch {}
     window.location.replace(window.location.pathname);
   };
+  // 로그아웃 시엔 LITE 탈출 플래그를 지워 다음 로그인 때 다시 LITE로.
+  const doLogout = () => { try { sessionStorage.removeItem("tvpc_liteExit"); } catch {} signOut(auth); };
   const [keolDanToast,       setKeolDanToast]       = useState(false);
   const [sheetLinkEnabled,      setSheetLinkEnabled]      = useState(false);
   const [sheetSyncAllowedParts, setSheetSyncAllowedParts] = useState(null);
@@ -9599,6 +9603,7 @@ export default function App() {
   useEffect(() => {
     if (!CUSTOM_BRAND) return;
     if (!user?.uid || isLeader(user?.role)) return;
+    if (sessionStorage.getItem("tvpc_liteExit") === "1") return;  // '앱으로'로 나간 세션엔 강제 안 함
     if (getUserParts(user).includes("성가대")) setLiteMode(true);
   }, [user?.uid, user?.role, getUserParts(user).join(",")]);
 
@@ -10008,7 +10013,7 @@ export default function App() {
         user={user} services={services} songs={songs}
         onOpenSong={(songId, svcId, idx) => setLiteSong({ songId, svcId, svcSongIdx: idx })}
         onGoToApp={exitLite}
-        onLogout={() => signOut(auth)}
+        onLogout={doLogout}
       />
     );
   }
@@ -10201,7 +10206,7 @@ export default function App() {
           </Suspense>
         )}
         {view === "profile" && (
-          <ProfileScreen user={user} onLogout={() => signOut(auth)}
+          <ProfileScreen user={user} onLogout={doLogout}
             onRoleUpdate={() => setUser(u => ({ ...u, role: "admin" }))}
             sharedGeminiKey={sharedGeminiKey} />
         )}
