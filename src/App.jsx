@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.826";
+const APP_VERSION = "3.827";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -8999,7 +8999,9 @@ export default function App() {
   const [bgmChannel,      setBgmChannel]      = useState("09");
   const autoLiveTriggeredRef = useRef(null);
   const keolDanFiredRef      = useRef(false);
-  const autoSheetFiredRef    = useRef(false);  // 성찬주일팀: 로그인 후 이번 주 악보 자동 열기(1회)
+  // 성찬주일팀: 로그인 후 이번 주 악보 자동 열기(세션당 1회).
+  // sessionStorage로 저장 → 리프레시(location.reload)엔 재발동 안 함, 앱 완전 종료 후 새 세션에만 다시 열림.
+  const autoSheetFiredRef    = useRef(sessionStorage.getItem("tvpc_autoSheetFired") === "1");
 
   // Lite 모드 진입: pushState로 React 상태만 전환 (리로드 없음)
   const enterLite = () => {
@@ -9593,6 +9595,7 @@ export default function App() {
     const songId = (target.songIds || [])[0];
 
     autoSheetFiredRef.current = true;
+    sessionStorage.setItem("tvpc_autoSheetFired", "1");
     if (isChoir) {
       // 성가대 → LITE 모드(간단 뷰어 + LITE 필기)로 이번 주 악보 열기
       setLiteMode(true);
