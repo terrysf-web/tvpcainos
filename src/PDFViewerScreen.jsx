@@ -5324,8 +5324,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
             )}
           </button>
 
-          {/* 악보 Sync 표시 — 비라이브러리 모드에서만 */}
-          {!isLibraryMode && (() => {
+          {/* 악보 Sync 표시 — 비라이브러리 모드에서만 (성찬주일팀 제외) */}
+          {!isLibraryMode && !CUSTOM_BRAND && (() => {
             const syncOn = sheetLinkEnabled || pointerOn || svc?.teamPointer?.on;
             return tbNarrow ? (
               /* 세로모드: 점만 표시해서 공간 절약 */
