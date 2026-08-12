@@ -2182,16 +2182,32 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     };
   }, []);
 
-  // ── 블루투스 리모컨 / 키보드 페이지 넘김
+  // ── 블루투스 악보 넘김 페달 / 리모컨 / 키보드 페이지 넘김
+  //    페달마다 보내는 키가 달라 다음/이전 각각을 폭넓게 커버:
+  //    - 표준 방향키/PageUp·Down/Space
+  //    - 레거시 키 이름(Right/Left/Up/Down/Spacebar) — 일부 구형 HID 페달
+  //    - 미디어 리모컨 키(MediaTrackNext/Previous 등) — 미디어리모컨으로 잡히는 페달
   useEffect(() => {
+    const NEXT_KEYS = new Set([
+      "ArrowRight", "ArrowDown", " ", "Spacebar", "PageDown",
+      "Right", "Down", "MediaTrackNext", "MediaFastForward",
+    ]);
+    const PREV_KEYS = new Set([
+      "ArrowLeft", "ArrowUp", "PageUp",
+      "Left", "Up", "MediaTrackPrevious", "MediaRewind",
+    ]);
     const handler = (e) => {
-      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " " || e.key === "PageDown") {
-        e.preventDefault();
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return; // 단축키(Cmd/Ctrl 조합)와 충돌 방지
+      const next = NEXT_KEYS.has(e.key);
+      const prev = !next && PREV_KEYS.has(e.key);
+      if (!next && !prev) return;
+      e.preventDefault();
+      if (next) {
         if (dual) setDualIdx(p => Math.min(p + 1, svcSongs.length - 2));
         else setPageNum(p => Math.min(p + 1, numPages || p + 1));
-      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "PageUp") {
-        e.preventDefault();
+      } else {
         if (dual) setDualIdx(p => Math.max(p - 1, 0));
         else setPageNum(p => Math.max(p - 1, 1));
       }
