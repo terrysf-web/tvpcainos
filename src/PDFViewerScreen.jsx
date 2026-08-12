@@ -558,40 +558,20 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
       ctx.lineJoin    = "round";
     }
     const pts = s.points.map(p => [p.x * canvas.width, p.y * canvas.height]);
-    const isPen = s.tool === "pen" || s.tool == null;
-    if (isPen && pts.length > 1) {
-      // 만년필 스타일: 필압 우선, 없으면 속도 기반 가변 폭 (세그먼트별)
-      const widths = pts.map((pt, i) => {
-        const pr = s.points[i]?.p ?? 0;
-        if (pr > 0) return lw * (0.4 + pr * 1.6);
-        const prev = pts[i-1] || pt;
-        const d = Math.hypot(pt[0]-prev[0], pt[1]-prev[1]);
-        const sp = d / (canvas.width * 0.022);
-        return lw * Math.max(0.4, Math.min(1.7, 1.45 - sp));
-      });
-      const sw = widths.map((w, i) => ((widths[i-1] ?? w) + w*2 + (widths[i+1] ?? w)) / 4);
-      for (let i = 1; i < pts.length; i++) {
-        ctx.beginPath();
-        ctx.lineWidth = Math.max(0.4, (sw[i-1] + sw[i]) / 2);
-        ctx.moveTo(pts[i-1][0], pts[i-1][1]);
-        ctx.lineTo(pts[i][0], pts[i][1]);
-        ctx.stroke();
+    // 필기: 필압/속도와 무관하게 항상 일정한 굵기(lw). 부드러운 곡선으로 렌더.
+    ctx.beginPath();
+    if (pts.length === 1) {
+      ctx.arc(pts[0][0], pts[0][1], ctx.lineWidth / 2, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (pts.length > 1) {
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i][0] + pts[i + 1][0]) / 2;
+        const my = (pts[i][1] + pts[i + 1][1]) / 2;
+        ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
       }
-    } else {
-      ctx.beginPath();
-      if (pts.length === 1) {
-        ctx.arc(pts[0][0], pts[0][1], ctx.lineWidth / 2, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
-        ctx.moveTo(pts[0][0], pts[0][1]);
-        for (let i = 1; i < pts.length - 1; i++) {
-          const mx = (pts[i][0] + pts[i + 1][0]) / 2;
-          const my = (pts[i][1] + pts[i + 1][1]) / 2;
-          ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
-        }
-        ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
-        ctx.stroke();
-      }
+      ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+      ctx.stroke();
     }
     ctx.restore();
   }
@@ -4553,8 +4533,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
     if (!r.width || !r.height) return { x: 0, y: 0 };
     return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
   };
-  // 만년필용 — 필압 포함 점 (펜이면 e.pressure, 아니면 0 → 렌더에서 속도 기반)
-  const getDrawPt = (e, canvas) => ({ ...getCanvasPt(e, canvas), p: e.pointerType === "pen" ? (e.pressure || 0) : 0 });
+  // 필기 점 — 굵기 일정(필압 미사용)이므로 좌표만 저장.
+  const getDrawPt = (e, canvas) => getCanvasPt(e, canvas);
 
   const TEAM_COLOR = "#347C17";
   const activeColor = teamDrawMode ? TEAM_COLOR : drawColor;
