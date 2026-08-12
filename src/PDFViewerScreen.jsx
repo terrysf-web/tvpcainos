@@ -3530,7 +3530,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       small.getContext("2d").drawImage(canvas, 0, 0, small.width, small.height);
       const imageData = small.toDataURL("image/jpeg", 0.95).split(",")[1];
 
-      const raw = await detectChordsViaEdge(imageData, user?.geminiKey || sharedGeminiKey);
+      const res = await detectChordsViaEdge(imageData, user?.geminiKey || sharedGeminiKey);
+      const raw = Array.isArray(res) ? res : (res?.chords || []);
+      const dbg = Array.isArray(res) ? null : res?.debug;
       const chords = raw.map((item) => ({
         chord: item.label,
         x: typeof item.cx === "number" ? item.cx : (typeof item.x === "number" ? item.x : 0.5),
@@ -3539,7 +3541,9 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       }));
       setCD(chords);
       if (chords.length === 0) {
-        setDetectErr("코드를 찾지 못했습니다");
+        // 진단: 왜 0개인지(모델/finishReason/응답 일부)를 함께 표시 → 원인 특정용
+        const d = dbg ? ` [${dbg.model || dbg.via || "?"}${dbg.finishReason ? "/" + dbg.finishReason : ""}${typeof dbg.textLen === "number" ? "/len" + dbg.textLen : ""}${dbg.edge ? "/edge:" + dbg.edge : ""}]` : "";
+        setDetectErr("코드를 찾지 못했습니다" + d);
       } else if (user?.uid && songId) {
         const data = { chords, transposeSteps, updatedAt: serverTimestamp() };
         if (isLeader(user.role)) {

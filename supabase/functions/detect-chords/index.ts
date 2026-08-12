@@ -12,10 +12,10 @@ const MODELS = [
   "gemini-2.0-flash-lite",
 ];
 
-const PROMPT = `Analyze this sheet music image. Find every chord symbol printed above the staff lines.
+const PROMPT = `Analyze this sheet music image. Find every chord symbol above the staff lines — BOTH printed chords AND handwritten chord annotations (pen or marker writing, any color, e.g. green/blue/red).
 
 Chord symbols: C, Am, G7, F#m, Bb, Dm7, E/G#, Bm7, Dsus4, C#m, A7, etc.
-They appear as TEXT LABELS in the white space above each staff system — NOT lyrics below the staff.
+They appear as short TEXT LABELS in the space above each staff system — NOT the lyrics below the staff. Handwritten chords may be larger or slanted; include them too.
 
 Return ONLY a valid JSON array (no markdown, no explanation, no commentary):
 [{"label":"C","cx":0.12,"cy":0.07},{"label":"Am","cx":0.34,"cy":0.07}]
@@ -31,7 +31,7 @@ Precision rules:
 - Different rows must have clearly different cy values
 - cx precision matters: each chord label has a distinct horizontal position
 
-Return [] if no chord symbols exist.`;
+Return [] ONLY if there are truly no chord symbols anywhere (printed or handwritten).`;
 
 function parseText(text: string): unknown[] {
   if (!text || !text.trim()) return [];
@@ -118,9 +118,11 @@ serve(async (req) => {
     // 2.5 계열은 thinking(추론)을 끄지 않으면 사고에 출력 토큰을 소진해 정작 답(JSON)이 빈 채로 오는
     // 문제가 있어 thinkingBudget=0으로 비활성화. (모든 악보에서 감지 0개로 나오던 원인)
     let result = null;
+    let usedModel = "";
     for (let i = 0; i < MODELS.length; i++) {
       if (i > 0) await new Promise(r => setTimeout(r, 1500));
       const model = MODELS[i];
+      usedModel = model;
       const genCfg: Record<string, unknown> = { temperature: 0, maxOutputTokens: 2048 };
       if (model.startsWith("gemini-2.5")) genCfg.thinkingConfig = { thinkingBudget: 0 };
       const body = JSON.stringify({ contents: [{ parts: [
@@ -183,9 +185,18 @@ serve(async (req) => {
     // 모든 파트의 text를 이어붙임 — 답이 parts[0]이 아닌 다른 파트에 있어도 놓치지 않도록
     const parts = (result.candidates?.[0]?.content?.parts || []) as Array<{ text?: string }>;
     const rawText: string = parts.map(p => p?.text || "").join("").trim();
+    const finishReason: string = result.candidates?.[0]?.finishReason || "";
     const chords = parseText(rawText);
 
-    return new Response(JSON.stringify({ chords }), {
+    // debug: 0개일 때 원인 특정용 (모델/종료사유/응답 길이·앞부분)
+    const debug = {
+      model: usedModel,
+      finishReason,
+      textLen: rawText.length,
+      textHead: rawText.slice(0, 180),
+    };
+
+    return new Response(JSON.stringify({ chords, debug }), {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
   } catch (e) {

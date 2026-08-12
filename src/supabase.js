@@ -5,10 +5,10 @@ const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-const CHORD_PROMPT = `Analyze this sheet music image. Find every chord symbol printed above the staff lines.
+const CHORD_PROMPT = `Analyze this sheet music image. Find every chord symbol above the staff lines — BOTH printed chords AND handwritten chord annotations (pen or marker writing, any color, e.g. green/blue/red).
 
 Chord symbols: C, Am, G7, F#m, Bb, Dm7, E/G#, Bm7, Dsus4, C#m, A7, etc.
-They appear as TEXT LABELS in the white space above each staff system — NOT lyrics below the staff.
+They appear as short TEXT LABELS in the space above each staff system — NOT the lyrics below the staff. Handwritten chords may be larger or slanted; include them too.
 
 Return ONLY a valid JSON array (no markdown, no explanation, no commentary):
 [{"label":"C","cx":0.12,"cy":0.07},{"label":"Am","cx":0.34,"cy":0.07}]
@@ -24,7 +24,7 @@ Precision rules:
 - Different rows must have clearly different cy values
 - cx precision matters: each chord label has a distinct horizontal position
 
-Return [] if no chord symbols exist.`;
+Return [] ONLY if there are truly no chord symbols anywhere (printed or handwritten).`;
 
 function parseChordResponse(text) {
   if (!text || !text.trim()) return [];
@@ -138,12 +138,14 @@ export async function detectChordsViaEdge(imageData, userApiKey) {
     if (!res.ok) throw new Error(`edge ${res.status}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    return data.chords;
-  } catch {
+    return { chords: data.chords || [], debug: data.debug };
+  } catch (edgeErr) {
     const apiKey = userApiKey || import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) throw new Error("AI 키를 프로필에서 설정해주세요 (Groq 무료 키 사용 가능)");
-    if (apiKey.startsWith("gsk_")) return detectWithGroq(imageData, apiKey);
-    return detectWithGemini(imageData, apiKey);
+    if (!apiKey) throw new Error(`AI 키를 프로필에서 설정해주세요 (Groq 무료 키 사용 가능) [edge: ${edgeErr.message}]`);
+    const chords = apiKey.startsWith("gsk_")
+      ? await detectWithGroq(imageData, apiKey)
+      : await detectWithGemini(imageData, apiKey);
+    return { chords, debug: { via: "client-fallback", edge: edgeErr.message } };
   }
 }
 
