@@ -49,15 +49,19 @@ function parseChordResponse(text) {
 
 async function detectWithGemini(imageData, apiKey) {
   const models = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
-  const body = JSON.stringify({ contents: [{ parts: [
-    { inlineData: { mimeType: "image/jpeg", data: imageData } },
-    { text: CHORD_PROMPT },
-  ]}]});
   let result = null;
   for (let i = 0; i < models.length; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, 1500));
+    const model = models[i];
+    const genCfg = { temperature: 0, maxOutputTokens: 2048 };
+    // 2.5 계열: thinking(추론) 비활성화 — 사고에 출력 토큰을 소진해 답이 빈 채로 오는 문제 방지
+    if (model.startsWith("gemini-2.5")) genCfg.thinkingConfig = { thinkingBudget: 0 };
+    const body = JSON.stringify({ contents: [{ parts: [
+      { inlineData: { mimeType: "image/jpeg", data: imageData } },
+      { text: CHORD_PROMPT },
+    ]}], generationConfig: genCfg });
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${models[i]}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       { method: "POST", headers: { "content-type": "application/json" }, body }
     );
     const d = await res.json();
@@ -72,7 +76,9 @@ async function detectWithGemini(imageData, apiKey) {
     break;
   }
   if (!result) throw new Error("쿼터 초과 — 잠시 후 재시도");
-  return parseChordResponse(result.candidates?.[0]?.content?.parts?.[0]?.text || "");
+  // 모든 파트의 text를 이어붙임 — 답이 parts[0]이 아니어도 놓치지 않도록
+  const parts = result.candidates?.[0]?.content?.parts || [];
+  return parseChordResponse(parts.map(p => p?.text || "").join("").trim());
 }
 
 async function detectWithGroq(imageData, apiKey) {

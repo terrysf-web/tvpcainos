@@ -7,9 +7,9 @@ const CORS = {
 
 const MODELS = [
   "gemini-2.5-flash",
-  "gemini-1.5-flash",
+  "gemini-2.0-flash",
+  "gemini-2.5-flash-lite",
   "gemini-2.0-flash-lite",
-  "gemini-1.5-flash-8b",
 ];
 
 const PROMPT = `Analyze this sheet music image. Find every chord symbol printed above the staff lines.
@@ -114,16 +114,20 @@ serve(async (req) => {
       authHeader = `Bearer ${token}`;
     }
 
-    const body = JSON.stringify({ contents: [{ parts: [
-      { inlineData: { mimeType: "image/jpeg", data: imageData } },
-      { text: PROMPT },
-    ]}]});
-
-    // Gemini 시도
+    // Gemini 시도 — 모델별로 생성옵션 구성.
+    // 2.5 계열은 thinking(추론)을 끄지 않으면 사고에 출력 토큰을 소진해 정작 답(JSON)이 빈 채로 오는
+    // 문제가 있어 thinkingBudget=0으로 비활성화. (모든 악보에서 감지 0개로 나오던 원인)
     let result = null;
     for (let i = 0; i < MODELS.length; i++) {
       if (i > 0) await new Promise(r => setTimeout(r, 1500));
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODELS[i]}:generateContent${keyParam}`;
+      const model = MODELS[i];
+      const genCfg: Record<string, unknown> = { temperature: 0, maxOutputTokens: 2048 };
+      if (model.startsWith("gemini-2.5")) genCfg.thinkingConfig = { thinkingBudget: 0 };
+      const body = JSON.stringify({ contents: [{ parts: [
+        { inlineData: { mimeType: "image/jpeg", data: imageData } },
+        { text: PROMPT },
+      ]}], generationConfig: genCfg });
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent${keyParam}`;
       const headers: Record<string, string> = { "content-type": "application/json" };
       if (authHeader) headers["Authorization"] = authHeader;
 
@@ -131,7 +135,8 @@ serve(async (req) => {
       const d = await res.json();
       if (d.error) {
         const msg = (d.error.message || "") as string;
-        if (d.error.code === 429 || /quota|resource_exhausted|rate|high demand|overloaded|temporarily|try again/i.test(msg)) continue;
+        if (d.error.code === 429 || d.error.code === 404 ||
+            /quota|resource_exhausted|rate|high demand|overloaded|temporarily|try again|not found|no longer|not supported|deprecat|unavailable/i.test(msg)) continue;
         throw new Error(msg || "Gemini 오류");
       }
       result = d;
@@ -175,7 +180,9 @@ serve(async (req) => {
       throw new Error("쿼터 초과 — 잠시 후 재시도");
     }
 
-    const rawText: string = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    // 모든 파트의 text를 이어붙임 — 답이 parts[0]이 아닌 다른 파트에 있어도 놓치지 않도록
+    const parts = (result.candidates?.[0]?.content?.parts || []) as Array<{ text?: string }>;
+    const rawText: string = parts.map(p => p?.text || "").join("").trim();
     const chords = parseText(rawText);
 
     return new Response(JSON.stringify({ chords }), {
