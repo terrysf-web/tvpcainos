@@ -5,10 +5,12 @@ const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-const CHORD_PROMPT = `Analyze this sheet music image. Find every chord symbol above the staff lines — BOTH printed chords AND handwritten chord annotations (pen or marker writing, any color, e.g. green/blue/red).
+const CHORD_PROMPT = `Analyze this sheet music image. Find every PRINTED chord symbol above the staff lines. These are the original engraved/typeset chords (usually small, thin, dark or gray text).
+
+IMPORTANT: IGNORE any handwritten pen/marker annotations (e.g. green, blue, or red handwriting). Only report the ORIGINAL PRINTED chords.
 
 Chord symbols: C, Am, G7, F#m, Bb, Dm7, E/G#, Bm7, Dsus4, C#m, A7, etc.
-They appear as short TEXT LABELS in the space above each staff system — NOT the lyrics below the staff. Handwritten chords may be larger or slanted; include them too.
+They appear as short TEXT LABELS in the space above each staff system — NOT the lyrics below the staff. Look carefully: printed chords can be small and faint.
 
 Return ONLY a valid JSON array (no markdown, no explanation, no commentary):
 [{"label":"C","cx":0.12,"cy":0.07},{"label":"Am","cx":0.34,"cy":0.07}]
@@ -48,7 +50,7 @@ function parseChordResponse(text) {
 }
 
 async function detectWithGemini(imageData, apiKey) {
-  const models = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
+  const models = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"];
   let result = null;
   for (let i = 0; i < models.length; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, 1500));
@@ -67,8 +69,8 @@ async function detectWithGemini(imageData, apiKey) {
         },
       },
     };
-    // 2.5 계열: thinking(추론) 비활성화 — 사고에 출력 토큰을 소진해 답이 빈 채로 오는 문제 방지
-    if (model.startsWith("gemini-2.5")) genCfg.thinkingConfig = { thinkingBudget: 0 };
+    // flash 계열만 thinking 비활성화 (pro는 thinking을 끌 수 없어 제외)
+    if (model === "gemini-2.5-flash" || model === "gemini-2.5-flash-lite") genCfg.thinkingConfig = { thinkingBudget: 0 };
     const body = JSON.stringify({ contents: [{ parts: [
       { inlineData: { mimeType: "image/jpeg", data: imageData } },
       { text: CHORD_PROMPT },

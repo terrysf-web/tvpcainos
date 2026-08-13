@@ -3527,16 +3527,10 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const small = document.createElement("canvas");
       small.width  = Math.round(canvas.width  * ratio);
       small.height = Math.round(canvas.height * ratio);
-      const sctx = small.getContext("2d");
-      sctx.drawImage(canvas, 0, 0, small.width, small.height);
-      // 손글씨로 적은 코드도 감지되도록 필기 레이어(팀/개인)를 합성해 함께 전송.
-      // (원본 canvas만 보내면 별도 레이어에 그린 손글씨 코드를 모델이 못 봄)
-      const overlays = side === 2
-        ? [teamDrawCanvas2Ref.current, drawCanvas2Ref.current]
-        : [teamDrawCanvas1Ref.current, drawCanvas1Ref.current];
-      for (const oc of overlays) {
-        try { if (oc && oc.width && oc.height) sctx.drawImage(oc, 0, 0, small.width, small.height); } catch { /* noop */ }
-      }
+      // 원본 악보만 캡처 — 필기 레이어(손글씨)는 제외.
+      // 손글씨는 사람이 임시로 옮겨 적은 것이고, 감지 대상은 '인쇄된 원본 코드'라야
+      // 그걸 앱이 디지털로 전조할 수 있음.
+      small.getContext("2d").drawImage(canvas, 0, 0, small.width, small.height);
       const imageData = small.toDataURL("image/jpeg", 0.95).split(",")[1];
 
       const res = await detectChordsViaEdge(imageData, user?.geminiKey || sharedGeminiKey);
