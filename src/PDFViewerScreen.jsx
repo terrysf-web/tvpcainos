@@ -3527,7 +3527,16 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       const small = document.createElement("canvas");
       small.width  = Math.round(canvas.width  * ratio);
       small.height = Math.round(canvas.height * ratio);
-      small.getContext("2d").drawImage(canvas, 0, 0, small.width, small.height);
+      const sctx = small.getContext("2d");
+      sctx.drawImage(canvas, 0, 0, small.width, small.height);
+      // 손글씨로 적은 코드도 감지되도록 필기 레이어(팀/개인)를 합성해 함께 전송.
+      // (원본 canvas만 보내면 별도 레이어에 그린 손글씨 코드를 모델이 못 봄)
+      const overlays = side === 2
+        ? [teamDrawCanvas2Ref.current, drawCanvas2Ref.current]
+        : [teamDrawCanvas1Ref.current, drawCanvas1Ref.current];
+      for (const oc of overlays) {
+        try { if (oc && oc.width && oc.height) sctx.drawImage(oc, 0, 0, small.width, small.height); } catch { /* noop */ }
+      }
       const imageData = small.toDataURL("image/jpeg", 0.95).split(",")[1];
 
       const res = await detectChordsViaEdge(imageData, user?.geminiKey || sharedGeminiKey);
