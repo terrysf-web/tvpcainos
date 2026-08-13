@@ -53,7 +53,20 @@ async function detectWithGemini(imageData, apiKey) {
   for (let i = 0; i < models.length; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, 1500));
     const model = models[i];
-    const genCfg = { temperature: 0, maxOutputTokens: 2048 };
+    const genCfg = {
+      temperature: 0,
+      maxOutputTokens: 2048,
+      // 순수 JSON 배열만 반환하도록 강제 (산문/마크다운 섞임 → 파싱 0개 방지)
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "ARRAY",
+        items: {
+          type: "OBJECT",
+          properties: { label: { type: "STRING" }, cx: { type: "NUMBER" }, cy: { type: "NUMBER" } },
+          required: ["label", "cx", "cy"],
+        },
+      },
+    };
     // 2.5 계열: thinking(추론) 비활성화 — 사고에 출력 토큰을 소진해 답이 빈 채로 오는 문제 방지
     if (model.startsWith("gemini-2.5")) genCfg.thinkingConfig = { thinkingBudget: 0 };
     const body = JSON.stringify({ contents: [{ parts: [

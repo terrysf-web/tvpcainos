@@ -3542,7 +3542,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       setCD(chords);
       if (chords.length === 0) {
         // 진단: 왜 0개인지(모델/finishReason/응답 일부)를 함께 표시 → 원인 특정용
-        const d = dbg ? ` [${dbg.model || dbg.via || "?"}${dbg.finishReason ? "/" + dbg.finishReason : ""}${typeof dbg.textLen === "number" ? "/len" + dbg.textLen : ""}${dbg.edge ? "/edge:" + dbg.edge : ""}]` : "";
+        const d = dbg ? ` [${dbg.model || dbg.via || "?"}${dbg.finishReason ? "/" + dbg.finishReason : ""}${typeof dbg.textLen === "number" ? "/len" + dbg.textLen : ""}${dbg.edge ? "/edge:" + dbg.edge : ""}${dbg.textHead ? " «" + String(dbg.textHead).slice(0, 120) + "»" : ""}]` : "";
         setDetectErr("코드를 찾지 못했습니다" + d);
       } else if (user?.uid && songId) {
         const data = { chords, transposeSteps, updatedAt: serverTimestamp() };
