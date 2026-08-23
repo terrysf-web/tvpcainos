@@ -524,7 +524,7 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
     const isEraser     = s.tool === "eraser"     || s.eraser;
     const isHighlight  = s.tool === "highlighter";
     const isCover      = s.tool === "cover";
-    const lw = Math.max(0.5, s.width * canvas.width / 650);
+    const lw = Math.max(0.5, s.width * canvas.width / 1000);
     if (isEraser) {
       ctx.globalCompositeOperation = "destination-out";
       ctx.strokeStyle = "rgba(0,0,0,1)";
