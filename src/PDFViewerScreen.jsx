@@ -4559,7 +4559,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // 필기 점 — 굵기 일정(필압 미사용)이므로 좌표만 저장.
   const getDrawPt = (e, canvas) => getCanvasPt(e, canvas);
 
-  const TEAM_COLOR = "#347C17";
+  const TEAM_COLOR = "#12A150";
   const activeColor = teamDrawMode ? TEAM_COLOR : drawColor;
 
   const makeStroke = () => ({ color: activeColor, width: drawTool === "eraser" ? eraserWidth : drawWidth, tool: drawTool, points: [] });

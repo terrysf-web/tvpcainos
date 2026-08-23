@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.834";
+const APP_VERSION = "3.835";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -6295,10 +6295,10 @@ function SongLibraryScreen({ user, songs, addSong, nav, teamAnnotations, annotat
                         {hasTeam && (
                           <span style={{
                             display:"flex", alignItems:"center", gap:3,
-                            background:"#347C1718", border:"1px solid #347C1744",
-                            borderRadius:5, padding:"1px 6px", fontSize:10, fontWeight:700, color:"#347C17",
+                            background:"#12A15018", border:"1px solid #12A15044",
+                            borderRadius:5, padding:"1px 6px", fontSize:10, fontWeight:700, color:"#12A150",
                           }}>
-                            <Icon n="users" size={9} color="#347C17" sw={2.5} />
+                            <Icon n="users" size={9} color="#12A150" sw={2.5} />
                             팀 필기
                           </span>
                         )}
