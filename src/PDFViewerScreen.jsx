@@ -390,7 +390,7 @@ function roundedRect(ctx, x, y, w, h, r) {
 }
 
 /* 지우개 크기: 화면(캔버스) 너비 대비 비율 — S/M/L 간격을 크게 벌림 */
-const eraserFrac = (w) => (w >= 4 ? 0.12 : w >= 2 ? 0.06 : 0.028);
+const eraserFrac = (w) => (w >= 8 ? 0.14 : w >= 5 ? 0.09 : 0.05);
 
 /* ── Canvas drawing utility (module-level, pure) */
 function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
@@ -524,7 +524,7 @@ function drawStrokes(canvas, strokes, cur = null, selectedIdx = -1) {
     const isEraser     = s.tool === "eraser"     || s.eraser;
     const isHighlight  = s.tool === "highlighter";
     const isCover      = s.tool === "cover";
-    const lw = Math.max(0.5, s.width * canvas.width / 900);
+    const lw = Math.max(0.5, s.width * canvas.width / 650);
     if (isEraser) {
       ctx.globalCompositeOperation = "destination-out";
       ctx.strokeStyle = "rgba(0,0,0,1)";
@@ -1990,8 +1990,8 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
   // ── Drawing / handwriting
   const [drawMode,  setDrawMode]  = useState(false);
   const [drawColor, setDrawColor] = useState("#e8383b");
-  const [drawWidth, setDrawWidth] = useState(1);
-  const [eraserWidth, setEraserWidth] = useState(1); // 지우개 폭 (펜과 별개) — 항상 최소로 시작, 저장 안 함
+  const [drawWidth, setDrawWidth] = useState(5); // S/M/L = 3/5/8 (기본 M)
+  const [eraserWidth, setEraserWidth] = useState(3); // 지우개 폭 (펜과 별개) — 항상 최소(S)로 시작, 저장 안 함
   const [drawTool,  setDrawTool]  = useState("pen"); // "pen" | "highlighter" | "eraser" | "stamp"
   const [drawSaveErr, setDrawSaveErr] = useState("");
   // ── 크롭 복사 (영역 선택 → 이미지 클립보드 복사)
@@ -4481,7 +4481,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
       : (dual ? (svcSongs[dualIdx + 1]?.pdfPage || 1) : pageNum);
     const textStroke = {
       tool: "text", text: textInput.value.trim(),
-      color: activeColor, size: ({ 1: 8, 2: 15, 4: 28 })[drawWidth] || 15,
+      color: activeColor, size: ({ 3: 8, 5: 15, 8: 28 })[drawWidth] || 15,
       points: [{ x: textInput.x, y: textInput.y }],
       ...(isTeam && { team: true }),
     };
@@ -5571,7 +5571,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
 
           {/* 펜 버튼 (드로잉 모드 토글) */}
           {liteBtn(() => {
-            if (!drawMode) { setDrawMode(true); setDrawTool("pen"); setDrawWidth(2); setDrawColor("#1a6fe8"); }
+            if (!drawMode) { setDrawMode(true); setDrawTool("pen"); setDrawWidth(5); setDrawColor("#1a6fe8"); }
             else { setDrawMode(false); }
           }, (<>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
@@ -5581,7 +5581,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
           </>), drawMode, 16)}
 
           {/* 지우개 버튼 — 필기 모드 ON일 때만 */}
-          {drawMode && liteBtn(() => setDrawTool(t => { const nt = t === "eraser" ? "pen" : "eraser"; if (nt === "eraser") setEraserWidth(1); return nt; }), (<>
+          {drawMode && liteBtn(() => setDrawTool(t => { const nt = t === "eraser" ? "pen" : "eraser"; if (nt === "eraser") setEraserWidth(3); return nt; }), (<>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
               <path d="M20 20H7L3 16l11-11 6 6-3.5 3.5" stroke="#fff" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
               <path d="M6.5 17.5l4-4" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
@@ -6038,7 +6038,7 @@ function PDFViewerScreen({ user, songs, services, annotations, teamAnnotations, 
                 <div style={{ width:1, height:20, background:C.bdr, flexShrink:0 }} />
                 {/* 굵기 S M L */}
                 <div style={{ display:"flex", flexShrink:0, border:`1px solid ${C.bdr}`, borderRadius:7, overflow:"hidden" }}>
-                  {[["S",1],["M",2],["L",4]].map(([lbl,w], i) => (
+                  {[["S",3],["M",5],["L",8]].map(([lbl,w], i) => (
                     <button key={w} onClick={() => drawTool === "eraser" ? setEraserWidth(w) : setDrawWidth(w)} style={{
                       height:34, padding:"0 10px", flexShrink:0,
                       background: (drawTool === "eraser" ? eraserWidth : drawWidth) === w ? `${C.pur}22` : "transparent",
