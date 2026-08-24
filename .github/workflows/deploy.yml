@@ -41,6 +41,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json npx firebase-tools deploy \
             --only hosting \
             --project tvpcainos \
+            --config firebase.main.json \
             --non-interactive
 
       - name: Firestore Rules 배포 (REST API)
