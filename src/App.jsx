@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.837";
+const APP_VERSION = "3.838";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -4406,7 +4406,7 @@ function extractDriveId(url) {
   return m2 ? m2[1] : null;
 }
 
-function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
+function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose }) {
   const leader = isLeader(user?.role);
   const myParts = getUserParts(user);
   const canSeeAll = leader;
@@ -4425,7 +4425,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
   const [editData,     setEditData]      = useState({});
   const [bulkText,     setBulkText]      = useState("");
 
-  const sessionDocId = `${songId}_${svc?.id || "nosvc"}`;
+  const sessionDocId = `${songId}_${svc?.id || "nosvc"}${closing ? "_closing" : ""}`;
 
   useEffect(() => {
     const q = query(collection(db, "worshipRecordings"), where("songId", "==", songId));
@@ -4610,7 +4610,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, onClose }) {
         onClose={() => setConfirmDel(null)}
       />
     )}
-    <Modal title={`예배 녹음 — ${songTitle}`} onClose={onClose} noBackdrop>
+    <Modal title={`예배 녹음 — ${songTitle}${closing ? " (Closing)" : ""}`} onClose={onClose} noBackdrop>
       <div style={{ display:"flex", overflowX:"auto", gap:5, marginBottom:10, paddingBottom:2 }}>
         {visibleTabs.map(p => {
           const count = p.id === "전체" ? accessibleRecs.length : accessibleRecs.filter(r => r.part === p.id).length;
@@ -4928,6 +4928,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
   // 녹음 있는 곡 목록 — 재생 버튼 색상용 (보컬은 "밴드" 녹음 제외)
   const _songIdsKey = (svc?.songIds || []).join(",");
+  const _closingKey = svc?.closingSongId || "";
   const _isVocalist = isVocalistUser(user);
   useEffect(() => {
     const ids = svc?.songIds?.filter(Boolean) || [];
@@ -4960,10 +4961,14 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     }, () => {});
 
     // Supabase Storage 녹음 확인 (Firestore 쿼터 우회)
-    Promise.all(ids.map(async sid => {
+    // Closing 곡은 같은 곡을 한 번 더 부르므로 별도 슬롯(`_closing`)을 따로 확인.
+    const closingSid = svc?.closingSongId || null;
+    const checks = ids.map(sid => ({ key: sid, docId: `${sid}_${svc.id}` }));
+    if (closingSid) checks.push({ key: `${closingSid}_closing`, docId: `${closingSid}_${svc.id}_closing` });
+    Promise.all(checks.map(async ({ key, docId }) => {
       try {
-        const d = await loadWorshipRecording(`${sid}_${svc.id}`);
-        if (d?.parts && Object.entries(d.parts).some(([p, v]) => v && (p !== "밴드" || !isVocalist))) return sid;
+        const d = await loadWorshipRecording(docId);
+        if (d?.parts && Object.entries(d.parts).some(([p, v]) => v && (p !== "밴드" || !isVocalist))) return key;
       } catch {}
       return null;
     })).then(results => {
@@ -4974,7 +4979,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
 
     return () => { cancelled = true; unsub(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [_songIdsKey, _isVocalist]);
+  }, [_songIdsKey, _closingKey, _isVocalist]);
 
 
   if (!svc) return null;
@@ -5469,7 +5474,9 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           const isDropTarget = !isDragging && dropIdx === i && drag !== null;
           const visIdx = entries.slice(0, i + 1).filter(e => e.song).length;
           const hasNotes = teamNotes.length > 0;
-          const hasRec = songsWithRecs.has(song.id);
+          // Closing 행은 같은 곡이지만 별도 녹음 슬롯을 씀
+          const isClosingRow = curPart === "Closing";
+          const hasRec = songsWithRecs.has(isClosingRow ? song.id + "_closing" : song.id);
 
           const numEl = leader ? (
             <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0 }}>
@@ -5504,7 +5511,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
                 </button>
               )}
               {!CUSTOM_BRAND && (
-              <button onClick={e => { e.stopPropagation(); setRecSong({ id: song.id, title: song.title }); }}
+              <button onClick={e => { e.stopPropagation(); setRecSong({ id: song.id, title: song.title, closing: isClosingRow }); }}
                 title={hasRec ? "녹음 재생 준비 완료" : "녹음 파일 없음"}
                 style={{ background: hasRec ? `${C.grn}12` : `${C.dim}10`,
                   border:`1px solid ${hasRec ? C.grn+"55" : C.dim+"33"}`,
@@ -5824,6 +5831,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           songTitle={recSong.title}
           user={user}
           svc={svc}
+          closing={recSong.closing}
           onClose={() => setRecSong(null)}
         />
       )}
