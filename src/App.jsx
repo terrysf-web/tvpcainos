@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.838";
+const APP_VERSION = "3.839";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -4724,6 +4724,18 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
                     </div>
                   )}
                 </div>
+                {rec.driveId && !isEditing && (
+                  <a href={`https://drive.google.com/uc?export=download&id=${rec.driveId}`}
+                    target="_blank" rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    title="MP3 다운로드"
+                    style={{ flexShrink:0, textDecoration:"none",
+                      border:`1px solid ${C.acc}55`, borderRadius:7, padding:"6px 8px",
+                      display:"flex", alignItems:"center", gap:4,
+                      fontSize:11, fontWeight:700, color:C.acc, fontFamily:"inherit" }}>
+                    <Icon n="download" size={13} color={C.acc} /> MP3
+                  </a>
+                )}
                 {leader && !isEditing && (
                   <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
                     <button onClick={() => startEdit(rec)} style={{
@@ -4892,6 +4904,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [notifSending,   setNotifSending]   = useState(false);
   const [recSong,        setRecSong]        = useState(null); // { id, title }
   const [songsWithRecs,   setSongsWithRecs]   = useState(new Set()); // 녹음 있는 songId Set
+  const [allRecExists,    setAllRecExists]    = useState(false); // 예배 전곡 하나로 녹음 존재 여부
   const [drag, setDrag]           = useState(null);
   const [dropIdx, setDropIdx]     = useState(null);
   const cardRefs = useRef([]);
@@ -4980,6 +4993,16 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
     return () => { cancelled = true; unsub(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [_songIdsKey, _closingKey, _isVocalist]);
+
+  // 예배 전곡 하나로 녹음(예배 단위 슬롯) 존재 여부 — 상단 버튼 표시/색상용
+  useEffect(() => {
+    if (!svc?.id) { setAllRecExists(false); return; }
+    let cancelled = false;
+    loadWorshipRecording(`__ALL___${svc.id}`)
+      .then(d => { if (!cancelled) setAllRecExists(!!(d?.parts && Object.values(d.parts).some(Boolean))); })
+      .catch(() => { if (!cancelled) setAllRecExists(false); });
+    return () => { cancelled = true; };
+  }, [svc?.id, recSong]);
 
 
   if (!svc) return null;
@@ -5434,6 +5457,21 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
             </div>
           );
         })()}
+
+        {/* 전곡 하나로 듣기 — 예배 전곡을 담은 파일 1개(예배 단위 녹음). 리더는 업로드, 멤버는 있으면 재생. */}
+        {(leader || allRecExists) && (
+          <button onClick={() => setRecSong({ id: "__ALL__", title: "전곡 하나로", closing: false })}
+            style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
+              marginBottom:10, borderRadius:10, cursor:"pointer", fontFamily:"inherit",
+              border:`1px solid ${C.pur}66`, background:`${C.pur}12`, padding:"10px 14px" }}>
+            <Icon n="play" size={16} color={C.pur} />
+            <div style={{ flex:1, textAlign:"left", fontSize:14, fontWeight:700, color:C.txt }}>
+              전곡 하나로 듣기
+              {!allRecExists && <span style={{ fontSize:11, fontWeight:600, color:C.dim, marginLeft:6 }}>(파일 없음 · 업로드)</span>}
+            </div>
+            {allRecExists && <span style={{ fontSize:10, fontWeight:700, color:C.pur, background:`${C.pur}18`, border:`1px solid ${C.pur}44`, borderRadius:5, padding:"2px 7px", whiteSpace:"nowrap" }}>녹음 있음</span>}
+          </button>
+        )}
 
         <div style={{ display:"flex", alignItems:"center", marginBottom:10 }}>
           <div style={{ flex:1, fontSize:11, color:C.dim, fontWeight:700, letterSpacing:"0.06em",
