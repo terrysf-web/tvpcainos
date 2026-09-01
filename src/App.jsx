@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.839";
+const APP_VERSION = "3.840";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -4414,6 +4414,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
   const [supaDoc,      setSupaDoc]       = useState(null);
   const [refreshKey,   setRefreshKey]    = useState(0);
   const [partFilter,   setPartFilter]    = useState("전체");
+  const allMode = songId === "__ALL__"; // 전곡 하나로: 파트 구분 없이 '전체'만
   const [expandedId,   setExpandedId]    = useState(null);
   const [showAdd,      setShowAdd]       = useState(false);
   const [partLinks,    setPartLinks]     = useState({});
@@ -4611,6 +4612,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
       />
     )}
     <Modal title={`예배 녹음 — ${songTitle}${closing ? " (Closing)" : ""}`} onClose={onClose} noBackdrop>
+      {!allMode && (
       <div style={{ display:"flex", overflowX:"auto", gap:5, marginBottom:10, paddingBottom:2 }}>
         {visibleTabs.map(p => {
           const count = p.id === "전체" ? accessibleRecs.length : accessibleRecs.filter(r => r.part === p.id).length;
@@ -4630,6 +4632,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
           );
         })}
       </div>
+      )}
 
       {!canSeeAll && myParts.length > 0 && (
         <div style={{ fontSize:11, color:C.dim, marginBottom:8,
@@ -4753,13 +4756,21 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
                   </div>
                 )}
               </div>
-              {isOpen && !isEditing && embedSrc && (
-                <div style={{ borderTop:`1px solid ${C.bdr}` }}>
-                  <iframe src={embedSrc} width="100%" height="80" allow="autoplay"
-                    style={{ display:"block", border:"none" }} title={rec.title || songTitle} />
+              {isOpen && !isEditing && rec.driveId && (
+                <div style={{ borderTop:`1px solid ${C.bdr}`, padding:"8px 12px" }}>
+                  <audio
+                    src={`https://drive.usercontent.google.com/download?id=${rec.driveId}&export=download&confirm=t`}
+                    controls autoPlay preload="none"
+                    style={{ width:"100%", display:"block" }}
+                  />
+                  <a href={`https://drive.google.com/file/d/${rec.driveId}/view`}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{ display:"inline-block", marginTop:6, fontSize:11, color:C.dim, textDecoration:"underline" }}>
+                    재생이 안 되면 Drive에서 열기
+                  </a>
                 </div>
               )}
-              {isOpen && !isEditing && !embedSrc && (
+              {isOpen && !isEditing && !rec.driveId && (
                 <div style={{ padding:"8px 12px", borderTop:`1px solid ${C.bdr}`, fontSize:12, color:C.dim }}>
                   재생 링크 없음
                 </div>
