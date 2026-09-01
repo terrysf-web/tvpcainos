@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.840";
+const APP_VERSION = "3.841";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -4661,7 +4661,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
               border:`1px solid ${isEditing ? C.pur+"55" : (isMine ? C.acc+"44" : C.bdr)}`,
             }}>
               <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px" }}>
-                {!isEditing && (
+                {!isEditing && !allMode && (
                   <button onClick={() => setExpandedId(isOpen ? null : rec.id)} style={{
                     width:38, height:38, borderRadius:"50%", border:"none", cursor:"pointer", flexShrink:0,
                     background: isOpen ? "#ff6b35" : C.grn,
@@ -4756,21 +4756,13 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
                   </div>
                 )}
               </div>
-              {isOpen && !isEditing && rec.driveId && (
-                <div style={{ borderTop:`1px solid ${C.bdr}`, padding:"8px 12px" }}>
-                  <audio
-                    src={`https://drive.usercontent.google.com/download?id=${rec.driveId}&export=download&confirm=t`}
-                    controls autoPlay preload="none"
-                    style={{ width:"100%", display:"block" }}
-                  />
-                  <a href={`https://drive.google.com/file/d/${rec.driveId}/view`}
-                    target="_blank" rel="noopener noreferrer"
-                    style={{ display:"inline-block", marginTop:6, fontSize:11, color:C.dim, textDecoration:"underline" }}>
-                    재생이 안 되면 Drive에서 열기
-                  </a>
+              {(isOpen || allMode) && !isEditing && embedSrc && (
+                <div style={{ borderTop:`1px solid ${C.bdr}` }}>
+                  <iframe src={embedSrc} width="100%" height="80" allow="autoplay"
+                    style={{ display:"block", border:"none" }} title={rec.title || songTitle} />
                 </div>
               )}
-              {isOpen && !isEditing && !rec.driveId && (
+              {(isOpen || allMode) && !isEditing && !embedSrc && (
                 <div style={{ padding:"8px 12px", borderTop:`1px solid ${C.bdr}`, fontSize:12, color:C.dim }}>
                   재생 링크 없음
                 </div>
