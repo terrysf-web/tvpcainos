@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.841";
+const APP_VERSION = "3.842";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -4661,13 +4661,16 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
               border:`1px solid ${isEditing ? C.pur+"55" : (isMine ? C.acc+"44" : C.bdr)}`,
             }}>
               <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px" }}>
-                {!isEditing && !allMode && (
-                  <button onClick={() => setExpandedId(isOpen ? null : rec.id)} style={{
-                    width:38, height:38, borderRadius:"50%", border:"none", cursor:"pointer", flexShrink:0,
-                    background: isOpen ? "#ff6b35" : C.grn,
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                  }}>
-                    <Icon n={isOpen ? "stop" : "play"} size={14} color="#fff" />
+                {!isEditing && rec.driveId && (
+                  <button
+                    onClick={() => window.open(`https://drive.google.com/file/d/${rec.driveId}/view`, "_blank", "noopener")}
+                    title="Google Drive에서 재생"
+                    style={{
+                      width:38, height:38, borderRadius:"50%", border:"none", cursor:"pointer", flexShrink:0,
+                      background: C.grn,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                    }}>
+                    <Icon n="play" size={14} color="#fff" />
                   </button>
                 )}
                 <div style={{ flex:1, minWidth:0 }}>
@@ -4756,17 +4759,6 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
                   </div>
                 )}
               </div>
-              {(isOpen || allMode) && !isEditing && embedSrc && (
-                <div style={{ borderTop:`1px solid ${C.bdr}` }}>
-                  <iframe src={embedSrc} width="100%" height="80" allow="autoplay"
-                    style={{ display:"block", border:"none" }} title={rec.title || songTitle} />
-                </div>
-              )}
-              {(isOpen || allMode) && !isEditing && !embedSrc && (
-                <div style={{ padding:"8px 12px", borderTop:`1px solid ${C.bdr}`, fontSize:12, color:C.dim }}>
-                  재생 링크 없음
-                </div>
-              )}
             </div>
           );
         })}
@@ -5438,28 +5430,19 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
       <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
 
       <div style={{ padding:16, paddingBottom:"calc(100px + env(safe-area-inset-bottom))" }}>
-        {svcPracticeUrl && (() => {
-          const practiceFileId = svcPracticeUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1] || null;
-          const practiceEmbedSrc = practiceFileId ? `https://drive.google.com/file/d/${practiceFileId}/preview` : null;
-          return (
+        {svcPracticeUrl && (
             <div style={{ marginBottom:10, borderRadius:10, overflow:"hidden",
               border:`1px solid ${C.grn}66`, background:`${C.grn}12` }}>
-              <button onClick={() => practiceEmbedSrc ? setShowPracticePlayer(v => !v) : (window.location.href = svcPracticeUrl)}
+              <button onClick={() => window.open(svcPracticeUrl, "_blank", "noopener")}
                 style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
                   background:"none", border:"none", padding:"10px 14px",
                   cursor:"pointer", fontFamily:"inherit" }}>
-                <Icon n={showPracticePlayer ? "pause" : "play"} size={16} color={C.grn} />
+                <Icon n="play" size={16} color={C.grn} />
                 <div style={{ flex:1, textAlign:"left", fontSize:14, fontWeight:700, color:C.txt }}>예배 연습 녹음 재생</div>
-                {!practiceEmbedSrc && <Icon n="link" size={14} color={C.grn} />}
+                <Icon n="link" size={14} color={C.grn} />
               </button>
-              {showPracticePlayer && practiceEmbedSrc && (
-                <iframe src={practiceEmbedSrc} width="100%" height="80"
-                  allow="autoplay" style={{ display:"block", border:"none", borderTop:`1px solid ${C.grn}33` }}
-                  title="예배 연습 녹음" />
-              )}
             </div>
-          );
-        })()}
+        )}
 
         {/* 전곡 하나로 듣기 — 예배 전곡을 담은 파일 1개(예배 단위 녹음). 리더는 업로드, 멤버는 있으면 재생. */}
         {(leader || allRecExists) && (
