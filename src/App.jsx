@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.845";
+const APP_VERSION = "3.846";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -4406,6 +4406,32 @@ function extractDriveId(url) {
   return m2 ? m2[1] : null;
 }
 
+// 앱 안 작은 플레이어 창 (폰에서도 새 탭 대신 앱 내 모달로 재생)
+function DrivePlayerModal({ fileId, title, onClose }) {
+  if (!fileId) return null;
+  return (
+    <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:10000,
+      background:"rgba(0,0,0,0.65)", display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width:"100%", maxWidth:520,
+        background:C.card, borderRadius:14, overflow:"hidden", border:`1px solid ${C.bdr}`,
+        boxShadow:"0 12px 40px rgba(0,0,0,0.45)" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 14px", borderBottom:`1px solid ${C.bdr}` }}>
+          <div style={{ flex:1, fontSize:14, fontWeight:700, color:C.txt, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{title || "재생"}</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", fontSize:22, color:C.dim, lineHeight:1, padding:"0 4px", fontFamily:"inherit" }}>×</button>
+        </div>
+        <iframe src={`https://drive.google.com/file/d/${fileId}/preview`}
+          width="100%" height="200" allow="autoplay"
+          style={{ display:"block", border:"none", background:"#000" }} title={title || "재생"} />
+        <div style={{ padding:"8px 14px", fontSize:12, color:C.dim, display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+          <span>소리가 안 나면 →</span>
+          <a href={`https://drive.google.com/file/d/${fileId}/view`} target="_blank" rel="noopener noreferrer"
+            style={{ fontWeight:700, color:C.grn, textDecoration:"none", whiteSpace:"nowrap" }}>새 탭에서 열기</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose }) {
   const leader = isLeader(user?.role);
   const myParts = getUserParts(user);
@@ -4414,6 +4440,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
   const [supaDoc,      setSupaDoc]       = useState(null);
   const [refreshKey,   setRefreshKey]    = useState(0);
   const [partFilter,   setPartFilter]    = useState("전체");
+  const [playerFile,   setPlayerFile]    = useState(null); // 앱 내 작은 플레이어 창 { fileId, title }
   const allMode = songId === "__ALL__"; // 전곡 하나로: 파트 구분 없이 '전체'만
   const [expandedId,   setExpandedId]    = useState(null);
   const [showAdd,      setShowAdd]       = useState(false);
@@ -4663,8 +4690,8 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
               <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px" }}>
                 {!isEditing && rec.driveId && (
                   <button
-                    onClick={() => window.open(`https://drive.google.com/file/d/${rec.driveId}/preview`, "tvpcPlayer", "width=440,height=170,menubar=no,toolbar=no,location=no,status=no")}
-                    title="Google Drive에서 재생"
+                    onClick={() => setPlayerFile({ fileId: rec.driveId, title: rec.title || songTitle })}
+                    title="재생"
                     style={{
                       width:38, height:38, borderRadius:"50%", border:"none", cursor:"pointer", flexShrink:0,
                       background: C.grn,
@@ -4884,6 +4911,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
         </div>
       )}
     </Modal>
+    {playerFile && <DrivePlayerModal fileId={playerFile.fileId} title={playerFile.title} onClose={() => setPlayerFile(null)} />}
     </>
   );
 }
@@ -4898,6 +4926,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
   const [notifContent,   setNotifContent]   = useState("");
   const [notifSending,   setNotifSending]   = useState(false);
   const [recSong,        setRecSong]        = useState(null); // { id, title }
+  const [practicePlayer, setPracticePlayer] = useState(null); // 연습녹음 앱 내 플레이어 { fileId, title }
   const [songsWithRecs,   setSongsWithRecs]   = useState(new Set()); // 녹음 있는 songId Set
   const [allRecExists,    setAllRecExists]    = useState(false); // 예배 전곡 하나로 녹음 존재 여부
   const [drag, setDrag]           = useState(null);
@@ -5433,7 +5462,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
         {svcPracticeUrl && (
             <div style={{ marginBottom:10, borderRadius:10, overflow:"hidden",
               border:`1px solid ${C.grn}66`, background:`${C.grn}12` }}>
-              <button onClick={() => { const fid = svcPracticeUrl.match(/[-\w]{25,}/)?.[0]; window.open(fid ? `https://drive.google.com/file/d/${fid}/preview` : svcPracticeUrl, "tvpcPlayer", "width=440,height=170,menubar=no,toolbar=no,location=no,status=no"); }}
+              <button onClick={() => { const fid = extractDriveId(svcPracticeUrl); fid ? setPracticePlayer({ fileId: fid, title: "예배 연습 녹음" }) : window.open(svcPracticeUrl, "_blank", "noopener"); }}
                 style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
                   background:"none", border:"none", padding:"10px 14px",
                   cursor:"pointer", fontFamily:"inherit" }}>
@@ -5859,6 +5888,8 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
           onClose={() => setRecSong(null)}
         />
       )}
+
+      {practicePlayer && <DrivePlayerModal fileId={practicePlayer.fileId} title={practicePlayer.title} onClose={() => setPracticePlayer(null)} />}
 
       {showNotifModal && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.55)", zIndex:2000,
