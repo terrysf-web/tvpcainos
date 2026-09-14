@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.842";
+const APP_VERSION = "3.843";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -4663,14 +4663,14 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
               <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px" }}>
                 {!isEditing && rec.driveId && (
                   <button
-                    onClick={() => window.open(`https://drive.google.com/file/d/${rec.driveId}/view`, "_blank", "noopener")}
-                    title="Google Drive에서 재생"
+                    onClick={() => setExpandedId(isOpen ? null : rec.id)}
+                    title="재생"
                     style={{
                       width:38, height:38, borderRadius:"50%", border:"none", cursor:"pointer", flexShrink:0,
-                      background: C.grn,
+                      background: isOpen ? "#ff6b35" : C.grn,
                       display:"flex", alignItems:"center", justifyContent:"center",
                     }}>
-                    <Icon n="play" size={14} color="#fff" />
+                    <Icon n={isOpen ? "stop" : "play"} size={14} color="#fff" />
                   </button>
                 )}
                 <div style={{ flex:1, minWidth:0 }}>
@@ -4759,6 +4759,20 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
                   </div>
                 )}
               </div>
+              {(isOpen || allMode) && !isEditing && rec.driveId && (
+                <div style={{ borderTop:`1px solid ${C.bdr}`, padding:"8px 12px" }}>
+                  <audio
+                    src={`https://drive.google.com/uc?export=download&id=${rec.driveId}`}
+                    controls autoPlay preload="none"
+                    style={{ width:"100%", display:"block" }}
+                  />
+                  <a href={`https://drive.google.com/file/d/${rec.driveId}/view`}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{ display:"inline-block", marginTop:6, fontSize:11, color:C.dim, textDecoration:"underline" }}>
+                    ▶ 앱에서 안 들리면 Drive에서 열기
+                  </a>
+                </div>
+              )}
             </div>
           );
         })}
