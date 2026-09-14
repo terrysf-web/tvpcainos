@@ -34,7 +34,7 @@ const PDFViewerScreen = lazy(() => import("./PDFViewerScreen.jsx"));
 const LiveScreen      = lazy(() => import("./LiveScreen.jsx"));
 
 /* ── App version ── */
-const APP_VERSION = "3.844";
+const APP_VERSION = "3.845";
 // 빌드마다 고유(vite define). version.json의 build와 다르면 새 배포 → 자동 새로고침
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "";
 
@@ -4663,7 +4663,7 @@ function WorshipRecordingsModal({ songId, songTitle, user, svc, closing, onClose
               <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px" }}>
                 {!isEditing && rec.driveId && (
                   <button
-                    onClick={() => window.open(`https://drive.google.com/file/d/${rec.driveId}/view`, "_blank", "noopener")}
+                    onClick={() => window.open(`https://drive.google.com/file/d/${rec.driveId}/preview`, "tvpcPlayer", "width=440,height=170,menubar=no,toolbar=no,location=no,status=no")}
                     title="Google Drive에서 재생"
                     style={{
                       width:38, height:38, borderRadius:"50%", border:"none", cursor:"pointer", flexShrink:0,
@@ -5433,7 +5433,7 @@ function ServiceDetailScreen({ user, services, songs, annotations, teamAnnotatio
         {svcPracticeUrl && (
             <div style={{ marginBottom:10, borderRadius:10, overflow:"hidden",
               border:`1px solid ${C.grn}66`, background:`${C.grn}12` }}>
-              <button onClick={() => window.open(svcPracticeUrl, "_blank", "noopener")}
+              <button onClick={() => { const fid = svcPracticeUrl.match(/[-\w]{25,}/)?.[0]; window.open(fid ? `https://drive.google.com/file/d/${fid}/preview` : svcPracticeUrl, "tvpcPlayer", "width=440,height=170,menubar=no,toolbar=no,location=no,status=no"); }}
                 style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
                   background:"none", border:"none", padding:"10px 14px",
                   cursor:"pointer", fontFamily:"inherit" }}>
